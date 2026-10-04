@@ -1,0 +1,6 @@
+{
+  "name": "Velem Gyere",
+  "description": "Magyarországi kirándulás-, program- és élménykatalógus. Találd meg a következő élményed!",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
