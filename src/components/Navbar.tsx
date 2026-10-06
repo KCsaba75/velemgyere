@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import {
-  Compass,
   Menu,
   X,
   ShieldCheck,
@@ -53,23 +52,16 @@ export const Navbar: React.FC<NavbarProps> = ({
       {/* Main Navbar */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 sm:h-20">
-          {/* Logo & Slogan */}
-          <button 
+          {/* Logo */}
+          <button
             onClick={() => navigateTo('home')}
-            className="flex items-center gap-3 text-left group cursor-pointer"
+            className="flex items-center text-left group cursor-pointer"
           >
-            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-md shadow-emerald-600/20 group-hover:scale-105 transition-transform">
-              <Compass className="w-6 h-6 stroke-[2.2]" />
-            </div>
-            <div>
-              <span className="text-xl sm:text-2xl font-extrabold tracking-tight font-display text-stone-900 flex items-center gap-1">
-                VELEM GYERE
-                <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
-              </span>
-              <span className="hidden sm:block text-[11px] font-semibold text-emerald-800/80 tracking-wide uppercase">
-                Kirándulások • Programok • Élmények
-              </span>
-            </div>
+            <img
+              src="/brand/velemgyere-logo.jpg"
+              alt="Velem Gyere -- Külföldi programok magyarul"
+              className="h-12 sm:h-16 w-auto object-contain group-hover:scale-105 transition-transform"
+            />
           </button>
 
           {/* Desktop Navigation Links */}
