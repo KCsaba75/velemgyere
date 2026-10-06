@@ -20,7 +20,7 @@ import {
   INITIAL_PROGRAM_IMAGES, 
   INITIAL_INQUIRIES 
 } from '../data/seedData';
-import { isSupabaseConfigured } from '../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 interface AppContextType {
   // Navigation
@@ -213,8 +213,82 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(currentUser));
   }, [currentUser]);
 
-  // Derived current provider
-  const currentProvider = rawProviders.find(p => p.user_id === currentUser.user_id) || null;
+  // Load the 7 collections from the real Supabase tables when configured.
+  // seedData.ts/localStorage above stay as the dev-only fallback (no
+  // VITE_SUPABASE_URL/ANON_KEY set) so the app never shows a blank screen --
+  // once this resolves, Supabase is the source of truth and overwrites it.
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+
+    let cancelled = false;
+
+    (async () => {
+      const [
+        regionsRes,
+        categoriesRes,
+        providersRes,
+        profilesRes,
+        programsRes,
+        imagesRes,
+        inquiriesRes,
+      ] = await Promise.all([
+        supabase.from('regions').select('*'),
+        supabase.from('categories').select('*'),
+        supabase.from('providers').select('*'),
+        supabase.from('profiles').select('*'),
+        supabase.from('programs').select('*'),
+        supabase.from('program_images').select('*'),
+        supabase.from('inquiries').select('*'),
+      ]);
+
+      if (cancelled) return;
+
+      const firstError =
+        regionsRes.error || categoriesRes.error || providersRes.error ||
+        profilesRes.error || programsRes.error || imagesRes.error || inquiriesRes.error;
+      if (firstError) {
+        // Keep whatever localStorage/seedData already loaded into state above
+        // instead of wiping the UI -- a real-backend outage shouldn't blank the page.
+        console.error('Supabase data load failed, staying on local fallback data:', firstError);
+        return;
+      }
+
+      const loadedProviders = (providersRes.data as Provider[]) || [];
+      const loadedPrograms = (programsRes.data as Program[]) || [];
+      const loadedInquiries = ((inquiriesRes.data as Inquiry[]) || []).map(inq => {
+        const prog = loadedPrograms.find(p => p.id === inq.program_id);
+        const prov = loadedProviders.find(p => p.id === inq.provider_id);
+        return {
+          ...inq,
+          program_title: prog?.title || inq.program_title,
+          provider_name: prov?.company_name || inq.provider_name,
+        };
+      });
+
+      setRegions((regionsRes.data as Region[]) || []);
+      setCategories((categoriesRes.data as Category[]) || []);
+      setRawProviders(loadedProviders);
+      setRawProfiles((profilesRes.data as Profile[]) || []);
+      setRawPrograms(loadedPrograms);
+      setRawImages((imagesRes.data as ProgramImage[]) || []);
+      setInquiries(loadedInquiries);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Derived current provider. user_id match only counts when actually set: every
+  // provider/profile loaded from the real Supabase tables has user_id=NULL (no Supabase
+  // Auth session behind the mock login yet, see kanban 318cedd7) -- without that guard,
+  // `null === null` would match the first provider in the array for ANY logged-in user,
+  // including admin. Falls back to email (same identifier the mock login itself matches
+  // on), so the provider dashboard still resolves "my programs" correctly today.
+  const currentProvider =
+    (currentUser.user_id && rawProviders.find(p => p.user_id && p.user_id === currentUser.user_id)) ||
+    rawProviders.find(p => p.email.toLowerCase() === currentUser.email.toLowerCase()) ||
+    null;
 
   // Joined programs with images, category, region, provider
   const programs: Program[] = rawPrograms.map(p => {
@@ -259,7 +333,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ? rawProviders.find(p => p.id === providerId) 
         : rawProviders[0];
       if (prov) {
-        let prof = rawProfiles.find(p => p.user_id === prov.user_id);
+        // Match by user_id only when it's actually set (see currentProvider comment above
+        // for why null user_id can't be trusted as a join key); fall back to email, which
+        // is how the seeded demo profiles/providers are actually linked right now.
+        let prof = (prov.user_id && rawProfiles.find(p => p.user_id === prov.user_id))
+          || rawProfiles.find(p => p.email.toLowerCase() === prov.email.toLowerCase());
         if (!prof) {
           prof = {
             id: `prof-${prov.id}`,
@@ -378,6 +456,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   };
 
+  // Regions/Categories/Programs/Providers CRUD below (through suspendProvider) is
+  // INTENTIONALLY still local-state-only, not wired to Supabase writes (kanban 318cedd7,
+  // pending decision from zora): the RLS policies gating these tables (is_admin(),
+  // providers.user_id = auth.uid()) require a real Supabase Auth session, which the
+  // current mock/email-only login doesn't provide -- wiring these to supabase.from(...)
+  // insert/update calls under the anon key would just silently write 0 rows under RLS.
   // Regions CRUD (Admin)
   const createRegion = async (data: Partial<Region>): Promise<string> => {
     const newId = `reg-${Date.now()}`;
@@ -583,8 +667,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     message?: string;
   }): Promise<void> => {
     const targetProgram = rawPrograms.find(p => p.id === data.program_id);
-    const providerId = targetProgram ? targetProgram.provider_id : 'prov-cyprus';
+    if (!targetProgram) {
+      throw new Error('A programhoz nem található szolgáltató (ismeretlen program_id).');
+    }
+    const providerId = targetProgram.provider_id;
     const provider = rawProviders.find(p => p.id === providerId);
+
+    // "Anyone can create inquiry" RLS policy (with check (true)) allows this insert
+    // with just the anon key -- no auth required, unlike the admin/provider writes below.
+    if (isSupabaseConfigured) {
+      const { error } = await supabase.from('inquiries').insert({
+        program_id: data.program_id,
+        provider_id: providerId,
+        name: data.name,
+        email: data.email,
+        phone: data.phone || null,
+        message: data.message || null,
+      });
+      if (error) throw error;
+    }
 
     const newInquiry: Inquiry = {
       id: `inq-${Date.now()}`,
@@ -595,7 +696,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       phone: data.phone || '',
       message: data.message || '',
       created_at: new Date().toISOString(),
-      program_title: targetProgram?.title || 'Program',
+      program_title: targetProgram.title,
       provider_name: provider?.company_name || 'Szolgáltató',
     };
 
