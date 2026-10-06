@@ -157,6 +157,16 @@ create policy "Users can update own profile"
   on public.profiles for update
   using (auth.uid() = user_id or public.is_admin());
 
+-- Added live 2026-10-06: the table had no INSERT policy at all, which silently
+-- blocked the deferred profile-creation step for both visitor self-registration
+-- (registerVisitor) and provider self-registration (registerProvider) -- a freshly
+-- confirmed+signed-in user's own profiles insert had no policy to satisfy.
+-- Reproduced live (a real confirmed+signed-in auth.users row with zero matching
+-- profiles row) before this was added.
+create policy "Users can insert own profile"
+  on public.profiles for insert
+  with check (auth.uid() = user_id);
+
 -- RLS: PROVIDERS
 create policy "Anyone can read approved providers"
   on public.providers for select
