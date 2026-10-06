@@ -21,21 +21,24 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { Program, ProgramStatus } from '../types/database';
+import { useDocumentMeta } from '../hooks/useDocumentMeta';
 
 interface ProviderDashboardProps {
   onOpenNewProgram: () => void;
 }
 
 export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewProgram }) => {
-  const { 
-    currentUser, 
-    currentProvider, 
-    programs, 
-    inquiries, 
+  const {
+    currentUser,
+    currentProvider,
+    programs,
+    inquiries,
     openProgramDetail,
     deleteProgram,
-    updateProgram 
+    updateProgram
   } = useApp();
+
+  useDocumentMeta('Szolgáltatói Dashboard', 'Saját programok és érdeklődések kezelése.');
 
   const [activeTab, setActiveTab] = useState<'programs' | 'inquiries'>('programs');
   const [statusFilter, setStatusFilter] = useState<string>('all');

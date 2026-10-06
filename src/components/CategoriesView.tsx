@@ -1,23 +1,27 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { CategoryIcon } from './CategoryIcon';
+import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import { ArrowRight, Compass, Globe, Layers } from 'lucide-react';
 
 export const CategoriesView: React.FC = () => {
-  const { categories, regions, programs, setSelectedCategory, setSelectedRegion, setCurrentView } = useApp();
+  const { categories, regions, programs } = useApp();
+  const navigate = useNavigate();
   const [tab, setTab] = useState<'regions' | 'services'>('regions');
 
+  useDocumentMeta(
+    'Úticélok és szolgáltatás-típusok',
+    'Böngéssz régió vagy programtípus szerint a külföldi magyar nyelvű programkatalógusban.'
+  );
+
   const handleSelectRegion = (slug: string) => {
-    setSelectedRegion(slug);
-    setSelectedCategory(null);
-    setCurrentView('programs');
+    navigate(`/regiok/${slug}`);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleSelectCategory = (slug: string) => {
-    setSelectedCategory(slug);
-    setSelectedRegion(null);
-    setCurrentView('programs');
+    navigate(`/kategoriak/${slug}`);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 

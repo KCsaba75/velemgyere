@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
-import { 
-  ArrowLeft, 
+import { useDocumentMeta } from '../hooks/useDocumentMeta';
+import {
+  ArrowLeft,
   MapPin, 
   Calendar, 
   Clock, 
@@ -21,15 +23,17 @@ import {
 import { CategoryIcon } from './CategoryIcon';
 
 export const ProgramDetailView: React.FC = () => {
-  const { 
-    selectedProgramId, 
-    programs, 
-    setCurrentView, 
+  const { slug } = useParams<{ slug: string }>();
+  const {
+    programs,
+    setCurrentView,
     submitInquiry,
-    currentUser 
+    currentUser
   } = useApp();
 
-  const program = programs.find((p) => p.id === selectedProgramId);
+  const program = programs.find((p) => p.slug === slug);
+
+  useDocumentMeta(program?.title, program?.short_description);
 
   // Gallery state
   const [activeImageIndex, setActiveImageIndex] = useState(0);

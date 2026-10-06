@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { CategoryIcon } from './CategoryIcon';
 import { Region, Category } from '../types/database';
+import { useDocumentMeta } from '../hooks/useDocumentMeta';
 
 export const AdminDashboard: React.FC = () => {
   const { 
@@ -48,6 +49,8 @@ export const AdminDashboard: React.FC = () => {
     toggleCategoryActive,
     resetToDefaults
   } = useApp();
+
+  useDocumentMeta('Adminisztrátori felület', 'Programok, szolgáltatók és katalógus-adatok kezelése.');
 
   const [activeTab, setActiveTab] = useState<'programs' | 'providers' | 'regions' | 'categories' | 'inquiries'>('programs');
   const [programFilter, setProgramFilter] = useState<string>('all');

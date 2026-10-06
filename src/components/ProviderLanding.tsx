@@ -1,6 +1,7 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
-import { 
+import { useDocumentMeta } from '../hooks/useDocumentMeta';
+import {
   Compass, 
   Users, 
   TrendingUp, 
@@ -23,6 +24,11 @@ export const ProviderLanding: React.FC<ProviderLandingProps> = ({
   onOpenLogin 
 }) => {
   const { currentUser, setCurrentView } = useApp();
+
+  useDocumentMeta(
+    'Szolgáltatóknak',
+    'Tedd közzé programjaidat a Velem Gyere katalógusában -- csatlakozz szolgáltatói partnerként.'
+  );
 
   return (
     <div className="animate-in fade-in duration-200">

@@ -1,9 +1,12 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
+import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import { User, MessageSquare, Calendar, Compass } from 'lucide-react';
 
 export const MyAccountView: React.FC = () => {
   const { currentUser, inquiries, setCurrentView } = useApp();
+
+  useDocumentMeta('Saját fiókom', 'Korábbi érdeklődéseid és fiókadataid egy helyen.');
 
   const formatDate = (iso: string) => {
     try {

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { 
+import { useNavigate, useLocation } from 'react-router-dom';
+import {
   Profile, 
   Provider, 
   Category, 
@@ -21,11 +22,38 @@ import {
 } from '../data/seedData';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
+// 16241c32: real react-router URLs replaced the old pure-state "currentView" router.
+// This mapping lets currentView/setCurrentView keep working as a thin shim over the
+// real URL, so the many existing `currentView === 'x'` / `setCurrentView('x')` call
+// sites across the app didn't all need to become route paths directly.
+const VIEW_TO_PATH: Record<string, string> = {
+  home: '/',
+  programs: '/programok',
+  categories: '/kategoriak',
+  'provider-landing': '/szolgaltatoknak',
+  'provider-dashboard': '/szolgaltato/dashboard',
+  'admin-dashboard': '/admin',
+  'my-account': '/sajat-fiokom',
+};
+
+function pathToView(pathname: string): string {
+  if (pathname.startsWith('/programok')) return 'programs';
+  if (pathname.startsWith('/kategoriak') || pathname.startsWith('/regiok')) return 'categories';
+  if (pathname.startsWith('/szolgaltatoknak')) return 'provider-landing';
+  if (pathname.startsWith('/szolgaltato/dashboard')) return 'provider-dashboard';
+  if (pathname.startsWith('/admin')) return 'admin-dashboard';
+  if (pathname.startsWith('/sajat-fiokom')) return 'my-account';
+  return 'home';
+}
+
 interface AppContextType {
-  // Navigation
+  // Navigation. currentView/setCurrentView are a compatibility shim over real
+  // react-router URLs (16241c32) -- currentView is derived from location.pathname,
+  // setCurrentView(name) navigates to that view's URL. Kept so the many existing
+  // `currentView === 'x'` / `setCurrentView('x')` call sites didn't all need to
+  // change to route paths directly.
   currentView: string;
   setCurrentView: (view: string) => void;
-  selectedProgramId: string | null;
   openProgramDetail: (id: string) => void;
 
   // Search & Filters
@@ -124,9 +152,12 @@ const STORAGE_KEYS = {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Navigation state
-  const [currentView, setCurrentView] = useState<string>('home');
-  const [selectedProgramId, setSelectedProgramId] = useState<string | null>(null);
+  // Navigation: real URL (react-router) is the source of truth; see VIEW_TO_PATH/
+  // pathToView above for the currentView/setCurrentView compatibility shim.
+  const navigate = useNavigate();
+  const location = useLocation();
+  const currentView = pathToView(location.pathname);
+  const setCurrentView = (view: string) => navigate(VIEW_TO_PATH[view] || '/');
 
   // Filters state
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -432,8 +463,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   const openProgramDetail = (id: string) => {
-    setSelectedProgramId(id);
-    setCurrentView('program-detail');
+    const prog = rawPrograms.find(p => p.id === id);
+    if (!prog) return;
+    navigate(`/programok/${prog.slug}`);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -954,7 +986,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       value={{
         currentView,
         setCurrentView,
-        selectedProgramId,
         openProgramDetail,
 
         searchQuery,
