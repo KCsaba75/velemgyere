@@ -53,6 +53,10 @@ export const Navbar: React.FC<NavbarProps> = ({
           <span className="px-2 py-0.5 rounded bg-stone-800 text-white font-medium whitespace-nowrap border border-stone-700">
             {currentUser.role === 'admin' ? '🛡️ Rendszer Admin' : currentUser.role === 'provider' ? `🏢 Szolgáltató (${currentProvider?.company_name || currentUser.name})` : '👤 Látogató (Programvadász)'}
           </span>
+          <span className="hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-emerald-950/80 text-emerald-300 text-[11px] border border-emerald-800/60 font-mono">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span>Supabase: ovzhrecxshroinnfqkxl.supabase.co</span>
+          </span>
         </div>
 
         <div className="relative">

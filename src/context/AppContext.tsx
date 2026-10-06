@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { 
   Profile, 
   Provider, 
@@ -8,19 +8,19 @@ import {
   ProgramImage, 
   Inquiry, 
   ProgramStatus, 
-  ProviderStatus,
   UserRole
 } from '../types/database';
 import { 
   INITIAL_CATEGORIES, 
-  INITIAL_REGIONS,
+  INITIAL_REGIONS, 
   INITIAL_PROVIDERS, 
   INITIAL_PROFILES, 
   INITIAL_PROGRAMS, 
   INITIAL_PROGRAM_IMAGES, 
   INITIAL_INQUIRIES 
 } from '../data/seedData';
-import { isSupabaseConfigured } from '../lib/supabase';
+import { supabase, isSupabaseConfigured, SUPABASE_URL } from '../lib/supabase';
+import { testSupabaseConnection, seedSupabaseDatabase, SupabaseStatus } from '../lib/supabaseSync';
 
 interface AppContextType {
   // Navigation
@@ -104,26 +104,29 @@ interface AppContextType {
     message?: string;
   }) => Promise<void>;
 
-  // Utility
+  // Supabase Status & Sync
+  supabaseStatus: SupabaseStatus;
+  refreshFromSupabase: () => Promise<void>;
+  syncSeedToSupabase: () => Promise<{ success: boolean; message: string }>;
   resetToDefaults: () => void;
   isSupabaseLive: boolean;
+  supabaseUrl: string;
 }
 
 const STORAGE_KEYS = {
-  REGIONS: 'vg_regions_v2',
-  CATEGORIES: 'vg_categories_v2',
-  PROGRAMS: 'vg_programs_v2',
-  IMAGES: 'vg_images_v2',
-  PROVIDERS: 'vg_providers_v2',
-  PROFILES: 'vg_profiles_v2',
-  INQUIRIES: 'vg_inquiries_v2',
-  CURRENT_USER: 'vg_current_user_v2',
+  REGIONS: 'vg_regions_v3',
+  CATEGORIES: 'vg_categories_v3',
+  PROGRAMS: 'vg_programs_v3',
+  IMAGES: 'vg_images_v3',
+  PROVIDERS: 'vg_providers_v3',
+  PROFILES: 'vg_profiles_v3',
+  INQUIRIES: 'vg_inquiries_v3',
+  CURRENT_USER: 'vg_current_user_v3',
 };
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Navigation state
   const [currentView, setCurrentView] = useState<string>('home');
   const [selectedProgramId, setSelectedProgramId] = useState<string | null>(null);
 
@@ -134,10 +137,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [selectedLocation, setSelectedLocation] = useState<string>('');
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [selectedDurationType, setSelectedDurationType] = useState<'all' | 'single' | 'multi'>('all');
-  const [maxPrice, setMaxPrice] = useState<number>(150); // Default for EUR abroad prices
+  const [maxPrice, setMaxPrice] = useState<number>(150);
   const [currencyFilter, setCurrencyFilter] = useState<'ALL' | 'EUR' | 'Ft'>('ALL');
 
-  // Dynamic Regions & Categories (expandable in admin!)
+  // Supabase live status state
+  const [supabaseStatus, setSupabaseStatus] = useState<SupabaseStatus>({
+    connected: false,
+    tablesReady: false,
+    message: 'Supabase kapcsolat ellenőrzése...',
+  });
+
+  // State initialized with fallback seed data / localStorage
   const [regions, setRegions] = useState<Region[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.REGIONS);
     return saved ? JSON.parse(saved) : INITIAL_REGIONS;
@@ -173,14 +183,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return saved ? JSON.parse(saved) : INITIAL_INQUIRIES;
   });
 
-  // Current active user profile
   const [currentUser, setCurrentUser] = useState<Profile>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
     if (saved) return JSON.parse(saved);
     return INITIAL_PROFILES.find(p => p.role === 'visitor') || INITIAL_PROFILES[3];
   });
 
-  // Save changes to localStorage
+  // Save changes to localStorage for continuous resilience
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.REGIONS, JSON.stringify(regions));
   }, [regions]);
@@ -213,7 +222,51 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(currentUser));
   }, [currentUser]);
 
-  // Derived current provider
+  // Function to pull latest data from Supabase if tables exist
+  const refreshFromSupabase = useCallback(async () => {
+    if (!isSupabaseConfigured) return;
+
+    try {
+      const status = await testSupabaseConnection();
+      setSupabaseStatus(status);
+
+      if (status.connected && status.tablesReady) {
+        // Fetch tables in parallel
+        const [regRes, catRes, provRes, progRes, imgRes, inqRes] = await Promise.all([
+          supabase.from('regions').select('*'),
+          supabase.from('categories').select('*'),
+          supabase.from('providers').select('*'),
+          supabase.from('programs').select('*'),
+          supabase.from('program_images').select('*'),
+          supabase.from('inquiries').select('*')
+        ]);
+
+        if (regRes.data && regRes.data.length > 0) setRegions(regRes.data);
+        if (catRes.data && catRes.data.length > 0) setCategories(catRes.data);
+        if (provRes.data && provRes.data.length > 0) setRawProviders(provRes.data);
+        if (progRes.data && progRes.data.length > 0) setRawPrograms(progRes.data);
+        if (imgRes.data && imgRes.data.length > 0) setRawImages(imgRes.data);
+        if (inqRes.data && inqRes.data.length > 0) setInquiries(inqRes.data);
+      }
+    } catch (e) {
+      console.warn('Supabase initial fetch notice:', e);
+    }
+  }, []);
+
+  // Initial Supabase check on load
+  useEffect(() => {
+    refreshFromSupabase();
+  }, [refreshFromSupabase]);
+
+  // Sync initial seed data to user's Supabase instance
+  const syncSeedToSupabase = async () => {
+    const res = await seedSupabaseDatabase();
+    if (res.success) {
+      await refreshFromSupabase();
+    }
+    return res;
+  };
+
   const currentProvider = rawProviders.find(p => p.user_id === currentUser.user_id) || null;
 
   // Joined programs with images, category, region, provider
@@ -248,7 +301,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCurrencyFilter('ALL');
   };
 
-  // Auth personas switching for testing & demo
   const switchPersona = (role: UserRole, providerId?: string) => {
     if (role === 'admin') {
       const admin = rawProfiles.find(p => p.role === 'admin');
@@ -302,7 +354,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       return { success: true, message: `Sikeres bejelentkezés mint ${existingProfile.name}!` };
     }
-    // Check if provider exists with this email
     const prov = rawProviders.find(p => p.email.toLowerCase() === cleanEmail);
     if (prov) {
       const newProf: Profile = {
@@ -332,6 +383,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     setCurrentUser(visitor);
     setCurrentView('home');
+  };
+
+  const executeSupabase = async (action: () => PromiseLike<any>) => {
+    if (!isSupabaseConfigured) return;
+    try {
+      const res = await action();
+      if (res && res.error) {
+        console.warn('Supabase operation notice:', res.error);
+      }
+    } catch (err) {
+      console.warn('Supabase network notice:', err);
+    }
   };
 
   const registerProvider = async (data: {
@@ -367,6 +430,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       created_at: new Date().toISOString(),
     };
 
+    // Attempt Supabase insert
+    executeSupabase(() => supabase.from('providers').insert(newProvider));
+
     setRawProviders(prev => [...prev, newProvider]);
     setRawProfiles(prev => [...prev, newProfile]);
     setCurrentUser(newProfile);
@@ -378,7 +444,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   };
 
-  // Regions CRUD (Admin)
+  // Regions CRUD
   const createRegion = async (data: Partial<Region>): Promise<string> => {
     const newId = `reg-${Date.now()}`;
     const slug = (data.name || 'uj-regio')
@@ -402,23 +468,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       active: data.active ?? true,
     };
 
+    executeSupabase(() => supabase.from('regions').insert(newReg));
+
     setRegions(prev => [...prev, newReg]);
     return newId;
   };
 
   const updateRegion = async (id: string, updates: Partial<Region>): Promise<void> => {
+    executeSupabase(() => supabase.from('regions').update(updates).eq('id', id));
     setRegions(prev => prev.map(r => r.id === id ? { ...r, ...updates } : r));
   };
 
   const deleteRegion = async (id: string): Promise<void> => {
+    executeSupabase(() => supabase.from('regions').delete().eq('id', id));
     setRegions(prev => prev.filter(r => r.id !== id));
   };
 
   const toggleRegionActive = async (id: string): Promise<void> => {
-    setRegions(prev => prev.map(r => r.id === id ? { ...r, active: !r.active } : r));
+    const reg = regions.find(r => r.id === id);
+    if (reg) {
+      await updateRegion(id, { active: !reg.active });
+    }
   };
 
-  // Service Types / Categories CRUD (Admin)
+  // Service Types / Categories CRUD
   const createCategory = async (data: Partial<Category>): Promise<string> => {
     const newId = `cat-${Date.now()}`;
     const slug = (data.name || 'uj-szolgaltatas')
@@ -439,20 +512,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       active: data.active ?? true,
     };
 
+    executeSupabase(() => supabase.from('categories').insert(newCat));
+
     setCategories(prev => [...prev, newCat]);
     return newId;
   };
 
   const updateCategory = async (id: string, updates: Partial<Category>): Promise<void> => {
+    executeSupabase(() => supabase.from('categories').update(updates).eq('id', id));
     setCategories(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
   };
 
   const deleteCategory = async (id: string): Promise<void> => {
+    executeSupabase(() => supabase.from('categories').delete().eq('id', id));
     setCategories(prev => prev.filter(c => c.id !== id));
   };
 
   const toggleCategoryActive = async (id: string): Promise<void> => {
-    setCategories(prev => prev.map(c => c.id === id ? { ...c, active: !c.active } : c));
+    const cat = categories.find(c => c.id === id);
+    if (cat) {
+      await updateCategory(id, { active: !cat.active });
+    }
   };
 
   // Program operations
@@ -501,6 +581,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       updated_at: new Date().toISOString(),
     };
 
+    executeSupabase(() => supabase.from('programs').insert(newProg));
+
     setRawPrograms(prev => [newProg, ...prev]);
 
     // Handle images
@@ -512,24 +594,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         is_cover: img.isCover || idx === 0,
         sort_order: idx,
       }));
+
+      executeSupabase(() => supabase.from('program_images').insert(newImages));
+
       setRawImages(prev => [...newImages, ...prev]);
     } else {
-      setRawImages(prev => [
-        {
-          id: `img-${Date.now()}-0`,
-          program_id: newId,
-          image_url: 'https://images.unsplash.com/photo-1590523741831-ab7e8b8f9c7f?auto=format&fit=crop&w=1200&q=80',
-          is_cover: true,
-          sort_order: 0,
-        },
-        ...prev
-      ]);
+      const fallbackImg: ProgramImage = {
+        id: `img-${Date.now()}-0`,
+        program_id: newId,
+        image_url: 'https://images.unsplash.com/photo-1590523741831-ab7e8b8f9c7f?auto=format&fit=crop&w=1200&q=80',
+        is_cover: true,
+        sort_order: 0,
+      };
+
+      executeSupabase(() => supabase.from('program_images').insert(fallbackImg));
+
+      setRawImages(prev => [fallbackImg, ...prev]);
     }
 
     return newId;
   };
 
   const updateProgram = async (id: string, updates: Partial<Program>): Promise<void> => {
+    executeSupabase(() => supabase.from('programs').update({ ...updates, updated_at: new Date().toISOString() }).eq('id', id));
     setRawPrograms(prev => prev.map(p => {
       if (p.id === id) {
         return {
@@ -543,6 +630,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const deleteProgram = async (id: string): Promise<void> => {
+    executeSupabase(() => supabase.from('programs').delete().eq('id', id));
     setRawPrograms(prev => prev.filter(p => p.id !== id));
     setRawImages(prev => prev.filter(img => img.program_id !== id));
     setInquiries(prev => prev.filter(inq => inq.program_id !== id));
@@ -568,10 +656,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const approveProvider = async (id: string): Promise<void> => {
+    executeSupabase(() => supabase.from('providers').update({ status: 'approved' }).eq('id', id));
     setRawProviders(prev => prev.map(p => p.id === id ? { ...p, status: 'approved' } : p));
   };
 
   const suspendProvider = async (id: string): Promise<void> => {
+    executeSupabase(() => supabase.from('providers').update({ status: 'suspended' }).eq('id', id));
     setRawProviders(prev => prev.map(p => p.id === id ? { ...p, status: 'suspended' } : p));
   };
 
@@ -599,6 +689,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       provider_name: provider?.company_name || 'Szolgáltató',
     };
 
+    executeSupabase(() => supabase.from('inquiries').insert({
+      id: newInquiry.id,
+      program_id: newInquiry.program_id,
+      provider_id: newInquiry.provider_id,
+      name: newInquiry.name,
+      email: newInquiry.email,
+      phone: newInquiry.phone,
+      message: newInquiry.message,
+      created_at: newInquiry.created_at
+    }));
+
     setInquiries(prev => [newInquiry, ...prev]);
   };
 
@@ -619,7 +720,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setRawProviders(INITIAL_PROVIDERS);
     setRawProfiles(INITIAL_PROFILES);
     setInquiries(INITIAL_INQUIRIES);
-    setCurrentUser(INITIAL_PROFILES[3]); // visitor
+    setCurrentUser(INITIAL_PROFILES[3]);
     setCurrentView('home');
   };
 
@@ -684,8 +785,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         suspendProvider,
 
         submitInquiry,
+
+        supabaseStatus,
+        refreshFromSupabase,
+        syncSeedToSupabase,
         resetToDefaults,
         isSupabaseLive: isSupabaseConfigured,
+        supabaseUrl: SUPABASE_URL,
       }}
     >
       {children}

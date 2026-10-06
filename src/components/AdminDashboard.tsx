@@ -66,6 +66,29 @@ export const AdminDashboard: React.FC = () => {
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryIcon, setNewCategoryIcon] = useState('Compass');
 
+  // Supabase sync status
+  const { 
+    supabaseStatus, 
+    syncSeedToSupabase, 
+    refreshFromSupabase,
+    supabaseUrl 
+  } = useApp();
+  const [syncingSupabase, setSyncingSupabase] = useState(false);
+  const [syncResultMessage, setSyncResultMessage] = useState<string | null>(null);
+
+  const handleSyncToSupabase = async () => {
+    setSyncingSupabase(true);
+    setSyncResultMessage(null);
+    try {
+      const res = await syncSeedToSupabase();
+      setSyncResultMessage(res.message);
+    } catch (e: any) {
+      setSyncResultMessage(e?.message || 'Hiba történt a szinkronizáláskor.');
+    } finally {
+      setSyncingSupabase(false);
+    }
+  };
+
   // Metrics
   const totalPrograms = programs.length;
   const activePrograms = programs.filter(p => p.status === 'published').length;
@@ -149,6 +172,54 @@ export const AdminDashboard: React.FC = () => {
           <RotateCcw className="w-3.5 h-3.5" />
           <span>Tesztadatok visszaállítása</span>
         </button>
+      </div>
+
+      {/* Supabase Cloud Connection & Sync Banner */}
+      <div className="bg-gradient-to-r from-stone-900 to-emerald-950 text-white rounded-3xl p-5 sm:p-6 mb-8 border border-emerald-800/40 shadow-xl">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">
+                Supabase Felhő Adatbázis Beállítva
+              </span>
+              <span className="text-[11px] bg-stone-800 border border-stone-700 text-stone-300 px-2 py-0.5 rounded font-mono">
+                {supabaseUrl}
+              </span>
+            </div>
+            <h3 className="font-display font-extrabold text-xl text-white">
+              {supabaseStatus.tablesReady 
+                ? '🟢 Kapcsolódva – A Supabase táblák aktívak és szinkronban vannak!' 
+                : '🟡 Supabase kapcsolat aktív (Futtasd le a schema.sql-t az SQL Editorban)'}
+            </h3>
+            <p className="text-xs text-stone-300 max-w-2xl">
+              {supabaseStatus.message}
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={handleSyncToSupabase}
+              disabled={syncingSupabase}
+              className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-md flex items-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              <Sparkles className="w-4 h-4" />
+              <span>{syncingSupabase ? 'Feltöltés folyamatban...' : 'Kezdőadatok Feltöltése Supabase-be'}</span>
+            </button>
+            <button
+              onClick={() => refreshFromSupabase()}
+              className="px-4 py-2.5 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-200 border border-stone-700 text-xs font-semibold transition-colors cursor-pointer"
+            >
+              Adatok Újratöltése
+            </button>
+          </div>
+        </div>
+
+        {syncResultMessage && (
+          <div className="mt-4 p-3 bg-stone-800/80 border border-emerald-500/40 rounded-xl text-xs text-emerald-300 font-medium">
+            {syncResultMessage}
+          </div>
+        )}
       </div>
 
       {/* KPI Metrics */}
