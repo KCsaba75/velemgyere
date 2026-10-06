@@ -52,7 +52,7 @@ interface AppContextType {
   currentUser: Profile;
   currentProvider: Provider | null;
   switchPersona: (role: UserRole, providerId?: string) => void;
-  login: (email: string) => Promise<{ success: boolean; message: string }>;
+  login: (email: string, password: string) => Promise<{ success: boolean; message: string }>;
   logout: () => void;
   registerProvider: (data: {
     company_name: string;
@@ -61,6 +61,7 @@ interface AppContextType {
     phone: string;
     website?: string;
     description: string;
+    password: string;
   }) => Promise<{ success: boolean; message: string }>;
 
   // Data Collections
@@ -279,6 +280,88 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, []);
 
+  // Real Supabase Auth session -> currentUser sync (kanban 318cedd7, Csaba decision B:
+  // minimal real Auth for provider/admin roles). Runs on mount and on every sign-in/out.
+  // A provider self-registration (registerProvider below) can't insert the providers row
+  // right away if email confirmation is required -- there's no session yet to satisfy the
+  // "auth.uid() = user_id" RLS check. The pending data travels in the auth user's
+  // metadata (options.data on signUp) and this effect creates the real providers/profiles
+  // rows the FIRST time that user actually gets a session (immediately if confirmation is
+  // off, or on their first login after clicking the confirmation link).
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    let cancelled = false;
+
+    async function syncFromSession(session: import('@supabase/supabase-js').Session | null) {
+      if (!session || cancelled) return;
+
+      const pending = (session.user.user_metadata as Record<string, unknown> | undefined)?.pending_provider as
+        | { company_name: string; contact_name: string; phone: string; website?: string; description: string }
+        | undefined;
+
+      if (pending) {
+        const { data: existing } = await supabase
+          .from('providers')
+          .select('id')
+          .eq('user_id', session.user.id)
+          .maybeSingle();
+
+        if (!existing) {
+          const { data: newProv, error: provErr } = await supabase
+            .from('providers')
+            .insert({
+              user_id: session.user.id,
+              company_name: pending.company_name,
+              contact_name: pending.contact_name,
+              email: session.user.email,
+              phone: pending.phone,
+              website: pending.website || null,
+              description: pending.description,
+              status: 'pending',
+            })
+            .select()
+            .single();
+
+          if (!provErr && newProv) {
+            await supabase.from('profiles').insert({
+              user_id: session.user.id,
+              name: pending.contact_name,
+              email: session.user.email,
+              role: 'provider',
+            });
+            // Clear the metadata flag so this doesn't try to insert again on every future login.
+            await supabase.auth.updateUser({ data: { pending_provider: null } });
+            if (!cancelled) setRawProviders(prev => [...prev, newProv as Provider]);
+          } else if (provErr) {
+            console.error('Deferred provider registration failed:', provErr);
+          }
+        }
+      }
+
+      const { data: prof } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .maybeSingle();
+
+      if (prof && !cancelled) {
+        setCurrentUser(prof as Profile);
+        setRawProfiles(prev => (prev.some(p => p.id === prof.id) ? prev : [...prev, prof as Profile]));
+        setCurrentView((prof as Profile).role === 'admin' ? 'admin-dashboard' : (prof as Profile).role === 'provider' ? 'provider-dashboard' : 'home');
+      }
+    }
+
+    supabase.auth.getSession().then(({ data }) => syncFromSession(data.session));
+    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
+      syncFromSession(session);
+    });
+
+    return () => {
+      cancelled = true;
+      subscription.subscription.unsubscribe();
+    };
+  }, []);
+
   // Derived current provider. user_id match only counts when actually set: every
   // provider/profile loaded from the real Supabase tables has user_id=NULL (no Supabase
   // Auth session behind the mock login yet, see kanban 318cedd7) -- without that guard,
@@ -366,21 +449,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const login = async (email: string): Promise<{ success: boolean; message: string }> => {
+  const login = async (email: string, password: string): Promise<{ success: boolean; message: string }> => {
+    if (isSupabaseConfigured) {
+      const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+      if (error) {
+        return { success: false, message: 'Hibás e-mail cím vagy jelszó.' };
+      }
+      // currentUser/currentView get set by the session-sync effect once the matching
+      // profiles row loads -- we just confirm success here.
+      return { success: true, message: `Sikeres bejelentkezés${data.user?.email ? ' mint ' + data.user.email : ''}!` };
+    }
+
+    // Dev-only fallback (no Supabase configured): old mock email-only matching.
     const cleanEmail = email.trim().toLowerCase();
     const existingProfile = rawProfiles.find(p => p.email.toLowerCase() === cleanEmail);
     if (existingProfile) {
       setCurrentUser(existingProfile);
-      if (existingProfile.role === 'admin') {
-        setCurrentView('admin-dashboard');
-      } else if (existingProfile.role === 'provider') {
-        setCurrentView('provider-dashboard');
-      } else {
-        setCurrentView('home');
-      }
+      setCurrentView(existingProfile.role === 'admin' ? 'admin-dashboard' : existingProfile.role === 'provider' ? 'provider-dashboard' : 'home');
       return { success: true, message: `Sikeres bejelentkezés mint ${existingProfile.name}!` };
     }
-    // Check if provider exists with this email
     const prov = rawProviders.find(p => p.email.toLowerCase() === cleanEmail);
     if (prov) {
       const newProf: Profile = {
@@ -400,6 +487,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const logout = () => {
+    if (isSupabaseConfigured) {
+      supabase.auth.signOut();
+    }
     const visitor = rawProfiles.find(p => p.role === 'visitor') || {
       id: 'prof-visitor',
       user_id: 'user-visitor',
@@ -419,10 +509,46 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     phone: string;
     website?: string;
     description: string;
+    password: string;
   }): Promise<{ success: boolean; message: string }> => {
+    if (isSupabaseConfigured) {
+      const { data: signUpData, error } = await supabase.auth.signUp({
+        email: data.email.trim(),
+        password: data.password,
+        options: {
+          data: {
+            pending_provider: {
+              company_name: data.company_name,
+              contact_name: data.contact_name,
+              phone: data.phone,
+              website: data.website || null,
+              description: data.description,
+            },
+          },
+        },
+      });
+      if (error) {
+        return { success: false, message: error.message === 'User already registered'
+          ? 'Ezzel az e-mail címmel már van fiók. Kérjük jelentkezzen be.'
+          : `Hiba a regisztráció során: ${error.message}` };
+      }
+      if (signUpData.session) {
+        // Only reachable if this Supabase project's email confirmation requirement is ever
+        // turned off (it's ON today -- verified live, signUp returns no session). Handled
+        // anyway so this doesn't silently break if that setting changes: the session-sync
+        // effect (listening to onAuthStateChange, which signUp also fires for an immediate
+        // session) creates the real providers/profiles rows from pending_provider right away.
+        return { success: true, message: 'Sikeres szolgáltatói regisztráció! Fiókod függőben (pending) van az adminisztrátori jóváhagyásig.' };
+      }
+      return {
+        success: true,
+        message: 'Majdnem kész! Erősítsd meg az e-mail címed a kiküldött linkkel, utána jelentkezz be -- a szolgáltatói fiókod ekkor jön létre automatikusan, függőben (pending) az adminisztrátori jóváhagyásig.',
+      };
+    }
+
+    // Dev-only fallback (no Supabase configured): old local-state-only mock.
     const newUserId = `user-prov-${Date.now()}`;
     const newProvId = `prov-${Date.now()}`;
-
     const newProvider: Provider = {
       id: newProvId,
       user_id: newUserId,
@@ -435,7 +561,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       status: 'pending',
       created_at: new Date().toISOString(),
     };
-
     const newProfile: Profile = {
       id: `prof-${Date.now()}`,
       user_id: newUserId,
@@ -444,27 +569,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       role: 'provider',
       created_at: new Date().toISOString(),
     };
-
     setRawProviders(prev => [...prev, newProvider]);
     setRawProfiles(prev => [...prev, newProfile]);
     setCurrentUser(newProfile);
     setCurrentView('provider-dashboard');
-
-    return { 
-      success: true, 
-      message: 'Sikeres szolgáltatói regisztráció! Fiókod függőben (pending) van az adminisztrátori jóváhagyásig.' 
+    return {
+      success: true,
+      message: 'Sikeres szolgáltatói regisztráció! Fiókod függőben (pending) van az adminisztrátori jóváhagyásig.',
     };
   };
 
-  // Regions/Categories/Programs/Providers CRUD below (through suspendProvider) is
-  // INTENTIONALLY still local-state-only, not wired to Supabase writes (kanban 318cedd7,
-  // pending decision from zora): the RLS policies gating these tables (is_admin(),
-  // providers.user_id = auth.uid()) require a real Supabase Auth session, which the
-  // current mock/email-only login doesn't provide -- wiring these to supabase.from(...)
-  // insert/update calls under the anon key would just silently write 0 rows under RLS.
+  // Regions/Categories/Programs/Providers CRUD below: real Supabase insert/update/delete
+  // when configured (kanban 318cedd7, Csaba decision B -- real Auth backs these now, so
+  // the RLS checks (is_admin(), providers.user_id = auth.uid()) actually have a real
+  // auth.uid() to match against for a genuinely logged-in admin/provider). Local-state
+  // fallback below each is for the no-Supabase dev mode only.
   // Regions CRUD (Admin)
   const createRegion = async (data: Partial<Region>): Promise<string> => {
-    const newId = `reg-${Date.now()}`;
     const slug = (data.name || 'uj-regio')
       .toLowerCase()
       .replace(/[áàäâ]/g, 'a')
@@ -475,8 +596,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '');
 
-    const newReg: Region = {
-      id: newId,
+    const payload = {
       country: data.country || 'Spanyolország',
       name: data.name || 'Új Régió',
       slug,
@@ -486,25 +606,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       active: data.active ?? true,
     };
 
-    setRegions(prev => [...prev, newReg]);
+    if (isSupabaseConfigured) {
+      const { data: row, error } = await supabase.from('regions').insert(payload).select().single();
+      if (error) throw error;
+      setRegions(prev => [...prev, row as Region]);
+      return (row as Region).id;
+    }
+
+    const newId = `reg-${Date.now()}`;
+    setRegions(prev => [...prev, { id: newId, ...payload }]);
     return newId;
   };
 
   const updateRegion = async (id: string, updates: Partial<Region>): Promise<void> => {
+    if (isSupabaseConfigured) {
+      const { error } = await supabase.from('regions').update(updates).eq('id', id);
+      if (error) throw error;
+    }
     setRegions(prev => prev.map(r => r.id === id ? { ...r, ...updates } : r));
   };
 
   const deleteRegion = async (id: string): Promise<void> => {
+    if (isSupabaseConfigured) {
+      const { error } = await supabase.from('regions').delete().eq('id', id);
+      if (error) throw error;
+    }
     setRegions(prev => prev.filter(r => r.id !== id));
   };
 
   const toggleRegionActive = async (id: string): Promise<void> => {
-    setRegions(prev => prev.map(r => r.id === id ? { ...r, active: !r.active } : r));
+    const region = regions.find(r => r.id === id);
+    await updateRegion(id, { active: !region?.active });
   };
 
   // Service Types / Categories CRUD (Admin)
   const createCategory = async (data: Partial<Category>): Promise<string> => {
-    const newId = `cat-${Date.now()}`;
     const slug = (data.name || 'uj-szolgaltatas')
       .toLowerCase()
       .replace(/[áàäâ]/g, 'a')
@@ -515,37 +651,55 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '');
 
-    const newCat: Category = {
-      id: newId,
+    const payload = {
       name: data.name || 'Új Szolgáltatás',
       slug,
       icon: data.icon || 'Compass',
       active: data.active ?? true,
     };
 
-    setCategories(prev => [...prev, newCat]);
+    if (isSupabaseConfigured) {
+      const { data: row, error } = await supabase.from('categories').insert(payload).select().single();
+      if (error) throw error;
+      setCategories(prev => [...prev, row as Category]);
+      return (row as Category).id;
+    }
+
+    const newId = `cat-${Date.now()}`;
+    setCategories(prev => [...prev, { id: newId, ...payload }]);
     return newId;
   };
 
   const updateCategory = async (id: string, updates: Partial<Category>): Promise<void> => {
+    if (isSupabaseConfigured) {
+      const { error } = await supabase.from('categories').update(updates).eq('id', id);
+      if (error) throw error;
+    }
     setCategories(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
   };
 
   const deleteCategory = async (id: string): Promise<void> => {
+    if (isSupabaseConfigured) {
+      const { error } = await supabase.from('categories').delete().eq('id', id);
+      if (error) throw error;
+    }
     setCategories(prev => prev.filter(c => c.id !== id));
   };
 
   const toggleCategoryActive = async (id: string): Promise<void> => {
-    setCategories(prev => prev.map(c => c.id === id ? { ...c, active: !c.active } : c));
+    const category = categories.find(c => c.id === id);
+    await updateCategory(id, { active: !category?.active });
   };
 
   // Program operations
   const createProgram = async (
-    data: Partial<Program>, 
+    data: Partial<Program>,
     images: { url: string; isCover: boolean }[]
   ): Promise<string> => {
-    const newId = `prog-${Date.now()}`;
-    const provId = currentProvider?.id || (currentUser.role === 'admin' ? rawProviders[0].id : 'prov-cyprus');
+    const provId = currentProvider?.id || (currentUser.role === 'admin' ? rawProviders[0]?.id : undefined);
+    if (!provId) {
+      throw new Error('Nincs hozzárendelt szolgáltató -- csak bejelentkezett szolgáltató vagy admin hozhat létre programot.');
+    }
 
     const slug = (data.title || 'uj-program')
       .toLowerCase()
@@ -557,8 +711,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '');
 
-    const newProg: Program = {
-      id: newId,
+    const payload = {
       provider_id: provId,
       category_id: data.category_id || categories[0].id,
       region_id: data.region_id || regions[0]?.id,
@@ -578,42 +731,52 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       language: data.language || 'Magyar nyelvű vezetés',
       included: data.included || [],
       not_included: data.not_included || [],
-      max_participants: data.max_participants ? Number(data.max_participants) : undefined,
+      max_participants: data.max_participants ? Number(data.max_participants) : null,
       status: currentUser.role === 'admin' ? (data.status || 'published') : (data.status === 'draft' ? 'draft' : 'pending_review'),
       featured: Boolean(data.featured),
+    };
+
+    const pendingImages = images && images.length > 0
+      ? images.map((img, idx) => ({ image_url: img.url, is_cover: img.isCover || idx === 0, sort_order: idx }))
+      : [{ image_url: 'https://images.unsplash.com/photo-1590523741831-ab7e8b8f9c7f?auto=format&fit=crop&w=1200&q=80', is_cover: true, sort_order: 0 }];
+
+    if (isSupabaseConfigured) {
+      const { data: row, error } = await supabase.from('programs').insert(payload).select().single();
+      if (error) throw error;
+      const newProg = row as Program;
+
+      const { data: imgRows, error: imgErr } = await supabase
+        .from('program_images')
+        .insert(pendingImages.map(img => ({ ...img, program_id: newProg.id })))
+        .select();
+      if (imgErr) throw imgErr;
+
+      setRawPrograms(prev => [newProg, ...prev]);
+      setRawImages(prev => [...(imgRows as ProgramImage[]), ...prev]);
+      return newProg.id;
+    }
+
+    const newId = `prog-${Date.now()}`;
+    const newProg: Program = {
+      id: newId,
+      ...payload,
+      max_participants: payload.max_participants ?? undefined,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
-
     setRawPrograms(prev => [newProg, ...prev]);
-
-    // Handle images
-    if (images && images.length > 0) {
-      const newImages: ProgramImage[] = images.map((img, idx) => ({
-        id: `img-${Date.now()}-${idx}`,
-        program_id: newId,
-        image_url: img.url,
-        is_cover: img.isCover || idx === 0,
-        sort_order: idx,
-      }));
-      setRawImages(prev => [...newImages, ...prev]);
-    } else {
-      setRawImages(prev => [
-        {
-          id: `img-${Date.now()}-0`,
-          program_id: newId,
-          image_url: 'https://images.unsplash.com/photo-1590523741831-ab7e8b8f9c7f?auto=format&fit=crop&w=1200&q=80',
-          is_cover: true,
-          sort_order: 0,
-        },
-        ...prev
-      ]);
-    }
-
+    setRawImages(prev => [
+      ...pendingImages.map((img, idx) => ({ id: `img-${Date.now()}-${idx}`, program_id: newId, ...img })),
+      ...prev,
+    ]);
     return newId;
   };
 
   const updateProgram = async (id: string, updates: Partial<Program>): Promise<void> => {
+    if (isSupabaseConfigured) {
+      const { error } = await supabase.from('programs').update(updates).eq('id', id);
+      if (error) throw error;
+    }
     setRawPrograms(prev => prev.map(p => {
       if (p.id === id) {
         return {
@@ -627,6 +790,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const deleteProgram = async (id: string): Promise<void> => {
+    if (isSupabaseConfigured) {
+      // ON DELETE CASCADE on program_images.program_id / inquiries.program_id handles the children.
+      const { error } = await supabase.from('programs').delete().eq('id', id);
+      if (error) throw error;
+    }
     setRawPrograms(prev => prev.filter(p => p.id !== id));
     setRawImages(prev => prev.filter(img => img.program_id !== id));
     setInquiries(prev => prev.filter(inq => inq.program_id !== id));
@@ -652,10 +820,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const approveProvider = async (id: string): Promise<void> => {
+    if (isSupabaseConfigured) {
+      const { error } = await supabase.from('providers').update({ status: 'approved' }).eq('id', id);
+      if (error) throw error;
+    }
     setRawProviders(prev => prev.map(p => p.id === id ? { ...p, status: 'approved' } : p));
   };
 
   const suspendProvider = async (id: string): Promise<void> => {
+    if (isSupabaseConfigured) {
+      const { error } = await supabase.from('providers').update({ status: 'suspended' }).eq('id', id);
+      if (error) throw error;
+    }
     setRawProviders(prev => prev.map(p => p.id === id ? { ...p, status: 'suspended' } : p));
   };
 

@@ -16,6 +16,7 @@ export const ProviderRegisterModal: React.FC<ProviderRegisterModalProps> = ({ is
   const [phone, setPhone] = useState('');
   const [website, setWebsite] = useState('');
   const [description, setDescription] = useState('');
+  const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -23,7 +24,7 @@ export const ProviderRegisterModal: React.FC<ProviderRegisterModalProps> = ({ is
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!companyName.trim() || !contactName.trim() || !email.trim() || !phone.trim() || !description.trim()) {
+    if (!companyName.trim() || !contactName.trim() || !email.trim() || !phone.trim() || !description.trim() || password.length < 6) {
       return;
     }
 
@@ -36,6 +37,7 @@ export const ProviderRegisterModal: React.FC<ProviderRegisterModalProps> = ({ is
         phone: phone.trim(),
         website: website.trim() || undefined,
         description: description.trim(),
+        password,
       });
       setSuccessMessage(res.message);
     } catch (err) {
@@ -165,6 +167,21 @@ export const ProviderRegisterModal: React.FC<ProviderRegisterModalProps> = ({ is
                   placeholder="Milyen kirándulásokat, túrákat vagy élményeket szerveztek, mióta tevékenykedtek a területen?"
                   className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3.5 py-2.5 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none"
                 ></textarea>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
+                  Jelszó (min. 6 karakter) <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="password"
+                  required
+                  minLength={6}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3.5 py-2.5 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
               </div>
 
               <div className="pt-3">
