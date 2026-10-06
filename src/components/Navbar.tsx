@@ -58,9 +58,9 @@ export const Navbar: React.FC<NavbarProps> = ({
             className="flex items-center text-left group cursor-pointer"
           >
             <img
-              src="/brand/velemgyere-logo.jpg"
+              src="/brand/velemgyere-logo-wide.jpg"
               alt="Velem Gyere -- Külföldi programok magyarul"
-              className="h-12 sm:h-16 w-auto object-contain group-hover:scale-105 transition-transform"
+              className="h-9 sm:h-11 w-auto object-contain group-hover:scale-105 transition-transform"
             />
           </button>
 
