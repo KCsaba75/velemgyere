@@ -1,10 +1,8 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useApp } from '../context/AppContext';
-import { Database, CheckCircle, Code, Shield } from 'lucide-react';
 
 export const Footer: React.FC = () => {
-  const { setCurrentView, isSupabaseLive } = useApp();
-  const [schemaModalOpen, setSchemaModalOpen] = useState(false);
+  const { setCurrentView } = useApp();
 
   return (
     <footer className="bg-stone-900 text-stone-300 border-t border-stone-800 pt-16 pb-12 mt-20">
@@ -26,19 +24,6 @@ export const Footer: React.FC = () => {
             <p className="text-stone-400 text-xs sm:text-sm max-w-sm leading-relaxed">
               Kirándulások • Programok • Élmények Magyarország legszebb tájain. Találd meg a következő élményed vagy csatlakozz szervező partnerként!
             </p>
-
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-stone-800 border border-stone-700 text-xs">
-              <span className={`w-2 h-2 rounded-full ${isSupabaseLive ? 'bg-emerald-400' : 'bg-emerald-500'}`}></span>
-              <span className="text-stone-300">
-                {isSupabaseLive ? 'Supabase Cloud Adatbázis' : 'Supabase Adatmodell & RLS Aktív'}
-              </span>
-              <button
-                onClick={() => setSchemaModalOpen(true)}
-                className="ml-2 text-emerald-400 hover:text-emerald-300 underline font-medium cursor-pointer"
-              >
-                SQL séma megtekintése
-              </button>
-            </div>
           </div>
 
           {/* Quick links */}
@@ -79,52 +64,6 @@ export const Footer: React.FC = () => {
           </p>
         </div>
       </div>
-
-      {/* SQL Schema modal */}
-      {schemaModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-stone-900 border border-stone-800 rounded-3xl max-w-2xl w-full p-6 text-stone-200 relative max-h-[85vh] flex flex-col">
-            <div className="flex items-center justify-between pb-3 border-b border-stone-800">
-              <div className="flex items-center gap-2">
-                <Database className="w-5 h-5 text-emerald-400" />
-                <h4 className="font-display font-bold text-lg text-white">
-                  Supabase Adatmodell & RLS Házirendek
-                </h4>
-              </div>
-              <button
-                onClick={() => setSchemaModalOpen(false)}
-                className="text-stone-400 hover:text-white p-1 rounded-lg hover:bg-stone-800 cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="my-4 text-xs text-stone-400 space-y-2 overflow-y-auto flex-1 font-mono bg-stone-950 p-4 rounded-2xl border border-stone-800 text-[11px] leading-relaxed">
-              <p className="text-emerald-400 font-sans font-semibold mb-2">
-                A projekt tartalmazza a teljes /supabase/schema.sql fájlt a következő táblákkal és RLS szabályokkal:
-              </p>
-              <div>• profiles (id, user_id, name, email, role: 'admin'|'provider'|'visitor')</div>
-              <div>• providers (id, user_id, company_name, contact_name, email, phone, website, description, status: 'pending'|'approved'|'suspended')</div>
-              <div>• categories (id, name, slug, icon, active)</div>
-              <div>• programs (id, provider_id, category_id, title, slug, descriptions, date, times, duration, price, included, not_included, status, featured)</div>
-              <div>• program_images (id, program_id, image_url, is_cover, sort_order)</div>
-              <div>• inquiries (id, program_id, provider_id, name, email, phone, message)</div>
-              <div className="text-amber-400 pt-2 font-sans">
-                🔒 RLS: Látogatók csak publikált programokat látnak; Szolgáltatók csak saját programjaikat és érdeklődéseiket kezelik; Adminisztrátor teljes hozzáféréssel bír.
-              </div>
-            </div>
-
-            <div className="pt-2 flex justify-end">
-              <button
-                onClick={() => setSchemaModalOpen(false)}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold cursor-pointer"
-              >
-                Bezárás
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </footer>
   );
 };
