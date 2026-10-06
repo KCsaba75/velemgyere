@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Compass, Database, CheckCircle, Code, Shield } from 'lucide-react';
+import { Database, CheckCircle, Code, Shield } from 'lucide-react';
 
 export const Footer: React.FC = () => {
   const { setCurrentView, isSupabaseLive } = useApp();
@@ -12,13 +12,15 @@ export const Footer: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
           {/* Brand info */}
           <div className="md:col-span-2 space-y-4">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center text-white">
-                <Compass className="w-5 h-5" />
-              </div>
-              <span className="font-extrabold text-xl tracking-tight text-white font-display">
-                VELEM GYERE
-              </span>
+            {/* The logo file has a white background (not transparent) -- a plain white
+                badge behind it is a deliberate, legible way to place it on the dark
+                footer instead of a jarring un-intentional-looking white box. */}
+            <div className="inline-flex bg-white rounded-xl px-3 py-2">
+              <img
+                src="/brand/velemgyere-logo-wide-v2.jpg"
+                alt="Velem Gyere"
+                className="h-8 w-auto object-contain"
+              />
             </div>
 
             <p className="text-stone-400 text-xs sm:text-sm max-w-sm leading-relaxed">
