@@ -97,6 +97,9 @@ create table if not exists public.inquiries (
   email text not null,
   phone text,
   message text,
+  -- Nullable: an anonymous (not logged in) inquiry is still allowed, see the
+  -- "Anyone can create inquiry" policy below.
+  visitor_user_id uuid references auth.users(id) on delete set null,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
@@ -163,6 +166,13 @@ create policy "Anyone authenticated can register as provider"
   on public.providers for insert
   with check (auth.uid() = user_id);
 
+-- Added live 2026-10-06 (kanban 318cedd7): the table had no UPDATE policy at all,
+-- so approveProvider/suspendProvider silently wrote 0 rows under RLS even for admins.
+create policy "Admins can manage providers"
+  on public.providers for update
+  using (public.is_admin())
+  with check (public.is_admin());
+
 -- RLS: PROGRAMS
 create policy "Visitors can view published programs"
   on public.programs for select
@@ -195,6 +205,26 @@ create policy "Providers can update own programs"
     or public.is_admin()
   );
 
+-- RLS: PROGRAM_IMAGES
+-- Added live 2026-10-06 (kanban 318cedd7 / e7f38028): the table had RLS enabled but
+-- no policy at all, which blocked even published-program image reads from the client.
+create policy "Anyone can view images for published programs"
+  on public.program_images for select
+  using (
+    exists (
+      select 1 from public.programs
+      where programs.id = program_images.program_id
+        and (
+          programs.status = 'published'
+          or exists (
+            select 1 from public.providers
+            where providers.id = programs.provider_id and providers.user_id = auth.uid()
+          )
+          or public.is_admin()
+        )
+    )
+  );
+
 -- RLS: INQUIRIES
 create policy "Anyone can create inquiry"
   on public.inquiries for insert
@@ -209,3 +239,8 @@ create policy "Providers can view inquiries for their programs"
     )
     or public.is_admin()
   );
+
+-- Added 2026-10-06 (kanban f92f4cb1): a logged-in visitor's own "Saját fiókom" view.
+create policy "Visitors can view own inquiries"
+  on public.inquiries for select
+  using (auth.uid() = visitor_user_id);

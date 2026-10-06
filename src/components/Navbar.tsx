@@ -1,40 +1,35 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { 
-  Compass, 
-  Menu, 
-  X, 
-  ShieldCheck, 
-  Briefcase, 
-  User, 
-  LogOut, 
-  PlusCircle, 
-  Sparkles,
-  ChevronDown
+import {
+  Compass,
+  Menu,
+  X,
+  ShieldCheck,
+  Briefcase,
+  User,
+  LogOut,
+  PlusCircle
 } from 'lucide-react';
 
 interface NavbarProps {
   onOpenLogin: () => void;
-  onOpenRegister: () => void;
   onOpenNewProgram: () => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ 
-  onOpenLogin, 
-  onOpenRegister,
-  onOpenNewProgram 
+export const Navbar: React.FC<NavbarProps> = ({
+  onOpenLogin,
+  onOpenNewProgram
 }) => {
-  const { 
-    currentView, 
-    setCurrentView, 
-    currentUser, 
-    currentProvider, 
-    switchPersona, 
-    logout 
+  const {
+    currentView,
+    setCurrentView,
+    currentUser,
+    currentProvider,
+    isAuthenticated,
+    logout
   } = useApp();
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [roleSwitcherOpen, setRoleSwitcherOpen] = useState(false);
 
   const navigateTo = (view: string) => {
     setCurrentView(view);
@@ -44,68 +39,16 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-stone-200">
-      {/* Top micro test-bar for switching roles easily */}
-      <div className="bg-stone-900 text-stone-300 text-xs px-4 py-1.5 flex items-center justify-between">
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+      {isAuthenticated && (
+        <div className="bg-stone-900 text-stone-300 text-xs px-4 py-1.5 flex items-center gap-2 overflow-x-auto no-scrollbar">
           <span className="font-semibold text-emerald-400 uppercase tracking-wider text-[11px] whitespace-nowrap">
-            Aktív szerepkör:
+            Bejelentkezve:
           </span>
           <span className="px-2 py-0.5 rounded bg-stone-800 text-white font-medium whitespace-nowrap border border-stone-700">
-            {currentUser.role === 'admin' ? '🛡️ Rendszer Admin' : currentUser.role === 'provider' ? `🏢 Szolgáltató (${currentProvider?.company_name || currentUser.name})` : '👤 Látogató (Programvadász)'}
+            {currentUser.role === 'admin' ? '🛡️ Rendszer Admin' : currentUser.role === 'provider' ? `🏢 Szolgáltató (${currentProvider?.company_name || currentUser.name})` : `👤 ${currentUser.name}`}
           </span>
         </div>
-
-        <div className="relative">
-          <button 
-            onClick={() => setRoleSwitcherOpen(!roleSwitcherOpen)}
-            className="flex items-center gap-1.5 text-stone-300 hover:text-white px-2 py-0.5 rounded hover:bg-stone-800 transition-colors cursor-pointer text-xs"
-            title="Gyors szerepkörváltás a teszteléshez"
-          >
-            <span>Szerepkör váltása</span>
-            <ChevronDown className="w-3.5 h-3.5" />
-          </button>
-
-          {roleSwitcherOpen && (
-            <div className="absolute right-0 mt-1 w-64 bg-white text-stone-900 rounded-xl shadow-2xl border border-stone-200 p-2 z-50 text-xs">
-              <div className="text-[11px] font-semibold text-stone-500 uppercase px-2 py-1">
-                Gyors szerepkörváltás (MVP Teszt)
-              </div>
-              <button 
-                onClick={() => { switchPersona('visitor'); setRoleSwitcherOpen(false); }}
-                className={`w-full text-left px-3 py-2 rounded-lg flex items-center gap-2 transition-colors cursor-pointer ${currentUser.role === 'visitor' ? 'bg-emerald-50 text-emerald-800 font-semibold' : 'hover:bg-stone-100'}`}
-              >
-                <User className="w-4 h-4 text-stone-600" />
-                <div>
-                  <div className="font-medium">Látogató (Programvadász)</div>
-                  <div className="text-[11px] text-stone-500">Keresés, szűrés, érdeklődés</div>
-                </div>
-              </button>
-
-              <button 
-                onClick={() => { switchPersona('provider'); setRoleSwitcherOpen(false); }}
-                className={`w-full text-left px-3 py-2 rounded-lg flex items-center gap-2 transition-colors cursor-pointer ${currentUser.role === 'provider' ? 'bg-emerald-50 text-emerald-800 font-semibold' : 'hover:bg-stone-100'}`}
-              >
-                <Briefcase className="w-4 h-4 text-emerald-600" />
-                <div>
-                  <div className="font-medium">Szolgáltató (Pannon Élménytúrák)</div>
-                  <div className="text-[11px] text-stone-500">Saját programok, érdeklődések</div>
-                </div>
-              </button>
-
-              <button 
-                onClick={() => { switchPersona('admin'); setRoleSwitcherOpen(false); }}
-                className={`w-full text-left px-3 py-2 rounded-lg flex items-center gap-2 transition-colors cursor-pointer ${currentUser.role === 'admin' ? 'bg-emerald-50 text-emerald-800 font-semibold' : 'hover:bg-stone-100'}`}
-              >
-                <ShieldCheck className="w-4 h-4 text-amber-600" />
-                <div>
-                  <div className="font-medium">Adminisztrátor</div>
-                  <div className="text-[11px] text-stone-500">Jóváhagyás, katalógus vezérlés</div>
-                </div>
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
+      )}
 
       {/* Main Navbar */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -192,24 +135,24 @@ export const Navbar: React.FC<NavbarProps> = ({
                   Dashboard
                 </button>
               </div>
+            ) : isAuthenticated ? (
+              <button
+                onClick={() => navigateTo('my-account')}
+                className="px-4 py-2 rounded-xl border border-stone-300 hover:bg-stone-100 text-stone-800 font-medium text-sm flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <User className="w-4 h-4 text-emerald-700" />
+                Saját fiókom
+              </button>
             ) : (
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={onOpenLogin}
-                  className="px-4 py-2 rounded-xl text-stone-700 hover:text-stone-900 font-medium text-sm transition-colors cursor-pointer"
-                >
-                  Belépés
-                </button>
-                <button
-                  onClick={onOpenRegister}
-                  className="px-4 py-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-medium text-sm shadow-sm transition-colors cursor-pointer"
-                >
-                  Szolgáltatói regisztráció
-                </button>
-              </div>
+              <button
+                onClick={onOpenLogin}
+                className="px-4 py-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-medium text-sm shadow-sm transition-colors cursor-pointer"
+              >
+                Belépés / Regisztráció
+              </button>
             )}
 
-            {currentUser.role !== 'visitor' && (
+            {isAuthenticated && (
               <button
                 onClick={logout}
                 className="p-2 rounded-lg text-stone-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
@@ -306,24 +249,24 @@ export const Navbar: React.FC<NavbarProps> = ({
                   + Új program feltöltése
                 </button>
               </>
+            ) : isAuthenticated ? (
+              <button
+                onClick={() => navigateTo('my-account')}
+                className="w-full py-2.5 rounded-xl border border-stone-300 text-stone-800 font-medium text-sm flex items-center justify-center gap-2"
+              >
+                <User className="w-4 h-4 text-emerald-700" />
+                Saját fiókom
+              </button>
             ) : (
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => { setMobileMenuOpen(false); onOpenLogin(); }}
-                  className="w-full py-2.5 rounded-xl border border-stone-300 text-stone-800 font-medium text-sm text-center"
-                >
-                  Belépés
-                </button>
-                <button
-                  onClick={() => { setMobileMenuOpen(false); onOpenRegister(); }}
-                  className="w-full py-2.5 rounded-xl bg-stone-900 text-white font-medium text-sm text-center"
-                >
-                  Regisztráció
-                </button>
-              </div>
+              <button
+                onClick={() => { setMobileMenuOpen(false); onOpenLogin(); }}
+                className="w-full py-2.5 rounded-xl bg-stone-900 text-white font-medium text-sm text-center"
+              >
+                Belépés / Regisztráció
+              </button>
             )}
 
-            {currentUser.role !== 'visitor' && (
+            {isAuthenticated && (
               <button
                 onClick={() => { logout(); setMobileMenuOpen(false); }}
                 className="w-full py-2 text-stone-500 hover:text-rose-600 text-xs font-medium text-center"

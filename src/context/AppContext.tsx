@@ -7,9 +7,8 @@ import {
   Program, 
   ProgramImage, 
   Inquiry, 
-  ProgramStatus, 
-  ProviderStatus,
-  UserRole
+  ProgramStatus,
+  ProviderStatus
 } from '../types/database';
 import { 
   INITIAL_CATEGORIES, 
@@ -51,9 +50,10 @@ interface AppContextType {
   // Auth / Role
   currentUser: Profile;
   currentProvider: Provider | null;
-  switchPersona: (role: UserRole, providerId?: string) => void;
+  isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; message: string }>;
   logout: () => void;
+  registerVisitor: (data: { name: string; email: string; password: string }) => Promise<{ success: boolean; message: string }>;
   registerProvider: (data: {
     company_name: string;
     contact_name: string;
@@ -180,6 +180,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (saved) return JSON.parse(saved);
     return INITIAL_PROFILES.find(p => p.role === 'visitor') || INITIAL_PROFILES[3];
   });
+  // Whether currentUser reflects a real, logged-in Supabase Auth session (vs. the
+  // anonymous default-visitor placeholder profile). Only meaningful when
+  // isSupabaseConfigured -- always false in the no-Supabase dev fallback.
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   // Save changes to localStorage
   useEffect(() => {
@@ -280,20 +284,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, []);
 
-  // Real Supabase Auth session -> currentUser sync (kanban 318cedd7, Csaba decision B:
-  // minimal real Auth for provider/admin roles). Runs on mount and on every sign-in/out.
-  // A provider self-registration (registerProvider below) can't insert the providers row
-  // right away if email confirmation is required -- there's no session yet to satisfy the
-  // "auth.uid() = user_id" RLS check. The pending data travels in the auth user's
-  // metadata (options.data on signUp) and this effect creates the real providers/profiles
-  // rows the FIRST time that user actually gets a session (immediately if confirmation is
-  // off, or on their first login after clicking the confirmation link).
+  // Real Supabase Auth session -> currentUser sync (kanban 318cedd7/f92f4cb1, Csaba
+  // decision B: real email+password Auth for visitor/provider/admin). Runs on mount and
+  // on every sign-in/out. A self-registration (registerProvider/registerVisitor below)
+  // can't insert its profiles/providers row right away if email confirmation is required
+  // -- there's no session yet to satisfy the "auth.uid() = ..." RLS checks. The pending
+  // provider data travels in the auth user's metadata (options.data on signUp) and this
+  // effect creates the real rows the FIRST time that user actually gets a session
+  // (immediately if confirmation is off, or on first login after confirming). A visitor
+  // signup carries no pending_provider metadata, so it falls through to the default
+  // branch below and gets a plain role='visitor' profile the same way.
   useEffect(() => {
     if (!isSupabaseConfigured) return;
     let cancelled = false;
 
+    function resetToAnonymousVisitor() {
+      if (cancelled) return;
+      setIsAuthenticated(false);
+      const visitor = rawProfiles.find(p => p.role === 'visitor') || {
+        id: 'prof-visitor',
+        user_id: '',
+        name: 'Látogató',
+        email: 'utazo@example.hu',
+        role: 'visitor' as const,
+        created_at: new Date().toISOString(),
+      };
+      setCurrentUser(visitor);
+    }
+
     async function syncFromSession(session: import('@supabase/supabase-js').Session | null) {
-      if (!session || cancelled) return;
+      if (cancelled) return;
+      if (!session) {
+        resetToAnonymousVisitor();
+        return;
+      }
 
       const pending = (session.user.user_metadata as Record<string, unknown> | undefined)?.pending_provider as
         | { company_name: string; contact_name: string; phone: string; website?: string; description: string }
@@ -338,15 +362,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       }
 
-      const { data: prof } = await supabase
+      let { data: prof } = await supabase
         .from('profiles')
         .select('*')
         .eq('user_id', session.user.id)
         .maybeSingle();
 
+      if (!prof && !cancelled) {
+        // No pending provider registration and no profile yet -> a plain visitor signup
+        // (registerVisitor below), getting its real session for the first time.
+        const displayName = (session.user.user_metadata as Record<string, unknown> | undefined)?.name as string | undefined;
+        const { data: newProf, error: profErr } = await supabase
+          .from('profiles')
+          .insert({
+            user_id: session.user.id,
+            name: displayName || session.user.email || 'Látogató',
+            email: session.user.email,
+            role: 'visitor',
+          })
+          .select()
+          .single();
+        if (profErr) console.error('Visitor profile creation failed:', profErr);
+        prof = newProf;
+      }
+
       if (prof && !cancelled) {
+        setIsAuthenticated(true);
         setCurrentUser(prof as Profile);
-        setRawProfiles(prev => (prev.some(p => p.id === prof.id) ? prev : [...prev, prof as Profile]));
+        setRawProfiles(prev => (prev.some(p => p.id === prof!.id) ? prev : [...prev, prof as Profile]));
         setCurrentView((prof as Profile).role === 'admin' ? 'admin-dashboard' : (prof as Profile).role === 'provider' ? 'provider-dashboard' : 'home');
       }
     }
@@ -405,50 +448,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCurrencyFilter('ALL');
   };
 
-  // Auth personas switching for testing & demo
-  const switchPersona = (role: UserRole, providerId?: string) => {
-    if (role === 'admin') {
-      const admin = rawProfiles.find(p => p.role === 'admin');
-      if (admin) setCurrentUser(admin);
-      setCurrentView('admin-dashboard');
-    } else if (role === 'provider') {
-      const prov = providerId 
-        ? rawProviders.find(p => p.id === providerId) 
-        : rawProviders[0];
-      if (prov) {
-        // Match by user_id only when it's actually set (see currentProvider comment above
-        // for why null user_id can't be trusted as a join key); fall back to email, which
-        // is how the seeded demo profiles/providers are actually linked right now.
-        let prof = (prov.user_id && rawProfiles.find(p => p.user_id === prov.user_id))
-          || rawProfiles.find(p => p.email.toLowerCase() === prov.email.toLowerCase());
-        if (!prof) {
-          prof = {
-            id: `prof-${prov.id}`,
-            user_id: prov.user_id,
-            name: prov.contact_name,
-            email: prov.email,
-            role: 'provider',
-            created_at: new Date().toISOString(),
-          };
-          setRawProfiles(prev => [...prev, prof!]);
-        }
-        setCurrentUser(prof);
-      }
-      setCurrentView('provider-dashboard');
-    } else {
-      const visitor = rawProfiles.find(p => p.role === 'visitor') || {
-        id: 'prof-visitor',
-        user_id: 'user-visitor',
-        name: 'Látogató',
-        email: 'utazo@example.hu',
-        role: 'visitor',
-        created_at: new Date().toISOString(),
-      };
-      setCurrentUser(visitor);
-      setCurrentView('home');
-    }
-  };
-
   const login = async (email: string, password: string): Promise<{ success: boolean; message: string }> => {
     if (isSupabaseConfigured) {
       const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
@@ -500,6 +499,52 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     setCurrentUser(visitor);
     setCurrentView('home');
+  };
+
+  const registerVisitor = async (data: {
+    name: string;
+    email: string;
+    password: string;
+  }): Promise<{ success: boolean; message: string }> => {
+    if (isSupabaseConfigured) {
+      const { data: signUpData, error } = await supabase.auth.signUp({
+        email: data.email.trim(),
+        password: data.password,
+        options: { data: { name: data.name.trim() } },
+      });
+      if (error) {
+        return {
+          success: false,
+          message: error.message === 'User already registered'
+            ? 'Ezzel az e-mail címmel már van fiók. Kérjük jelentkezzen be.'
+            : `Hiba a regisztráció során: ${error.message}`,
+        };
+      }
+      if (signUpData.session) {
+        // Only reachable if this project's email confirmation requirement is ever turned
+        // off (it's ON today). The session-sync effect creates the real profiles row
+        // immediately from the signUp metadata above either way.
+        return { success: true, message: 'Sikeres regisztráció és bejelentkezés!' };
+      }
+      return {
+        success: true,
+        message: 'Majdnem kész! Erősítsd meg az e-mail címed a kiküldött linkkel, utána jelentkezz be -- a fiókod ekkor jön létre.',
+      };
+    }
+
+    // Dev-only fallback (no Supabase configured): old local-state-only mock.
+    const newProfile: Profile = {
+      id: `prof-${Date.now()}`,
+      user_id: `user-visitor-${Date.now()}`,
+      name: data.name,
+      email: data.email,
+      role: 'visitor',
+      created_at: new Date().toISOString(),
+    };
+    setRawProfiles(prev => [...prev, newProfile]);
+    setCurrentUser(newProfile);
+    setCurrentView('home');
+    return { success: true, message: 'Sikeres regisztráció!' };
   };
 
   const registerProvider = async (data: {
@@ -851,7 +896,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // "Anyone can create inquiry" RLS policy (with check (true)) allows this insert
     // with just the anon key -- no auth required, unlike the admin/provider writes below.
+    // visitor_user_id is attached when logged in (f92f4cb1 "Saját fiókom" tracking),
+    // left NULL for an anonymous visitor -- the column is nullable for exactly that.
     if (isSupabaseConfigured) {
+      const { data: sessionData } = await supabase.auth.getSession();
       const { error } = await supabase.from('inquiries').insert({
         program_id: data.program_id,
         provider_id: providerId,
@@ -859,6 +907,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         email: data.email,
         phone: data.phone || null,
         message: data.message || null,
+        visitor_user_id: sessionData.session?.user.id || null,
       });
       if (error) throw error;
     }
@@ -928,9 +977,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         currentUser,
         currentProvider,
-        switchPersona,
+        isAuthenticated,
         login,
         logout,
+        registerVisitor,
         registerProvider,
 
         regions,

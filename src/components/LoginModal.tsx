@@ -1,52 +1,75 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { LogIn, User, Briefcase, ShieldCheck, ArrowRight } from 'lucide-react';
+import { LogIn, Sparkles, Building2 } from 'lucide-react';
 
 interface LoginModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onOpenRegister: () => void;
 }
 
-export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onOpenRegister }) => {
-  const { login, switchPersona } = useApp();
+export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
+  const { login, registerVisitor, setCurrentView } = useApp();
+  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   if (!isOpen) return null;
 
+  const resetAndClose = () => {
+    setName('');
+    setEmail('');
+    setPassword('');
+    setError(null);
+    setInfoMessage(null);
+    onClose();
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim() || !password) return;
+    if (mode === 'register' && !name.trim()) return;
 
     setLoading(true);
     setError(null);
+    setInfoMessage(null);
     try {
-      const res = await login(email.trim(), password);
+      const res = mode === 'login'
+        ? await login(email.trim(), password)
+        : await registerVisitor({ name: name.trim(), email: email.trim(), password });
+
       if (res.success) {
-        onClose();
+        if (mode === 'register') {
+          // Signup succeeded but may still be waiting on email confirmation --
+          // show the message instead of silently closing (there may be no session yet).
+          setInfoMessage(res.message);
+        } else {
+          resetAndClose();
+        }
       } else {
         setError(res.message);
       }
     } catch {
-      setError('Hiba történt a bejelentkezés során.');
+      setError(mode === 'login' ? 'Hiba történt a bejelentkezés során.' : 'Hiba történt a regisztráció során.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleQuickLogin = (role: 'visitor' | 'provider' | 'admin') => {
-    switchPersona(role);
-    onClose();
+  const goToProviderLanding = () => {
+    resetAndClose();
+    setCurrentView('provider-landing');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
       <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-stone-200 relative animate-in zoom-in-95 duration-200">
         <button
-          onClick={onClose}
+          onClick={resetAndClose}
           className="absolute top-5 right-5 text-stone-400 hover:text-stone-700 p-1.5 rounded-xl hover:bg-stone-100 transition-colors cursor-pointer"
         >
           ✕
@@ -57,11 +80,29 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onOpenR
             <LogIn className="w-6 h-6" />
           </div>
           <h3 className="font-display text-2xl font-extrabold text-stone-900">
-            Bejelentkezés
+            {mode === 'login' ? 'Bejelentkezés' : 'Regisztráció'}
           </h3>
           <p className="text-xs text-stone-500 mt-1">
-            Velem Gyere Katalógus – Szolgáltatói és Admin hozzáférés
+            Velem Gyere Katalógus
           </p>
+        </div>
+
+        {/* Login / Register tab toggle */}
+        <div className="grid grid-cols-2 gap-1 p-1 bg-stone-100 rounded-xl mb-6 text-sm font-semibold">
+          <button
+            type="button"
+            onClick={() => { setMode('login'); setError(null); setInfoMessage(null); }}
+            className={`py-2 rounded-lg transition-colors cursor-pointer ${mode === 'login' ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-500 hover:text-stone-700'}`}
+          >
+            Belépés
+          </button>
+          <button
+            type="button"
+            onClick={() => { setMode('register'); setError(null); setInfoMessage(null); }}
+            className={`py-2 rounded-lg transition-colors cursor-pointer ${mode === 'register' ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-500 hover:text-stone-700'}`}
+          >
+            Regisztráció
+          </button>
         </div>
 
         {error && (
@@ -69,8 +110,29 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onOpenR
             {error}
           </div>
         )}
+        {infoMessage && (
+          <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-xl p-3 mb-4">
+            {infoMessage}
+          </div>
+        )}
 
-        <form onSubmit={handleSubmit} className="space-y-4 mb-6">
+        <form onSubmit={handleSubmit} className="space-y-4 mb-4">
+          {mode === 'register' && (
+            <div>
+              <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
+                Teljes név
+              </label>
+              <input
+                type="text"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Pl. Kovács Anna"
+                className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3.5 py-2.5 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+          )}
+
           <div>
             <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
               E-mail cím
@@ -80,7 +142,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onOpenR
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="pl. info@pannonelmenyturak.hu"
+              placeholder="pl. anna@pelda.hu"
               className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3.5 py-2.5 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
           </div>
@@ -92,6 +154,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onOpenR
             <input
               type="password"
               required
+              minLength={mode === 'register' ? 6 : undefined}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
@@ -102,60 +165,33 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onOpenR
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-stone-900 hover:bg-stone-800 text-white font-bold py-3 px-6 rounded-xl transition-all cursor-pointer text-sm shadow-sm disabled:opacity-50"
+            className="w-full bg-stone-900 hover:bg-stone-800 text-white font-bold py-3 px-6 rounded-xl transition-all cursor-pointer text-sm shadow-sm disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            {loading ? 'Belépés...' : 'Belépés E-maillel'}
+            <Sparkles className="w-4 h-4" />
+            {loading ? (mode === 'login' ? 'Belépés...' : 'Regisztráció...') : (mode === 'login' ? 'Belépés E-maillel' : 'Regisztráció E-maillel')}
           </button>
         </form>
 
-        {/* Quick test login buttons for reviewer convenience */}
-        <div className="pt-4 border-t border-stone-100 space-y-2">
-          <div className="text-[11px] font-bold text-stone-400 uppercase tracking-wider text-center mb-2">
-            Gyors tesztbelépés egy kattintással:
-          </div>
-
-          <button
-            type="button"
-            onClick={() => handleQuickLogin('provider')}
-            className="w-full text-left p-2.5 rounded-xl border border-stone-200 hover:border-emerald-500 hover:bg-emerald-50/40 transition-colors flex items-center justify-between text-xs cursor-pointer group"
-          >
-            <div className="flex items-center gap-2">
-              <Briefcase className="w-4 h-4 text-emerald-600" />
-              <div>
-                <span className="font-bold text-stone-900 block">Szolgáltatóként</span>
-                <span className="text-[11px] text-stone-500">Pannon Élménytúrák Kft.</span>
-              </div>
-            </div>
-            <ArrowRight className="w-3.5 h-3.5 text-stone-400 group-hover:text-emerald-600" />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleQuickLogin('admin')}
-            className="w-full text-left p-2.5 rounded-xl border border-stone-200 hover:border-amber-500 hover:bg-amber-50/40 transition-colors flex items-center justify-between text-xs cursor-pointer group"
-          >
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-amber-600" />
-              <div>
-                <span className="font-bold text-stone-900 block">Adminisztrátorként</span>
-                <span className="text-[11px] text-stone-500">Katalógus és jóváhagyások</span>
-              </div>
-            </div>
-            <ArrowRight className="w-3.5 h-3.5 text-stone-400 group-hover:text-amber-600" />
-          </button>
-        </div>
+        {/* Google placeholder -- not wired yet, separate dependency (Google Cloud OAuth setup) */}
+        <button
+          type="button"
+          disabled
+          title="Hamarosan -- külön lépésben kerül bekötésre"
+          className="w-full border border-stone-200 text-stone-400 font-semibold py-3 px-6 rounded-xl text-sm flex items-center justify-center gap-2 cursor-not-allowed opacity-60"
+        >
+          <svg className="w-4 h-4" viewBox="0 0 24 24"><path fill="currentColor" d="M21.35 11.1h-9.17v2.73h6.51c-.33 3.81-3.5 5.44-6.5 5.44C8.36 19.27 5 16.25 5 12c0-4.1 3.2-7.27 7.2-7.27 3.09 0 4.9 1.97 4.9 1.97L19 4.72S16.56 2 12.1 2C6.42 2 2.03 6.8 2.03 12c0 5.05 4.13 10 10.22 10 5.35 0 9.25-3.67 9.25-9.09 0-1.15-.15-1.81-.15-1.81Z"/></svg>
+          Google-lal (hamarosan)
+        </button>
 
         <div className="mt-6 text-center text-xs text-stone-500">
-          Még nincs szolgáltatói fiókod?{' '}
+          Szolgáltató vagy, és programokat szeretnél kínálni?{' '}
           <button
             type="button"
-            onClick={() => {
-              onClose();
-              onOpenRegister();
-            }}
-            className="text-emerald-700 font-bold hover:underline cursor-pointer"
+            onClick={goToProviderLanding}
+            className="text-emerald-700 font-bold hover:underline cursor-pointer inline-flex items-center gap-1"
           >
-            Regisztrálj itt!
+            <Building2 className="w-3.5 h-3.5" />
+            Szolgáltatói regisztráció
           </button>
         </div>
       </div>

@@ -13,6 +13,7 @@ import { LoginModal } from './components/LoginModal';
 import { ProviderRegisterModal } from './components/ProviderRegisterModal';
 import { NewProgramModal } from './components/NewProgramModal';
 import { Footer } from './components/Footer';
+import { MyAccountView } from './components/MyAccountView';
 
 const AppContent: React.FC = () => {
   const { currentView } = useApp();
@@ -26,7 +27,6 @@ const AppContent: React.FC = () => {
       {/* Sticky Main Navigation */}
       <Navbar
         onOpenLogin={() => setLoginModalOpen(true)}
-        onOpenRegister={() => setRegisterModalOpen(true)}
         onOpenNewProgram={() => setNewProgramModalOpen(true)}
       />
 
@@ -73,6 +73,10 @@ const AppContent: React.FC = () => {
         {currentView === 'admin-dashboard' && (
           <AdminDashboard />
         )}
+
+        {currentView === 'my-account' && (
+          <MyAccountView />
+        )}
       </main>
 
       {/* Footer */}
@@ -82,10 +86,6 @@ const AppContent: React.FC = () => {
       <LoginModal
         isOpen={loginModalOpen}
         onClose={() => setLoginModalOpen(false)}
-        onOpenRegister={() => {
-          setLoginModalOpen(false);
-          setRegisterModalOpen(true);
-        }}
       />
 
       <ProviderRegisterModal

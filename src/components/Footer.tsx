@@ -3,13 +3,13 @@ import { useApp } from '../context/AppContext';
 import { Compass, Database, CheckCircle, Code, Shield } from 'lucide-react';
 
 export const Footer: React.FC = () => {
-  const { setCurrentView, switchPersona, isSupabaseLive } = useApp();
+  const { setCurrentView, isSupabaseLive } = useApp();
   const [schemaModalOpen, setSchemaModalOpen] = useState(false);
 
   return (
     <footer className="bg-stone-900 text-stone-300 border-t border-stone-800 pt-16 pb-12 mt-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
           {/* Brand info */}
           <div className="md:col-span-2 space-y-4">
             <div className="flex items-center gap-2.5">
@@ -68,29 +68,6 @@ export const Footer: React.FC = () => {
             </ul>
           </div>
 
-          {/* Partner & Admin access */}
-          <div className="space-y-3">
-            <h5 className="font-bold text-white text-xs uppercase tracking-wider">
-              Hozzáférés & Tesztelés
-            </h5>
-            <ul className="space-y-2 text-xs text-stone-400">
-              <li>
-                <button onClick={() => switchPersona('visitor')} className="hover:text-emerald-400 cursor-pointer text-left">
-                  👤 Programvadász nézet
-                </button>
-              </li>
-              <li>
-                <button onClick={() => switchPersona('provider')} className="hover:text-emerald-400 cursor-pointer text-left">
-                  🏢 Szolgáltatói Dashboard
-                </button>
-              </li>
-              <li>
-                <button onClick={() => switchPersona('admin')} className="hover:text-emerald-400 cursor-pointer text-left">
-                  🛡️ Adminisztrátori felület
-                </button>
-              </li>
-            </ul>
-          </div>
         </div>
 
         <div className="pt-8 border-t border-stone-800 text-xs text-stone-500 flex flex-col sm:flex-row items-center justify-between gap-4">
