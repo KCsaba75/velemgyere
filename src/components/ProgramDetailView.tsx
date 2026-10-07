@@ -25,7 +25,7 @@ import {
   Wallet
 } from 'lucide-react';
 import { CategoryIcon } from './CategoryIcon';
-import { ProgramAvailability, OnsitePaymentMethod, OrderProviderContact } from '../types/database';
+import { ProgramAvailability, OnsitePaymentMethod, OrderProviderContact, OccurrenceAvailability } from '../types/database';
 
 // Kanban fbf552b2 point 1: a still-gated detail sections (mit tartalmaz/nem tartalmaz)
 // share this one prompt instead of each rolling their own "please log in" box. ctaLabel
@@ -55,6 +55,7 @@ export const ProgramDetailView: React.FC = () => {
     isAuthenticated,
     orders,
     checkProgramAvailability,
+    listOpenOccurrences,
     createOrder,
     getProviderContactForOrder,
     computeBookingFee,
@@ -88,6 +89,37 @@ export const ProgramDetailView: React.FC = () => {
   const [onsitePaymentMethod, setOnsitePaymentMethod] = useState<OnsitePaymentMethod>('cash');
   const [reservationSubmitting, setReservationSubmitting] = useState(false);
   const [reservationResult, setReservationResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  // Occurrence/slot-rendszer (kanban c039bfb6 point 4): ha a programhoz van nyitott,
+  // jövőbeli időpont, a vevő EGY konkrétat választ -- az időpont-specifikus kapacitás
+  // már a listával együtt megjön (list_program_occurrences), nincs külön "ellenőrzés"
+  // lépés mint a régi, occurrence nélküli programoknál. Ha a lista üres (régi program),
+  // a lenti teljesen régi, program-szintű flow marad érvényben.
+  const [occurrenceOptions, setOccurrenceOptions] = useState<OccurrenceAvailability[]>([]);
+  const [occurrencesLoading, setOccurrencesLoading] = useState(true);
+  const [selectedOccurrenceId, setSelectedOccurrenceId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setOccurrenceOptions([]);
+    setSelectedOccurrenceId(null);
+    if (!program) {
+      setOccurrencesLoading(false);
+      return;
+    }
+    setOccurrencesLoading(true);
+    let cancelled = false;
+    listOpenOccurrences(program.id).then(rows => {
+      if (cancelled) return;
+      setOccurrenceOptions(rows);
+      setOccurrencesLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [program?.id]);
+
+  const selectedOccurrence = occurrenceOptions.find(o => o.id === selectedOccurrenceId) || null;
 
   // Keep the selection valid if the provider doesn't accept the default/previous
   // choice (e.g. a cash-only provider, or switching between programs of different
@@ -141,6 +173,7 @@ export const ProgramDetailView: React.FC = () => {
       const netTotal = program.price * participantsCount;
       const result = await createOrder({
         program_id: program.id,
+        occurrence_id: selectedOccurrenceId,
         participants_count: participantsCount,
         total_price: netTotal + computeBookingFee(netTotal),
         currency: program.currency,
@@ -462,7 +495,58 @@ export const ProgramDetailView: React.FC = () => {
                 />
               ) : (
                 <div className="space-y-4">
-                  {!availabilityChecked ? (
+                  {occurrencesLoading ? (
+                    <p className="text-sm text-stone-400 flex items-center gap-1.5">
+                      <Loader2 className="w-4 h-4 animate-spin" /> Időpontok betöltése...
+                    </p>
+                  ) : occurrenceOptions.length > 0 ? (
+                    !selectedOccurrenceId ? (
+                      <div className="space-y-2">
+                        <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider">
+                          Válassz időpontot
+                        </label>
+                        <div className="divide-y divide-stone-100 border border-stone-200 rounded-xl overflow-hidden max-h-56 overflow-y-auto">
+                          {occurrenceOptions.map(occ => {
+                            const full = occ.available !== null && occ.available <= 0;
+                            return (
+                              <button
+                                key={occ.id}
+                                type="button"
+                                disabled={full}
+                                onClick={() => setSelectedOccurrenceId(occ.id)}
+                                className="w-full flex items-center justify-between gap-2 p-3 text-left text-sm hover:bg-stone-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                              >
+                                <span className="font-semibold text-stone-800">
+                                  {new Date(occ.event_date + 'T00:00:00').toLocaleDateString('hu-HU', { year: 'numeric', month: 'short', day: 'numeric' })}
+                                  {occ.start_time && <span className="text-stone-400 font-normal"> · {occ.start_time}</span>}
+                                </span>
+                                <span className="text-xs text-stone-500">
+                                  {full ? 'Betelt' : occ.available !== null ? `${occ.available} szabad hely` : 'Nincs létszámkorlát'}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between gap-2 bg-emerald-50/60 border border-emerald-100 rounded-xl p-3">
+                        <p className="text-sm text-emerald-800 font-semibold flex items-center gap-1.5">
+                          <CheckCircle2 className="w-4 h-4 shrink-0" />
+                          {selectedOccurrence && new Date(selectedOccurrence.event_date + 'T00:00:00').toLocaleDateString('hu-HU', { year: 'numeric', month: 'short', day: 'numeric' })}
+                          {selectedOccurrence?.available !== null && selectedOccurrence?.available !== undefined && (
+                            <span className="text-emerald-700 font-normal"> · {selectedOccurrence.available} szabad hely</span>
+                          )}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedOccurrenceId(null)}
+                          className="text-xs font-semibold text-stone-500 hover:text-stone-800 hover:underline shrink-0 cursor-pointer"
+                        >
+                          Másik időpont
+                        </button>
+                      </div>
+                    )
+                  ) : !availabilityChecked ? (
                     <button
                       onClick={handleCheckAvailability}
                       disabled={availabilityLoading}
@@ -491,7 +575,7 @@ export const ProgramDetailView: React.FC = () => {
                     <p className="text-sm text-emerald-700 font-semibold flex items-center gap-1.5">
                       <CheckCircle2 className="w-4 h-4" /> {reservationResult.message}
                     </p>
-                  ) : (
+                  ) : (occurrenceOptions.length === 0 || selectedOccurrenceId) && (
                     <form onSubmit={handleReservationSubmit} className="space-y-3">
                       <div>
                         <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">

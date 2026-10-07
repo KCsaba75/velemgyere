@@ -15,7 +15,10 @@ import {
   ProgramAvailability,
   OrderProviderContact,
   OrderBuyerInfo,
-  OnsitePaymentMethod
+  OnsitePaymentMethod,
+  ProgramOccurrence,
+  OccurrenceAvailability,
+  OccurrenceStatus
 } from '../types/database';
 import { 
   INITIAL_CATEGORIES, 
@@ -158,6 +161,7 @@ interface AppContextType {
   orders: Order[];
   createOrder: (data: {
     program_id: string;
+    occurrence_id?: string | null;
     participants_count: number;
     total_price: number;
     currency?: string;
@@ -167,7 +171,28 @@ interface AppContextType {
 
   // Capacity check (point 6): only meaningful for logged-in users looking at the
   // gated detail view. Returns null when not configured/not authenticated.
+  // Program-wide -- only correct for programs WITHOUT occurrences (kanban c039bfb6
+  // point 2: occurrence-enabled programs use listOpenOccurrences instead, which
+  // computes availability per-date, not program-wide).
   checkProgramAvailability: (programId: string) => Promise<ProgramAvailability | null>;
+
+  // Occurrence/slot-rendszer (kanban c039bfb6) -- ismetlodo idopontok egy programhoz.
+  // listOpenOccurrences: vevo-oldali, csak NYITOTT+JOVOBELI+PUBLIKALT (list_program_occurrences
+  // RPC, anon is hivhatja). getProgramOccurrences: szolgaltato/admin sajat-kezeles
+  // nezete, MINDEN sajat occurrence (direkt tabla-select, RLS-gatelt).
+  listOpenOccurrences: (programId: string) => Promise<OccurrenceAvailability[]>;
+  getProgramOccurrences: (programId: string) => Promise<ProgramOccurrence[]>;
+  createOccurrences: (
+    programId: string,
+    dates: string[],
+    overrides?: { start_time?: string | null; end_time?: string | null; max_participants?: number | null }
+  ) => Promise<void>;
+  updateOccurrence: (
+    id: string,
+    updates: { event_date?: string; start_time?: string | null; end_time?: string | null; max_participants?: number | null; status?: OccurrenceStatus }
+  ) => Promise<void>;
+  deleteOccurrence: (id: string) => Promise<void>;
+  rescheduleOrder: (orderId: string, newOccurrenceId: string) => Promise<void>;
 
   // Admin approval + privacy-gated contact lookups (kanban fbf552b2 points 3/4/5).
   confirmOrder: (id: string) => Promise<{ success: boolean; message: string }>;
@@ -1195,6 +1220,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // message is passed through as-is since it's already a plain Hungarian sentence.
   const createOrder = async (data: {
     program_id: string;
+    occurrence_id?: string | null;
     participants_count: number;
     total_price: number;
     currency?: string;
@@ -1213,6 +1239,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       .from('orders')
       .insert({
         program_id: data.program_id,
+        occurrence_id: data.occurrence_id || null,
         user_id: userId,
         participants_count: data.participants_count,
         total_price: data.total_price,
@@ -1249,6 +1276,86 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     const row = Array.isArray(data) ? data[0] : data;
     return row ? (row as ProgramAvailability) : null;
+  };
+
+  // Occurrence/slot-rendszer (kanban c039bfb6). listOpenOccurrences a vevo-oldali
+  // datumvalaszto forrasa -- anon is hivhatja (list_program_occurrences RPC), mert
+  // bejelentkezes elott is latni kell a nyitott datumokat.
+  const listOpenOccurrences = async (programId: string): Promise<OccurrenceAvailability[]> => {
+    if (!isSupabaseConfigured) return [];
+    const { data, error } = await supabase.rpc('list_program_occurrences', { p_program_id: programId });
+    if (error) {
+      console.error('list_program_occurrences failed:', error);
+      return [];
+    }
+    return (data as OccurrenceAvailability[]) || [];
+  };
+
+  // Szolgaltato/admin sajat-kezeles nezete -- MINDEN sajat occurrence (nyitott/lezart/
+  // mult/jovo), direkt tabla-select, RLS-gatelt (lasd "Visitors can view open
+  // occurrences..." policy owner-aga a schema.sql-ben).
+  const getProgramOccurrences = async (programId: string): Promise<ProgramOccurrence[]> => {
+    if (!isSupabaseConfigured) return [];
+    const { data, error } = await supabase
+      .from('program_occurrences')
+      .select('*')
+      .eq('program_id', programId)
+      .order('event_date', { ascending: true });
+    if (error) {
+      console.error('getProgramOccurrences failed:', error);
+      return [];
+    }
+    return (data as ProgramOccurrence[]) || [];
+  };
+
+  // Ismetlodo minta legeneralasa (pont 5): a kliens szamolja ki a datumokat (hetfo/
+  // szerda/heti/napi stb.), ez csak a tomeges insertet vegzi. A UNIQUE(program_id,
+  // event_date) constraint miatt egy mar letezo datumra valo ismetelt generalas
+  // nem hoz letre duplikatumot -- `upsert` ignoreDuplicates-szel, nem plain insert.
+  const createOccurrences = async (
+    programId: string,
+    dates: string[],
+    overrides?: { start_time?: string | null; end_time?: string | null; max_participants?: number | null }
+  ): Promise<void> => {
+    if (!isSupabaseConfigured || dates.length === 0) return;
+    const rows = dates.map(event_date => ({
+      program_id: programId,
+      event_date,
+      start_time: overrides?.start_time ?? null,
+      end_time: overrides?.end_time ?? null,
+      max_participants: overrides?.max_participants ?? null,
+    }));
+    const { error } = await supabase
+      .from('program_occurrences')
+      .upsert(rows, { onConflict: 'program_id,event_date', ignoreDuplicates: true });
+    if (error) throw error;
+  };
+
+  const updateOccurrence = async (
+    id: string,
+    updates: { event_date?: string; start_time?: string | null; end_time?: string | null; max_participants?: number | null; status?: OccurrenceStatus }
+  ): Promise<void> => {
+    if (!isSupabaseConfigured) return;
+    const { error } = await supabase.from('program_occurrences').update(updates).eq('id', id);
+    if (error) throw error;
+  };
+
+  // Fail-loud torles, ugyanazzal a mintaval mint deleteProgram -- az RLS csendben 0
+  // sort erint, ha az occurrence-hez van rendeles, ez nem lehet nema sikerkent kezelve.
+  const deleteOccurrence = async (id: string): Promise<void> => {
+    if (!isSupabaseConfigured) return;
+    const { data, error } = await supabase.from('program_occurrences').delete().eq('id', id).select('id');
+    if (error) throw error;
+    if (!data || data.length === 0) {
+      throw new Error('Az időpont nem törölhető: van hozzá tartozó foglalás. Zárd le helyette (ne legyen nyitott).');
+    }
+  };
+
+  const rescheduleOrder = async (orderId: string, newOccurrenceId: string): Promise<void> => {
+    if (!isSupabaseConfigured) return;
+    const { error } = await supabase.rpc('reschedule_order', { p_order_id: orderId, p_new_occurrence_id: newOccurrenceId });
+    if (error) throw error;
+    setOrders(prev => prev.map(o => (o.id === orderId ? { ...o, occurrence_id: newOccurrenceId } : o)));
   };
 
   // Admin-only "szimulált fizetés-teljesülés" (kanban fbf552b2 point 4): the confirm_order
@@ -1414,6 +1521,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         createOrder,
         cancelOrder,
         checkProgramAvailability,
+        listOpenOccurrences,
+        getProgramOccurrences,
+        createOccurrences,
+        updateOccurrence,
+        deleteOccurrence,
+        rescheduleOrder,
         confirmOrder,
         getProviderContactForOrder,
         getOrderBuyerInfo,

@@ -26,6 +26,7 @@ import {
 import { CategoryIcon } from './CategoryIcon';
 import { Region, Category, OnsitePaymentMethod } from '../types/database';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
+import { RescheduleOrderModal } from './RescheduleOrderModal';
 import { Settings as SettingsIcon } from 'lucide-react';
 
 const PAYMENT_METHOD_LABEL: Record<OnsitePaymentMethod, string> = {
@@ -68,6 +69,7 @@ export const AdminDashboard: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<'programs' | 'providers' | 'bookings' | 'regions' | 'categories' | 'inquiries' | 'settings'>('programs');
   const [confirmingOrderId, setConfirmingOrderId] = useState<string | null>(null);
+  const [rescheduleOrderId, setRescheduleOrderId] = useState<string | null>(null);
 
   // Bookings tab (kanban fbf552b2 point 4, NEW): admin sees ALL orders ("Visitors can
   // view own orders" RLS also has an is_admin() branch, see schema.sql).
@@ -842,16 +844,27 @@ export const AdminDashboard: React.FC = () => {
                       )}
                     </p>
                   </div>
-                  {order.status === 'pending' && (
-                    <button
-                      onClick={() => handleConfirmOrder(order.id)}
-                      disabled={confirmingOrderId === order.id}
-                      className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1 cursor-pointer shadow-sm disabled:opacity-60 shrink-0"
-                    >
-                      <Check className="w-3.5 h-3.5" />
-                      <span>{confirmingOrderId === order.id ? 'Jóváhagyás...' : 'Jóváhagyás (fizetés szimulálása)'}</span>
-                    </button>
-                  )}
+                  <div className="flex items-center gap-2 shrink-0">
+                    {order.status !== 'cancelled' && (
+                      <button
+                        onClick={() => setRescheduleOrderId(order.id)}
+                        className="px-3 py-1.5 rounded-xl border border-stone-200 text-stone-700 hover:bg-stone-100 text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                      >
+                        <Clock className="w-3.5 h-3.5" />
+                        <span>Áthelyezés</span>
+                      </button>
+                    )}
+                    {order.status === 'pending' && (
+                      <button
+                        onClick={() => handleConfirmOrder(order.id)}
+                        disabled={confirmingOrderId === order.id}
+                        className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1 cursor-pointer shadow-sm disabled:opacity-60"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        <span>{confirmingOrderId === order.id ? 'Jóváhagyás...' : 'Jóváhagyás (fizetés szimulálása)'}</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -1110,6 +1123,11 @@ export const AdminDashboard: React.FC = () => {
           </div>
         </div>
       )}
+
+      <RescheduleOrderModal
+        orderId={rescheduleOrderId}
+        onClose={() => setRescheduleOrderId(null)}
+      />
     </div>
   );
 };

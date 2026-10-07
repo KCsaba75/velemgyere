@@ -27,6 +27,8 @@ import {
 } from 'lucide-react';
 import { Program, ProgramStatus, OrderBuyerInfo, OnsitePaymentMethod } from '../types/database';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
+import { ProgramOccurrencesModal } from './ProgramOccurrencesModal';
+import { RescheduleOrderModal } from './RescheduleOrderModal';
 
 const PAYMENT_METHOD_LABEL: Record<OnsitePaymentMethod, string> = {
   cash: 'Készpénz',
@@ -55,6 +57,8 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
 
   const [activeTab, setActiveTab] = useState<'programs' | 'bookings' | 'inquiries' | 'profile'>('programs');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [occurrencesModalProgram, setOccurrencesModalProgram] = useState<Program | null>(null);
+  const [rescheduleOrderId, setRescheduleOrderId] = useState<string | null>(null);
 
   // Profile tab (kanban cfa4b20a point 1): own-profile editable fields, seeded from
   // currentProvider (hydrated via get_my_provider_profile) whenever it changes.
@@ -423,6 +427,15 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
                           <span>Előnézet</span>
                         </button>
 
+                        <button
+                          onClick={() => setOccurrencesModalProgram(prog)}
+                          className="px-3 py-1.5 rounded-xl border border-stone-200 text-stone-700 hover:bg-stone-100 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                          title="Időpontok kezelése"
+                        >
+                          <Calendar className="w-3.5 h-3.5" />
+                          <span>Időpontok</span>
+                        </button>
+
                         {/* Submit draft for review button */}
                         {prog.status === 'draft' && (
                           <button
@@ -513,6 +526,14 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
                             <span className="text-stone-400">Vevő adatainak betöltése...</span>
                           )}
                         </div>
+                      )}
+                      {order.status !== 'cancelled' && (
+                        <button
+                          onClick={() => setRescheduleOrderId(order.id)}
+                          className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 hover:underline flex items-center gap-1 cursor-pointer"
+                        >
+                          <Calendar className="w-3.5 h-3.5" /> Áthelyezés másik időpontra
+                        </button>
                       )}
                     </div>
                   );
@@ -736,6 +757,15 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
           </div>
         </div>
       )}
+
+      <ProgramOccurrencesModal
+        program={occurrencesModalProgram}
+        onClose={() => setOccurrencesModalProgram(null)}
+      />
+      <RescheduleOrderModal
+        orderId={rescheduleOrderId}
+        onClose={() => setRescheduleOrderId(null)}
+      />
     </div>
   );
 };

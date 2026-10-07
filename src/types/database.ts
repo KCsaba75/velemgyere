@@ -103,6 +103,35 @@ export interface Program {
   images?: ProgramImage[];
 }
 
+export type OccurrenceStatus = 'open' | 'cancelled';
+
+// Kanban c039bfb6: egy konkret alkalom egy ismetlodo programhoz. start_time/end_time/
+// max_participants NULL eseten a program sajat erteket oroklik -- a kliens a PROGRAM
+// erteket mutassa fallback-kent (lasd list_program_occurrences effektiv-ertek logikajat).
+export interface ProgramOccurrence {
+  id: string;
+  program_id: string;
+  event_date: string;
+  start_time?: string | null;
+  end_time?: string | null;
+  max_participants?: number | null;
+  status: OccurrenceStatus;
+  created_at?: string;
+  updated_at?: string;
+}
+
+// A list_program_occurrences() RPC sora -- mar effektiv (coalesce-olt) ertekekkel es
+// elo kapacitas-szammal, a vevo-oldali datumvalasztohoz.
+export interface OccurrenceAvailability {
+  id: string;
+  event_date: string;
+  start_time: string | null;
+  end_time: string | null;
+  max_participants: number | null;
+  booked: number;
+  available: number | null;
+}
+
 export type OrderStatus = 'pending' | 'confirmed' | 'cancelled';
 
 export type OnsitePaymentMethod = 'cash' | 'revolut';
@@ -110,6 +139,8 @@ export type OnsitePaymentMethod = 'cash' | 'revolut';
 export interface Order {
   id: string;
   program_id: string;
+  // Kanban c039bfb6 -- NULL a regi, occurrence nelkuli programok rendelesein.
+  occurrence_id?: string | null;
   user_id: string;
   participants_count: number;
   // Server-computed, NOT the client's insert input (see set_order_booking_fee

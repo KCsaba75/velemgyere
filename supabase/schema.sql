@@ -1027,3 +1027,289 @@ create trigger orders_payment_method_check
   before insert or update on public.orders
   for each row
   execute function public.check_order_payment_method();
+
+-- ============================================================================
+-- KANBAN c039bfb6: ismetlodo idopontok (occurrence/slot-rendszer) programokhoz.
+-- A programs tabla valtozatlan alap-adatokkal marad (cim/leiras/ar); egy program
+-- tobb program_occurrences sorral rendelkezhet, mindegyik egy konkret datum. A
+-- program.event_date/start_time/end_time/max_participants EFFEKTIV ertek az
+-- occurrence sajat erteke, vagy annak hianyaban a program erteke (coalesce).
+--
+-- COEXISTENCIA a regi, occurrence nelkuli programokkal: orders.occurrence_id
+-- NULLABLE. Ha NULL, a kapacitas-logika a REGI, program-szintu osszegzest hasznalja
+-- (viselkedes valtozatlan). Ha nem NULL, occurrence-szintu osszegzes -- EZ a pont 2.
+-- altal leirt hiba fixje: egy nepszerü datum teletelese nem erinti a tobbi datumot.
+-- ============================================================================
+
+create table public.program_occurrences (
+  id uuid primary key default uuid_generate_v4(),
+  program_id uuid not null references public.programs(id) on delete cascade,
+  event_date date not null,
+  start_time text,
+  end_time text,
+  max_participants integer,
+  status text not null default 'open' check (status in ('open','cancelled')),
+  created_at timestamptz not null default timezone('utc'::text, now()),
+  updated_at timestamptz not null default timezone('utc'::text, now()),
+  unique (program_id, event_date)
+);
+
+alter table public.program_occurrences enable row level security;
+
+grant select, insert, update, delete, references, trigger, truncate
+  on public.program_occurrences to authenticated;
+grant insert, update, delete, references, trigger, truncate
+  on public.program_occurrences to anon;
+
+create policy "Visitors can view open occurrences of published programs"
+  on public.program_occurrences
+  for select
+  using (
+    (
+      status = 'open'
+      and exists (
+        select 1 from programs
+        where programs.id = program_occurrences.program_id
+          and programs.status = 'published'
+      )
+    )
+    or exists (
+      select 1 from programs
+      join providers on providers.id = programs.provider_id
+      where programs.id = program_occurrences.program_id
+        and providers.user_id = auth.uid()
+    )
+    or is_admin()
+  );
+
+create policy "Providers can insert occurrences for own programs"
+  on public.program_occurrences
+  for insert
+  with check (
+    exists (
+      select 1 from programs
+      join providers on providers.id = programs.provider_id
+      where programs.id = program_occurrences.program_id
+        and providers.user_id = auth.uid()
+    )
+    or is_admin()
+  );
+
+create policy "Providers can update own occurrences"
+  on public.program_occurrences
+  for update
+  using (
+    exists (
+      select 1 from programs
+      join providers on providers.id = programs.provider_id
+      where programs.id = program_occurrences.program_id
+        and providers.user_id = auth.uid()
+    )
+    or is_admin()
+  );
+
+-- Egyetlen occurrence torlese (a minta szetszedese nelkul) NE torolhesse csendben
+-- a hozza tartozo rendeleseket -- ugyanaz a mintazat mint program_has_orders(),
+-- SECURITY DEFINER wrapper a 42P17 RLS-ciklus elkerulesere.
+create or replace function public.occurrence_has_orders(p_occurrence_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path to 'public'
+as $$
+  select exists (select 1 from orders where orders.occurrence_id = p_occurrence_id);
+$$;
+
+revoke all on function public.occurrence_has_orders(uuid) from public, anon;
+grant execute on function public.occurrence_has_orders(uuid) to authenticated;
+
+create policy "Providers and admins can delete orders-free occurrences"
+  on public.program_occurrences
+  for delete
+  using (
+    (
+      exists (
+        select 1 from programs
+        join providers on providers.id = programs.provider_id
+        where programs.id = program_occurrences.program_id
+          and providers.user_id = auth.uid()
+      )
+      or is_admin()
+    )
+    and not occurrence_has_orders(program_occurrences.id)
+  );
+
+-- orders.occurrence_id -- NULLABLE a regi (occurrence nelkuli) programok miatt.
+-- ON DELETE RESTRICT: ne tamaszkodjunk kizarolag az RLS-re, a service_role/kozvetlen
+-- DB-hozzaferes eseten is tiltott legyen egy rendelessel rendelkezo occurrence torlese.
+alter table public.orders
+  add column occurrence_id uuid references public.program_occurrences(id) on delete restrict;
+
+-- Vevo-oldali elerhetoseg-lista: occurrence-szintu kapacitassal, csak NYITOTT,
+-- JOVOBELI datumok, csak PUBLIKALT program eseten. Kulon RPC a check_program_availability
+-- helyett (az PROGRAM-szinten osszegez, occurrence-ekkel felrevezetne -- lasd a kartya
+-- 2. pontjat). Anon is hivhatja, mert bejelentkezes elott is latni kell a datumokat.
+create or replace function public.list_program_occurrences(p_program_id uuid)
+returns table (
+  id uuid,
+  event_date date,
+  start_time text,
+  end_time text,
+  max_participants integer,
+  booked integer,
+  available integer
+)
+language sql
+stable
+security definer
+set search_path to 'public'
+as $$
+  select
+    occ.id,
+    occ.event_date,
+    coalesce(occ.start_time, pg.start_time) as start_time,
+    coalesce(occ.end_time, pg.end_time) as end_time,
+    coalesce(occ.max_participants, pg.max_participants) as max_participants,
+    coalesce((
+      select sum(o.participants_count)::integer
+      from orders o
+      where o.occurrence_id = occ.id and o.status in ('pending','confirmed')
+    ), 0) as booked,
+    case
+      when coalesce(occ.max_participants, pg.max_participants) is null then null
+      else coalesce(occ.max_participants, pg.max_participants)
+           - coalesce((
+             select sum(o.participants_count)::integer
+             from orders o
+             where o.occurrence_id = occ.id and o.status in ('pending','confirmed')
+           ), 0)
+    end as available
+  from program_occurrences occ
+  join programs pg on pg.id = occ.program_id
+  where occ.program_id = p_program_id
+    and occ.status = 'open'
+    and occ.event_date >= current_date
+    and pg.status = 'published'
+  order by occ.event_date;
+$$;
+
+revoke all on function public.list_program_occurrences(uuid) from public, anon, authenticated;
+grant execute on function public.list_program_occurrences(uuid) to anon, authenticated;
+
+-- enforce_order_capacity() kibovitve: ha az orders sorhoz van occurrence_id, az ADOTT
+-- occurrence-re szamol (+ ellenorzi hogy az occurrence valoban a megadott programhoz
+-- tartozik -- idegen occurrence_id/program_id parositas elleni integritas-ellenorzes).
+-- Ha nincs occurrence_id (regi programok), a REGI, program-szintu logika fut, byte-ra
+-- ugyanaz mint korabban.
+create or replace function public.enforce_order_capacity()
+returns trigger
+language plpgsql
+security definer
+set search_path to 'public'
+as $$
+declare
+  v_max integer;
+  v_booked integer;
+  v_occ_program_id uuid;
+begin
+  if new.status not in ('pending', 'confirmed') then
+    return new;
+  end if;
+
+  if new.occurrence_id is not null then
+    select occ.program_id, coalesce(occ.max_participants, pg.max_participants)
+      into v_occ_program_id, v_max
+      from program_occurrences occ
+      join programs pg on pg.id = occ.program_id
+      where occ.id = new.occurrence_id;
+
+    if v_occ_program_id is null then
+      raise exception 'Ismeretlen idopont (occurrence_id): %', new.occurrence_id;
+    end if;
+    if v_occ_program_id <> new.program_id then
+      raise exception 'Az idopont nem a megadott programhoz tartozik.';
+    end if;
+
+    if v_max is null then
+      return new;
+    end if;
+
+    select coalesce(sum(participants_count), 0) into v_booked
+      from orders
+      where occurrence_id = new.occurrence_id
+        and status in ('pending', 'confirmed')
+        and id <> coalesce(new.id, '00000000-0000-0000-0000-000000000000'::uuid);
+
+    if v_booked + new.participants_count > v_max then
+      raise exception 'Nincs eleg szabad hely ehhez az idoponthoz (foglalt: %, limit: %)', v_booked, v_max;
+    end if;
+
+    return new;
+  end if;
+
+  -- Legacy path (nincs occurrence_id): az eredeti, program-szintu kapacitas-szamitas,
+  -- viselkedes valtozatlan azoknak a programoknak, amik meg nem hasznaljak az
+  -- occurrence-rendszert.
+  select max_participants into v_max from public.programs where id = new.program_id;
+  if v_max is null then
+    return new;
+  end if;
+  select coalesce(sum(participants_count), 0) into v_booked
+    from public.orders
+    where program_id = new.program_id
+      and status in ('pending', 'confirmed')
+      and id <> coalesce(new.id, '00000000-0000-0000-0000-000000000000'::uuid);
+  if v_booked + new.participants_count > v_max then
+    raise exception 'Nincs eleg szabad hely ehhez a programhoz (foglalt: %, limit: %)', v_booked, v_max;
+  end if;
+  return new;
+end;
+$$;
+
+-- Athelyezes (pont 6): meglevo rendeles atkotese egy masik occurrence-re, csak
+-- UGYANAHHOZ a programhoz tartozo occurrence-re, csak a program szolgaltatoja
+-- vagy admin hivhatja. A kapacitas-ellenorzes NEM duplikalt itt -- az UPDATE
+-- automatikusan atfut a trg_enforce_order_capacity triggeren, ami az UJ occurrence-re
+-- nezve ujraszamol (a mozgatott sor sajat reszvevoszamat kizarja a sum-bol).
+create or replace function public.reschedule_order(p_order_id uuid, p_new_occurrence_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path to 'public'
+as $$
+declare
+  v_program_id uuid;
+  v_new_program_id uuid;
+  v_is_authorized boolean;
+begin
+  select o.program_id into v_program_id from orders o where o.id = p_order_id;
+  if v_program_id is null then
+    raise exception 'Ismeretlen rendeles: %', p_order_id;
+  end if;
+
+  select occ.program_id into v_new_program_id from program_occurrences occ where occ.id = p_new_occurrence_id;
+  if v_new_program_id is null then
+    raise exception 'Ismeretlen idopont: %', p_new_occurrence_id;
+  end if;
+  if v_new_program_id <> v_program_id then
+    raise exception 'Az uj idopont nem ugyanahhoz a programhoz tartozik, mint a rendeles.';
+  end if;
+
+  v_is_authorized := is_admin() or exists (
+    select 1 from programs pg
+    join providers pv on pv.id = pg.provider_id
+    where pg.id = v_program_id and pv.user_id = auth.uid()
+  );
+  if not v_is_authorized then
+    raise exception 'Csak a program szolgaltatoja vagy adminisztrator helyezheti at a rendelest.';
+  end if;
+
+  update orders
+    set occurrence_id = p_new_occurrence_id, updated_at = timezone('utc'::text, now())
+    where id = p_order_id;
+end;
+$$;
+
+revoke all on function public.reschedule_order(uuid, uuid) from public, anon;
+grant execute on function public.reschedule_order(uuid, uuid) to authenticated;
