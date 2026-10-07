@@ -372,12 +372,17 @@ create table if not exists public.credit_transactions (
   id uuid primary key default uuid_generate_v4(),
   user_id uuid not null references auth.users(id) on delete cascade,
   amount numeric(10, 2) not null,
+  currency text not null default 'EUR',
   type text not null check (type in ('signup_bonus', 'refund', 'usage', 'manual_payout')),
   order_id uuid references public.orders(id) on delete set null,
   note text,
   created_by uuid references auth.users(id),
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
+
+-- Added live 2026-10-07 (kanban 71215856, Csaba kiegesztese): a programok ara ES a
+-- kredit-nyilvantartas is EUR-alapu legyen. programs.currency/orders.currency mar
+-- 'EUR' default volt, a credit_transactions-bol hianyzott az explicit currency oszlop.
 
 alter table public.credit_transactions enable row level security;
 
