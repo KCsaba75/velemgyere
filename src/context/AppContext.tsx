@@ -156,6 +156,13 @@ interface AppContextType {
   creditTransactions: CreditTransaction[];
   creditBalance: number;
 
+  // Booking fee (Csaba's 2026-10-07 refinement): a deposit-like amount, separate
+  // from a program's total price, admin-adjustable in app_settings. The signup
+  // bonus credit always matches whatever this was AT REGISTRATION time (server
+  // trigger), not this live value -- see schema.sql grant_signup_bonus comment.
+  currentBookingFee: number;
+  updateBookingFee: (value: number) => Promise<void>;
+
   // Utility
   resetToDefaults: () => void;
   isSupabaseLive: boolean;
@@ -232,6 +239,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Supabase-only, logged-in-only feature, always empty until a real session loads them.
   const [orders, setOrders] = useState<Order[]>([]);
   const [creditTransactions, setCreditTransactions] = useState<CreditTransaction[]>([]);
+  // Public setting (app_settings.current_booking_fee) -- readable by anon too, so it
+  // loads in the main collections effect below, not gated on isAuthenticated.
+  const [currentBookingFee, setCurrentBookingFee] = useState<number>(0);
 
   // Current active user profile
   const [currentUser, setCurrentUser] = useState<Profile>(() => {
@@ -317,12 +327,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         profilesRes,
         imagesRes,
         inquiriesRes,
+        settingsRes,
       ] = await Promise.all([
         supabase.from('regions').select('*'),
         supabase.from('categories').select('*'),
         supabase.from('profiles').select('*'),
         supabase.from('program_images').select('*'),
         supabase.from('inquiries').select('*'),
+        supabase.from('app_settings').select('*').eq('key', 'current_booking_fee').maybeSingle(),
       ]);
 
       if (cancelled) return;
@@ -342,6 +354,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setRawProfiles((profilesRes.data as Profile[]) || []);
       setRawImages((imagesRes.data as ProgramImage[]) || []);
       setInquiries((inquiriesRes.data as Inquiry[]) || []);
+      if (!settingsRes.error && settingsRes.data) {
+        setCurrentBookingFee(Number((settingsRes.data as { value: number }).value) || 0);
+      }
     })();
 
     return () => {
@@ -1113,6 +1128,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return row ? (row as ProgramAvailability) : null;
   };
 
+  // Admin-only (enforced by the "Admins can manage app settings" RLS policy, this is
+  // just the client call) -- updates the live booking fee. Already-granted signup
+  // bonuses and already-created orders keep their own captured booking_fee value;
+  // only NEW registrations/reservations see this new amount.
+  const updateBookingFee = async (value: number): Promise<void> => {
+    if (!isSupabaseConfigured) {
+      setCurrentBookingFee(value);
+      return;
+    }
+    const { error } = await supabase
+      .from('app_settings')
+      .update({ value, updated_at: new Date().toISOString() })
+      .eq('key', 'current_booking_fee');
+    if (error) throw error;
+    setCurrentBookingFee(value);
+  };
+
   const resetToDefaults = () => {
     localStorage.removeItem(STORAGE_KEYS.REGIONS);
     localStorage.removeItem(STORAGE_KEYS.CATEGORIES);
@@ -1203,6 +1235,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         creditTransactions,
         creditBalance,
+
+        currentBookingFee,
+        updateBookingFee,
 
         resetToDefaults,
         isSupabaseLive: isSupabaseConfigured,

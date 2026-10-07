@@ -52,7 +52,8 @@ export const ProgramDetailView: React.FC = () => {
     currentUser,
     isAuthenticated,
     checkProgramAvailability,
-    createOrder
+    createOrder,
+    currentBookingFee
   } = useApp();
 
   const program = programs.find((p) => p.slug === slug);
@@ -482,6 +483,11 @@ export const ProgramDetailView: React.FC = () => {
                 <p className="text-sm text-stone-600">
                   Összesen: <strong className="text-stone-900">{(program.price * participantsCount).toFixed(2)} {program.currency === 'EUR' ? '€' : program.currency}</strong>
                 </p>
+                {currentBookingFee > 0 && (
+                  <p className="text-sm text-stone-600">
+                    Foglalási díj most: <strong className="text-stone-900">{currentBookingFee.toFixed(2)} €</strong>
+                  </p>
+                )}
                 <button
                   type="submit"
                   disabled={reservationSubmitting}
@@ -494,6 +500,7 @@ export const ProgramDetailView: React.FC = () => {
                 )}
                 <p className="text-[11px] text-stone-400 w-full">
                   Ez egy foglalási szándék rögzítése, nem végleges fizetés -- a szolgáltató hamarosan megerősíti.
+                  {currentBookingFee > 0 && ' A foglalási díj az elfogadás utáni lépésben esedékes.'}
                 </p>
               </form>
             )}

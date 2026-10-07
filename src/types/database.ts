@@ -96,6 +96,10 @@ export interface Order {
   user_id: string;
   participants_count: number;
   total_price: number;
+  // Deposit-like fee charged at reservation time, separate from total_price.
+  // Server-set from app_settings.current_booking_fee at insert time -- the
+  // client can't set or influence it (see set_order_booking_fee trigger).
+  booking_fee: number;
   currency: string;
   status: OrderStatus;
   created_at: string;

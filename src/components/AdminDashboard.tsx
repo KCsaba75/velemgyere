@@ -23,17 +23,18 @@ import {
 import { CategoryIcon } from './CategoryIcon';
 import { Region, Category } from '../types/database';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
+import { Settings as SettingsIcon } from 'lucide-react';
 
 export const AdminDashboard: React.FC = () => {
-  const { 
-    programs, 
-    providers, 
-    inquiries, 
+  const {
+    programs,
+    providers,
+    inquiries,
     regions,
     categories,
-    approveProgram, 
-    rejectProgram, 
-    archiveProgram, 
+    approveProgram,
+    rejectProgram,
+    archiveProgram,
     toggleFeaturedProgram,
     approveProvider,
     suspendProvider,
@@ -47,12 +48,32 @@ export const AdminDashboard: React.FC = () => {
     updateCategory,
     deleteCategory,
     toggleCategoryActive,
-    resetToDefaults
+    resetToDefaults,
+    currentBookingFee,
+    updateBookingFee
   } = useApp();
 
   useDocumentMeta('Adminisztrátori felület', 'Programok, szolgáltatók és katalógus-adatok kezelése.');
 
-  const [activeTab, setActiveTab] = useState<'programs' | 'providers' | 'regions' | 'categories' | 'inquiries'>('programs');
+  const [activeTab, setActiveTab] = useState<'programs' | 'providers' | 'regions' | 'categories' | 'inquiries' | 'settings'>('programs');
+
+  // Booking fee editor (Csaba 2026-10-07): local draft input, only written on save.
+  const [bookingFeeDraft, setBookingFeeDraft] = useState(String(currentBookingFee));
+  const [bookingFeeSaving, setBookingFeeSaving] = useState(false);
+  const [bookingFeeSaved, setBookingFeeSaved] = useState(false);
+
+  const handleSaveBookingFee = async () => {
+    const value = Number(bookingFeeDraft);
+    if (Number.isNaN(value) || value < 0) return;
+    setBookingFeeSaving(true);
+    try {
+      await updateBookingFee(value);
+      setBookingFeeSaved(true);
+      setTimeout(() => setBookingFeeSaved(false), 2500);
+    } finally {
+      setBookingFeeSaving(false);
+    }
+  };
   const [programFilter, setProgramFilter] = useState<string>('all');
   const [providerFilter, setProviderFilter] = useState<string>('all');
 
@@ -270,7 +291,57 @@ export const AdminDashboard: React.FC = () => {
           <MessageSquare className="w-4 h-4" />
           <span>Érdeklődések ({inquiries.length})</span>
         </button>
+
+        <button
+          onClick={() => setActiveTab('settings')}
+          className={`pb-3 text-sm font-bold transition-colors cursor-pointer border-b-2 flex items-center gap-2 shrink-0 ${
+            activeTab === 'settings'
+              ? 'border-emerald-600 text-emerald-800'
+              : 'border-transparent text-stone-500 hover:text-stone-800'
+          }`}
+        >
+          <SettingsIcon className="w-4 h-4" />
+          <span>Beállítások</span>
+        </button>
       </div>
+
+      {/* TAB: BEÁLLÍTÁSOK (Csaba 2026-10-07: admin-állítható foglalási díj) */}
+      {activeTab === 'settings' && (
+        <div className="bg-white rounded-2xl border border-stone-200 p-6 max-w-lg space-y-4">
+          <h3 className="font-display font-bold text-stone-900 text-lg">Foglalási díj</h3>
+          <p className="text-sm text-stone-600">
+            Elolegszerű összeg, amit egy látogató a helyfoglaláskor fizet, a program teljes árától elkülönülve.
+            Regisztrációkor ezzel a mindenkori összeggel egyező ajándék-kredit kerül a visitor fiókjába --
+            a már kiadott kreditek és meglévő foglalások nem változnak utólag, ha itt módosítod az értéket.
+          </p>
+          <div className="flex items-center gap-3">
+            <input
+              type="number"
+              min={0}
+              step="0.01"
+              value={bookingFeeDraft}
+              onChange={(e) => setBookingFeeDraft(e.target.value)}
+              className="w-32 text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+            <span className="text-sm text-stone-500">€</span>
+            <button
+              onClick={handleSaveBookingFee}
+              disabled={bookingFeeSaving}
+              className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-4 rounded-xl text-sm cursor-pointer disabled:opacity-60"
+            >
+              {bookingFeeSaving ? 'Mentés...' : 'Mentés'}
+            </button>
+            {bookingFeeSaved && (
+              <span className="text-xs font-bold text-emerald-700 flex items-center gap-1">
+                <Check className="w-3.5 h-3.5" /> Mentve
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-stone-400">
+            Jelenlegi érték élesben: {currentBookingFee.toFixed(2)} €
+          </p>
+        </div>
+      )}
 
       {/* TAB 1: PROGRAMKEZELÉS */}
       {activeTab === 'programs' && (

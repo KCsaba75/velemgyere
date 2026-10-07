@@ -439,3 +439,90 @@ create or replace view public.providers_public with (security_invoker = true) as
 
 grant select on public.programs_public to anon, authenticated;
 grant select on public.providers_public to anon, authenticated;
+
+-- ==========================================
+-- Added live 2026-10-07 (kanban 71215856, Csaba refinement): "foglalási díj" --
+-- an admin-adjustable, deposit-like amount separate from a program's total price.
+-- The registration signup-bonus credit always equals whatever this was worth AT
+-- REGISTRATION time, not a separately configured number -- one settings row
+-- serves both purposes.
+-- ==========================================
+
+create table if not exists public.app_settings (
+  key text primary key,
+  value numeric(10, 2) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_by uuid references auth.users(id)
+);
+
+alter table public.app_settings enable row level security;
+
+create policy "Anyone can read app settings"
+  on public.app_settings for select
+  using (true);
+
+create policy "Admins can manage app settings"
+  on public.app_settings for all
+  using (public.is_admin())
+  with check (public.is_admin());
+
+insert into public.app_settings (key, value)
+values ('current_booking_fee', 0)
+on conflict (key) do nothing;
+
+alter table public.orders
+  add column if not exists booking_fee numeric(10, 2) not null default 0;
+
+-- booking_fee is ALWAYS server-set from the live app_settings value at insert time --
+-- the client's input is ignored, same trust boundary as enforce_order_capacity.
+-- Trigger-only: no EXECUTE grant to anon/authenticated.
+create or replace function public.set_order_booking_fee()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  select value into new.booking_fee from public.app_settings where key = 'current_booking_fee';
+  if new.booking_fee is null then
+    new.booking_fee := 0;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger trg_set_order_booking_fee
+  before insert on public.orders
+  for each row execute function public.set_order_booking_fee();
+
+-- Signup bonus: a new visitor profile gets a credit_transactions row matching
+-- whatever current_booking_fee was worth at that moment -- captured, not referenced,
+-- so a later fee change never retroactively changes an already-granted bonus.
+-- Trigger-only: no EXECUTE grant to anon/authenticated.
+create or replace function public.grant_signup_bonus()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_fee numeric(10, 2);
+begin
+  if new.user_id is null or new.role <> 'visitor' then
+    return new;
+  end if;
+
+  select value into v_fee from public.app_settings where key = 'current_booking_fee';
+
+  if v_fee is not null and v_fee > 0 then
+    insert into public.credit_transactions (user_id, amount, currency, type, note)
+    values (new.user_id, v_fee, 'EUR', 'signup_bonus', 'Regisztrációs ajándék-kredit (a mindenkori foglalási díjjal egyező összeg)');
+  end if;
+
+  return new;
+end;
+$$;
+
+create trigger trg_grant_signup_bonus
+  after insert on public.profiles
+  for each row execute function public.grant_signup_bonus();
