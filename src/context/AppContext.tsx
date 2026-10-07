@@ -130,6 +130,18 @@ interface AppContextType {
   approveProvider: (id: string) => Promise<void>;
   suspendProvider: (id: string) => Promise<void>;
 
+  // Provider self-service: own profile fields only (kanban cfa4b20a point 1) --
+  // status/stripe_account_id/payouts_enabled/payment_mode are deliberately excluded,
+  // see the providers_self_profile_update migration + admin_set_provider_status RPC.
+  updateProviderProfile: (updates: {
+    company_name?: string;
+    contact_name?: string;
+    phone?: string;
+    email?: string;
+    website?: string;
+    description?: string;
+  }) => Promise<void>;
+
   // Inquiries
   submitInquiry: (data: {
     program_id: string;
@@ -1043,8 +1055,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteProgram = async (id: string): Promise<void> => {
     if (isSupabaseConfigured) {
       // ON DELETE CASCADE on program_images.program_id / inquiries.program_id handles the children.
-      const { error } = await supabase.from('programs').delete().eq('id', id);
+      // The DELETE RLS policy silently matches zero rows (no error) for a program that still
+      // has orders attached (kanban cfa4b20a point 2, to avoid cascading away paid bookings) --
+      // without the .select() + length check below, that would look like a successful delete
+      // on the client while the row stays in the DB. Archive it instead in that case.
+      const { data, error } = await supabase.from('programs').delete().eq('id', id).select('id');
       if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error('A program nem törölhető: van hozzá tartozó foglalás. Archiváld helyette.');
+      }
     }
     setRawPrograms(prev => prev.filter(p => p.id !== id));
     setRawImages(prev => prev.filter(img => img.program_id !== id));
@@ -1072,7 +1091,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const approveProvider = async (id: string): Promise<void> => {
     if (isSupabaseConfigured) {
-      const { error } = await supabase.from('providers').update({ status: 'approved' }).eq('id', id);
+      // Direct column UPDATE on status is revoked for authenticated (kanban cfa4b20a
+      // point 1) so a provider's own self-update policy can't be used for self-approval --
+      // admin status changes now go through this RPC, which checks is_admin() itself.
+      const { error } = await supabase.rpc('admin_set_provider_status', { p_provider_id: id, p_status: 'approved' });
       if (error) throw error;
     }
     setRawProviders(prev => prev.map(p => p.id === id ? { ...p, status: 'approved' } : p));
@@ -1080,10 +1102,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const suspendProvider = async (id: string): Promise<void> => {
     if (isSupabaseConfigured) {
-      const { error } = await supabase.from('providers').update({ status: 'suspended' }).eq('id', id);
+      const { error } = await supabase.rpc('admin_set_provider_status', { p_provider_id: id, p_status: 'suspended' });
       if (error) throw error;
     }
     setRawProviders(prev => prev.map(p => p.id === id ? { ...p, status: 'suspended' } : p));
+  };
+
+  const updateProviderProfile = async (updates: {
+    company_name?: string;
+    contact_name?: string;
+    phone?: string;
+    email?: string;
+    website?: string;
+    description?: string;
+  }): Promise<void> => {
+    if (!currentProviderFull) {
+      throw new Error('Nincs betöltve a szolgáltatói profilod.');
+    }
+    if (isSupabaseConfigured) {
+      const { error } = await supabase.from('providers').update(updates).eq('id', currentProviderFull.id);
+      if (error) throw error;
+      // contact_name/email/phone/website have no SELECT grant for authenticated (teaser-only
+      // columns, see Provider type comment) -- re-fetch via the RPC instead of .select()ing
+      // the update back, which would 42501 on those columns.
+      const { data, error: refetchError } = await supabase.rpc('get_my_provider_profile');
+      if (refetchError) throw refetchError;
+      setCurrentProviderFull((data as Provider) || null);
+    } else {
+      setCurrentProviderFull(prev => (prev ? { ...prev, ...updates } : prev));
+    }
+    setRawProviders(prev => prev.map(p => p.id === currentProviderFull.id ? { ...p, ...updates } : p));
   };
 
   const submitInquiry = async (data: {
@@ -1351,6 +1399,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         approveProvider,
         suspendProvider,
+        updateProviderProfile,
 
         submitInquiry,
 

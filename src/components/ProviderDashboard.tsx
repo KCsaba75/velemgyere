@@ -21,7 +21,9 @@ import {
   ExternalLink,
   Ticket,
   Banknote,
-  Wallet
+  Wallet,
+  UserCog,
+  Save
 } from 'lucide-react';
 import { Program, ProgramStatus, OrderBuyerInfo, OnsitePaymentMethod } from '../types/database';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
@@ -45,13 +47,52 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
     getOrderBuyerInfo,
     openProgramDetail,
     deleteProgram,
-    updateProgram
+    updateProgram,
+    updateProviderProfile
   } = useApp();
 
   useDocumentMeta('Szolgáltatói Dashboard', 'Saját programok, foglalások és érdeklődések kezelése.');
 
-  const [activeTab, setActiveTab] = useState<'programs' | 'bookings' | 'inquiries'>('programs');
+  const [activeTab, setActiveTab] = useState<'programs' | 'bookings' | 'inquiries' | 'profile'>('programs');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+
+  // Profile tab (kanban cfa4b20a point 1): own-profile editable fields, seeded from
+  // currentProvider (hydrated via get_my_provider_profile) whenever it changes.
+  const [profileForm, setProfileForm] = useState({
+    company_name: '',
+    contact_name: '',
+    phone: '',
+    email: '',
+    website: '',
+    description: '',
+  });
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileMessage, setProfileMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  useEffect(() => {
+    if (!currentProvider) return;
+    setProfileForm({
+      company_name: currentProvider.company_name || '',
+      contact_name: currentProvider.contact_name || '',
+      phone: currentProvider.phone || '',
+      email: currentProvider.email || '',
+      website: currentProvider.website || '',
+      description: currentProvider.description || '',
+    });
+  }, [currentProvider]);
+
+  const handleProfileSave = async () => {
+    setProfileSaving(true);
+    setProfileMessage(null);
+    try {
+      await updateProviderProfile(profileForm);
+      setProfileMessage({ type: 'success', text: 'A profilod adatai elmentve.' });
+    } catch (err) {
+      setProfileMessage({ type: 'error', text: err instanceof Error ? err.message : 'Ismeretlen hiba történt a mentés során.' });
+    } finally {
+      setProfileSaving(false);
+    }
+  };
 
   // Filter programs for this provider
   const ownPrograms = programs.filter(
@@ -266,6 +307,18 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
           <MessageSquare className="w-4 h-4" />
           <span>Érdeklődések ({ownInquiries.length})</span>
         </button>
+
+        <button
+          onClick={() => setActiveTab('profile')}
+          className={`pb-3 text-sm font-bold transition-colors cursor-pointer border-b-2 flex items-center gap-2 ${
+            activeTab === 'profile'
+              ? 'border-emerald-600 text-emerald-700'
+              : 'border-transparent text-stone-500 hover:text-stone-800'
+          }`}
+        >
+          <UserCog className="w-4 h-4" />
+          <span>Fiók adatok</span>
+        </button>
       </div>
 
       {/* Tab 1: Programs list */}
@@ -367,7 +420,9 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
                         <button
                           onClick={() => {
                             if (window.confirm('Biztosan törölni szeretnéd ezt a programot?')) {
-                              deleteProgram(prog.id);
+                              deleteProgram(prog.id).catch((err) => {
+                                alert(err instanceof Error ? err.message : 'Ismeretlen hiba történt a törlés során.');
+                              });
                             }
                           }}
                           className="p-2 rounded-xl text-stone-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
@@ -535,6 +590,100 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
               </p>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Tab 3: Own profile edit (kanban cfa4b20a point 1) --
+          status/stripe_account_id/payouts_enabled/payment_mode are intentionally not
+          editable here, see providers_self_profile_update migration. */}
+      {activeTab === 'profile' && (
+        <div className="bg-white rounded-2xl border border-stone-200 shadow-sm p-6 max-w-2xl">
+          <h3 className="text-base font-bold text-stone-800 font-display mb-1">Fiók adatok</h3>
+          <p className="text-xs text-stone-500 mb-5">
+            Ezek az adatok jelennek meg a programjaidon, és ezeken ér el téged az admin és a vásárlók.
+          </p>
+
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs font-bold text-stone-600 block mb-1">Cégnév</label>
+              <input
+                type="text"
+                value={profileForm.company_name}
+                onChange={(e) => setProfileForm(prev => ({ ...prev, company_name: e.target.value }))}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-400"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-bold text-stone-600 block mb-1">Kapcsolattartó neve</label>
+              <input
+                type="text"
+                value={profileForm.contact_name}
+                onChange={(e) => setProfileForm(prev => ({ ...prev, contact_name: e.target.value }))}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-400"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-bold text-stone-600 block mb-1">Telefonszám</label>
+                <input
+                  type="tel"
+                  value={profileForm.phone}
+                  onChange={(e) => setProfileForm(prev => ({ ...prev, phone: e.target.value }))}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-400"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-stone-600 block mb-1">E-mail</label>
+                <input
+                  type="email"
+                  value={profileForm.email}
+                  onChange={(e) => setProfileForm(prev => ({ ...prev, email: e.target.value }))}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-400"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-bold text-stone-600 block mb-1">Weboldal (opcionális)</label>
+              <input
+                type="url"
+                value={profileForm.website}
+                onChange={(e) => setProfileForm(prev => ({ ...prev, website: e.target.value }))}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-400"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-bold text-stone-600 block mb-1">Bemutatkozás</label>
+              <textarea
+                rows={4}
+                value={profileForm.description}
+                onChange={(e) => setProfileForm(prev => ({ ...prev, description: e.target.value }))}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-400 resize-none"
+              />
+            </div>
+
+            {profileMessage && (
+              <div className={`text-xs font-semibold px-3.5 py-2.5 rounded-xl ${
+                profileMessage.type === 'success'
+                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                  : 'bg-rose-50 text-rose-700 border border-rose-200'
+              }`}>
+                {profileMessage.text}
+              </div>
+            )}
+
+            <button
+              onClick={handleProfileSave}
+              disabled={profileSaving}
+              className="bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold px-5 py-2.5 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer text-sm"
+            >
+              <Save className="w-4 h-4" />
+              <span>{profileSaving ? 'Mentés...' : 'Adatok mentése'}</span>
+            </button>
+          </div>
         </div>
       )}
     </div>
