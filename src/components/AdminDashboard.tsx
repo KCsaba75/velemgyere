@@ -1,35 +1,44 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { 
-  ShieldCheck, 
-  FileText, 
-  Building2, 
-  MessageSquare, 
-  Check, 
-  X, 
-  Sparkles, 
-  Archive, 
-  Eye, 
-  Trash2, 
-  Clock, 
-  Globe, 
-  PlusCircle, 
-  Layers, 
-  Edit, 
+import {
+  ShieldCheck,
+  FileText,
+  Building2,
+  MessageSquare,
+  Check,
+  X,
+  Sparkles,
+  Archive,
+  Eye,
+  Trash2,
+  Clock,
+  Globe,
+  PlusCircle,
+  Layers,
+  Edit,
   RotateCcw,
   Ban,
-  Tag
+  Tag,
+  Ticket,
+  Banknote,
+  Wallet
 } from 'lucide-react';
 import { CategoryIcon } from './CategoryIcon';
-import { Region, Category } from '../types/database';
+import { Region, Category, OnsitePaymentMethod } from '../types/database';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import { Settings as SettingsIcon } from 'lucide-react';
+
+const PAYMENT_METHOD_LABEL: Record<OnsitePaymentMethod, string> = {
+  cash: 'Készpénz',
+  revolut: 'Revolut',
+};
 
 export const AdminDashboard: React.FC = () => {
   const {
     programs,
     providers,
     inquiries,
+    orders,
     regions,
     categories,
     approveProgram,
@@ -38,6 +47,7 @@ export const AdminDashboard: React.FC = () => {
     toggleFeaturedProgram,
     approveProvider,
     suspendProvider,
+    confirmOrder,
     openProgramDetail,
     deleteProgram,
     createRegion,
@@ -54,9 +64,23 @@ export const AdminDashboard: React.FC = () => {
     updateFeeSettings
   } = useApp();
 
-  useDocumentMeta('Adminisztrátori felület', 'Programok, szolgáltatók és katalógus-adatok kezelése.');
+  useDocumentMeta('Adminisztrátori felület', 'Programok, szolgáltatók, foglalások és katalógus-adatok kezelése.');
 
-  const [activeTab, setActiveTab] = useState<'programs' | 'providers' | 'regions' | 'categories' | 'inquiries' | 'settings'>('programs');
+  const [activeTab, setActiveTab] = useState<'programs' | 'providers' | 'bookings' | 'regions' | 'categories' | 'inquiries' | 'settings'>('programs');
+  const [confirmingOrderId, setConfirmingOrderId] = useState<string | null>(null);
+
+  // Bookings tab (kanban fbf552b2 point 4, NEW): admin sees ALL orders ("Visitors can
+  // view own orders" RLS also has an is_admin() branch, see schema.sql).
+  const pendingOrders = orders.filter(o => o.status === 'pending');
+
+  const handleConfirmOrder = async (id: string) => {
+    setConfirmingOrderId(id);
+    try {
+      await confirmOrder(id);
+    } finally {
+      setConfirmingOrderId(null);
+    }
+  };
 
   // Fee settings editor (Csaba 2026-10-07 penzugyi-mukodesi-modell PDF): local
   // draft inputs, only written on save.
@@ -280,6 +304,23 @@ export const AdminDashboard: React.FC = () => {
           {pendingProviders > 0 && (
             <span className="bg-purple-500 text-white text-[10px] font-extrabold px-1.5 py-0.5 rounded-full">
               {pendingProviders} új
+            </span>
+          )}
+        </button>
+
+        <button
+          onClick={() => setActiveTab('bookings')}
+          className={`pb-3 text-sm font-bold transition-colors cursor-pointer border-b-2 flex items-center gap-2 shrink-0 ${
+            activeTab === 'bookings'
+              ? 'border-emerald-600 text-emerald-800'
+              : 'border-transparent text-stone-500 hover:text-stone-800'
+          }`}
+        >
+          <Ticket className="w-4 h-4" />
+          <span>Foglalások ({orders.length})</span>
+          {pendingOrders.length > 0 && (
+            <span className="bg-amber-500 text-white text-[10px] font-extrabold px-1.5 py-0.5 rounded-full">
+              {pendingOrders.length} jóváhagyásra vár
             </span>
           )}
         </button>
@@ -765,6 +806,61 @@ export const AdminDashboard: React.FC = () => {
               );
             })}
           </div>
+        </div>
+      )}
+
+      {/* TAB: FOGLALÁSOK (kanban fbf552b2 point 4, NEW) -- "jóváhagyás" itt szimulálja a
+          fizetés-teljesülést; a confirm_order RPC admin-only, lásd schema.sql. */}
+      {activeTab === 'bookings' && (
+        <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden shadow-sm">
+          <div className="p-4 bg-stone-50 border-b border-stone-100 text-xs font-bold text-stone-500 uppercase tracking-wider">
+            Összes Foglalás ({orders.length})
+          </div>
+          {orders.length > 0 ? (
+            <div className="divide-y divide-stone-100">
+              {orders.map((order) => (
+                <div key={order.id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <h4 className="font-bold text-stone-900 text-sm">{order.program?.title || 'Program'}</h4>
+                      <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                        order.status === 'confirmed' ? 'bg-emerald-100 text-emerald-800' :
+                        order.status === 'pending' ? 'bg-amber-100 text-amber-900' :
+                        'bg-stone-100 text-stone-500'
+                      }`}>
+                        {order.status === 'confirmed' ? 'Megerősítve' : order.status === 'pending' ? 'Jóváhagyásra vár' : 'Lemondva'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-stone-500">
+                      {order.participants_count} fő · {order.total_price} {order.currency === 'EUR' ? '€' : order.currency}
+                      {' '}(foglalási díj {order.booking_fee} € · helyszínen {order.onsite_amount} €)
+                      {order.onsite_payment_method && (
+                        <span className="inline-flex items-center gap-1 ml-1">
+                          {order.onsite_payment_method === 'revolut' ? <Wallet className="w-3 h-3" /> : <Banknote className="w-3 h-3" />}
+                          {PAYMENT_METHOD_LABEL[order.onsite_payment_method]}
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  {order.status === 'pending' && (
+                    <button
+                      onClick={() => handleConfirmOrder(order.id)}
+                      disabled={confirmingOrderId === order.id}
+                      className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1 cursor-pointer shadow-sm disabled:opacity-60 shrink-0"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      <span>{confirmingOrderId === order.id ? 'Jóváhagyás...' : 'Jóváhagyás (fizetés szimulálása)'}</span>
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="p-12 text-center">
+              <Ticket className="w-12 h-12 text-stone-300 mx-auto mb-3" />
+              <p className="text-sm text-stone-600">Még nem érkezett foglalás.</p>
+            </div>
+          )}
         </div>
       )}
 

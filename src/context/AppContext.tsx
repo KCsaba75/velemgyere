@@ -12,7 +12,10 @@ import {
   ProviderStatus,
   Order,
   CreditTransaction,
-  ProgramAvailability
+  ProgramAvailability,
+  OrderProviderContact,
+  OrderBuyerInfo,
+  OnsitePaymentMethod
 } from '../types/database';
 import { 
   INITIAL_CATEGORIES, 
@@ -144,12 +147,18 @@ interface AppContextType {
     participants_count: number;
     total_price: number;
     currency?: string;
+    onsite_payment_method: OnsitePaymentMethod;
   }) => Promise<{ success: boolean; message: string }>;
   cancelOrder: (id: string) => Promise<void>;
 
   // Capacity check (point 6): only meaningful for logged-in users looking at the
   // gated detail view. Returns null when not configured/not authenticated.
   checkProgramAvailability: (programId: string) => Promise<ProgramAvailability | null>;
+
+  // Admin approval + privacy-gated contact lookups (kanban fbf552b2 points 3/4/5).
+  confirmOrder: (id: string) => Promise<{ success: boolean; message: string }>;
+  getProviderContactForOrder: (orderId: string) => Promise<OrderProviderContact | null>;
+  getOrderBuyerInfo: (orderId: string) => Promise<OrderBuyerInfo | null>;
 
   // Credit ledger (point 5): read-only from the client -- crediting/payout is
   // admin-side (manual_payout, refund) for now, see schema.sql comment.
@@ -262,6 +271,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // anonymous default-visitor placeholder profile). Only meaningful when
   // isSupabaseConfigured -- always false in the no-Supabase dev fallback.
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  // Own full provider row (kanban fbf552b2 point 3), fetched via get_my_provider_profile()
+  // RPC once logged in as a provider -- see syncFromSession. null for every other role,
+  // or until it resolves. Supabase-only; the no-Supabase dev fallback below still derives
+  // currentProvider from the local rawProviders array directly.
+  const [currentProviderFull, setCurrentProviderFull] = useState<Provider | null>(null);
 
   // Save changes to localStorage
   useEffect(() => {
@@ -296,17 +310,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(currentUser));
   }, [currentUser]);
 
-  // Programs/providers (kanban 71215856 point 4): which table/view to read depends on
-  // auth state -- anon gets the teaser-only `*_public` views (DB-enforced via column
-  // GRANTs, see schema.sql), a logged-in visitor gets the full tables. Centralized here
-  // and called from the auth-sync effect below (on mount AND on every login/logout) so
+  // Programs/providers: which table/view to read depends on auth state -- anon gets the
+  // teaser-only `programs_public` view (DB-enforced via column GRANTs, see schema.sql),
+  // a logged-in visitor/provider gets the full `programs` table (start_time/end_time/
+  // included/not_included/max_participants, still detail-only). Centralized here and
+  // called from the auth-sync effect below (on mount AND on every login/logout) so
   // there's exactly one place that decides this, instead of duplicating the choice.
-  const loadProgramsAndProviders = async (authed: boolean) => {
+  //
+  // Providers (kanban fbf552b2 point 3, tightened 2026-10-07): the `providers` table's
+  // column-grant is teaser-only for EVERYONE now (contact_name/email/phone/website were
+  // previously readable by any authenticated user for any approved provider, letting a
+  // buyer and provider negotiate directly and skip the booking fee). Admins alone get the
+  // full row, via the admin_list_providers() RPC (is_admin() checked server-side) -- role
+  // is passed in explicitly since it's already known at the two call sites below.
+  const loadProgramsAndProviders = async (authed: boolean, role?: string) => {
     const programsTable = authed ? 'programs' : 'programs_public';
-    const providersTable = authed ? 'providers' : 'providers_public';
+    const providersQuery = authed && role === 'admin'
+      ? supabase.rpc('admin_list_providers')
+      : supabase.from('providers_public').select('*');
     const [programsRes, providersRes] = await Promise.all([
       supabase.from(programsTable).select('*'),
-      supabase.from(providersTable).select('*'),
+      providersQuery,
     ]);
     if (programsRes.error || providersRes.error) {
       console.error('Programs/providers load failed, keeping previous data:', programsRes.error || providersRes.error);
@@ -403,6 +427,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         created_at: new Date().toISOString(),
       };
       setCurrentUser(visitor);
+      setCurrentProviderFull(null);
       loadProgramsAndProviders(false);
     }
 
@@ -425,19 +450,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           .maybeSingle();
 
         if (!existing) {
+          const insertPayload = {
+            user_id: session.user.id,
+            company_name: pending.company_name,
+            contact_name: pending.contact_name,
+            email: session.user.email,
+            phone: pending.phone,
+            website: pending.website || null,
+            description: pending.description,
+            status: 'pending' as const,
+          };
+          // .select('id') only -- RETURNING the other columns would need a table-wide
+          // SELECT grant the authenticated role no longer has (kanban fbf552b2 point 3,
+          // providers is teaser-column-only now). The rest of the row is already fully
+          // known locally (it's exactly what was just inserted), so it's built below
+          // instead of read back.
           const { data: newProv, error: provErr } = await supabase
             .from('providers')
-            .insert({
-              user_id: session.user.id,
-              company_name: pending.company_name,
-              contact_name: pending.contact_name,
-              email: session.user.email,
-              phone: pending.phone,
-              website: pending.website || null,
-              description: pending.description,
-              status: 'pending',
-            })
-            .select()
+            .insert(insertPayload)
+            .select('id')
             .single();
 
           if (!provErr && newProv) {
@@ -449,7 +480,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             });
             // Clear the metadata flag so this doesn't try to insert again on every future login.
             await supabase.auth.updateUser({ data: { pending_provider: null } });
-            if (!cancelled) setRawProviders(prev => [...prev, newProv as Provider]);
+            if (!cancelled) setRawProviders(prev => [...prev, { ...insertPayload, id: newProv.id } as Provider]);
           } else if (provErr) {
             console.error('Deferred provider registration failed:', provErr);
           }
@@ -481,11 +512,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       if (prof && !cancelled) {
+        const role = (prof as Profile).role;
         setIsAuthenticated(true);
         setCurrentUser(prof as Profile);
         setRawProfiles(prev => (prev.some(p => p.id === prof!.id) ? prev : [...prev, prof as Profile]));
-        setCurrentView((prof as Profile).role === 'admin' ? 'admin-dashboard' : (prof as Profile).role === 'provider' ? 'provider-dashboard' : 'home');
-        loadProgramsAndProviders(true);
+        setCurrentView(role === 'admin' ? 'admin-dashboard' : role === 'provider' ? 'provider-dashboard' : 'home');
+        loadProgramsAndProviders(true, role);
+
+        // Own provider row, full columns incl. contact fields (kanban fbf552b2 point 3) --
+        // see loadProgramsAndProviders' comment on why the generic providers fetch is
+        // teaser-only now. Resolved server-side (auth.uid()/own email), no email-fallback
+        // column needed client-side anymore.
+        if (role === 'provider') {
+          supabase.rpc('get_my_provider_profile').then(({ data, error }) => {
+            if (cancelled) return;
+            if (error) {
+              console.error('get_my_provider_profile failed:', error);
+              return;
+            }
+            setCurrentProviderFull((data as Provider) || null);
+          });
+        } else {
+          setCurrentProviderFull(null);
+        }
       }
     }
 
@@ -529,15 +578,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, [isAuthenticated]);
 
-  // Derived current provider. user_id match only counts when actually set: every
-  // provider/profile loaded from the real Supabase tables has user_id=NULL (no Supabase
-  // Auth session behind the mock login yet, see kanban 318cedd7) -- without that guard,
-  // `null === null` would match the first provider in the array for ANY logged-in user,
-  // including admin. Falls back to email (same identifier the mock login itself matches
-  // on), so the provider dashboard still resolves "my programs" correctly today.
+  // Current provider. Supabase-configured path: currentProviderFull, fetched server-side
+  // via get_my_provider_profile() (see syncFromSession) -- resolves user_id=auth.uid() OR
+  // a matching auth.users email itself, so it works even for the legacy seed providers
+  // with user_id=NULL (kanban 318cedd7). rawProviders no longer carries contact columns
+  // (incl. email) for a non-admin role (kanban fbf552b2 point 3), so that old client-side
+  // email-fallback below is now dead for the real backend -- kept only as the no-Supabase
+  // dev fallback, where rawProviders is the full local seedData/localStorage array.
   const currentProvider =
-    (currentUser.user_id && rawProviders.find(p => p.user_id && p.user_id === currentUser.user_id)) ||
-    rawProviders.find(p => (p.email || '').toLowerCase() === currentUser.email.toLowerCase()) ||
+    currentProviderFull ||
+    (!isSupabaseConfigured && (
+      (currentUser.user_id && rawProviders.find(p => p.user_id && p.user_id === currentUser.user_id)) ||
+      rawProviders.find(p => (p.email || '').toLowerCase() === currentUser.email.toLowerCase())
+    )) ||
     null;
 
   // Joined programs with images, category, region, provider
@@ -1090,6 +1143,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     participants_count: number;
     total_price: number;
     currency?: string;
+    onsite_payment_method: OnsitePaymentMethod;
   }): Promise<{ success: boolean; message: string }> => {
     if (!isSupabaseConfigured) {
       return { success: false, message: 'A foglalás jelenleg csak élő háttérrendszerrel működik.' };
@@ -1109,6 +1163,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         total_price: data.total_price,
         currency: data.currency || 'EUR',
         status: 'pending',
+        onsite_payment_method: data.onsite_payment_method,
       })
       .select()
       .single();
@@ -1139,6 +1194,51 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     const row = Array.isArray(data) ? data[0] : data;
     return row ? (row as ProgramAvailability) : null;
+  };
+
+  // Admin-only "szimulált fizetés-teljesülés" (kanban fbf552b2 point 4): the confirm_order
+  // RPC re-checks is_admin() server-side (the direct-table-update path to 'confirmed' was
+  // closed off for everyone else, see schema.sql) and flips pending -> confirmed. On
+  // success, re-reads the row so the caller's local `orders` state picks up the new
+  // status immediately without a full reload.
+  const confirmOrder = async (id: string): Promise<{ success: boolean; message: string }> => {
+    if (!isSupabaseConfigured) {
+      return { success: false, message: 'A jóváhagyás csak élő háttérrendszerrel működik.' };
+    }
+    const { error } = await supabase.rpc('confirm_order', { p_order_id: id });
+    if (error) {
+      return { success: false, message: `Hiba a jóváhagyás során: ${error.message}` };
+    }
+    setOrders(prev => prev.map(o => (o.id === id ? { ...o, status: 'confirmed' } : o)));
+    return { success: true, message: 'Rendelés jóváhagyva.' };
+  };
+
+  // Buyer-side (kanban fbf552b2 point 3+5a): the provider's contact details, resolvable
+  // only for the caller's OWN confirmed order -- see get_provider_contact_for_order in
+  // schema.sql. Returns null before confirmation or for any other order.
+  const getProviderContactForOrder = async (orderId: string): Promise<OrderProviderContact | null> => {
+    if (!isSupabaseConfigured) return null;
+    const { data, error } = await supabase.rpc('get_provider_contact_for_order', { p_order_id: orderId });
+    if (error) {
+      console.error('get_provider_contact_for_order failed:', error);
+      return null;
+    }
+    const row = Array.isArray(data) ? data[0] : data;
+    return row ? (row as OrderProviderContact) : null;
+  };
+
+  // Provider/admin-side (kanban fbf552b2 point 5b): the buyer's name/email for an order on
+  // the caller's OWN program -- see get_order_buyer_info in schema.sql. Returns null for
+  // any order that doesn't belong to the caller's own program (or if not admin).
+  const getOrderBuyerInfo = async (orderId: string): Promise<OrderBuyerInfo | null> => {
+    if (!isSupabaseConfigured) return null;
+    const { data, error } = await supabase.rpc('get_order_buyer_info', { p_order_id: orderId });
+    if (error) {
+      console.error('get_order_buyer_info failed:', error);
+      return null;
+    }
+    const row = Array.isArray(data) ? data[0] : data;
+    return row ? (row as OrderBuyerInfo) : null;
   };
 
   // Admin-only (enforced by the "Admins can manage app settings" RLS policy, this is
@@ -1258,6 +1358,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         createOrder,
         cancelOrder,
         checkProgramAvailability,
+        confirmOrder,
+        getProviderContactForOrder,
+        getOrderBuyerInfo,
 
         creditTransactions,
         creditBalance,

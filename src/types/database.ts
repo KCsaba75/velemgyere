@@ -17,9 +17,12 @@ export interface Provider {
   id: string;
   user_id: string;
   company_name: string;
-  // contact_name/email/phone: only present when fetched from the full `providers`
-  // table (authenticated). Anonymous visitors get `providers_public`
-  // (id/company_name/description/status only) -- see kanban 71215856 point 4.
+  // contact_name/email/phone/website (kanban fbf552b2 point 3, tightened 2026-10-07):
+  // the `providers` table's column-grant is teaser-only for BOTH anon and authenticated
+  // now (id/company_name/description/status/user_id) -- these never come back from a
+  // plain select anymore, only from the targeted RPCs (get_my_provider_profile for your
+  // own provider row, get_provider_contact_for_order for a buyer with a confirmed order,
+  // admin_list_providers for admins). See schema.sql.
   contact_name?: string;
   email?: string;
   phone?: string;
@@ -75,10 +78,11 @@ export interface Program {
   featured: boolean;
   created_at: string;
   updated_at: string;
-  // Detail-only fields (kanban 71215856 point 4): only present when fetched from the
-  // full `programs` table (authenticated). Anonymous visitors get `programs_public`
-  // (teaser columns only) and these come back undefined -- ProgramDetailView gates
-  // the sections that use them behind isAuthenticated.
+  // description/departure_location (kanban fbf552b2 point 1): PUBLIC since 2026-10-07,
+  // present for anon too via `programs_public` (see schema.sql). start_time/end_time/
+  // included/not_included/max_participants stay detail-only -- only present when
+  // fetched from the full `programs` table (authenticated); anon's `programs_public`
+  // doesn't carry them, ProgramDetailView gates those sections behind isAuthenticated.
   description?: string;
   departure_location?: string; // e.g. "Barcelona Placa de Catalunya vagy szállodai transzfer"
   start_time?: string;
@@ -95,6 +99,8 @@ export interface Program {
 
 export type OrderStatus = 'pending' | 'confirmed' | 'cancelled';
 
+export type OnsitePaymentMethod = 'cash' | 'revolut';
+
 export interface Order {
   id: string;
   program_id: string;
@@ -110,12 +116,33 @@ export interface Order {
   // Amount due at the in-person meeting (= net_amount, what the provider
   // receives). Server-set alongside booking_fee, same trust boundary.
   onsite_amount: number;
+  // Buyer's chosen payment method for the onsite_amount (kanban fbf552b2 point 5a) --
+  // a plain preference, not a trusted monetary amount, so the client sets it directly
+  // (unlike booking_fee/onsite_amount above).
+  onsite_payment_method?: OnsitePaymentMethod | null;
   currency: string;
   status: OrderStatus;
   created_at: string;
   updated_at: string;
   // Joined field for display convenience
   program?: Program;
+}
+
+// Returned by the get_provider_contact_for_order RPC (kanban fbf552b2 point 3): the
+// provider's contact details, only resolvable server-side for the buyer's OWN
+// confirmed order -- see schema.sql. Empty/undefined until then.
+export interface OrderProviderContact {
+  contact_name: string;
+  email: string;
+  phone: string;
+  website: string | null;
+}
+
+// Returned by the get_order_buyer_info RPC (kanban fbf552b2 point 5b): the buyer's
+// name/email, only resolvable server-side for the provider's (or admin's) OWN program.
+export interface OrderBuyerInfo {
+  name: string;
+  email: string;
 }
 
 export type CreditTransactionType = 'signup_bonus' | 'refund' | 'usage' | 'manual_payout';

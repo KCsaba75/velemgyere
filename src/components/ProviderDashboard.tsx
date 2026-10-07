@@ -1,27 +1,35 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
-import { 
-  Building2, 
-  PlusCircle, 
-  Calendar, 
-  Clock, 
-  Users, 
-  Mail, 
-  Phone, 
-  Eye, 
-  Edit, 
-  Trash2, 
-  CheckCircle, 
-  Clock3, 
-  FileText, 
+import {
+  Building2,
+  PlusCircle,
+  Calendar,
+  Clock,
+  Users,
+  Mail,
+  Phone,
+  Eye,
+  Edit,
+  Trash2,
+  CheckCircle,
+  Clock3,
+  FileText,
   AlertCircle,
   Archive,
   MessageSquare,
   Sparkles,
-  ExternalLink
+  ExternalLink,
+  Ticket,
+  Banknote,
+  Wallet
 } from 'lucide-react';
-import { Program, ProgramStatus } from '../types/database';
+import { Program, ProgramStatus, OrderBuyerInfo, OnsitePaymentMethod } from '../types/database';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
+
+const PAYMENT_METHOD_LABEL: Record<OnsitePaymentMethod, string> = {
+  cash: 'Készpénz',
+  revolut: 'Revolut',
+};
 
 interface ProviderDashboardProps {
   onOpenNewProgram: () => void;
@@ -33,20 +41,48 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
     currentProvider,
     programs,
     inquiries,
+    orders,
+    getOrderBuyerInfo,
     openProgramDetail,
     deleteProgram,
     updateProgram
   } = useApp();
 
-  useDocumentMeta('Szolgáltatói Dashboard', 'Saját programok és érdeklődések kezelése.');
+  useDocumentMeta('Szolgáltatói Dashboard', 'Saját programok, foglalások és érdeklődések kezelése.');
 
-  const [activeTab, setActiveTab] = useState<'programs' | 'inquiries'>('programs');
+  const [activeTab, setActiveTab] = useState<'programs' | 'bookings' | 'inquiries'>('programs');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
   // Filter programs for this provider
   const ownPrograms = programs.filter(
     (p) => p.provider_id === currentProvider?.id || (currentUser.role === 'admin' ? true : false)
   );
+
+  // Bookings tab (kanban fbf552b2 point 5b, NEW): orders already arrive RLS-scoped to
+  // this provider's own programs (or all, for admin) -- see "Providers can view orders
+  // for their programs" in schema.sql, no client-side provider_id filter needed beyond
+  // matching against ownPrograms for display grouping.
+  const ownProgramIds = new Set(ownPrograms.map(p => p.id));
+  const ownOrders = orders.filter(o => ownProgramIds.has(o.program_id));
+  const confirmedOwnOrders = ownOrders.filter(o => o.status === 'confirmed');
+
+  const [buyerInfos, setBuyerInfos] = useState<Record<string, OrderBuyerInfo>>({});
+  const confirmedOwnOrderIds = confirmedOwnOrders.map(o => o.id).join(',');
+
+  useEffect(() => {
+    const ids = confirmedOwnOrderIds ? confirmedOwnOrderIds.split(',') : [];
+    let cancelled = false;
+    ids.forEach(id => {
+      getOrderBuyerInfo(id).then(info => {
+        if (cancelled || !info) return;
+        setBuyerInfos(prev => ({ ...prev, [id]: info }));
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [confirmedOwnOrderIds]);
 
   // Status counts (Section 11)
   const totalProgramsCount = ownPrograms.length;
@@ -208,6 +244,18 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
         </button>
 
         <button
+          onClick={() => setActiveTab('bookings')}
+          className={`pb-3 text-sm font-bold transition-colors cursor-pointer border-b-2 flex items-center gap-2 ${
+            activeTab === 'bookings'
+              ? 'border-emerald-600 text-emerald-700'
+              : 'border-transparent text-stone-500 hover:text-stone-800'
+          }`}
+        >
+          <Ticket className="w-4 h-4" />
+          <span>Foglalások ({ownOrders.length})</span>
+        </button>
+
+        <button
           onClick={() => setActiveTab('inquiries')}
           className={`pb-3 text-sm font-bold transition-colors cursor-pointer border-b-2 flex items-center gap-2 ${
             activeTab === 'inquiries'
@@ -348,6 +396,66 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
               >
                 + Új program rögzítése
               </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Tab: Bookings (kanban fbf552b2 point 5b, NEW) */}
+      {activeTab === 'bookings' && (
+        <div className="space-y-4">
+          {ownOrders.length > 0 ? (
+            <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden shadow-sm">
+              <div className="p-4 bg-stone-50 border-b border-stone-100 text-xs font-bold text-stone-500 uppercase tracking-wider">
+                Foglalások ({ownOrders.length})
+              </div>
+              <div className="divide-y divide-stone-100">
+                {ownOrders.map((order) => {
+                  const program = programs.find(p => p.id === order.program_id);
+                  const buyer = buyerInfos[order.id];
+                  return (
+                    <div key={order.id} className="p-5 hover:bg-stone-50/50 transition-colors space-y-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <h4 className="font-bold text-stone-900 text-sm">{program?.title || 'Program'}</h4>
+                        <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
+                          order.status === 'confirmed' ? 'bg-emerald-100 text-emerald-800' :
+                          order.status === 'pending' ? 'bg-amber-100 text-amber-900' :
+                          'bg-stone-100 text-stone-500'
+                        }`}>
+                          {order.status === 'confirmed' ? 'Megerősítve' : order.status === 'pending' ? 'Függőben (jóváhagyásra vár)' : 'Lemondva'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-stone-500">
+                        {order.participants_count} fő · helyszínen fizetendő: {order.onsite_amount} {order.currency === 'EUR' ? '€' : order.currency}
+                        {order.onsite_payment_method && (
+                          <span className="inline-flex items-center gap-1 ml-1">
+                            ({order.onsite_payment_method === 'revolut' ? <Wallet className="w-3 h-3" /> : <Banknote className="w-3 h-3" />} {PAYMENT_METHOD_LABEL[order.onsite_payment_method]})
+                          </span>
+                        )}
+                      </p>
+                      {order.status === 'confirmed' && (
+                        <div className="bg-emerald-50/60 border border-emerald-100 rounded-xl p-3 text-xs text-stone-700">
+                          {buyer ? (
+                            <span>👤 Vevő: <strong className="text-stone-900">{buyer.name}</strong> ({buyer.email})</span>
+                          ) : (
+                            <span className="text-stone-400">Vevő adatainak betöltése...</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white rounded-2xl border border-stone-200 p-12 text-center">
+              <Ticket className="w-12 h-12 text-stone-300 mx-auto mb-3" />
+              <h4 className="text-base font-bold text-stone-800 font-display mb-1">
+                Még nem érkezett foglalás
+              </h4>
+              <p className="text-xs text-stone-500">
+                Amint egy látogató lefoglal egy helyet, és az adminisztrátor jóváhagyja, itt megjelenik a vevő adataival.
+              </p>
             </div>
           )}
         </div>

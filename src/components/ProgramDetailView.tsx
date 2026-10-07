@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
@@ -15,21 +15,23 @@ import {
   Mail,
   Globe,
   Share2,
-  Send,
   Check,
   Sparkles,
-  ShieldCheck,
   Lock,
   LogIn,
   Loader2,
-  BadgeEuro
+  BadgeEuro,
+  Banknote,
+  Wallet
 } from 'lucide-react';
 import { CategoryIcon } from './CategoryIcon';
-import { ProgramAvailability } from '../types/database';
+import { ProgramAvailability, OnsitePaymentMethod, OrderProviderContact } from '../types/database';
 
-// Kanban 71215856 point 4: a login-gated detail sections share this one prompt
-// instead of each rolling their own "please log in" box.
-const LoginToSeeMore: React.FC<{ label: string; setCurrentView: (v: string) => void }> = ({ label, setCurrentView }) => (
+// Kanban fbf552b2 point 1: a still-gated detail sections (mit tartalmaz/nem tartalmaz)
+// share this one prompt instead of each rolling their own "please log in" box. ctaLabel
+// defaults to a plain login CTA, but the still-gated sections use a clearer
+// "További információk" wording per Csaba's request.
+const LoginToSeeMore: React.FC<{ label: string; setCurrentView: (v: string) => void; ctaLabel?: string }> = ({ label, setCurrentView, ctaLabel }) => (
   <div className="bg-stone-50 border border-dashed border-stone-300 rounded-xl p-4 flex items-center gap-3 text-sm text-stone-600">
     <Lock className="w-4 h-4 text-stone-400 shrink-0" />
     <span className="flex-1">{label}</span>
@@ -38,7 +40,7 @@ const LoginToSeeMore: React.FC<{ label: string; setCurrentView: (v: string) => v
       className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 hover:text-emerald-800 shrink-0 cursor-pointer"
     >
       <LogIn className="w-3.5 h-3.5" />
-      Bejelentkezés
+      {ctaLabel || 'Bejelentkezés'}
     </button>
   </div>
 );
@@ -48,11 +50,12 @@ export const ProgramDetailView: React.FC = () => {
   const {
     programs,
     setCurrentView,
-    submitInquiry,
     currentUser,
     isAuthenticated,
+    orders,
     checkProgramAvailability,
     createOrder,
+    getProviderContactForOrder,
     computeBookingFee,
     computeTotalPrice
   } = useApp();
@@ -63,15 +66,6 @@ export const ProgramDetailView: React.FC = () => {
 
   // Gallery state
   const [activeImageIndex, setActiveImageIndex] = useState(0);
-
-  // Inquiry Modal state
-  const [inquiryModalOpen, setInquiryModalOpen] = useState(false);
-  const [name, setName] = useState(currentUser.role === 'visitor' ? '' : currentUser.name);
-  const [email, setEmail] = useState(currentUser.role === 'visitor' ? '' : currentUser.email);
-  const [phone, setPhone] = useState('');
-  const [message, setMessage] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitSuccess, setSubmitSuccess] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
 
   // Availability check (point 6) -- only callable once logged in, see checkProgramAvailability.
@@ -79,12 +73,33 @@ export const ProgramDetailView: React.FC = () => {
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
   const [availabilityChecked, setAvailabilityChecked] = useState(false);
 
-  // Reservation ("Helyfoglalás", point 2) -- a status-only order record, not a real
-  // payment. Kept separate from the inquiry CTA above (that one stays a no-login lead
-  // form going straight to the provider; this one is the logged-in-only account record).
+  // Reservation ("Helyfoglalás", kanban fbf552b2 point 2) -- a status-only order record,
+  // not a real payment yet. This is now the ONLY primary CTA on the page -- it replaces
+  // the old "Érdekel a program!" inquiry modal, which let a buyer message the provider
+  // directly (and the provider reply directly) completely outside the order/fee model.
   const [participantsCount, setParticipantsCount] = useState(1);
+  const [onsitePaymentMethod, setOnsitePaymentMethod] = useState<OnsitePaymentMethod>('cash');
   const [reservationSubmitting, setReservationSubmitting] = useState(false);
   const [reservationResult, setReservationResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  // Provider contact reveal (point 3) -- only once THIS user has a CONFIRMED order for
+  // THIS program, resolved server-side (get_provider_contact_for_order never returns
+  // another user's or a still-pending order's contact details, see schema.sql).
+  const [providerContact, setProviderContact] = useState<OrderProviderContact | null>(null);
+  const confirmedOrderForProgram = orders.find(o => o.program_id === program?.id && o.status === 'confirmed');
+
+  useEffect(() => {
+    setProviderContact(null);
+    if (!confirmedOrderForProgram) return;
+    let cancelled = false;
+    getProviderContactForOrder(confirmedOrderForProgram.id).then(contact => {
+      if (!cancelled) setProviderContact(contact);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [confirmedOrderForProgram?.id]);
 
   const handleCheckAvailability = async () => {
     if (!program) return;
@@ -112,6 +127,7 @@ export const ProgramDetailView: React.FC = () => {
         participants_count: participantsCount,
         total_price: netTotal + computeBookingFee(netTotal),
         currency: program.currency,
+        onsite_payment_method: onsitePaymentMethod,
       });
       setReservationResult(result);
     } finally {
@@ -154,27 +170,6 @@ export const ProgramDetailView: React.FC = () => {
       return program.event_date;
     }
   })();
-
-  const handleInquirySubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim() || !email.trim()) return;
-
-    setIsSubmitting(true);
-    try {
-      await submitInquiry({
-        program_id: program.id,
-        name: name.trim(),
-        email: email.trim(),
-        phone: phone.trim() || undefined,
-        message: message.trim() || undefined,
-      });
-      setSubmitSuccess(true);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   const handleCopyLink = () => {
     navigator.clipboard?.writeText(window.location.href);
@@ -349,33 +344,24 @@ export const ProgramDetailView: React.FC = () => {
               </div>
               <div className="bg-stone-50 p-3.5 rounded-xl border border-stone-100">
                 <span className="text-xs font-bold text-stone-500 block mb-1">🚩 Indulás / Találkozó / Felszállás:</span>
-                {isAuthenticated ? (
-                  <span className="font-semibold text-stone-900">{program.departure_location}</span>
-                ) : (
-                  <span className="text-stone-400 text-xs italic">bejelentkezve látható</span>
-                )}
+                <span className="font-semibold text-stone-900">{program.departure_location}</span>
               </div>
             </div>
           </div>
 
-          {/* Detailed Description -- gated, point 4 */}
+          {/* Detailed Description (kanban fbf552b2 point 1): public since 2026-10-07,
+              no login required -- see schema.sql programs_public/anon grant. */}
           <div className="prose prose-stone max-w-none">
             <h3 className="font-display font-bold text-stone-900 text-xl mb-3">
               Részletes leírás
             </h3>
-            {isAuthenticated ? (
-              <div className="text-stone-700 whitespace-pre-line leading-relaxed text-base space-y-4">
-                {program.description}
-              </div>
-            ) : (
-              <LoginToSeeMore
-                label="A program teljes, részletes leírása bejelentkezett látogatóknak látható."
-                setCurrentView={setCurrentView}
-              />
-            )}
+            <div className="text-stone-700 whitespace-pre-line leading-relaxed text-base space-y-4">
+              {program.description}
+            </div>
           </div>
 
-          {/* Included / Not Included Sections -- gated, point 4 */}
+          {/* Included / Not Included Sections -- still gated (point 1: only the
+              description + meeting point above became public, this stays behind login) */}
           {isAuthenticated ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-4 border-t border-stone-200">
               {/* Mit tartalmaz */}
@@ -422,116 +408,17 @@ export const ProgramDetailView: React.FC = () => {
             <LoginToSeeMore
               label="Mit tartalmaz és mit nem tartalmaz az ár -- bejelentkezve látható."
               setCurrentView={setCurrentView}
+              ctaLabel="További információk"
             />
           )}
-
-          {/* Capacity check (point 6) -- authenticated only, matches the detail gate above */}
-          {isAuthenticated && (
-            <div className="bg-white rounded-2xl border border-stone-200 p-5">
-              <h3 className="font-display font-bold text-stone-900 text-lg flex items-center gap-2 mb-3">
-                <Users className="w-5 h-5 text-emerald-600" />
-                <span>Szabad helyek ellenőrzése</span>
-              </h3>
-              {!availabilityChecked ? (
-                <button
-                  onClick={handleCheckAvailability}
-                  disabled={availabilityLoading}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-white text-sm font-semibold cursor-pointer disabled:opacity-60"
-                >
-                  {availabilityLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Users className="w-4 h-4" />}
-                  <span>{availabilityLoading ? 'Ellenőrzés...' : 'Van még szabad hely?'}</span>
-                </button>
-              ) : availability === null ? (
-                <p className="text-sm text-stone-500">Nem sikerült lekérni az elérhetőséget, próbáld újra.</p>
-              ) : availability.available === null ? (
-                <p className="text-sm text-emerald-700 font-semibold flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4" /> Ehhez a programhoz nincs létszámkorlát.
-                </p>
-              ) : availability.available > 0 ? (
-                <p className="text-sm text-emerald-700 font-semibold flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4" /> Még {availability.available} szabad hely van ({availability.booked}/{availability.max_participants} lefoglalva).
-                </p>
-              ) : (
-                <p className="text-sm text-rose-600 font-semibold flex items-center gap-1.5">
-                  <XCircle className="w-4 h-4" /> Ez a program jelenleg betelt ({availability.booked}/{availability.max_participants}).
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* Reservation ("Helyfoglalás", point 2) -- logged-in-only status-only order */}
-          <div className="bg-white rounded-2xl border border-stone-200 p-5">
-            <h3 className="font-display font-bold text-stone-900 text-lg flex items-center gap-2 mb-3">
-              <BadgeEuro className="w-5 h-5 text-emerald-600" />
-              <span>Helyfoglalás</span>
-            </h3>
-            {!isAuthenticated ? (
-              <LoginToSeeMore
-                label="A helyfoglaláshoz és a saját fiókodban való nyilvántartásához bejelentkezés szükséges."
-                setCurrentView={setCurrentView}
-              />
-            ) : reservationResult?.success ? (
-              <p className="text-sm text-emerald-700 font-semibold flex items-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4" /> {reservationResult.message}
-              </p>
-            ) : (
-              <form onSubmit={handleReservationSubmit} className="flex flex-wrap items-end gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
-                    Résztvevők száma
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={participantsCount}
-                    onChange={(e) => setParticipantsCount(Math.max(1, Number(e.target.value) || 1))}
-                    className="w-24 text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-                {(() => {
-                  // Checkout breakdown (kanban 71215856 point 3): the server's
-                  // set_order_booking_fee trigger computes the exact same way from
-                  // the program's own price row -- this is display-only, mirroring
-                  // it so the visitor sees the real split before submitting.
-                  const netTotal = program.price * participantsCount;
-                  const fee = computeBookingFee(netTotal);
-                  const total = netTotal + fee;
-                  const curr = program.currency === 'EUR' ? '€' : program.currency;
-                  return (
-                    <>
-                      <p className="text-sm text-stone-600">
-                        Teljes ár: <strong className="text-stone-900">{total.toFixed(2)} {curr}</strong>
-                      </p>
-                      <p className="text-sm text-stone-600">
-                        Most fizetendő (foglalási díj): <strong className="text-stone-900">{fee.toFixed(2)} {curr}</strong>
-                      </p>
-                      <p className="text-sm text-stone-600">
-                        Helyszínen fizetendő: <strong className="text-stone-900">{netTotal.toFixed(2)} {curr}</strong>
-                      </p>
-                    </>
-                  );
-                })()}
-                <button
-                  type="submit"
-                  disabled={reservationSubmitting}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 px-5 rounded-xl text-sm cursor-pointer disabled:opacity-60"
-                >
-                  {reservationSubmitting ? 'Foglalás...' : 'Foglalás véglegesítése'}
-                </button>
-                {reservationResult && !reservationResult.success && (
-                  <p className="text-sm text-rose-600 w-full">{reservationResult.message}</p>
-                )}
-                <p className="text-[11px] text-stone-400 w-full">
-                  Ez egy foglalási szándék rögzítése, nem végleges fizetés -- a szolgáltató hamarosan megerősíti.
-                  A foglalási díj az elfogadás utáni lépésben esedékes, a fennmaradó összeget a helyszínen,
-                  készpénzben vagy átutalással rendezed a szolgáltatóval.
-                </p>
-              </form>
-            )}
-          </div>
         </div>
 
-        {/* Right Column: Sticky Action Card & Provider Details */}
+        {/* Right Column: Sticky Booking Card & Provider Details (kanban fbf552b2 point 2:
+            replaces the old "Érdekel a program!" inquiry CTA + modal, which let a buyer
+            and provider negotiate directly and skip the booking fee entirely. The
+            availability-check + reservation flow below used to live in the left column
+            (point 6, "Szabad helyek ellenőrzése" + "Helyfoglalás") -- consolidated here as
+            the page's one primary CTA.) */}
         <div className="space-y-6">
           <div className="bg-white rounded-3xl border border-stone-200 shadow-xl p-6 sticky top-28 space-y-6">
             <div className="flex items-baseline justify-between border-b border-stone-100 pb-4">
@@ -542,32 +429,140 @@ export const ProgramDetailView: React.FC = () => {
                 </span>
                 <span className="text-xs text-stone-500 font-medium"> / fő</span>
               </div>
-
-              <div className="text-right">
-                <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg">
-                  Közvetlen kapcsolat
-                </span>
-              </div>
             </div>
 
-            {/* CTA Button */}
+            {/* Availability + Reservation ("Helyfoglalás") */}
             <div>
-              <button
-                onClick={() => {
-                  setSubmitSuccess(false);
-                  setInquiryModalOpen(true);
-                }}
-                className="w-full bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold py-4 px-6 rounded-2xl shadow-lg shadow-emerald-600/25 transition-all text-center flex items-center justify-center gap-2 cursor-pointer transform hover:-translate-y-0.5"
-              >
-                <Sparkles className="w-5 h-5" />
-                <span className="tracking-wide">ÉRDEKEL A PROGRAM</span>
-              </button>
-              <p className="text-[11px] text-stone-400 text-center mt-2.5">
-                Kérj kötelezettségmentes tájékoztatást közvetlenül a helyi magyar szolgáltatótól!
-              </p>
+              <h3 className="font-display font-bold text-stone-900 text-base flex items-center gap-2 mb-3">
+                <BadgeEuro className="w-5 h-5 text-emerald-600" />
+                <span>Helyfoglalás</span>
+              </h3>
+
+              {!isAuthenticated ? (
+                <LoginToSeeMore
+                  label="A helyfoglaláshoz és a saját fiókodban való nyilvántartásához bejelentkezés szükséges."
+                  setCurrentView={setCurrentView}
+                />
+              ) : (
+                <div className="space-y-4">
+                  {!availabilityChecked ? (
+                    <button
+                      onClick={handleCheckAvailability}
+                      disabled={availabilityLoading}
+                      className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-stone-900 hover:bg-stone-800 text-white text-sm font-semibold cursor-pointer disabled:opacity-60"
+                    >
+                      {availabilityLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Users className="w-4 h-4" />}
+                      <span>{availabilityLoading ? 'Ellenőrzés...' : 'Van még szabad hely?'}</span>
+                    </button>
+                  ) : availability === null ? (
+                    <p className="text-sm text-stone-500">Nem sikerült lekérni az elérhetőséget, próbáld újra.</p>
+                  ) : availability.available === null ? (
+                    <p className="text-sm text-emerald-700 font-semibold flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4" /> Ehhez a programhoz nincs létszámkorlát.
+                    </p>
+                  ) : availability.available > 0 ? (
+                    <p className="text-sm text-emerald-700 font-semibold flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4" /> Még {availability.available} szabad hely van ({availability.booked}/{availability.max_participants} lefoglalva).
+                    </p>
+                  ) : (
+                    <p className="text-sm text-rose-600 font-semibold flex items-center gap-1.5">
+                      <XCircle className="w-4 h-4" /> Ez a program jelenleg betelt ({availability.booked}/{availability.max_participants}).
+                    </p>
+                  )}
+
+                  {reservationResult?.success ? (
+                    <p className="text-sm text-emerald-700 font-semibold flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4" /> {reservationResult.message}
+                    </p>
+                  ) : (
+                    <form onSubmit={handleReservationSubmit} className="space-y-3">
+                      <div>
+                        <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
+                          Résztvevők száma
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          value={participantsCount}
+                          onChange={(e) => setParticipantsCount(Math.max(1, Number(e.target.value) || 1))}
+                          className="w-24 text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
+                          Helyszíni fizetés módja
+                        </label>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setOnsitePaymentMethod('cash')}
+                            className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border cursor-pointer transition-colors ${
+                              onsitePaymentMethod === 'cash'
+                                ? 'bg-emerald-600 border-emerald-600 text-white'
+                                : 'bg-white border-stone-300 text-stone-600 hover:bg-stone-50'
+                            }`}
+                          >
+                            <Banknote className="w-3.5 h-3.5" /> Készpénz
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setOnsitePaymentMethod('revolut')}
+                            className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border cursor-pointer transition-colors ${
+                              onsitePaymentMethod === 'revolut'
+                                ? 'bg-emerald-600 border-emerald-600 text-white'
+                                : 'bg-white border-stone-300 text-stone-600 hover:bg-stone-50'
+                            }`}
+                          >
+                            <Wallet className="w-3.5 h-3.5" /> Revolut
+                          </button>
+                        </div>
+                      </div>
+
+                      {(() => {
+                        // Checkout breakdown (point 3): the server's set_order_booking_fee
+                        // trigger computes the exact same way from the program's own
+                        // price row -- this is display-only, mirroring it so the visitor
+                        // sees the real split before submitting.
+                        const netTotal = program.price * participantsCount;
+                        const fee = computeBookingFee(netTotal);
+                        const total = netTotal + fee;
+                        const curr = program.currency === 'EUR' ? '€' : program.currency;
+                        return (
+                          <div className="text-sm text-stone-600 space-y-0.5">
+                            <p>Teljes ár: <strong className="text-stone-900">{total.toFixed(2)} {curr}</strong></p>
+                            <p>Most fizetendő (foglalási díj): <strong className="text-stone-900">{fee.toFixed(2)} {curr}</strong></p>
+                            <p>Helyszínen fizetendő: <strong className="text-stone-900">{netTotal.toFixed(2)} {curr}</strong></p>
+                          </div>
+                        );
+                      })()}
+
+                      <button
+                        type="submit"
+                        disabled={reservationSubmitting}
+                        className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-5 rounded-xl text-sm cursor-pointer disabled:opacity-60"
+                      >
+                        {reservationSubmitting ? 'Foglalás...' : 'Foglalás véglegesítése'}
+                      </button>
+                      {reservationResult && !reservationResult.success && (
+                        <p className="text-sm text-rose-600">{reservationResult.message}</p>
+                      )}
+                      <p className="text-[11px] text-stone-400">
+                        Ez egy foglalási szándék rögzítése, nem végleges fizetés -- az adminisztrátor
+                        hamarosan jóváhagyja. A foglalási díj a jóváhagyás utáni lépésben esedékes, a
+                        fennmaradó összeget a helyszínen, a fent választott móddal rendezed a szolgáltatóval.
+                      </p>
+                    </form>
+                  )}
+                </div>
+              )}
             </div>
 
-            {/* Provider Info Card */}
+            {/* Provider Info Card (point 3): company_name/description always public
+                (already in providers_public) -- contact details (contact_name/phone/
+                email/website) ONLY after a confirmed order for THIS program, resolved
+                server-side via getProviderContactForOrder, never from program.provider
+                directly (that join is teaser-only now, see schema.sql). */}
             {program.provider && (
               <div className="border-t border-stone-100 pt-5 space-y-4">
                 <div className="flex items-center gap-2.5">
@@ -588,44 +583,44 @@ export const ProgramDetailView: React.FC = () => {
                   {program.provider.description}
                 </p>
 
-                {/* Provider contact details -- gated, point 4 */}
-                {isAuthenticated ? (
+                {providerContact ? (
                   <div className="space-y-2 text-xs text-stone-600 pt-2 border-t border-stone-100">
                     <div className="flex items-center gap-2">
                       <Users className="w-3.5 h-3.5 text-stone-400 shrink-0" />
-                      <span>Kapcsolattartó: <strong className="text-stone-800">{program.provider.contact_name}</strong></span>
+                      <span>Kapcsolattartó: <strong className="text-stone-800">{providerContact.contact_name}</strong></span>
                     </div>
 
                     <div className="flex items-center gap-2">
                       <Phone className="w-3.5 h-3.5 text-stone-400 shrink-0" />
-                      <span className="text-stone-800 font-semibold">{program.provider.phone}</span>
+                      <span className="text-stone-800 font-semibold">{providerContact.phone}</span>
                     </div>
 
                     <div className="flex items-center gap-2">
                       <Mail className="w-3.5 h-3.5 text-stone-400 shrink-0" />
-                      <span className="text-stone-800 truncate">{program.provider.email}</span>
+                      <span className="text-stone-800 truncate">{providerContact.email}</span>
                     </div>
 
-                    {program.provider.website && (
+                    {providerContact.website && (
                       <div className="flex items-center gap-2">
                         <Globe className="w-3.5 h-3.5 text-stone-400 shrink-0" />
                         <a
-                          href={program.provider.website}
+                          href={providerContact.website}
                           target="_blank"
                           rel="noreferrer"
                           className="text-emerald-700 hover:underline truncate font-semibold"
                         >
-                          {program.provider.website}
+                          {providerContact.website}
                         </a>
                       </div>
                     )}
                   </div>
                 ) : (
-                  <div className="pt-2 border-t border-stone-100">
-                    <LoginToSeeMore
-                      label="A szolgáltató elérhetőségei bejelentkezve láthatók."
-                      setCurrentView={setCurrentView}
-                    />
+                  <div className="pt-2 border-t border-stone-100 bg-stone-50 border border-dashed border-stone-300 rounded-xl p-4 flex items-center gap-3 text-xs text-stone-600">
+                    <Lock className="w-4 h-4 text-stone-400 shrink-0" />
+                    <span>
+                      A szolgáltató elérhetőségei a foglalás jóváhagyása után válnak láthatóvá
+                      a Saját fiókomban.
+                    </span>
                   </div>
                 )}
               </div>
@@ -634,126 +629,6 @@ export const ProgramDetailView: React.FC = () => {
         </div>
       </div>
 
-      {/* Inquiry Modal */}
-      {inquiryModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-stone-200 relative animate-in zoom-in-95 duration-200">
-            <button
-              onClick={() => setInquiryModalOpen(false)}
-              className="absolute top-5 right-5 text-stone-400 hover:text-stone-700 p-1.5 rounded-xl hover:bg-stone-100 transition-colors cursor-pointer"
-            >
-              ✕
-            </button>
-
-            {!submitSuccess ? (
-              <>
-                <div className="mb-6">
-                  <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider block mb-1">
-                    Közvetlen Kapcsolatfelvétel Magyar Nyelven
-                  </span>
-                  <h3 className="font-display text-2xl font-extrabold text-stone-900">
-                    Érdekel a program!
-                  </h3>
-                  <p className="text-sm text-stone-600 mt-1">
-                    Küldj üzenetet közvetlenül a kinti szervezőnek (<strong>{program.provider?.company_name}</strong>). A válasz e-mailben vagy telefonon érkezik magyarul.
-                  </p>
-                </div>
-
-                <form onSubmit={handleInquirySubmit} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
-                      Név <span className="text-rose-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="Pl. Kovács Anna"
-                      className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-4 py-2.5 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
-                      E-mail cím <span className="text-rose-500">*</span>
-                    </label>
-                    <input
-                      type="email"
-                      required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="kovacs.anna@pelda.hu"
-                      className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-4 py-2.5 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
-                      Telefonszám <span className="text-stone-400 font-normal">(opcionális)</span>
-                    </label>
-                    <input
-                      type="tel"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder="+36 30 123 4567"
-                      className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-4 py-2.5 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
-                      Üzenet vagy kérdés <span className="text-stone-400 font-normal">(opcionális)</span>
-                    </label>
-                    <textarea
-                      rows={3}
-                      value={message}
-                      onChange={(e) => setMessage(e.target.value)}
-                      placeholder="Pl. Hány fővel érkeztek, milyen szállodában laktok, melyik nap lenne ideális..."
-                      className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-4 py-2.5 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none"
-                    ></textarea>
-                  </div>
-
-                  <div className="pt-2">
-                    <button
-                      type="submit"
-                      disabled={isSubmitting}
-                      className="w-full bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold py-3.5 px-6 rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md disabled:opacity-50"
-                    >
-                      {isSubmitting ? (
-                        <span>Küldés folyamatban...</span>
-                      ) : (
-                        <>
-                          <Send className="w-4 h-4" />
-                          <span>Érdeklődés elküldése</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </form>
-              </>
-            ) : (
-              <div className="text-center py-6">
-                <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-4">
-                  <Check className="w-8 h-8 stroke-[3]" />
-                </div>
-                <h3 className="font-display text-2xl font-extrabold text-stone-900 mb-2">
-                  Köszönjük érdeklődésedet!
-                </h3>
-                <p className="text-sm text-stone-600 mb-6 max-w-sm mx-auto">
-                  Üzeneted sikeresen továbbítottuk a kinti magyar szolgáltatónak (<strong>{program.provider?.company_name}</strong>). Hamarosan keresni fognak e-mailben vagy telefonon!
-                </p>
-                <button
-                  onClick={() => setInquiryModalOpen(false)}
-                  className="bg-stone-900 hover:bg-stone-800 text-white font-semibold px-6 py-2.5 rounded-xl text-sm cursor-pointer"
-                >
-                  Rendben, bezárás
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 };

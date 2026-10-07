@@ -660,3 +660,188 @@ begin
   return new;
 end;
 $$;
+
+-- ==========================================
+-- Added live 2026-10-07 (kanban fbf552b2, Csaba kerese): booking-flow v2 -- publikus
+-- reszletek, provider-privacy, admin-jovahagyas. Mutacios tesztekkel verifikalt elesben
+-- (SET LOCAL ROLE + request.jwt.claims), lasd a kanban-kartya 1. koros kommentjet.
+-- ==========================================
+
+-- POINT 1: description + departure_location lesz anon-nak is lathato (teaser bovites).
+-- Uj oszlop csak a vegere veheto fel a view-ban (meglevo pozicio nem valtozhat).
+grant select (description, departure_location) on public.programs to anon;
+
+create or replace view public.programs_public with (security_invoker = true) as
+  select
+    id, provider_id, category_id, region_id,
+    title, slug, short_description,
+    country, price, currency, event_date,
+    featured, status, created_at, updated_at,
+    location, duration, language,
+    description, departure_location
+  from public.programs
+  where status = 'published';
+
+-- POINT 3+6: a providers tablan az authenticated eddig TELJES oszlop-SELECT-et kapott
+-- (csak az anon volt oszlop-korlatozva) -- ezert barmely bejelentkezett latogato kliens-
+-- oldalon megkapta BARMELYIK jovahagyott szolgaltato contact_name/phone/email/website-jet,
+-- fuggetlenul attol van-e nekik megerositett (confirmed) rendelesük. Ez pontosan az a
+-- "vevo es szolgaltato fizetes nelkul egyezkedhet" rés, amit a kartya 3. pontja zar.
+-- Az authenticated ugyanazt a teaser-oszlop-keszletet kapja mint az anon; a tenyleges
+-- contact-adatokhoz uj, celzott RPC-k kellenek (lasd lejjebb). user_id is kell mindket
+-- szerepnek: tobb MAR MEGLEVO RLS policy (programs/orders/inquiries) providers.user_id-ra
+-- JOIN-ol a jogosultsag-ellenorzeshez, es ez a column-level SELECT grant alol NEM mentes
+-- (parse-time oszlop-privilegium check, fuggetlenul a futasidejű rovidzarlattol) -- ezt
+-- egy sikertelen elso migracio-probalkozas mutacios tesztje derítette ki (lasd lejjebb a
+-- kulon grantot), user_id maga nem erzekeny (random UUID, nem kontakt-adat).
+revoke select on public.providers from authenticated;
+grant select (id, company_name, description, status, user_id) on public.providers to anon, authenticated;
+
+-- Sajat szolgaltatoi profil (teljes sorral, kontakt-mezokkel egyutt) -- csak a sajat
+-- sornak, auth.uid()-bol/az auth.users sajat email-ebol szarmaztatva. Ez a kliens korabbi
+-- "rawProviders.find(p => p.email === currentUser.email)" fallback-matcheset valtja fel
+-- biztonsagosan (nem igenyel tablaszintu SELECT-et a kontakt-oszlopokra).
+create or replace function public.get_my_provider_profile()
+returns public.providers
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select p.*
+  from public.providers p
+  left join auth.users u on u.id = auth.uid()
+  where p.user_id = auth.uid()
+     or (u.email is not null and lower(p.email) = lower(u.email))
+  limit 1;
+$$;
+
+revoke execute on function public.get_my_provider_profile() from public, anon;
+grant execute on function public.get_my_provider_profile() to authenticated;
+
+-- Admin-only teljes szolgaltato-lista (kontakt-mezokkel) -- az AdminDashboard
+-- Szolgáltatók tabja ezt hivja a sima tablaolvasas helyett. is_admin() a fuggvenyen
+-- BELUL ellenorizve (service_role/is_admin() mogott, nem anon/authenticated ir-ut).
+create or replace function public.admin_list_providers()
+returns setof public.providers
+language plpgsql
+security definer
+set search_path = public
+stable
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'Csak adminisztrator hivhatja az admin_list_providers()-t.';
+  end if;
+  return query select * from public.providers order by created_at desc;
+end;
+$$;
+
+revoke execute on function public.admin_list_providers() from public, anon;
+grant execute on function public.admin_list_providers() to authenticated;
+
+-- A vevonek a szolgaltato kontakt-adatai (contact_name/email/phone/website) CSAK akkor,
+-- ha a sajat (auth.uid()) megerositett (confirmed) rendelese van az adott programhoz.
+-- Ures eredmeny minden mas esetben (nincs ilyen rendeles, vagy nem a sajat rendelese).
+create or replace function public.get_provider_contact_for_order(p_order_id uuid)
+returns table (contact_name text, email text, phone text, website text)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select pv.contact_name, pv.email, pv.phone, pv.website
+  from public.orders o
+  join public.programs pg on pg.id = o.program_id
+  join public.providers pv on pv.id = pg.provider_id
+  where o.id = p_order_id
+    and o.user_id = auth.uid()
+    and o.status = 'confirmed';
+$$;
+
+revoke execute on function public.get_provider_contact_for_order(uuid) from public, anon;
+grant execute on function public.get_provider_contact_for_order(uuid) to authenticated;
+
+-- A szolgaltatonak (vagy adminnak) a vevo neve/email-je egy SAJAT programjahoz tartozo
+-- rendeleshez -- a ProviderDashboard "Foglalasok" tabjahoz (5b pont). Ures eredmeny, ha a
+-- hivo nem a program szolgaltatoja es nem admin.
+create or replace function public.get_order_buyer_info(p_order_id uuid)
+returns table (name text, email text)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select pr.name, pr.email
+  from public.orders o
+  join public.programs pg on pg.id = o.program_id
+  join public.providers pv on pv.id = pg.provider_id
+  join public.profiles pr on pr.user_id = o.user_id
+  where o.id = p_order_id
+    and (pv.user_id = auth.uid() or public.is_admin());
+$$;
+
+revoke execute on function public.get_order_buyer_info(uuid) from public, anon;
+grant execute on function public.get_order_buyer_info(uuid) to authenticated;
+
+-- POINT 4+6: a rendeles jovahagyasa (szimulalt fizetes-teljesules) KIZAROLAG ezen az
+-- RPC-n keresztul -- a kesobbi Stripe-webhook ugyanezt a fuggvenyt fogja hivni (akkor
+-- mar service_role-kent, nem authenticated-kent, igy az is_admin()-ellenorzes uton lesz
+-- majd bovitve, MOST meg nem -- lasd a kartya 4. pontjat, a fizetesi lepcsot most kihagyjuk).
+create or replace function public.confirm_order(p_order_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'Csak adminisztrator hagyhatja jova a rendelest.';
+  end if;
+  update public.orders
+    set status = 'confirmed', updated_at = timezone('utc'::text, now())
+    where id = p_order_id and status = 'pending';
+end;
+$$;
+
+revoke execute on function public.confirm_order(uuid) from public, anon;
+grant execute on function public.confirm_order(uuid) to authenticated;
+
+-- A szolgaltato eddig korlatozas nelkul atirhatta a sajat programjaihoz tartozo rendeles
+-- statuszat (nem volt with_check), tehat elvben 'confirmed'-re is allithatta volna --
+-- pontosan az admin-jovahagyasi modellt megkerulve. Szukitve: a szolgaltato csak
+-- 'cancelled'-re allithatja (pl. a program lemondasa), 'confirmed'-re csak a confirm_order()
+-- RPC (admin) allithatja at. Az admin kozvetlen tablairasat kulon, explicit policy adja,
+-- ugyanazt a mintat kovetve mint a regions/categories/credit_transactions/app_settings
+-- tablakon ("Admins can manage X").
+drop policy if exists "Providers can update orders for their programs" on public.orders;
+
+create policy "Providers can cancel orders for their programs"
+  on public.orders for update
+  using (
+    exists (
+      select 1 from public.programs
+      join public.providers on providers.id = programs.provider_id
+      where programs.id = orders.program_id and providers.user_id = auth.uid()
+    )
+  )
+  with check (
+    exists (
+      select 1 from public.programs
+      join public.providers on providers.id = programs.provider_id
+      where programs.id = orders.program_id and providers.user_id = auth.uid()
+    )
+    and status = 'cancelled'
+  );
+
+create policy "Admins can manage orders"
+  on public.orders for update
+  using (public.is_admin())
+  with check (public.is_admin());
+
+-- POINT 5a: a vevo valasztott helyszini fizetesi modja (keszpenz vagy revolut) --
+-- a kliens adja meg a Veglegesites lepesnel, nem erzekeny osszeg-mezo (csak preferencia),
+-- ezert nincs trigger-felulbiralas mint booking_fee/onsite_amount eseteben.
+alter table public.orders
+  add column if not exists onsite_payment_method text
+    check (onsite_payment_method is null or onsite_payment_method in ('cash', 'revolut'));
