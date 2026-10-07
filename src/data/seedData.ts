@@ -95,6 +95,7 @@ export const INITIAL_PROVIDERS: Provider[] = [
     description: 'Több mint 8 éve élünk Cipruson. Magyar nyelvű kiscsoportos kirándulásokat, hegyi túrákat és megbízható reptéri transzfereket biztosítunk Larnaca és Paphos környékén.',
     status: 'approved',
     created_at: '2026-05-10T10:00:00Z',
+    accepted_payment_methods: ['cash'],
   },
   {
     id: 'prov-malta',
@@ -107,6 +108,7 @@ export const INITIAL_PROVIDERS: Provider[] = [
     description: 'Hivatalos máltai engedéllyel rendelkező helyi magyar idegenvezető. Történelmi séták Vallettában, Mdina titkai és felejthetetlen gozói privát élmények.',
     status: 'approved',
     created_at: '2026-06-12T12:00:00Z',
+    accepted_payment_methods: ['cash'],
   },
   {
     id: 'prov-spain',
@@ -119,6 +121,7 @@ export const INITIAL_PROVIDERS: Provider[] = [
     description: 'Barcelonában, Málagán és Mallorcán szervezünk autentikus magyar nyelvű városi sétákat, andalúz szurdoktúrákat és reptéri kényelmi transzfereket.',
     status: 'approved',
     created_at: '2026-07-01T09:30:00Z',
+    accepted_payment_methods: ['cash'],
   },
   {
     id: 'prov-rome',
@@ -131,6 +134,7 @@ export const INITIAL_PROVIDERS: Provider[] = [
     description: 'Rómában élő magyar művészettörténész és idegenvezető. Soron kívüli bejutás a Vatikánba és Colosseumba, valamint reptéri Fiumicino transzferek magyar sofőrrel.',
     status: 'approved',
     created_at: '2026-07-15T15:20:00Z',
+    accepted_payment_methods: ['cash'],
   },
   {
     id: 'prov-istanbul',
@@ -143,6 +147,7 @@ export const INITIAL_PROVIDERS: Provider[] = [
     description: '12 éve Isztambulban élő magyar hölgyként mutatom meg a város ezer arcát: hajózás a Boszporuszon, gasztrotúrák és privát reptéri asszisztencia.',
     status: 'approved',
     created_at: '2026-08-01T11:00:00Z',
+    accepted_payment_methods: ['cash'],
   },
 ];
 

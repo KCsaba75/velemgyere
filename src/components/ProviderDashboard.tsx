@@ -65,6 +65,7 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
     email: '',
     website: '',
     description: '',
+    accepted_payment_methods: ['cash'] as OnsitePaymentMethod[],
   });
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileMessage, setProfileMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -78,10 +79,26 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
       email: currentProvider.email || '',
       website: currentProvider.website || '',
       description: currentProvider.description || '',
+      accepted_payment_methods: currentProvider.accepted_payment_methods?.length
+        ? currentProvider.accepted_payment_methods
+        : ['cash'],
     });
   }, [currentProvider]);
 
+  const toggleProfilePaymentMethod = (method: OnsitePaymentMethod) => {
+    setProfileForm(prev => ({
+      ...prev,
+      accepted_payment_methods: prev.accepted_payment_methods.includes(method)
+        ? prev.accepted_payment_methods.filter(m => m !== method)
+        : [...prev.accepted_payment_methods, method],
+    }));
+  };
+
   const handleProfileSave = async () => {
+    if (profileForm.accepted_payment_methods.length === 0) {
+      setProfileMessage({ type: 'error', text: 'Legalább egy elfogadott fizetési módot ki kell választanod.' });
+      return;
+    }
     setProfileSaving(true);
     setProfileMessage(null);
     try {
@@ -665,6 +682,39 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
               />
             </div>
 
+            <div>
+              <label className="text-xs font-bold text-stone-600 block mb-1">
+                Elfogadott fizetési mód helyszínen
+              </label>
+              <p className="text-xs text-stone-400 mb-2">
+                Ez minden programodra érvényes, nem állítható program-szintenként. A vásárló csak az itt bejelölt módok közül választhat Véglegesítésnél.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => toggleProfilePaymentMethod('cash')}
+                  className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-semibold border cursor-pointer transition-colors ${
+                    profileForm.accepted_payment_methods.includes('cash')
+                      ? 'bg-emerald-600 border-emerald-600 text-white'
+                      : 'bg-stone-50 border-stone-300 text-stone-600 hover:bg-stone-100'
+                  }`}
+                >
+                  <Banknote className="w-3.5 h-3.5" /> Készpénz
+                </button>
+                <button
+                  type="button"
+                  onClick={() => toggleProfilePaymentMethod('revolut')}
+                  className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-semibold border cursor-pointer transition-colors ${
+                    profileForm.accepted_payment_methods.includes('revolut')
+                      ? 'bg-emerald-600 border-emerald-600 text-white'
+                      : 'bg-stone-50 border-stone-300 text-stone-600 hover:bg-stone-100'
+                  }`}
+                >
+                  <Wallet className="w-3.5 h-3.5" /> Revolut
+                </button>
+              </div>
+            </div>
+
             {profileMessage && (
               <div className={`text-xs font-semibold px-3.5 py-2.5 rounded-xl ${
                 profileMessage.type === 'success'
@@ -677,7 +727,7 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
 
             <button
               onClick={handleProfileSave}
-              disabled={profileSaving}
+              disabled={profileSaving || profileForm.accepted_payment_methods.length === 0}
               className="bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold px-5 py-2.5 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer text-sm"
             >
               <Save className="w-4 h-4" />

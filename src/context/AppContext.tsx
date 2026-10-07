@@ -96,6 +96,7 @@ interface AppContextType {
     website?: string;
     description: string;
     password: string;
+    accepted_payment_methods: OnsitePaymentMethod[];
   }) => Promise<{ success: boolean; message: string }>;
 
   // Data Collections
@@ -140,6 +141,7 @@ interface AppContextType {
     email?: string;
     website?: string;
     description?: string;
+    accepted_payment_methods?: OnsitePaymentMethod[];
   }) => Promise<void>;
 
   // Inquiries
@@ -451,7 +453,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       const pending = (session.user.user_metadata as Record<string, unknown> | undefined)?.pending_provider as
-        | { company_name: string; contact_name: string; phone: string; website?: string; description: string }
+        | { company_name: string; contact_name: string; phone: string; website?: string; description: string; accepted_payment_methods: OnsitePaymentMethod[] }
         | undefined;
 
       if (pending) {
@@ -471,6 +473,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             website: pending.website || null,
             description: pending.description,
             status: 'pending' as const,
+            accepted_payment_methods: pending.accepted_payment_methods,
           };
           // .select('id') only -- RETURNING the other columns would need a table-wide
           // SELECT grant the authenticated role no longer has (kanban fbf552b2 point 3,
@@ -773,6 +776,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     website?: string;
     description: string;
     password: string;
+    accepted_payment_methods: OnsitePaymentMethod[];
   }): Promise<{ success: boolean; message: string }> => {
     if (isSupabaseConfigured) {
       const { data: signUpData, error } = await supabase.auth.signUp({
@@ -786,6 +790,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               phone: data.phone,
               website: data.website || null,
               description: data.description,
+              accepted_payment_methods: data.accepted_payment_methods,
             },
           },
         },
@@ -823,6 +828,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       description: data.description,
       status: 'pending',
       created_at: new Date().toISOString(),
+      accepted_payment_methods: data.accepted_payment_methods,
     };
     const newProfile: Profile = {
       id: `prof-${Date.now()}`,
@@ -1115,6 +1121,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     email?: string;
     website?: string;
     description?: string;
+    accepted_payment_methods?: OnsitePaymentMethod[];
   }): Promise<void> => {
     if (!currentProviderFull) {
       throw new Error('Nincs betöltve a szolgáltatói profilod.');

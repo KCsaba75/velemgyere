@@ -845,3 +845,185 @@ create policy "Admins can manage orders"
 alter table public.orders
   add column if not exists onsite_payment_method text
     check (onsite_payment_method is null or onsite_payment_method in ('cash', 'revolut'));
+
+-- ============================================================================
+-- KANBAN cfa4b20a: szolgaltato sajat-profil szerkesztes + program torles (biztonsagos)
+-- + elfogadott fizetesi mod. Ket regota nyitott hianyossag + egy uj kerés.
+-- ============================================================================
+
+-- Mellekesen talalt advisor-warning: is_admin() search_path nem volt pinnelve
+-- (function_search_path_mutable). A fuggveny mar eleve teljesen schema-qualifiolt
+-- (public.profiles), ezert a pinneles viselkedest nem valtoztat, csak zarja a lintet.
+create or replace function public.is_admin()
+returns boolean
+language plpgsql
+security definer
+set search_path to 'public'
+as $$
+begin
+  return exists (
+    select 1 from profiles
+    where profiles.user_id = auth.uid() and profiles.role = 'admin'
+  );
+end;
+$$;
+
+-- POINT 1: a providers tablan eddig csak admin-UPDATE policy volt ("Admins can manage
+-- providers", is_admin() mogott), semmilyen "sajat sor" self-update policy nem volt --
+-- ez a regisztracios funkcio bevezetese ota igy volt. A status oszlopon viszont MAR
+-- VOLT egy stray UPDATE column-grant authenticated-nek egy regi migraciobol, row-policy
+-- nelkul eddig vedte csak a hianya -- ha csak egy altalanos self-update policy-t adunk
+-- hozza, azzal a status-ra IS lehetoseget adnank a szolgaltatonak hogy sajat magat
+-- 'approved'-ra allitsa. Ezert: a safe profil-mezokre UPDATE-grant, a status-ra REVOKE,
+-- admin statuszvaltas at a admin_set_provider_status() RPC-re.
+grant update (company_name, contact_name, email, phone, website, description)
+  on public.providers to authenticated;
+
+revoke update (status) on public.providers from authenticated;
+
+create policy "Providers can update own profile"
+  on public.providers
+  for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+create or replace function public.admin_set_provider_status(p_provider_id uuid, p_status text)
+returns void
+language plpgsql
+security definer
+set search_path to 'public'
+as $$
+begin
+  if not is_admin() then
+    raise exception 'not authorized';
+  end if;
+  if p_status not in ('pending', 'approved', 'suspended') then
+    raise exception 'invalid status: %', p_status;
+  end if;
+  update providers set status = p_status where id = p_provider_id;
+end;
+$$;
+
+revoke all on function public.admin_set_provider_status(uuid, text) from public, anon;
+grant execute on function public.admin_set_provider_status(uuid, text) to authenticated;
+
+-- A regisztracios INSERT policy eddig csak auth.uid()=user_id-t nezte, a status erteket
+-- nem -- egy self-registering felhasznalo elvben mar regisztracioskor is 'approved'-ra
+-- allithatta volna sajat magat (ugyanaz a res, csak INSERT-oldalon). Innentol a
+-- regisztracio csak 'pending' statusszal fogadott el.
+drop policy "Anyone authenticated can register as provider" on public.providers;
+create policy "Anyone authenticated can register as provider"
+  on public.providers
+  for insert
+  with check (auth.uid() = user_id and status = 'pending');
+
+-- POINT 2: torlesre NINCS semmilyen DELETE policy a programs tablan -- jelenleg senki
+-- (meg admin sem RLS-en at) nem tud programot torolni, a UI "Torles" gombja csendben
+-- nem csinal semmit. orders.program_id FK ON DELETE CASCADE-del mutat programs-ra --
+-- egy naiv DELETE policy csendben torolne a hozza tartozo (akar mar confirmed) rendeleseket
+-- is. Ezert: DELETE csak owner VAGY admin, ES csak ha a programhoz NINCS egyetlen
+-- orders-sor sem (meg pending sem).
+--
+-- BUKTATO: a direkt "not exists (select 1 from orders where ...)" a DELETE policy
+-- USING-clause-aban 42P17 infinite recursion-t dob -- az orders SELECT policy-i
+-- ("Providers can view orders for their programs") visszanyulnak programs-ra, es ez a
+-- ket tabla kozotti RLS-ciklus Postgres recursion-detectort trigereli, akkor is ha
+-- logikailag nem vegtelen. A megoldas ugyanaz a trukk mint is_admin()-nal: SECURITY
+-- DEFINER wrapper fuggveny, ami megkerulei a sajat RLS-expanziot.
+create or replace function public.program_has_orders(p_program_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path to 'public'
+as $$
+  select exists (select 1 from orders where orders.program_id = p_program_id);
+$$;
+
+revoke all on function public.program_has_orders(uuid) from public, anon;
+grant execute on function public.program_has_orders(uuid) to authenticated;
+
+create policy "Owners and admins can delete orders-free programs"
+  on public.programs
+  for delete
+  using (
+    (
+      exists (
+        select 1 from providers
+        where providers.id = programs.provider_id
+          and providers.user_id = auth.uid()
+      )
+      or is_admin()
+    )
+    and not program_has_orders(programs.id)
+  );
+
+-- POINT 3: a szolgaltato bepipalhatja melyik fizetesi modokat fogadja el helyszinen --
+-- ez MINDEN programjara orokodjon (provider-szintu mezo, nem program-szintu). Legalabb
+-- egy kotelezo.
+--
+-- BUKTATO: a "array_length(accepted_payment_methods, 1) >= 1" forma NULL-t ad vissza
+-- ures tombre (nem 0-t), es egy CHECK constraint NULL eredmenyt PASS-nak vesz -- igy az
+-- ures tomb csendben athaladt volna. A helyes forma cardinality(), ami 0-t ad ures
+-- tombre.
+alter table public.providers
+  add column accepted_payment_methods text[] not null default array['cash'];
+
+alter table public.providers
+  add constraint providers_accepted_payment_methods_check
+  check (
+    accepted_payment_methods <@ array['cash','revolut']::text[]
+    and cardinality(accepted_payment_methods) >= 1
+  );
+
+grant select (accepted_payment_methods) on public.providers to anon, authenticated;
+grant update (accepted_payment_methods) on public.providers to authenticated;
+grant insert (accepted_payment_methods) on public.providers to authenticated;
+
+-- A publikus (nem-admin) providers-listazas a providers_public view-n megy, nem a
+-- nyers tablan -- ennek is bovitve kell lennie, kulonben a vevo-oldali checkout nem
+-- latja mas szolgaltatok elfogadott modjait. FIGYELEM: a view security_invoker=true
+-- volt (a caller sajat, szukitett column-grantjeit ervenyesiti, nem a view owner-eet) --
+-- egy CREATE OR REPLACE VIEW nullazza ezt a beallitast, ujra be kell lonie utana.
+create or replace view public.providers_public as
+select id, company_name, description, status, accepted_payment_methods
+from public.providers
+where status = 'approved';
+
+alter view public.providers_public set (security_invoker = true);
+
+-- A vevo Veglegesitesnel valasztott onsite_payment_method-jat a szolgaltato altal
+-- TENYLEGESEN elfogadott modokra kell korlatozni -- UI-szinten mar megvan, de API-n
+-- keresztul (direkt insert/update) is ki kell kenyszeriteni, kulonben megkerulheto.
+create or replace function public.check_order_payment_method()
+returns trigger
+language plpgsql
+security definer
+set search_path to 'public'
+as $$
+declare
+  v_accepted text[];
+begin
+  if new.onsite_payment_method is null then
+    return new;
+  end if;
+
+  select pr.accepted_payment_methods into v_accepted
+  from programs pg
+  join providers pr on pr.id = pg.provider_id
+  where pg.id = new.program_id;
+
+  if v_accepted is null or not (new.onsite_payment_method = any(v_accepted)) then
+    raise exception 'A szolgaltato nem fogadja el ezt a fizetesi modot helyszinen: %', new.onsite_payment_method;
+  end if;
+
+  return new;
+end;
+$$;
+
+revoke all on function public.check_order_payment_method() from public, anon, authenticated;
+
+create trigger orders_payment_method_check
+  before insert or update on public.orders
+  for each row
+  execute function public.check_order_payment_method();

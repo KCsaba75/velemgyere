@@ -49,6 +49,7 @@ export const ProgramDetailView: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   const {
     programs,
+    providers,
     setCurrentView,
     currentUser,
     isAuthenticated,
@@ -61,6 +62,12 @@ export const ProgramDetailView: React.FC = () => {
   } = useApp();
 
   const program = programs.find((p) => p.slug === slug);
+  const programProvider = providers.find((p) => p.id === program?.provider_id);
+  // Payment methods are a provider-level setting, inherited by all their programs
+  // (kanban cfa4b20a point 3) -- fall back to cash-only if the provider row hasn't
+  // loaded yet or predates the column.
+  const acceptedPaymentMethods: OnsitePaymentMethod[] =
+    programProvider?.accepted_payment_methods?.length ? programProvider.accepted_payment_methods : ['cash'];
 
   useDocumentMeta(program?.title, program?.short_description);
 
@@ -81,6 +88,16 @@ export const ProgramDetailView: React.FC = () => {
   const [onsitePaymentMethod, setOnsitePaymentMethod] = useState<OnsitePaymentMethod>('cash');
   const [reservationSubmitting, setReservationSubmitting] = useState(false);
   const [reservationResult, setReservationResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  // Keep the selection valid if the provider doesn't accept the default/previous
+  // choice (e.g. a cash-only provider, or switching between programs of different
+  // providers without a full remount).
+  useEffect(() => {
+    if (!acceptedPaymentMethods.includes(onsitePaymentMethod)) {
+      setOnsitePaymentMethod(acceptedPaymentMethods[0]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [program?.id, acceptedPaymentMethods.join(',')]);
 
   // Provider contact reveal (point 3) -- only once THIS user has a CONFIRMED order for
   // THIS program, resolved server-side (get_provider_contact_for_order never returns
@@ -494,28 +511,32 @@ export const ProgramDetailView: React.FC = () => {
                           Helyszíni fizetés módja
                         </label>
                         <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setOnsitePaymentMethod('cash')}
-                            className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border cursor-pointer transition-colors ${
-                              onsitePaymentMethod === 'cash'
-                                ? 'bg-emerald-600 border-emerald-600 text-white'
-                                : 'bg-white border-stone-300 text-stone-600 hover:bg-stone-50'
-                            }`}
-                          >
-                            <Banknote className="w-3.5 h-3.5" /> Készpénz
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setOnsitePaymentMethod('revolut')}
-                            className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border cursor-pointer transition-colors ${
-                              onsitePaymentMethod === 'revolut'
-                                ? 'bg-emerald-600 border-emerald-600 text-white'
-                                : 'bg-white border-stone-300 text-stone-600 hover:bg-stone-50'
-                            }`}
-                          >
-                            <Wallet className="w-3.5 h-3.5" /> Revolut
-                          </button>
+                          {acceptedPaymentMethods.includes('cash') && (
+                            <button
+                              type="button"
+                              onClick={() => setOnsitePaymentMethod('cash')}
+                              className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border cursor-pointer transition-colors ${
+                                onsitePaymentMethod === 'cash'
+                                  ? 'bg-emerald-600 border-emerald-600 text-white'
+                                  : 'bg-white border-stone-300 text-stone-600 hover:bg-stone-50'
+                              }`}
+                            >
+                              <Banknote className="w-3.5 h-3.5" /> Készpénz
+                            </button>
+                          )}
+                          {acceptedPaymentMethods.includes('revolut') && (
+                            <button
+                              type="button"
+                              onClick={() => setOnsitePaymentMethod('revolut')}
+                              className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border cursor-pointer transition-colors ${
+                                onsitePaymentMethod === 'revolut'
+                                  ? 'bg-emerald-600 border-emerald-600 text-white'
+                                  : 'bg-white border-stone-300 text-stone-600 hover:bg-stone-50'
+                              }`}
+                            >
+                              <Wallet className="w-3.5 h-3.5" /> Revolut
+                            </button>
+                          )}
                         </div>
                       </div>
 

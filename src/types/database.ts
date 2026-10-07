@@ -35,6 +35,12 @@ export interface Provider {
   stripe_account_id?: string | null;
   payouts_enabled?: boolean;
   payment_mode?: 'onsite_only' | 'online_stripe';
+  // Accepted on-site payment methods (kanban cfa4b20a point 3) -- inherited by every
+  // one of this provider's programs, not a per-program field. At least one required
+  // (DB check constraint), defaults to ['cash'] for providers who registered before
+  // this existed. Restricts which OnsitePaymentMethod a buyer can pick at checkout,
+  // enforced server-side too via the orders_payment_method_check trigger.
+  accepted_payment_methods: OnsitePaymentMethod[];
 }
 
 export interface Region {
