@@ -542,6 +542,25 @@ alter table public.providers
   add column if not exists payment_mode text not null default 'onsite_only'
     check (payment_mode in ('onsite_only', 'online_stripe'));
 
+-- Zora 2. koros review finding (2026-10-07): the "Anyone authenticated can
+-- register as provider" INSERT policy only checks auth.uid()=user_id -- nothing
+-- stopped a self-registering user from ALSO setting payouts_enabled=true/
+-- stripe_account_id/payment_mode='online_stripe' in the same insert, with no real
+-- Stripe verification behind it. Converts the table-wide INSERT/UPDATE grants to
+-- column-level grants matching the actual registration/admin-approve flows (see
+-- AppContext.tsx) -- the 3 Stripe-prep columns are excluded entirely, only
+-- service_role can write them. Verified live: a plain registration insert (no
+-- Stripe columns) still succeeds with safe defaults; an insert that explicitly
+-- includes payouts_enabled/payment_mode now fails with 42501 permission denied;
+-- admin status update (approve/suspend) still works; non-admin status update
+-- still silently blocked by RLS as before.
+revoke insert on public.providers from anon, authenticated;
+grant insert (user_id, company_name, contact_name, email, phone, website, description, status)
+  on public.providers to authenticated;
+
+revoke update on public.providers from anon, authenticated;
+grant update (status) on public.providers to authenticated;
+
 -- Percentage-based fee settings (point 1): replaces the fixed current_booking_fee
 -- (that row is left in place, orphaned -- no code references it anymore).
 -- fee_percentage is stored as a percentage NUMBER (e.g. 3.00 means 3%), not a
