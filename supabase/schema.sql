@@ -412,14 +412,23 @@ grant select (
 
 grant select (id, company_name, description, status) on public.providers to anon;
 
+-- Added live 2026-10-07: a katalogus-lista kartyak (ProgramCard) es a szures/kereses
+-- MAR MA is hasznalja a location/duration/language oszlopokat anon-kent, bejelentkezes
+-- nelkul -- ezek nem "bovebb info" (4. pont), hanem a MEGLEVO publikus bongezes resze
+-- (3. pont). A szukebb teaser-lista eltorte volna a katalogust anon-nak.
+grant select (location, duration, language) on public.programs to anon;
+
 -- security_invoker=true: a nezet tenyleg az anon RLS-et erteli ki (nem csak egy
 -- kodba sult WHERE-t), igy a frontend egyszeruen select('*')-ozhat rajta.
+-- Uj oszlop csak a vegere veheto fel (create or replace view nem valthatja meg
+-- a meglevo oszlopok pozicioit).
 create or replace view public.programs_public with (security_invoker = true) as
   select
     id, provider_id, category_id, region_id,
     title, slug, short_description,
     country, price, currency, event_date,
-    featured, status, created_at, updated_at
+    featured, status, created_at, updated_at,
+    location, duration, language
   from public.programs
   where status = 'published';
 
