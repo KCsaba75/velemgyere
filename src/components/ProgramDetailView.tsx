@@ -208,45 +208,48 @@ export const ProgramDetailView: React.FC = () => {
 
       {/* Main Image & Gallery */}
       <div className="space-y-3 mb-8">
+        {/* Badges (Csaba 2026-10-07: a kep MELLE/korulle kerulnek, nem rea -- ne
+            takarjak ki a kepet) */}
+        <div className="flex flex-wrap gap-2">
+          {/* Destination badge */}
+          <span className="bg-white border border-stone-200 text-stone-900 text-xs sm:text-sm font-bold px-3 py-1.5 rounded-xl shadow-sm flex items-center gap-1.5">
+            <span>{program.region?.flag_emoji || '✈️'}</span>
+            <span>{program.region?.name || program.location}</span>
+          </span>
+
+          {/* Service type badge */}
+          {program.category && (
+            <span className="bg-stone-900 text-stone-200 text-xs sm:text-sm font-semibold px-3 py-1.5 rounded-xl shadow-sm flex items-center gap-1.5">
+              <CategoryIcon icon={program.category.icon} className="w-4 h-4 text-emerald-400" />
+              {program.category.name}
+            </span>
+          )}
+
+          {/* Guaranteed Hungarian badge */}
+          <span className="bg-emerald-600 text-white text-xs sm:text-sm font-bold px-3 py-1.5 rounded-xl shadow-sm flex items-center gap-1.5">
+            <span>🇭🇺</span>
+            <span>{program.language || 'Magyar nyelvű vezetés'}</span>
+          </span>
+
+          {program.featured && (
+            <span className="bg-amber-500 text-white text-xs sm:text-sm font-bold px-3 py-1.5 rounded-xl shadow-sm flex items-center gap-1">
+              <Sparkles className="w-3.5 h-3.5 fill-white" />
+              Kiemelt élmény
+            </span>
+          )}
+        </div>
+
         <div className="relative aspect-[16/9] sm:aspect-[21/9] w-full rounded-3xl overflow-hidden shadow-lg border border-stone-200 bg-stone-900">
           <img
             src={currentImage}
             alt={program.title}
             className="w-full h-full object-cover transition-opacity duration-300"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/25 pointer-events-none"></div>
+        </div>
 
-          {/* Badges on image */}
-          <div className="absolute top-4 left-4 flex flex-wrap gap-2">
-            {/* Destination badge */}
-            <span className="bg-white/95 backdrop-blur-md text-stone-900 text-xs sm:text-sm font-bold px-3 py-1.5 rounded-xl shadow flex items-center gap-1.5">
-              <span>{program.region?.flag_emoji || '✈️'}</span>
-              <span>{program.region?.name || program.location}</span>
-            </span>
-
-            {/* Service type badge */}
-            {program.category && (
-              <span className="bg-stone-900/90 backdrop-blur-md text-stone-200 text-xs sm:text-sm font-semibold px-3 py-1.5 rounded-xl shadow flex items-center gap-1.5">
-                <CategoryIcon icon={program.category.icon} className="w-4 h-4 text-emerald-400" />
-                {program.category.name}
-              </span>
-            )}
-
-            {/* Guaranteed Hungarian badge */}
-            <span className="bg-emerald-600/95 text-white text-xs sm:text-sm font-bold px-3 py-1.5 rounded-xl shadow flex items-center gap-1.5">
-              <span>🇭🇺</span>
-              <span>{program.language || 'Magyar nyelvű vezetés'}</span>
-            </span>
-
-            {program.featured && (
-              <span className="bg-amber-500 text-white text-xs sm:text-sm font-bold px-3 py-1.5 rounded-xl shadow flex items-center gap-1">
-                <Sparkles className="w-3.5 h-3.5 fill-white" />
-                Kiemelt élmény
-              </span>
-            )}
-          </div>
-
-          <div className="absolute bottom-4 right-4 bg-emerald-600 text-white font-extrabold text-lg sm:text-2xl px-5 py-2.5 rounded-2xl shadow-xl">
+        {/* Price (Csaba 2026-10-07: a kep ALA kerul, nem ra) */}
+        <div className="flex justify-end">
+          <div className="inline-block bg-emerald-600 text-white font-extrabold text-lg sm:text-2xl px-5 py-2.5 rounded-2xl shadow-xl">
             {computeTotalPrice(program.price).toFixed(2)} {program.currency === 'EUR' ? '€' : program.currency}
             <span className="text-xs sm:text-sm font-normal text-emerald-100"> / fő</span>
           </div>
