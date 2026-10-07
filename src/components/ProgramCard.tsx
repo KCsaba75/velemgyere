@@ -2,6 +2,7 @@ import React from 'react';
 import { Program } from '../types/database';
 import { MapPin, Calendar, Clock, ArrowRight, Sparkles, Building2 } from 'lucide-react';
 import { CategoryIcon } from './CategoryIcon';
+import { useApp } from '../context/AppContext';
 
 interface ProgramCardProps {
   program: Program;
@@ -9,7 +10,12 @@ interface ProgramCardProps {
 }
 
 export const ProgramCard: React.FC<ProgramCardProps> = ({ program, onSelect }) => {
-  const coverImage = program.images?.find(img => img.is_cover)?.image_url 
+  // program.price is the NET amount the provider receives -- the catalog shows
+  // the buyer-facing TOTAL (net+fee), see kanban 71215856 penzugyi-mukodesi-modell.
+  const { computeTotalPrice } = useApp();
+  const displayPrice = computeTotalPrice(program.price);
+
+  const coverImage = program.images?.find(img => img.is_cover)?.image_url
     || program.images?.[0]?.image_url 
     || 'https://images.unsplash.com/photo-1590523741831-ab7e8b8f9c7f?auto=format&fit=crop&w=800&q=80';
 
@@ -76,7 +82,7 @@ export const ProgramCard: React.FC<ProgramCardProps> = ({ program, onSelect }) =
 
         {/* Price Tag overlay on image */}
         <div className="absolute bottom-3 right-3 bg-emerald-600/95 backdrop-blur-sm text-white px-3 py-1 rounded-xl shadow-lg font-extrabold text-sm sm:text-base">
-          {program.price} {program.currency === 'EUR' ? '€' : program.currency}/fő
+          {displayPrice.toFixed(2)} {program.currency === 'EUR' ? '€' : program.currency}/fő
         </div>
       </div>
 
@@ -113,7 +119,7 @@ export const ProgramCard: React.FC<ProgramCardProps> = ({ program, onSelect }) =
 
             <div className="flex items-center gap-2 text-emerald-800 font-bold">
               <span className="text-base">💰</span>
-              <span>{program.price} {program.currency === 'EUR' ? '€' : program.currency} / fő</span>
+              <span>{displayPrice.toFixed(2)} {program.currency === 'EUR' ? '€' : program.currency} / fő</span>
             </div>
           </div>
         </div>

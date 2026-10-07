@@ -156,12 +156,19 @@ interface AppContextType {
   creditTransactions: CreditTransaction[];
   creditBalance: number;
 
-  // Booking fee (Csaba's 2026-10-07 refinement): a deposit-like amount, separate
-  // from a program's total price, admin-adjustable in app_settings. The signup
-  // bonus credit always matches whatever this was AT REGISTRATION time (server
+  // Percentage-based booking fee (Csaba 2026-10-07 penzugyi-mukodesi-modell PDF):
+  // dij = MAX(feePercentage% * net_amount, feeMinimumEur), admin-adjustable in
+  // app_settings (replaces the old fixed currentBookingFee). The signup bonus
+  // credit always matches whatever feeMinimumEur was AT REGISTRATION time (server
   // trigger), not this live value -- see schema.sql grant_signup_bonus comment.
-  currentBookingFee: number;
-  updateBookingFee: (value: number) => Promise<void>;
+  feePercentage: number;
+  feeMinimumEur: number;
+  updateFeeSettings: (values: { fee_percentage: number; fee_minimum_eur: number }) => Promise<void>;
+  // Display-only helpers mirroring the server's compute_booking_fee/orders trigger
+  // formula -- a program's stored `price` is the NET amount the provider receives,
+  // the catalog/detail views must show the buyer-facing TOTAL (net+fee).
+  computeBookingFee: (netAmount: number) => number;
+  computeTotalPrice: (netAmount: number) => number;
 
   // Utility
   resetToDefaults: () => void;
@@ -239,9 +246,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Supabase-only, logged-in-only feature, always empty until a real session loads them.
   const [orders, setOrders] = useState<Order[]>([]);
   const [creditTransactions, setCreditTransactions] = useState<CreditTransaction[]>([]);
-  // Public setting (app_settings.current_booking_fee) -- readable by anon too, so it
-  // loads in the main collections effect below, not gated on isAuthenticated.
-  const [currentBookingFee, setCurrentBookingFee] = useState<number>(0);
+  // Public settings (app_settings.fee_percentage/fee_minimum_eur) -- readable by
+  // anon too, so they load in the main collections effect below, not gated on
+  // isAuthenticated.
+  const [feePercentage, setFeePercentage] = useState<number>(0);
+  const [feeMinimumEur, setFeeMinimumEur] = useState<number>(0);
 
   // Current active user profile
   const [currentUser, setCurrentUser] = useState<Profile>(() => {
@@ -334,7 +343,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         supabase.from('profiles').select('*'),
         supabase.from('program_images').select('*'),
         supabase.from('inquiries').select('*'),
-        supabase.from('app_settings').select('*').eq('key', 'current_booking_fee').maybeSingle(),
+        supabase.from('app_settings').select('*').in('key', ['fee_percentage', 'fee_minimum_eur']),
       ]);
 
       if (cancelled) return;
@@ -355,7 +364,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setRawImages((imagesRes.data as ProgramImage[]) || []);
       setInquiries((inquiriesRes.data as Inquiry[]) || []);
       if (!settingsRes.error && settingsRes.data) {
-        setCurrentBookingFee(Number((settingsRes.data as { value: number }).value) || 0);
+        const rows = settingsRes.data as { key: string; value: number }[];
+        const pct = rows.find(r => r.key === 'fee_percentage');
+        const min = rows.find(r => r.key === 'fee_minimum_eur');
+        if (pct) setFeePercentage(Number(pct.value) || 0);
+        if (min) setFeeMinimumEur(Number(min.value) || 0);
       }
     })();
 
@@ -1129,20 +1142,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Admin-only (enforced by the "Admins can manage app settings" RLS policy, this is
-  // just the client call) -- updates the live booking fee. Already-granted signup
-  // bonuses and already-created orders keep their own captured booking_fee value;
-  // only NEW registrations/reservations see this new amount.
-  const updateBookingFee = async (value: number): Promise<void> => {
+  // just the client call) -- updates the live fee settings. Already-granted signup
+  // bonuses and already-created orders keep their own captured booking_fee/onsite_amount
+  // values; only NEW registrations/reservations see the updated amounts.
+  const updateFeeSettings = async (values: { fee_percentage: number; fee_minimum_eur: number }): Promise<void> => {
     if (!isSupabaseConfigured) {
-      setCurrentBookingFee(value);
+      setFeePercentage(values.fee_percentage);
+      setFeeMinimumEur(values.fee_minimum_eur);
       return;
     }
-    const { error } = await supabase
-      .from('app_settings')
-      .update({ value, updated_at: new Date().toISOString() })
-      .eq('key', 'current_booking_fee');
+    const nowIso = new Date().toISOString();
+    const { error } = await supabase.from('app_settings').upsert([
+      { key: 'fee_percentage', value: values.fee_percentage, updated_at: nowIso },
+      { key: 'fee_minimum_eur', value: values.fee_minimum_eur, updated_at: nowIso },
+    ]);
     if (error) throw error;
-    setCurrentBookingFee(value);
+    setFeePercentage(values.fee_percentage);
+    setFeeMinimumEur(values.fee_minimum_eur);
+  };
+
+  // Mirrors the server's compute_booking_fee/orders trigger formula exactly, for
+  // display only -- the actual order record is always server-computed (schema.sql
+  // set_order_booking_fee), this never has to be trusted for a real charge.
+  const computeBookingFee = (netAmount: number): number => {
+    return Math.max((netAmount * feePercentage) / 100, feeMinimumEur);
+  };
+  const computeTotalPrice = (netAmount: number): number => {
+    return netAmount + computeBookingFee(netAmount);
   };
 
   const resetToDefaults = () => {
@@ -1236,8 +1262,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         creditTransactions,
         creditBalance,
 
-        currentBookingFee,
-        updateBookingFee,
+        feePercentage,
+        feeMinimumEur,
+        updateFeeSettings,
+        computeBookingFee,
+        computeTotalPrice,
 
         resetToDefaults,
         isSupabaseLive: isSupabaseConfigured,

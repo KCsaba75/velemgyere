@@ -53,7 +53,8 @@ export const ProgramDetailView: React.FC = () => {
     isAuthenticated,
     checkProgramAvailability,
     createOrder,
-    currentBookingFee
+    computeBookingFee,
+    computeTotalPrice
   } = useApp();
 
   const program = programs.find((p) => p.slug === slug);
@@ -102,10 +103,14 @@ export const ProgramDetailView: React.FC = () => {
     if (!program) return;
     setReservationSubmitting(true);
     try {
+      // Display-only estimate -- the server's set_order_booking_fee trigger always
+      // recomputes booking_fee/onsite_amount/total_price from the program's own
+      // price row, this submitted total_price is never trusted (schema.sql).
+      const netTotal = program.price * participantsCount;
       const result = await createOrder({
         program_id: program.id,
         participants_count: participantsCount,
-        total_price: program.price * participantsCount,
+        total_price: netTotal + computeBookingFee(netTotal),
         currency: program.currency,
       });
       setReservationResult(result);
@@ -242,7 +247,7 @@ export const ProgramDetailView: React.FC = () => {
           </div>
 
           <div className="absolute bottom-4 right-4 bg-emerald-600 text-white font-extrabold text-lg sm:text-2xl px-5 py-2.5 rounded-2xl shadow-xl">
-            {program.price} {program.currency === 'EUR' ? '€' : program.currency}
+            {computeTotalPrice(program.price).toFixed(2)} {program.currency === 'EUR' ? '€' : program.currency}
             <span className="text-xs sm:text-sm font-normal text-emerald-100"> / fő</span>
           </div>
         </div>
@@ -480,14 +485,29 @@ export const ProgramDetailView: React.FC = () => {
                     className="w-24 text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
-                <p className="text-sm text-stone-600">
-                  Összesen: <strong className="text-stone-900">{(program.price * participantsCount).toFixed(2)} {program.currency === 'EUR' ? '€' : program.currency}</strong>
-                </p>
-                {currentBookingFee > 0 && (
-                  <p className="text-sm text-stone-600">
-                    Foglalási díj most: <strong className="text-stone-900">{currentBookingFee.toFixed(2)} €</strong>
-                  </p>
-                )}
+                {(() => {
+                  // Checkout breakdown (kanban 71215856 point 3): the server's
+                  // set_order_booking_fee trigger computes the exact same way from
+                  // the program's own price row -- this is display-only, mirroring
+                  // it so the visitor sees the real split before submitting.
+                  const netTotal = program.price * participantsCount;
+                  const fee = computeBookingFee(netTotal);
+                  const total = netTotal + fee;
+                  const curr = program.currency === 'EUR' ? '€' : program.currency;
+                  return (
+                    <>
+                      <p className="text-sm text-stone-600">
+                        Teljes ár: <strong className="text-stone-900">{total.toFixed(2)} {curr}</strong>
+                      </p>
+                      <p className="text-sm text-stone-600">
+                        Most fizetendő (foglalási díj): <strong className="text-stone-900">{fee.toFixed(2)} {curr}</strong>
+                      </p>
+                      <p className="text-sm text-stone-600">
+                        Helyszínen fizetendő: <strong className="text-stone-900">{netTotal.toFixed(2)} {curr}</strong>
+                      </p>
+                    </>
+                  );
+                })()}
                 <button
                   type="submit"
                   disabled={reservationSubmitting}
@@ -500,7 +520,8 @@ export const ProgramDetailView: React.FC = () => {
                 )}
                 <p className="text-[11px] text-stone-400 w-full">
                   Ez egy foglalási szándék rögzítése, nem végleges fizetés -- a szolgáltató hamarosan megerősíti.
-                  {currentBookingFee > 0 && ' A foglalási díj az elfogadás utáni lépésben esedékes.'}
+                  A foglalási díj az elfogadás utáni lépésben esedékes, a fennmaradó összeget a helyszínen,
+                  készpénzben vagy átutalással rendezed a szolgáltatóval.
                 </p>
               </form>
             )}
@@ -514,7 +535,7 @@ export const ProgramDetailView: React.FC = () => {
               <div>
                 <span className="text-xs text-stone-500 font-bold block uppercase">Részvételi díj</span>
                 <span className="text-3xl font-extrabold text-stone-900 font-display">
-                  {program.price} {program.currency === 'EUR' ? '€' : program.currency}
+                  {computeTotalPrice(program.price).toFixed(2)} {program.currency === 'EUR' ? '€' : program.currency}
                 </span>
                 <span className="text-xs text-stone-500 font-medium"> / fő</span>
               </div>

@@ -27,6 +27,11 @@ export interface Provider {
   description: string;
   status: ProviderStatus;
   created_at?: string;
+  // Stripe Connect prep (kanban 71215856 point 5) -- columns only, no Stripe
+  // logic wired up yet. onsite_only is the only mode currently in use.
+  stripe_account_id?: string | null;
+  payouts_enabled?: boolean;
+  payment_mode?: 'onsite_only' | 'online_stripe';
 }
 
 export interface Region {
@@ -95,11 +100,16 @@ export interface Order {
   program_id: string;
   user_id: string;
   participants_count: number;
+  // Server-computed, NOT the client's insert input (see set_order_booking_fee
+  // trigger): net_amount (program.price * participants_count) + booking_fee.
   total_price: number;
-  // Deposit-like fee charged at reservation time, separate from total_price.
-  // Server-set from app_settings.current_booking_fee at insert time -- the
+  // Deposit-like fee due online now, separate from the onsite amount. Server-set
+  // from app_settings.fee_percentage/fee_minimum_eur at insert time -- the
   // client can't set or influence it (see set_order_booking_fee trigger).
   booking_fee: number;
+  // Amount due at the in-person meeting (= net_amount, what the provider
+  // receives). Server-set alongside booking_fee, same trust boundary.
+  onsite_amount: number;
   currency: string;
   status: OrderStatus;
   created_at: string;

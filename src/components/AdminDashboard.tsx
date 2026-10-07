@@ -49,29 +49,33 @@ export const AdminDashboard: React.FC = () => {
     deleteCategory,
     toggleCategoryActive,
     resetToDefaults,
-    currentBookingFee,
-    updateBookingFee
+    feePercentage,
+    feeMinimumEur,
+    updateFeeSettings
   } = useApp();
 
   useDocumentMeta('Adminisztrátori felület', 'Programok, szolgáltatók és katalógus-adatok kezelése.');
 
   const [activeTab, setActiveTab] = useState<'programs' | 'providers' | 'regions' | 'categories' | 'inquiries' | 'settings'>('programs');
 
-  // Booking fee editor (Csaba 2026-10-07): local draft input, only written on save.
-  const [bookingFeeDraft, setBookingFeeDraft] = useState(String(currentBookingFee));
-  const [bookingFeeSaving, setBookingFeeSaving] = useState(false);
-  const [bookingFeeSaved, setBookingFeeSaved] = useState(false);
+  // Fee settings editor (Csaba 2026-10-07 penzugyi-mukodesi-modell PDF): local
+  // draft inputs, only written on save.
+  const [feePercentageDraft, setFeePercentageDraft] = useState(String(feePercentage));
+  const [feeMinimumEurDraft, setFeeMinimumEurDraft] = useState(String(feeMinimumEur));
+  const [feeSettingsSaving, setFeeSettingsSaving] = useState(false);
+  const [feeSettingsSaved, setFeeSettingsSaved] = useState(false);
 
-  const handleSaveBookingFee = async () => {
-    const value = Number(bookingFeeDraft);
-    if (Number.isNaN(value) || value < 0) return;
-    setBookingFeeSaving(true);
+  const handleSaveFeeSettings = async () => {
+    const pct = Number(feePercentageDraft);
+    const min = Number(feeMinimumEurDraft);
+    if (Number.isNaN(pct) || pct < 0 || Number.isNaN(min) || min < 0) return;
+    setFeeSettingsSaving(true);
     try {
-      await updateBookingFee(value);
-      setBookingFeeSaved(true);
-      setTimeout(() => setBookingFeeSaved(false), 2500);
+      await updateFeeSettings({ fee_percentage: pct, fee_minimum_eur: min });
+      setFeeSettingsSaved(true);
+      setTimeout(() => setFeeSettingsSaved(false), 2500);
     } finally {
-      setBookingFeeSaving(false);
+      setFeeSettingsSaving(false);
     }
   };
   const [programFilter, setProgramFilter] = useState<string>('all');
@@ -305,40 +309,59 @@ export const AdminDashboard: React.FC = () => {
         </button>
       </div>
 
-      {/* TAB: BEÁLLÍTÁSOK (Csaba 2026-10-07: admin-állítható foglalási díj) */}
+      {/* TAB: BEÁLLÍTÁSOK (Csaba 2026-10-07 penzugyi-mukodesi-modell PDF: szazalekos foglalasi dij) */}
       {activeTab === 'settings' && (
         <div className="bg-white rounded-2xl border border-stone-200 p-6 max-w-lg space-y-4">
           <h3 className="font-display font-bold text-stone-900 text-lg">Foglalási díj</h3>
           <p className="text-sm text-stone-600">
-            Elolegszerű összeg, amit egy látogató a helyfoglaláskor fizet, a program teljes árától elkülönülve.
-            Regisztrációkor ezzel a mindenkori összeggel egyező ajándék-kredit kerül a visitor fiókjába --
-            a már kiadott kreditek és meglévő foglalások nem változnak utólag, ha itt módosítod az értéket.
+            A foglalási díj = MAX(százalék × program nettó ára, minimum összeg). A programgazda a
+            saját kézhez kapandó (nettó) összeget adja meg, erre számolódik rá a díj -- a vevő a
+            teljes (nettó+díj) árat látja. Regisztrációkor a mindenkori minimum összeggel egyező
+            ajándék-kredit kerül a visitor fiókjába -- a már kiadott kreditek és meglévő foglalások
+            nem változnak utólag, ha itt módosítod az értékeket.
           </p>
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <label className="w-40 text-xs font-bold text-stone-700 uppercase tracking-wider">Százalék</label>
+              <input
+                type="number"
+                min={0}
+                step="0.01"
+                value={feePercentageDraft}
+                onChange={(e) => setFeePercentageDraft(e.target.value)}
+                className="w-32 text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+              <span className="text-sm text-stone-500">%</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <label className="w-40 text-xs font-bold text-stone-700 uppercase tracking-wider">Minimum összeg</label>
+              <input
+                type="number"
+                min={0}
+                step="0.01"
+                value={feeMinimumEurDraft}
+                onChange={(e) => setFeeMinimumEurDraft(e.target.value)}
+                className="w-32 text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+              <span className="text-sm text-stone-500">€</span>
+            </div>
+          </div>
           <div className="flex items-center gap-3">
-            <input
-              type="number"
-              min={0}
-              step="0.01"
-              value={bookingFeeDraft}
-              onChange={(e) => setBookingFeeDraft(e.target.value)}
-              className="w-32 text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            />
-            <span className="text-sm text-stone-500">€</span>
             <button
-              onClick={handleSaveBookingFee}
-              disabled={bookingFeeSaving}
+              onClick={handleSaveFeeSettings}
+              disabled={feeSettingsSaving}
               className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-4 rounded-xl text-sm cursor-pointer disabled:opacity-60"
             >
-              {bookingFeeSaving ? 'Mentés...' : 'Mentés'}
+              {feeSettingsSaving ? 'Mentés...' : 'Mentés'}
             </button>
-            {bookingFeeSaved && (
+            {feeSettingsSaved && (
               <span className="text-xs font-bold text-emerald-700 flex items-center gap-1">
                 <Check className="w-3.5 h-3.5" /> Mentve
               </span>
             )}
           </div>
           <p className="text-xs text-stone-400">
-            Jelenlegi érték élesben: {currentBookingFee.toFixed(2)} €
+            Jelenlegi érték élesben: {feePercentage.toFixed(2)}% (min. {feeMinimumEur.toFixed(2)} €)
           </p>
         </div>
       )}

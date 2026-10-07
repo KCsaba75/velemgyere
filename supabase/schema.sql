@@ -526,3 +526,118 @@ $$;
 create trigger trg_grant_signup_bonus
   after insert on public.profiles
   for each row execute function public.grant_signup_bonus();
+
+-- ==========================================
+-- Added live 2026-10-07 (kanban 71215856, Csaba penzugyi-mukodesi-modell PDF --
+-- "Kozvetitoi Piacter & Zero Penzkezelesi Modell"): percentage-based booking fee
+-- replacing the fixed admin amount, checkout breakdown (onsite_amount), and
+-- Stripe Connect field prep (columns only, no Stripe logic yet).
+-- ==========================================
+
+-- Stripe Connect prep (point 5): columns only, NO Stripe API calls/logic yet.
+-- Lives on providers (one Stripe Connect account per business), not per program.
+alter table public.providers
+  add column if not exists stripe_account_id text,
+  add column if not exists payouts_enabled boolean not null default false,
+  add column if not exists payment_mode text not null default 'onsite_only'
+    check (payment_mode in ('onsite_only', 'online_stripe'));
+
+-- Percentage-based fee settings (point 1): replaces the fixed current_booking_fee
+-- (that row is left in place, orphaned -- no code references it anymore).
+-- fee_percentage is stored as a percentage NUMBER (e.g. 3.00 means 3%), not a
+-- fraction -- matches the admin's mental model and app_settings.value's existing
+-- numeric(10,2) precision. fee_minimum_eur is a plain EUR amount, same column type
+-- as before. Both default to 0 (unconfigured) -- same "must be explicitly set in
+-- admin Settings before going live" convention as the old current_booking_fee.
+insert into public.app_settings (key, value)
+values ('fee_percentage', 0), ('fee_minimum_eur', 0)
+on conflict (key) do nothing;
+
+-- Shared fee formula (point 1): dij = MAX(fee_percentage% * net_amount, fee_minimum_eur).
+-- STABLE, read-only -- safe to grant to anon/authenticated for catalog price display
+-- (the two settings rows are already public-readable via the existing
+-- "Anyone can read app settings" policy).
+-- security invoker (not definer): app_settings already has a public "Anyone can
+-- read app settings" RLS policy, so the caller's own privileges are sufficient --
+-- avoids tripping the anon/authenticated_security_definer_function_executable
+-- advisor WARN for no reason.
+create or replace function public.compute_booking_fee(p_net_amount numeric)
+returns numeric
+language sql
+security invoker
+set search_path = public
+stable
+as $$
+  select greatest(
+    p_net_amount * coalesce((select value from public.app_settings where key = 'fee_percentage'), 0) / 100,
+    coalesce((select value from public.app_settings where key = 'fee_minimum_eur'), 0)
+  );
+$$;
+
+grant execute on function public.compute_booking_fee(numeric) to anon, authenticated;
+
+-- Checkout breakdown (point 3): what's due at the in-person meeting, separate from
+-- booking_fee (what's due online now). Server-set alongside booking_fee/total_price,
+-- same trust boundary as booking_fee.
+alter table public.orders
+  add column if not exists onsite_amount numeric(10, 2) not null default 0;
+
+-- set_order_booking_fee REPLACED (point 1+3): the net amount now comes from the
+-- program's OWN price row (server-side lookup, never the client), multiplied by
+-- participants_count -- the client's total_price input is no longer trusted at all
+-- (closes a pre-existing gap where the client supplied total_price directly).
+-- Verified live with a mutation test (BEGIN/ROLLBACK): a 65 EUR/fo program, 2 fo,
+-- 10%/min-5 fee settings -> booking_fee 13.00, onsite_amount 130.00, total_price
+-- 143.00, REGARDLESS of a bogus client-supplied total_price (999999) on the insert.
+create or replace function public.set_order_booking_fee()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_net_unit numeric(10, 2);
+  v_net_total numeric(10, 2);
+begin
+  select price into v_net_unit from public.programs where id = new.program_id;
+  if v_net_unit is null then
+    v_net_unit := 0;
+  end if;
+  v_net_total := v_net_unit * new.participants_count;
+
+  new.onsite_amount := v_net_total;
+  new.booking_fee := public.compute_booking_fee(v_net_total);
+  new.total_price := v_net_total + new.booking_fee;
+  return new;
+end;
+$$;
+
+-- Signup bonus (point 4): now reads fee_minimum_eur directly (a "mindenkori
+-- foglalasi dij" fogalma a minimum-dijjal egyezik meg -- nincs "program ar"
+-- regisztraciokor, amire szazalekot szamolhatnank). Capture-on-insert semantics
+-- unchanged: a later fee_minimum_eur change never retroactively touches an
+-- already-granted bonus. Verified live (mutation test): fee_minimum_eur=7 ->
+-- uj visitor profil beszurasa pontosan 7.00 EUR signup_bonus sort hozott letre.
+create or replace function public.grant_signup_bonus()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_fee numeric(10, 2);
+begin
+  if new.user_id is null or new.role <> 'visitor' then
+    return new;
+  end if;
+
+  select value into v_fee from public.app_settings where key = 'fee_minimum_eur';
+
+  if v_fee is not null and v_fee > 0 then
+    insert into public.credit_transactions (user_id, amount, currency, type, note)
+    values (new.user_id, v_fee, 'EUR', 'signup_bonus', 'Regisztrációs ajándék-kredit (a mindenkori minimum foglalási díjjal egyező összeg)');
+  end if;
+
+  return new;
+end;
+$$;

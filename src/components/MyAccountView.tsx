@@ -99,7 +99,7 @@ export const MyAccountView: React.FC = () => {
                 </h3>
                 <p className="text-xs text-stone-500 mb-2">
                   {order.participants_count} fő · {order.total_price} {order.currency === 'EUR' ? '€' : order.currency}
-                  {order.booking_fee > 0 && ` (ebből foglalási díj: ${order.booking_fee} €)`} · {formatDate(order.created_at)}
+                  {order.booking_fee > 0 && ` (fizetve online: ${order.booking_fee} € · helyszínen: ${order.onsite_amount} €)`} · {formatDate(order.created_at)}
                 </p>
                 <span className={`inline-block text-[11px] font-bold px-2.5 py-1 rounded-lg border ${ORDER_STATUS_CLASS[order.status]}`}>
                   {ORDER_STATUS_LABEL[order.status]}
