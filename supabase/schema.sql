@@ -254,3 +254,174 @@ create policy "Providers can view inquiries for their programs"
 create policy "Visitors can view own inquiries"
   on public.inquiries for select
   using (auth.uid() = visitor_user_id);
+
+-- ==========================================
+-- Added live 2026-10-07 (kanban 71215856): rendeles-nyilvantartas, kredit-talca,
+-- kapacitas-limit, es a "bovebb info csak bejelentkezve" oszlop-felosztas.
+-- ==========================================
+
+-- 8. ORDERS (lefoglalas-szeru statusz-bejegyzes, meg NEM valodi fizetes/payment-integracio)
+create table if not exists public.orders (
+  id uuid primary key default uuid_generate_v4(),
+  program_id uuid not null references public.programs(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  participants_count integer not null default 1 check (participants_count > 0),
+  total_price numeric(10, 2) not null default 0,
+  currency text not null default 'EUR',
+  status text not null check (status in ('pending', 'confirmed', 'cancelled')) default 'pending',
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+alter table public.orders enable row level security;
+
+create policy "Visitors can view own orders"
+  on public.orders for select
+  using (auth.uid() = user_id or public.is_admin());
+
+create policy "Visitors can create own orders"
+  on public.orders for insert
+  with check (auth.uid() = user_id);
+
+create policy "Visitors can cancel own orders"
+  on public.orders for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id and status = 'cancelled');
+
+create policy "Providers can view orders for their programs"
+  on public.orders for select
+  using (
+    exists (
+      select 1 from public.programs
+      join public.providers on providers.id = programs.provider_id
+      where programs.id = orders.program_id and providers.user_id = auth.uid()
+    ) or public.is_admin()
+  );
+
+create policy "Providers can update orders for their programs"
+  on public.orders for update
+  using (
+    exists (
+      select 1 from public.programs
+      join public.providers on providers.id = programs.provider_id
+      where programs.id = orders.program_id and providers.user_id = auth.uid()
+    ) or public.is_admin()
+  );
+
+-- Kapacitas-limit kikenyszeritese (6. pont: kiscsoportos tura letszam-korlatja).
+-- Csak trigger-kent hivando, NINCS execute-grant anon/authenticated-nek.
+create or replace function public.enforce_order_capacity()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_max integer;
+  v_booked integer;
+begin
+  if new.status not in ('pending', 'confirmed') then
+    return new;
+  end if;
+  select max_participants into v_max from public.programs where id = new.program_id;
+  if v_max is null then
+    return new;
+  end if;
+  select coalesce(sum(participants_count), 0) into v_booked
+    from public.orders
+    where program_id = new.program_id
+      and status in ('pending', 'confirmed')
+      and id <> coalesce(new.id, '00000000-0000-0000-0000-000000000000'::uuid);
+  if v_booked + new.participants_count > v_max then
+    raise exception 'Nincs eleg szabad hely ehhez a programhoz (foglalt: %, limit: %)', v_booked, v_max;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger trg_enforce_order_capacity
+  before insert or update on public.orders
+  for each row execute function public.enforce_order_capacity();
+
+-- Kapacitas-lekerdezes a "bovebb info" nezethez. Csak authenticated hivhatja (anon nincs grant-olva).
+create or replace function public.check_program_availability(p_program_id uuid)
+returns table (max_participants integer, booked integer, available integer)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select
+    p.max_participants,
+    coalesce(sum(o.participants_count) filter (where o.status in ('pending', 'confirmed')), 0)::integer as booked,
+    case when p.max_participants is null then null
+         else p.max_participants - coalesce(sum(o.participants_count) filter (where o.status in ('pending', 'confirmed')), 0)::integer
+    end as available
+  from public.programs p
+  left join public.orders o on o.program_id = p.id
+  where p.id = p_program_id
+  group by p.id, p.max_participants;
+$$;
+
+revoke execute on function public.check_program_availability(uuid) from public, anon;
+grant execute on function public.check_program_availability(uuid) to authenticated;
+
+-- 9. CREDIT_TRANSACTIONS (kredit-talca ledger: regisztracios ajandek, meghiusult program
+-- visszaterites, kezi/adminisztrativ kifizetes -- Csaba dontese szerint MEG NEM automata payout)
+create table if not exists public.credit_transactions (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  amount numeric(10, 2) not null,
+  type text not null check (type in ('signup_bonus', 'refund', 'usage', 'manual_payout')),
+  order_id uuid references public.orders(id) on delete set null,
+  note text,
+  created_by uuid references auth.users(id),
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+alter table public.credit_transactions enable row level security;
+
+create policy "Users can view own credit transactions"
+  on public.credit_transactions for select
+  using (auth.uid() = user_id or public.is_admin());
+
+create policy "Admins can manage credit transactions"
+  on public.credit_transactions for all
+  using (public.is_admin())
+  with check (public.is_admin());
+
+-- 10. "BOVEBB INFO CSAK BEJELENTKEZVE" oszlop-felosztas (4. pont, Csaba altal jovahagyott
+-- teaser/reszletes oszloplista). Az anon mar NEM olvashatja a teljes programs/providers
+-- tablat -- csak a teaser oszlopokat (oszlop-szintu GRANT), a reszletes oszlopok
+-- (description, included/not_included, departure_location, pontos ido, provider kontakt)
+-- csak authenticated-nek latszanak a tabla kozvetlen leker(es)ekor.
+revoke select on public.programs from anon;
+revoke select on public.providers from anon;
+
+grant select (
+  id, provider_id, category_id, region_id,
+  title, slug, short_description,
+  country, price, currency, event_date,
+  featured, status, created_at, updated_at
+) on public.programs to anon;
+
+grant select (id, company_name, description, status) on public.providers to anon;
+
+-- security_invoker=true: a nezet tenyleg az anon RLS-et erteli ki (nem csak egy
+-- kodba sult WHERE-t), igy a frontend egyszeruen select('*')-ozhat rajta.
+create or replace view public.programs_public with (security_invoker = true) as
+  select
+    id, provider_id, category_id, region_id,
+    title, slug, short_description,
+    country, price, currency, event_date,
+    featured, status, created_at, updated_at
+  from public.programs
+  where status = 'published';
+
+create or replace view public.providers_public with (security_invoker = true) as
+  select id, company_name, description, status
+  from public.providers
+  where status = 'approved';
+
+grant select on public.programs_public to anon, authenticated;
+grant select on public.providers_public to anon, authenticated;
