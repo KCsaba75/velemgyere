@@ -57,7 +57,10 @@ export const ProgramList: React.FC = () => {
         const matchesTitle = p.title.toLowerCase().includes(q);
         const matchesLoc = p.location.toLowerCase().includes(q);
         const matchesCountry = p.country?.toLowerCase().includes(q);
-        const matchesDesc = p.short_description.toLowerCase().includes(q) || p.description.toLowerCase().includes(q);
+        // p.description is undefined for anonymous visitors (teaser-only fetch, kanban
+        // 71215856 point 4) -- short_description still matches, full description just
+        // doesn't contribute to the search for a logged-out visitor.
+        const matchesDesc = p.short_description.toLowerCase().includes(q) || (p.description || '').toLowerCase().includes(q);
         const matchesProvider = p.provider?.company_name.toLowerCase().includes(q);
         const matchesRegion = p.region?.name.toLowerCase().includes(q);
         if (!matchesTitle && !matchesLoc && !matchesCountry && !matchesDesc && !matchesProvider && !matchesRegion) {

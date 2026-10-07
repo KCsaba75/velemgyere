@@ -1,15 +1,18 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
-  Profile, 
-  Provider, 
-  Category, 
+  Profile,
+  Provider,
+  Category,
   Region,
-  Program, 
-  ProgramImage, 
-  Inquiry, 
+  Program,
+  ProgramImage,
+  Inquiry,
   ProgramStatus,
-  ProviderStatus
+  ProviderStatus,
+  Order,
+  CreditTransaction,
+  ProgramAvailability
 } from '../types/database';
 import { 
   INITIAL_CATEGORIES, 
@@ -133,6 +136,26 @@ interface AppContextType {
     message?: string;
   }) => Promise<void>;
 
+  // Orders (kanban 71215856 point 2): logged-in-only reservation records,
+  // NOT a real payment/booking yet -- see schema.sql comment on public.orders.
+  orders: Order[];
+  createOrder: (data: {
+    program_id: string;
+    participants_count: number;
+    total_price: number;
+    currency?: string;
+  }) => Promise<{ success: boolean; message: string }>;
+  cancelOrder: (id: string) => Promise<void>;
+
+  // Capacity check (point 6): only meaningful for logged-in users looking at the
+  // gated detail view. Returns null when not configured/not authenticated.
+  checkProgramAvailability: (programId: string) => Promise<ProgramAvailability | null>;
+
+  // Credit ledger (point 5): read-only from the client -- crediting/payout is
+  // admin-side (manual_payout, refund) for now, see schema.sql comment.
+  creditTransactions: CreditTransaction[];
+  creditBalance: number;
+
   // Utility
   resetToDefaults: () => void;
   isSupabaseLive: boolean;
@@ -205,6 +228,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return saved ? JSON.parse(saved) : INITIAL_INQUIRIES;
   });
 
+  // Orders/credits (kanban 71215856): no localStorage/seed fallback -- these are a
+  // Supabase-only, logged-in-only feature, always empty until a real session loads them.
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [creditTransactions, setCreditTransactions] = useState<CreditTransaction[]>([]);
+
   // Current active user profile
   const [currentUser, setCurrentUser] = useState<Profile>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
@@ -249,10 +277,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(currentUser));
   }, [currentUser]);
 
-  // Load the 7 collections from the real Supabase tables when configured.
+  // Programs/providers (kanban 71215856 point 4): which table/view to read depends on
+  // auth state -- anon gets the teaser-only `*_public` views (DB-enforced via column
+  // GRANTs, see schema.sql), a logged-in visitor gets the full tables. Centralized here
+  // and called from the auth-sync effect below (on mount AND on every login/logout) so
+  // there's exactly one place that decides this, instead of duplicating the choice.
+  const loadProgramsAndProviders = async (authed: boolean) => {
+    const programsTable = authed ? 'programs' : 'programs_public';
+    const providersTable = authed ? 'providers' : 'providers_public';
+    const [programsRes, providersRes] = await Promise.all([
+      supabase.from(programsTable).select('*'),
+      supabase.from(providersTable).select('*'),
+    ]);
+    if (programsRes.error || providersRes.error) {
+      console.error('Programs/providers load failed, keeping previous data:', programsRes.error || providersRes.error);
+      return;
+    }
+    setRawPrograms((programsRes.data as Program[]) || []);
+    setRawProviders((providersRes.data as Provider[]) || []);
+  };
+
+  // Load the remaining collections from the real Supabase tables when configured.
   // seedData.ts/localStorage above stay as the dev-only fallback (no
   // VITE_SUPABASE_URL/ANON_KEY set) so the app never shows a blank screen --
   // once this resolves, Supabase is the source of truth and overwrites it.
+  // `inquiries` is stored RAW here (not pre-joined with program/provider names) --
+  // the `inquiriesWithDetails` derivation below joins it against `programs`/
+  // `rawProviders` reactively, avoiding a race with loadProgramsAndProviders above
+  // (which can resolve before or after this effect).
   useEffect(() => {
     if (!isSupabaseConfigured) return;
 
@@ -262,17 +314,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const [
         regionsRes,
         categoriesRes,
-        providersRes,
         profilesRes,
-        programsRes,
         imagesRes,
         inquiriesRes,
       ] = await Promise.all([
         supabase.from('regions').select('*'),
         supabase.from('categories').select('*'),
-        supabase.from('providers').select('*'),
         supabase.from('profiles').select('*'),
-        supabase.from('programs').select('*'),
         supabase.from('program_images').select('*'),
         supabase.from('inquiries').select('*'),
       ]);
@@ -280,8 +328,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (cancelled) return;
 
       const firstError =
-        regionsRes.error || categoriesRes.error || providersRes.error ||
-        profilesRes.error || programsRes.error || imagesRes.error || inquiriesRes.error;
+        regionsRes.error || categoriesRes.error || profilesRes.error ||
+        imagesRes.error || inquiriesRes.error;
       if (firstError) {
         // Keep whatever localStorage/seedData already loaded into state above
         // instead of wiping the UI -- a real-backend outage shouldn't blank the page.
@@ -289,25 +337,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return;
       }
 
-      const loadedProviders = (providersRes.data as Provider[]) || [];
-      const loadedPrograms = (programsRes.data as Program[]) || [];
-      const loadedInquiries = ((inquiriesRes.data as Inquiry[]) || []).map(inq => {
-        const prog = loadedPrograms.find(p => p.id === inq.program_id);
-        const prov = loadedProviders.find(p => p.id === inq.provider_id);
-        return {
-          ...inq,
-          program_title: prog?.title || inq.program_title,
-          provider_name: prov?.company_name || inq.provider_name,
-        };
-      });
-
       setRegions((regionsRes.data as Region[]) || []);
       setCategories((categoriesRes.data as Category[]) || []);
-      setRawProviders(loadedProviders);
       setRawProfiles((profilesRes.data as Profile[]) || []);
-      setRawPrograms(loadedPrograms);
       setRawImages((imagesRes.data as ProgramImage[]) || []);
-      setInquiries(loadedInquiries);
+      setInquiries((inquiriesRes.data as Inquiry[]) || []);
     })();
 
     return () => {
@@ -341,6 +375,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         created_at: new Date().toISOString(),
       };
       setCurrentUser(visitor);
+      loadProgramsAndProviders(false);
     }
 
     async function syncFromSession(session: import('@supabase/supabase-js').Session | null) {
@@ -422,6 +457,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setCurrentUser(prof as Profile);
         setRawProfiles(prev => (prev.some(p => p.id === prof!.id) ? prev : [...prev, prof as Profile]));
         setCurrentView((prof as Profile).role === 'admin' ? 'admin-dashboard' : (prof as Profile).role === 'provider' ? 'provider-dashboard' : 'home');
+        loadProgramsAndProviders(true);
       }
     }
 
@@ -436,6 +472,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, []);
 
+  // Orders/credits (kanban 71215856 points 2+5): both RLS-gated to "own rows", so they
+  // only make sense once isAuthenticated flips -- reload on login, clear on logout.
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    let cancelled = false;
+
+    if (!isAuthenticated) {
+      setOrders([]);
+      setCreditTransactions([]);
+      return;
+    }
+
+    (async () => {
+      const [ordersRes, creditsRes] = await Promise.all([
+        supabase.from('orders').select('*').order('created_at', { ascending: false }),
+        supabase.from('credit_transactions').select('*').order('created_at', { ascending: false }),
+      ]);
+      if (cancelled) return;
+      if (ordersRes.error) console.error('Orders load failed:', ordersRes.error);
+      else setOrders((ordersRes.data as Order[]) || []);
+      if (creditsRes.error) console.error('Credit transactions load failed:', creditsRes.error);
+      else setCreditTransactions((creditsRes.data as CreditTransaction[]) || []);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated]);
+
   // Derived current provider. user_id match only counts when actually set: every
   // provider/profile loaded from the real Supabase tables has user_id=NULL (no Supabase
   // Auth session behind the mock login yet, see kanban 318cedd7) -- without that guard,
@@ -444,7 +509,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // on), so the provider dashboard still resolves "my programs" correctly today.
   const currentProvider =
     (currentUser.user_id && rawProviders.find(p => p.user_id && p.user_id === currentUser.user_id)) ||
-    rawProviders.find(p => p.email.toLowerCase() === currentUser.email.toLowerCase()) ||
+    rawProviders.find(p => (p.email || '').toLowerCase() === currentUser.email.toLowerCase()) ||
     null;
 
   // Joined programs with images, category, region, provider
@@ -461,6 +526,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       images: imgs,
     };
   });
+
+  // Credit ledger balance (point 5): simple sum, since every row (signup_bonus/refund/
+  // manual_payout/usage) already carries the sign (+credit / -payout or -usage).
+  const creditBalance = creditTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
+
+  // `inquiries` state holds raw Supabase rows (see the load effect above); this derives
+  // the program_title/provider_name display fields reactively against `programs`/
+  // `rawProviders` instead of joining once at fetch time, so it can't race with
+  // loadProgramsAndProviders resolving before/after the inquiries fetch. Falls back to
+  // whatever's already on the row (the dev-mode mock and submitInquiry's optimistic
+  // append both construct already-joined rows).
+  const inquiriesWithDetails: Inquiry[] = inquiries.map(inq => {
+    const prog = rawPrograms.find(p => p.id === inq.program_id);
+    const prov = rawProviders.find(p => p.id === inq.provider_id);
+    return {
+      ...inq,
+      program_title: prog?.title || inq.program_title,
+      provider_name: prov?.company_name || inq.provider_name,
+    };
+  });
+
+  // Orders joined with their program (for display in MyAccountView) -- same
+  // local-join style as `programs`/`inquiriesWithDetails` above, rather than a
+  // PostgREST embed, to stay consistent with the rest of this file.
+  const ordersWithProgram: Order[] = orders.map(o => ({
+    ...o,
+    program: rawPrograms.find(p => p.id === o.program_id),
+  }));
 
   const openProgramDetail = (id: string) => {
     const prog = rawPrograms.find(p => p.id === id);
@@ -499,13 +592,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setCurrentView(existingProfile.role === 'admin' ? 'admin-dashboard' : existingProfile.role === 'provider' ? 'provider-dashboard' : 'home');
       return { success: true, message: `Sikeres bejelentkezés mint ${existingProfile.name}!` };
     }
-    const prov = rawProviders.find(p => p.email.toLowerCase() === cleanEmail);
+    const prov = rawProviders.find(p => (p.email || '').toLowerCase() === cleanEmail);
     if (prov) {
       const newProf: Profile = {
         id: `prof-${Date.now()}`,
         user_id: prov.user_id,
-        name: prov.contact_name,
-        email: prov.email,
+        name: prov.contact_name || prov.company_name,
+        email: prov.email || '',
         role: 'provider',
         created_at: new Date().toISOString(),
       };
@@ -960,6 +1053,66 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setInquiries(prev => [newInquiry, ...prev]);
   };
 
+  // Orders (point 2): a logged-in-only reservation record, NOT a real payment yet --
+  // see the public.orders comment in schema.sql. The capacity trigger on the DB side
+  // (enforce_order_capacity) rejects the insert if the program is full; that error
+  // message is passed through as-is since it's already a plain Hungarian sentence.
+  const createOrder = async (data: {
+    program_id: string;
+    participants_count: number;
+    total_price: number;
+    currency?: string;
+  }): Promise<{ success: boolean; message: string }> => {
+    if (!isSupabaseConfigured) {
+      return { success: false, message: 'A foglalás jelenleg csak élő háttérrendszerrel működik.' };
+    }
+    const { data: sessionData } = await supabase.auth.getSession();
+    const userId = sessionData.session?.user.id;
+    if (!userId) {
+      return { success: false, message: 'A foglaláshoz bejelentkezés szükséges.' };
+    }
+
+    const { data: row, error } = await supabase
+      .from('orders')
+      .insert({
+        program_id: data.program_id,
+        user_id: userId,
+        participants_count: data.participants_count,
+        total_price: data.total_price,
+        currency: data.currency || 'EUR',
+        status: 'pending',
+      })
+      .select()
+      .single();
+
+    if (error) {
+      return { success: false, message: `Hiba a foglalás során: ${error.message}` };
+    }
+    setOrders(prev => [row as Order, ...prev]);
+    return { success: true, message: 'Sikeres foglalás! A szolgáltató hamarosan megerősíti.' };
+  };
+
+  const cancelOrder = async (id: string): Promise<void> => {
+    if (!isSupabaseConfigured) return;
+    const { error } = await supabase.from('orders').update({ status: 'cancelled' }).eq('id', id);
+    if (error) throw error;
+    setOrders(prev => prev.map(o => (o.id === id ? { ...o, status: 'cancelled' } : o)));
+  };
+
+  // Capacity check (point 6): calls the DB-side RPC, which only grants EXECUTE to
+  // `authenticated` (see schema.sql) -- anon gets null here by design, matching the
+  // "bővebb info csak bejelentkezve" gate this button lives behind.
+  const checkProgramAvailability = async (programId: string): Promise<ProgramAvailability | null> => {
+    if (!isSupabaseConfigured || !isAuthenticated) return null;
+    const { data, error } = await supabase.rpc('check_program_availability', { p_program_id: programId });
+    if (error) {
+      console.error('Availability check failed:', error);
+      return null;
+    }
+    const row = Array.isArray(data) ? data[0] : data;
+    return row ? (row as ProgramAvailability) : null;
+  };
+
   const resetToDefaults = () => {
     localStorage.removeItem(STORAGE_KEYS.REGIONS);
     localStorage.removeItem(STORAGE_KEYS.CATEGORIES);
@@ -1018,7 +1171,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         categories,
         programs,
         providers: rawProviders,
-        inquiries,
+        inquiries: inquiriesWithDetails,
 
         createRegion,
         updateRegion,
@@ -1042,6 +1195,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         suspendProvider,
 
         submitInquiry,
+
+        orders: ordersWithProgram,
+        createOrder,
+        cancelOrder,
+        checkProgramAvailability,
+
+        creditTransactions,
+        creditBalance,
+
         resetToDefaults,
         isSupabaseLive: isSupabaseConfigured,
       }}

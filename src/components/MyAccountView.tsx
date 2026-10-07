@@ -1,12 +1,25 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
-import { User, MessageSquare, Calendar, Compass } from 'lucide-react';
+import { User, MessageSquare, Calendar, Compass, BadgeEuro, Ticket, X } from 'lucide-react';
+import { OrderStatus } from '../types/database';
+
+const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
+  pending: 'Függőben (szolgáltató megerősítésére vár)',
+  confirmed: 'Megerősítve',
+  cancelled: 'Lemondva',
+};
+
+const ORDER_STATUS_CLASS: Record<OrderStatus, string> = {
+  pending: 'bg-amber-50 text-amber-700 border-amber-200',
+  confirmed: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  cancelled: 'bg-stone-100 text-stone-500 border-stone-200',
+};
 
 export const MyAccountView: React.FC = () => {
-  const { currentUser, inquiries, setCurrentView } = useApp();
+  const { currentUser, inquiries, orders, creditTransactions, creditBalance, cancelOrder, setCurrentView } = useApp();
 
-  useDocumentMeta('Saját fiókom', 'Korábbi érdeklődéseid és fiókadataid egy helyen.');
+  useDocumentMeta('Saját fiókom', 'Korábbi érdeklődéseid, foglalásaid, kredit-egyenleged és fiókadataid egy helyen.');
 
   const formatDate = (iso: string) => {
     try {
@@ -29,6 +42,80 @@ export const MyAccountView: React.FC = () => {
           <p className="text-sm text-stone-500">{currentUser.name} · {currentUser.email}</p>
         </div>
       </div>
+
+      {/* Credit balance (kanban 71215856 point 5) */}
+      <div className="bg-emerald-50/70 border border-emerald-100 rounded-2xl p-5 mb-10 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+            <BadgeEuro className="w-6 h-6" />
+          </div>
+          <div>
+            <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider block">Kredit-egyenleg</span>
+            <span className="text-2xl font-extrabold text-stone-900 font-display">
+              {creditBalance.toFixed(2)} €
+            </span>
+          </div>
+        </div>
+        <p className="text-xs text-stone-500 max-w-xs text-right">
+          Regisztrációs ajándék és meghiúsult programok visszatérítése itt gyűlik -- kifizetését az ügyfélszolgálat intézi.
+        </p>
+      </div>
+
+      {creditTransactions.length > 0 && (
+        <div className="mb-10 space-y-2">
+          {creditTransactions.slice(0, 5).map(t => (
+            <div key={t.id} className="flex items-center justify-between text-xs text-stone-600 bg-white border border-stone-100 rounded-xl px-4 py-2.5">
+              <span>{t.note || t.type}</span>
+              <span className={`font-bold ${Number(t.amount) >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
+                {Number(t.amount) >= 0 ? '+' : ''}{Number(t.amount).toFixed(2)} €
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Orders / reservations (point 2) */}
+      <div className="flex items-center gap-2 mb-5">
+        <Ticket className="w-5 h-5 text-stone-400" />
+        <h2 className="font-display text-lg font-bold text-stone-900">
+          Foglalásaim ({orders.length})
+        </h2>
+      </div>
+
+      {orders.length === 0 ? (
+        <div className="bg-white rounded-2xl border border-stone-200 p-10 text-center mb-10">
+          <Ticket className="w-10 h-10 text-stone-300 mx-auto mb-3" />
+          <p className="text-sm text-stone-600">
+            Még nincs helyfoglalásod. A programok részletes nézetén foglalhatsz helyet.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-3 mb-10">
+          {orders.map(order => (
+            <div key={order.id} className="bg-white rounded-2xl border border-stone-200 p-5 flex items-start justify-between gap-4">
+              <div>
+                <h3 className="font-bold text-stone-900 text-sm mb-1">
+                  {order.program?.title || 'Program'}
+                </h3>
+                <p className="text-xs text-stone-500 mb-2">
+                  {order.participants_count} fő · {order.total_price} {order.currency === 'EUR' ? '€' : order.currency} · {formatDate(order.created_at)}
+                </p>
+                <span className={`inline-block text-[11px] font-bold px-2.5 py-1 rounded-lg border ${ORDER_STATUS_CLASS[order.status]}`}>
+                  {ORDER_STATUS_LABEL[order.status]}
+                </span>
+              </div>
+              {order.status !== 'cancelled' && (
+                <button
+                  onClick={() => cancelOrder(order.id)}
+                  className="inline-flex items-center gap-1 text-xs text-stone-400 hover:text-rose-600 font-semibold shrink-0 cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" /> Lemondás
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="flex items-center gap-2 mb-5">
         <MessageSquare className="w-5 h-5 text-stone-400" />
