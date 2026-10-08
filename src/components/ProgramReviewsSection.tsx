@@ -30,6 +30,8 @@ export const ProgramReviewsSection: React.FC<ProgramReviewsSectionProps> = ({ pr
     getProgramRatingStats, 
     canUserReviewProgram, 
     currentUser, 
+    isAuthenticated,
+    openLoginModal,
     setCurrentView 
   } = useApp();
 
@@ -51,13 +53,14 @@ export const ProgramReviewsSection: React.FC<ProgramReviewsSectionProps> = ({ pr
   const allReviewPhotos = reviews.flatMap(r => r.photos || []);
 
   const handleOpenReviewModal = () => {
-    if (!currentUser || currentUser.role === 'visitor') {
-      setEligibilityNotice('Az értékeléshez be kell jelentkezned. Csak a velemgyere-n keresztül lefoglalt és lezajlott túrák után adható le értékelés.');
+    if (!isAuthenticated || !currentUser) {
+      openLoginModal('Kérjük jelentkezz be az értékelés leadásához!');
+      setEligibilityNotice('Az értékeléshez be kell jelentkezned a saját fiókodba.');
       return;
     }
 
     if (!eligibility.eligible) {
-      setEligibilityNotice(eligibility.reason || 'Csak igazolt vásárlók adhatnak le értékelést a lezajlott program után.');
+      setEligibilityNotice(eligibility.reason || 'Csak bejelentkezett felhasználók adhatnak le értékelést.');
       return;
     }
 
@@ -110,9 +113,9 @@ export const ProgramReviewsSection: React.FC<ProgramReviewsSectionProps> = ({ pr
           <div className="flex-1">
             <p className="font-bold mb-0.5">Ki értékelhet a Velem Gyere rendszerében?</p>
             <p className="text-stone-700 leading-relaxed">{eligibilityNotice}</p>
-            {(!currentUser || currentUser.role === 'visitor') && (
+            {(!isAuthenticated || !currentUser) && (
               <button
-                onClick={() => setCurrentView('my-account')}
+                onClick={() => openLoginModal('Kérjük jelentkezz be az értékelés leadásához!')}
                 className="mt-2 text-xs font-bold text-emerald-700 underline cursor-pointer"
               >
                 Bejelentkezés a saját fiókodba &rarr;
