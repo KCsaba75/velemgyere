@@ -30,11 +30,9 @@ export const formatPrice = (value: number | string | undefined | null): string =
 
 /**
  * Formázza a platformhasználati kényelmi díjat:
- * - Mindig pontosan 1 tizedesjegyig jeleníti meg (pl. 8.0, 8.5)
+ * - Felfelé kerekít egészre vagy 0,5-re
+ * - Csak akkor jeleníti meg a tizedesjegyet, ha .5-re végződik (a .0 nem látszódik, pl. 8 vagy 8.5)
  */
 export const formatPlatformFee = (value: number | string | undefined | null): string => {
-  const num = typeof value === 'string' ? parseFloat(value) : Number(value);
-  if (isNaN(num)) return '0.0';
-  const rounded = roundToHalfEuro(num);
-  return rounded.toFixed(1);
+  return formatPrice(value);
 };
