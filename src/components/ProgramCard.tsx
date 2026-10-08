@@ -128,13 +128,8 @@ export const ProgramCard: React.FC<ProgramCardProps> = ({ program, onSelect }) =
           </div>
         )}
 
-        {/* Rating & Price Tag overlay on image */}
-        <div className="absolute bottom-3 right-3 bg-emerald-600/95 backdrop-blur-sm text-white px-2.5 sm:px-3 py-1 rounded-xl shadow-lg font-bold text-xs sm:text-sm flex items-center gap-1.5 z-10">
-          <div className="flex items-center gap-1 text-amber-300 pr-1.5 border-r border-white/25">
-            <Star className="w-3.5 h-3.5 fill-amber-300 text-amber-300 shrink-0" />
-            <span className="font-extrabold text-white text-xs">{stats.average.toFixed(1)}</span>
-            <span className="text-white/80 text-[11px] font-medium">({stats.count})</span>
-          </div>
+        {/* Price Tag overlay on image */}
+        <div className="absolute bottom-3 right-3 bg-emerald-600/95 backdrop-blur-sm text-white px-2.5 sm:px-3 py-1 rounded-xl shadow-lg font-bold text-xs sm:text-sm z-10">
           <span className="font-extrabold">{displayPrice.toFixed(2)} {program.currency === 'EUR' ? '€' : program.currency}/fő</span>
         </div>
       </div>
