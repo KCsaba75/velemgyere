@@ -8,7 +8,7 @@ interface LoginModalProps {
 }
 
 export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
-  const { login, registerVisitor, setCurrentView } = useApp();
+  const { login, registerVisitor, setCurrentView, loginModalMessage } = useApp();
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -86,6 +86,15 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
             Velem Gyere Katalógus
           </p>
         </div>
+
+        {loginModalMessage && (
+          <div className="bg-amber-50 border border-amber-200/80 text-amber-900 text-xs rounded-2xl p-3.5 mb-5 flex items-start gap-2.5 shadow-xs animate-in fade-in duration-150">
+            <Sparkles className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <div className="leading-relaxed font-medium">
+              {loginModalMessage}
+            </div>
+          </div>
+        )}
 
         {/* Login / Register tab toggle */}
         <div className="grid grid-cols-2 gap-1 p-1 bg-stone-100 rounded-xl mb-6 text-sm font-semibold">

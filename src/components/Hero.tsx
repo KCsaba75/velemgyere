@@ -2,6 +2,7 @@ import React from 'react';
 import { useApp } from '../context/AppContext';
 import { Search, Compass, Sparkles, MapPin, Globe, Car, Ship, Landmark } from 'lucide-react';
 import { CategoryIcon } from './CategoryIcon';
+import { CountryFlag } from './CountryFlag';
 
 export const Hero: React.FC = () => {
   const { 
@@ -55,7 +56,7 @@ export const Hero: React.FC = () => {
       <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
         {/* Subtle pill badge */}
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-emerald-300 text-xs sm:text-sm font-semibold mb-6 backdrop-blur-md">
-          <span className="text-base">🇭🇺</span>
+          <CountryFlag emoji="🇭🇺" country="Magyarország" size="sm" />
           <span>100% Magyar Nyelvű Programok & Helyi Szolgáltatók Külföldön</span>
         </div>
 
@@ -128,7 +129,7 @@ export const Hero: React.FC = () => {
                       : 'bg-white/10 hover:bg-white/20 text-stone-100 border border-white/10 backdrop-blur-sm'
                   }`}
                 >
-                  <span>{reg.flag_emoji || '📍'}</span>
+                  <CountryFlag emoji={reg.flag_emoji} country={reg.country || reg.name} size="sm" />
                   <span>{reg.name}</span>
                 </button>
               );

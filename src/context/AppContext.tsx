@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Profile,
@@ -18,7 +18,12 @@ import {
   OnsitePaymentMethod,
   ProgramOccurrence,
   OccurrenceAvailability,
-  OccurrenceStatus
+  OccurrenceStatus,
+  Review,
+  ReviewStatus,
+  TravelType,
+  FavoriteFolder,
+  FavoriteItem
 } from '../types/database';
 import { 
   INITIAL_CATEGORIES, 
@@ -27,7 +32,11 @@ import {
   INITIAL_PROFILES, 
   INITIAL_PROGRAMS, 
   INITIAL_PROGRAM_IMAGES, 
-  INITIAL_INQUIRIES 
+  INITIAL_INQUIRIES,
+  INITIAL_REVIEWS,
+  INITIAL_ORDERS,
+  INITIAL_FAVORITE_FOLDERS,
+  INITIAL_FAVORITES
 } from '../data/seedData';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
@@ -39,6 +48,7 @@ const VIEW_TO_PATH: Record<string, string> = {
   home: '/',
   programs: '/programok',
   categories: '/kategoriak',
+  favorites: '/kedvencek',
   'provider-landing': '/szolgaltatoknak',
   'provider-dashboard': '/szolgaltato/dashboard',
   'admin-dashboard': '/admin',
@@ -48,6 +58,7 @@ const VIEW_TO_PATH: Record<string, string> = {
 function pathToView(pathname: string): string {
   if (pathname.startsWith('/programok')) return 'programs';
   if (pathname.startsWith('/kategoriak') || pathname.startsWith('/regiok')) return 'categories';
+  if (pathname.startsWith('/kedvencek')) return 'favorites';
   if (pathname.startsWith('/szolgaltatoknak')) return 'provider-landing';
   if (pathname.startsWith('/szolgaltato/dashboard')) return 'provider-dashboard';
   if (pathname.startsWith('/admin')) return 'admin-dashboard';
@@ -221,6 +232,67 @@ interface AppContextType {
   // Utility
   resetToDefaults: () => void;
   isSupabaseLive: boolean;
+  isLoading: boolean;
+
+  // Reviews system
+  reviews: Review[];
+  addReview: (data: {
+    program_id: string;
+    order_id: string;
+    rating: number;
+    rating_guide: number;
+    rating_value: number;
+    rating_organization: number;
+    rating_safety: number;
+    title?: string;
+    comment: string;
+    positive_feedback?: string;
+    improvement_feedback?: string;
+    travel_type: TravelType;
+    photos?: string[];
+  }) => Promise<{ success: boolean; message: string; review?: Review }>;
+  respondToReview: (reviewId: string, responseText: string) => Promise<{ success: boolean; message: string }>;
+  moderateReview: (reviewId: string, status: ReviewStatus) => Promise<{ success: boolean; message: string }>;
+  deleteReview: (reviewId: string) => Promise<{ success: boolean; message: string }>;
+  getProgramReviews: (programId: string) => Review[];
+  getProgramRatingStats: (programId: string) => {
+    average: number;
+    count: number;
+    recommendPercent: number;
+    breakdown: { guide: number; value: number; organization: number; safety: number };
+    distribution: Record<number, number>;
+  };
+  getProviderRatingStats: (providerId?: string | null) => { average: number; count: number };
+  canUserReviewProgram: (programId: string) => { eligible: boolean; order?: Order; reason?: string };
+  getUserReviewForOrder: (orderId: string) => Review | undefined;
+
+  // Favorites / Wishlists system
+  favoriteFolders: FavoriteFolder[];
+  favorites: FavoriteItem[];
+  isProgramFavorite: (programId: string) => boolean;
+  getProgramFolderIds: (programId: string) => string[];
+  getProgramFolders: (programId: string) => FavoriteFolder[];
+  toggleFavorite: (programId: string, folderId?: string) => { added: boolean; folderName: string };
+  addProgramToFolder: (programId: string, folderId: string) => void;
+  removeProgramFromFolder: (programId: string, folderId: string) => void;
+  setProgramFolders: (programId: string, folderIds: string[]) => void;
+  createFavoriteFolder: (data: { name: string; description?: string; color?: string; icon?: string }) => FavoriteFolder;
+  updateFavoriteFolder: (id: string, updates: Partial<FavoriteFolder>) => void;
+  deleteFavoriteFolder: (id: string) => void;
+  getFolderPrograms: (folderId: string) => Program[];
+  allFavoritePrograms: Program[];
+  totalFavoritesCount: number;
+  folderModalProgram: Program | null;
+  openFolderModal: (program: Program) => void;
+  closeFolderModal: () => void;
+  favoriteToast: { message: string; program?: Program; folderName?: string } | null;
+  dismissFavoriteToast: () => void;
+
+  // Global Login Modal state
+  isLoginModalOpen: boolean;
+  loginModalMessage: string | null;
+  openLoginModal: (message?: string) => void;
+  closeLoginModal: () => void;
 }
 
 const STORAGE_KEYS = {
@@ -232,7 +304,22 @@ const STORAGE_KEYS = {
   PROFILES: 'vg_profiles_v2',
   INQUIRIES: 'vg_inquiries_v2',
   CURRENT_USER: 'vg_current_user_v2',
+  REVIEWS: 'vg_reviews_v2',
+  ORDERS: 'vg_orders_v2',
+  FAVORITE_FOLDERS: 'vg_favorite_folders_v3',
+  FAVORITES: 'vg_favorites_v3',
 };
+
+function generateUUID(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
@@ -254,45 +341,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [maxPrice, setMaxPrice] = useState<number>(150); // Default for EUR abroad prices
   const [currencyFilter, setCurrencyFilter] = useState<'ALL' | 'EUR' | 'Ft'>('ALL');
 
-  // Dynamic Regions & Categories (expandable in admin!)
-  const [regions, setRegions] = useState<Region[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.REGIONS);
-    return saved ? JSON.parse(saved) : INITIAL_REGIONS;
-  });
-
-  const [categories, setCategories] = useState<Category[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.CATEGORIES);
-    return saved ? JSON.parse(saved) : INITIAL_CATEGORIES;
-  });
-
-  const [rawProviders, setRawProviders] = useState<Provider[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.PROVIDERS);
-    return saved ? JSON.parse(saved) : INITIAL_PROVIDERS;
-  });
-
-  const [rawProfiles, setRawProfiles] = useState<Profile[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.PROFILES);
-    return saved ? JSON.parse(saved) : INITIAL_PROFILES;
-  });
-
-  const [rawPrograms, setRawPrograms] = useState<Program[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.PROGRAMS);
-    return saved ? JSON.parse(saved) : INITIAL_PROGRAMS;
-  });
-
-  const [rawImages, setRawImages] = useState<ProgramImage[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.IMAGES);
-    return saved ? JSON.parse(saved) : INITIAL_PROGRAM_IMAGES;
-  });
-
-  const [inquiries, setInquiries] = useState<Inquiry[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.INQUIRIES);
-    return saved ? JSON.parse(saved) : INITIAL_INQUIRIES;
-  });
-
-  // Orders/credits (kanban 71215856): no localStorage/seed fallback -- these are a
-  // Supabase-only, logged-in-only feature, always empty until a real session loads them.
+  // Dynamic collections from Supabase (sole persistent source of truth - local storage removed)
+  const [regions, setRegions] = useState<Region[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [rawProviders, setRawProviders] = useState<Provider[]>([]);
+  const [rawProfiles, setRawProfiles] = useState<Profile[]>([]);
+  const [rawPrograms, setRawPrograms] = useState<Program[]>([]);
+  const [rawImages, setRawImages] = useState<ProgramImage[]>([]);
+  const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [rawFavoriteFolders, setRawFavoriteFolders] = useState<FavoriteFolder[]>([]);
+  const [rawFavorites, setRawFavorites] = useState<FavoriteItem[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  // Global Login Modal state
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [loginModalMessage, setLoginModalMessage] = useState<string | null>(null);
+
+  const openLoginModal = (message?: string) => {
+    setLoginModalMessage(message || null);
+    setIsLoginModalOpen(true);
+  };
+
+  const closeLoginModal = () => {
+    setIsLoginModalOpen(false);
+    setLoginModalMessage(null);
+  };
+
+  const [folderModalProgram, setFolderModalProgram] = useState<Program | null>(null);
+  const [favoriteToast, setFavoriteToast] = useState<{ message: string; program?: Program; folderName?: string } | null>(null);
+
   const [creditTransactions, setCreditTransactions] = useState<CreditTransaction[]>([]);
   // Public settings (app_settings.fee_percentage/fee_minimum_eur) -- readable by
   // anon too, so they load in the main collections effect below, not gated on
@@ -300,54 +379,86 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [feePercentage, setFeePercentage] = useState<number>(0);
   const [feeMinimumEur, setFeeMinimumEur] = useState<number>(0);
 
-  // Current active user profile
+  // Current active user profile (derived from Supabase Auth session)
   const [currentUser, setCurrentUser] = useState<Profile>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
-    if (saved) return JSON.parse(saved);
-    return INITIAL_PROFILES.find(p => p.role === 'visitor') || INITIAL_PROFILES[3];
+    return INITIAL_PROFILES.find(p => p.role === 'visitor') || {
+      id: 'prof-visitor',
+      user_id: '',
+      name: 'Látogató',
+      email: 'utazo@example.hu',
+      role: 'visitor',
+      created_at: new Date().toISOString()
+    };
   });
   // Whether currentUser reflects a real, logged-in Supabase Auth session (vs. the
   // anonymous default-visitor placeholder profile). Only meaningful when
   // isSupabaseConfigured -- always false in the no-Supabase dev fallback.
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  // Active user's favorite folders and items (strictly scoped to currentUser.user_id when authenticated)
+  const userFavoriteFolders = useMemo<FavoriteFolder[]>(() => {
+    if (!isAuthenticated || !currentUser?.user_id) return [];
+    return rawFavoriteFolders.filter(f => f.user_id === currentUser.user_id);
+  }, [rawFavoriteFolders, isAuthenticated, currentUser?.user_id]);
+
+  const userFavorites = useMemo<FavoriteItem[]>(() => {
+    if (!isAuthenticated || !currentUser?.user_id) return [];
+    return rawFavorites.filter(f => f.user_id === currentUser.user_id);
+  }, [rawFavorites, isAuthenticated, currentUser?.user_id]);
+
+  // Ensure an authenticated user always has at least a default "Általános kedvencek" folder in their account
+  useEffect(() => {
+    if (isAuthenticated && currentUser?.user_id) {
+      const hasAnyFolder = rawFavoriteFolders.some(f => f.user_id === currentUser.user_id);
+      if (!hasAnyFolder) {
+        const defaultFolder: FavoriteFolder = {
+          id: generateUUID(),
+          user_id: currentUser.user_id,
+          name: 'Általános kedvencek',
+          description: 'Bármikor mentett kedvenc programjaim egy helyen',
+          color: 'emerald',
+          icon: 'heart',
+          is_default: true,
+          created_at: new Date().toISOString()
+        };
+        setRawFavoriteFolders(prev => [defaultFolder, ...prev]);
+        if (isSupabaseConfigured) {
+          supabase.from('favorite_folders').insert([defaultFolder]).then(() => {}, () => {});
+        }
+      }
+    }
+  }, [isAuthenticated, currentUser?.user_id, rawFavoriteFolders]);
   // Own full provider row (kanban fbf552b2 point 3), fetched via get_my_provider_profile()
   // RPC once logged in as a provider -- see syncFromSession. null for every other role,
   // or until it resolves. Supabase-only; the no-Supabase dev fallback below still derives
   // currentProvider from the local rawProviders array directly.
   const [currentProviderFull, setCurrentProviderFull] = useState<Provider | null>(null);
 
-  // Save changes to localStorage
+  // Purge any residual local storage keys on boot - Supabase is the sole store of record
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.REGIONS, JSON.stringify(regions));
-  }, [regions]);
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const legacyKeys = [
+          'vg_regions', 'vg_regions_v2', 'vg_categories', 'vg_categories_v2',
+          'vg_providers', 'vg_providers_v2', 'vg_profiles', 'vg_profiles_v2',
+          'vg_programs', 'vg_programs_v2', 'vg_images', 'vg_images_v2',
+          'vg_inquiries', 'vg_inquiries_v2', 'vg_current_user', 'vg_current_user_v2',
+          'vg_reviews', 'vg_reviews_v1', 'vg_reviews_v2', 'vg_orders', 'vg_orders_v2',
+          'vg_favorite_folders', 'vg_favorite_folders_v2', 'vg_favorite_folders_v3',
+          'vg_favorites', 'vg_favorites_v2', 'vg_favorites_v3'
+        ];
+        legacyKeys.forEach(k => localStorage.removeItem(k));
+      } catch {}
+    }
+  }, []);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(categories));
-  }, [categories]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.PROVIDERS, JSON.stringify(rawProviders));
-  }, [rawProviders]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.PROFILES, JSON.stringify(rawProfiles));
-  }, [rawProfiles]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.PROGRAMS, JSON.stringify(rawPrograms));
-  }, [rawPrograms]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.IMAGES, JSON.stringify(rawImages));
-  }, [rawImages]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.INQUIRIES, JSON.stringify(inquiries));
-  }, [inquiries]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(currentUser));
-  }, [currentUser]);
+    if (!favoriteToast) return;
+    const timer = setTimeout(() => {
+      setFavoriteToast(null);
+    }, 4500);
+    return () => clearTimeout(timer);
+  }, [favoriteToast]);
 
   // Programs/providers: which table/view to read depends on auth state -- anon gets the
   // teaser-only `programs_public` view (DB-enforced via column GRANTs, see schema.sql),
@@ -379,59 +490,57 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setRawProviders((providersRes.data as Provider[]) || []);
   };
 
-  // Load the remaining collections from the real Supabase tables when configured.
-  // seedData.ts/localStorage above stay as the dev-only fallback (no
-  // VITE_SUPABASE_URL/ANON_KEY set) so the app never shows a blank screen --
-  // once this resolves, Supabase is the source of truth and overwrites it.
-  // `inquiries` is stored RAW here (not pre-joined with program/provider names) --
-  // the `inquiriesWithDetails` derivation below joins it against `programs`/
-  // `rawProviders` reactively, avoiding a race with loadProgramsAndProviders above
-  // (which can resolve before or after this effect).
+  // Load collections from the real Supabase tables (sole source of truth).
   useEffect(() => {
-    if (!isSupabaseConfigured) return;
+    if (!isSupabaseConfigured) {
+      setIsLoading(false);
+      return;
+    }
 
     let cancelled = false;
 
     (async () => {
-      const [
-        regionsRes,
-        categoriesRes,
-        profilesRes,
-        imagesRes,
-        inquiriesRes,
-        settingsRes,
-      ] = await Promise.all([
-        supabase.from('regions').select('*'),
-        supabase.from('categories').select('*'),
-        supabase.from('profiles').select('*'),
-        supabase.from('program_images').select('*'),
-        supabase.from('inquiries').select('*'),
-        supabase.from('app_settings').select('*').in('key', ['fee_percentage', 'fee_minimum_eur']),
-      ]);
+      try {
+        const [
+          regionsRes,
+          categoriesRes,
+          profilesRes,
+          imagesRes,
+          inquiriesRes,
+          reviewsRes,
+          settingsRes,
+        ] = await Promise.all([
+          supabase.from('regions').select('*'),
+          supabase.from('categories').select('*'),
+          supabase.from('profiles').select('*'),
+          supabase.from('program_images').select('*'),
+          supabase.from('inquiries').select('*'),
+          supabase.from('reviews').select('*').order('created_at', { ascending: false }),
+          supabase.from('app_settings').select('*').in('key', ['fee_percentage', 'fee_minimum_eur']),
+        ]);
 
-      if (cancelled) return;
+        if (cancelled) return;
 
-      const firstError =
-        regionsRes.error || categoriesRes.error || profilesRes.error ||
-        imagesRes.error || inquiriesRes.error;
-      if (firstError) {
-        // Keep whatever localStorage/seedData already loaded into state above
-        // instead of wiping the UI -- a real-backend outage shouldn't blank the page.
-        console.error('Supabase data load failed, staying on local fallback data:', firstError);
-        return;
-      }
+        if (regionsRes.data) setRegions(regionsRes.data as Region[]);
+        if (categoriesRes.data) setCategories(categoriesRes.data as Category[]);
+        if (profilesRes.data) setRawProfiles(profilesRes.data as Profile[]);
+        if (imagesRes.data) setRawImages(imagesRes.data as ProgramImage[]);
+        if (inquiriesRes.data) setInquiries(inquiriesRes.data as Inquiry[]);
+        if (reviewsRes.data) setReviews(reviewsRes.data as Review[]);
 
-      setRegions((regionsRes.data as Region[]) || []);
-      setCategories((categoriesRes.data as Category[]) || []);
-      setRawProfiles((profilesRes.data as Profile[]) || []);
-      setRawImages((imagesRes.data as ProgramImage[]) || []);
-      setInquiries((inquiriesRes.data as Inquiry[]) || []);
-      if (!settingsRes.error && settingsRes.data) {
-        const rows = settingsRes.data as { key: string; value: number }[];
-        const pct = rows.find(r => r.key === 'fee_percentage');
-        const min = rows.find(r => r.key === 'fee_minimum_eur');
-        if (pct) setFeePercentage(Number(pct.value) || 0);
-        if (min) setFeeMinimumEur(Number(min.value) || 0);
+        if (!settingsRes.error && settingsRes.data) {
+          const rows = settingsRes.data as { key: string; value: number }[];
+          const pct = rows.find(r => r.key === 'fee_percentage');
+          const min = rows.find(r => r.key === 'fee_minimum_eur');
+          if (pct) setFeePercentage(Number(pct.value) || 0);
+          if (min) setFeeMinimumEur(Number(min.value) || 0);
+        }
+      } catch (err) {
+        console.error('Supabase load collections error:', err);
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
       }
     })();
 
@@ -575,6 +684,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         } else {
           setCurrentProviderFull(null);
         }
+
+        // Sync user's favorite folders and items if available on Supabase
+        if (session.user?.id) {
+          supabase.from('favorite_folders').select('*').eq('user_id', session.user.id).then(({ data: fData, error: fErr }) => {
+            if (!fErr && fData && fData.length > 0 && !cancelled) {
+              setRawFavoriteFolders(prev => {
+                const others = prev.filter(f => f.user_id !== session.user.id);
+                return [...(fData as FavoriteFolder[]), ...others];
+              });
+            }
+          }, () => {});
+
+          supabase.from('favorites').select('*').eq('user_id', session.user.id).then(({ data: favData, error: favErr }) => {
+            if (!favErr && favData && !cancelled) {
+              setRawFavorites(prev => {
+                const others = prev.filter(f => f.user_id !== session.user.id);
+                return [...(favData as FavoriteItem[]), ...others];
+              });
+            }
+          }, () => {});
+        }
       }
     }
 
@@ -698,7 +828,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (isSupabaseConfigured) {
       const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
       if (error) {
-        return { success: false, message: 'Hibás e-mail cím vagy jelszó.' };
+        if (error.message.toLowerCase().includes('email not confirmed')) {
+          return { success: false, message: 'Az e-mail cím még nincs megerősítve! Kérjük kattints a regisztrációkor kapott visszaigazoló linkre a fiók aktiválásához.' };
+        }
+        if (error.message.toLowerCase().includes('invalid login credentials')) {
+          return { success: false, message: 'Hibás e-mail cím vagy jelszó. Kérjük ellenőrizd a megadott adatokat!' };
+        }
+        return { success: false, message: `Hiba a bejelentkezéskor: ${error.message}` };
       }
       // currentUser/currentView get set by the session-sync effect once the matching
       // profiles row loads -- we just confirm success here.
@@ -710,6 +846,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const existingProfile = rawProfiles.find(p => p.email.toLowerCase() === cleanEmail);
     if (existingProfile) {
       setCurrentUser(existingProfile);
+      setIsAuthenticated(true);
       setCurrentView(existingProfile.role === 'admin' ? 'admin-dashboard' : existingProfile.role === 'provider' ? 'provider-dashboard' : 'home');
       return { success: true, message: `Sikeres bejelentkezés mint ${existingProfile.name}!` };
     }
@@ -725,6 +862,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
       setRawProfiles(prev => [...prev, newProf]);
       setCurrentUser(newProf);
+      setIsAuthenticated(true);
       setCurrentView('provider-dashboard');
       return { success: true, message: `Sikeres bejelentkezés mint ${prov.company_name}!` };
     }
@@ -735,6 +873,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (isSupabaseConfigured) {
       supabase.auth.signOut();
     }
+    setIsAuthenticated(false);
     const visitor = rawProfiles.find(p => p.role === 'visitor') || {
       id: 'prof-visitor',
       user_id: 'user-visitor',
@@ -770,6 +909,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // Only reachable if this project's email confirmation requirement is ever turned
         // off (it's ON today). The session-sync effect creates the real profiles row
         // immediately from the signUp metadata above either way.
+        setIsAuthenticated(true);
         return { success: true, message: 'Sikeres regisztráció és bejelentkezés!' };
       }
       return {
@@ -789,6 +929,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     setRawProfiles(prev => [...prev, newProfile]);
     setCurrentUser(newProfile);
+    setIsAuthenticated(true);
     setCurrentView('home');
     return { success: true, message: 'Sikeres regisztráció!' };
   };
@@ -1433,24 +1574,598 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return netAmount + computeBookingFee(netAmount);
   };
 
-  const resetToDefaults = () => {
-    localStorage.removeItem(STORAGE_KEYS.REGIONS);
-    localStorage.removeItem(STORAGE_KEYS.CATEGORIES);
-    localStorage.removeItem(STORAGE_KEYS.PROGRAMS);
-    localStorage.removeItem(STORAGE_KEYS.IMAGES);
-    localStorage.removeItem(STORAGE_KEYS.PROVIDERS);
-    localStorage.removeItem(STORAGE_KEYS.PROFILES);
-    localStorage.removeItem(STORAGE_KEYS.INQUIRIES);
-    localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+  // Reviews system
+  const canUserReviewProgram = (programId: string): { eligible: boolean; order?: Order; reason?: string } => {
+    const prog = programs.find(p => p.id === programId || p.slug === programId);
+    const resolvedId = prog ? prog.id : programId;
 
-    setRegions(INITIAL_REGIONS);
-    setCategories(INITIAL_CATEGORIES);
-    setRawPrograms(INITIAL_PROGRAMS);
-    setRawImages(INITIAL_PROGRAM_IMAGES);
-    setRawProviders(INITIAL_PROVIDERS);
-    setRawProfiles(INITIAL_PROFILES);
-    setInquiries(INITIAL_INQUIRIES);
-    setCurrentUser(INITIAL_PROFILES[3]); // visitor
+    if (!currentUser) {
+      return { eligible: false, reason: 'Az értékeléshez be kell jelentkezned igazolt vásárlóként.' };
+    }
+
+    if (currentUser.role === 'provider' && prog && (prog.provider_id === currentProvider?.id || prog.provider?.id === currentProvider?.id)) {
+      return { eligible: false, reason: 'Szolgáltatóként nem értékelheted a saját programodat.' };
+    }
+
+    // Find confirmed orders for this program by this user
+    const matchingOrders = orders.filter(o => {
+      const isProgMatch = o.program_id === resolvedId || (prog && (o.program_id === prog.slug || o.program_id === prog.id));
+      const isUserMatch = o.user_id === currentUser.id || o.user_id === currentUser.user_id || currentUser.role === 'admin';
+      return isProgMatch && isUserMatch;
+    });
+
+    if (matchingOrders.length === 0) {
+      // For system admin testing: provide a synthetic confirmed order
+      if (currentUser.role === 'admin') {
+        const adminTestOrder: Order = {
+          id: `ord-admin-${resolvedId}`,
+          program_id: resolvedId,
+          user_id: currentUser.id,
+          participants_count: 2,
+          total_price: 130,
+          booking_fee: 9.75,
+          onsite_amount: 120,
+          currency: 'EUR',
+          status: 'confirmed',
+          created_at: new Date(Date.now() - 3 * 86400000).toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        return { eligible: true, order: adminTestOrder };
+      }
+      return { 
+        eligible: false, 
+        reason: 'Kizárólag igazolt vásárlók értékelhetnek, akik a velemgyere felületén keresztül foglalták le az adott programot és a részvétel megtörtént.' 
+      };
+    }
+
+    const confirmed = matchingOrders.filter(o => o.status === 'confirmed');
+    if (confirmed.length === 0) {
+      return { eligible: false, reason: 'Csak sikeresen lebonyolított, nem lemondott foglalásokhoz adható le értékelés.' };
+    }
+
+    for (const ord of confirmed) {
+      const alreadyReviewed = reviews.some(r => r.order_id === ord.id);
+      if (!alreadyReviewed) {
+        return { eligible: true, order: ord };
+      }
+    }
+
+    return { eligible: false, reason: 'Ezt a lezárult foglalásodat már korábban értékelted. Köszönjük a visszajelzést!' };
+  };
+
+  const addReview = async (data: {
+    program_id: string;
+    order_id: string;
+    rating: number;
+    rating_guide: number;
+    rating_value: number;
+    rating_organization: number;
+    rating_safety: number;
+    title?: string;
+    comment: string;
+    positive_feedback?: string;
+    improvement_feedback?: string;
+    travel_type: TravelType;
+    photos?: string[];
+  }): Promise<{ success: boolean; message: string; review?: Review }> => {
+    if (!currentUser || currentUser.role === 'visitor') {
+      return { success: false, message: 'Kérjük jelentkezz be az értékelés leadásához!' };
+    }
+
+    const prog = programs.find(p => p.id === data.program_id || p.slug === data.program_id);
+    const resolvedProgId = prog ? prog.id : data.program_id;
+
+    // Check if already reviewed for this order
+    const alreadyReviewed = reviews.some(r => r.order_id === data.order_id);
+    if (alreadyReviewed) {
+      return { success: false, message: 'Ehhez a foglaláshoz már rögzítettél értékelést!' };
+    }
+
+    // Basic moderation check for phone numbers / spam
+    const textToCheck = `${data.comment} ${data.title || ''} ${data.positive_feedback || ''}`.toLowerCase();
+    const phoneRegex = /(\+?[0-9]{2,3}[-\s]?[0-9]{2,3}[-\s]?[0-9]{4,8})/g;
+    let initialStatus: ReviewStatus = 'published';
+    if (phoneRegex.test(textToCheck)) {
+      initialStatus = 'flagged';
+    }
+
+    const ord = orders.find(o => o.id === data.order_id);
+
+    const newReview: Review = {
+      id: generateUUID(),
+      program_id: resolvedProgId,
+      order_id: data.order_id,
+      user_id: currentUser.id || currentUser.user_id || 'user-anonymous',
+      user_name: currentUser.name || currentUser.email.split('@')[0] || 'Utazó',
+      rating: Math.min(5, Math.max(1, data.rating)),
+      rating_guide: Math.min(5, Math.max(1, data.rating_guide)),
+      rating_value: Math.min(5, Math.max(1, data.rating_value)),
+      rating_organization: Math.min(5, Math.max(1, data.rating_organization)),
+      rating_safety: Math.min(5, Math.max(1, data.rating_safety)),
+      title: data.title?.trim() || undefined,
+      comment: data.comment.trim(),
+      positive_feedback: data.positive_feedback?.trim() || undefined,
+      improvement_feedback: data.improvement_feedback?.trim() || undefined,
+      travel_type: data.travel_type,
+      tour_date: ord?.created_at ? ord.created_at.split('T')[0] : new Date().toISOString().split('T')[0],
+      is_verified_buyer: true,
+      photos: data.photos && data.photos.length > 0 ? data.photos : undefined,
+      provider_response: null,
+      status: initialStatus,
+      created_at: new Date().toISOString(),
+      program_title: prog?.title,
+      provider_id: prog?.provider_id,
+      provider_name: prog?.provider?.company_name
+    };
+
+    if (isSupabaseConfigured) {
+      const dbPayload = {
+        id: newReview.id,
+        program_id: newReview.program_id,
+        order_id: newReview.order_id,
+        user_id: currentUser.user_id || currentUser.id,
+        user_name: newReview.user_name,
+        rating: newReview.rating,
+        rating_guide: newReview.rating_guide,
+        rating_value: newReview.rating_value,
+        rating_organization: newReview.rating_organization,
+        rating_safety: newReview.rating_safety,
+        title: newReview.title || null,
+        comment: newReview.comment,
+        positive_feedback: newReview.positive_feedback || null,
+        improvement_feedback: newReview.improvement_feedback || null,
+        travel_type: newReview.travel_type,
+        tour_date: newReview.tour_date,
+        is_verified_buyer: true,
+        photos: newReview.photos || [],
+        provider_id: newReview.provider_id || null,
+        provider_name: newReview.provider_name || null,
+        status: newReview.status,
+      };
+      const { error: revErr } = await supabase.from('reviews').insert([dbPayload]);
+      if (revErr) {
+        console.error('Failed to insert review to Supabase:', revErr);
+      }
+    }
+
+    setReviews(prev => [newReview, ...prev]);
+
+    return {
+      success: true,
+      message: initialStatus === 'flagged'
+        ? 'Köszönjük az értékelést! A moderáció ellenőrzése után kerül közzétételre.'
+        : 'Köszönjük az értékelést! A véleményed azonnal megjelent a program adatlapján.',
+      review: newReview
+    };
+  };
+
+  const respondToReview = async (reviewId: string, responseText: string): Promise<{ success: boolean; message: string }> => {
+    if (!responseText.trim()) {
+      return { success: false, message: 'Kérjük adj meg válasz szöveget!' };
+    }
+
+    const providerResponse = {
+      response_text: responseText.trim(),
+      responded_at: new Date().toISOString(),
+      responder_name: currentProvider?.contact_name || currentProvider?.company_name || currentUser.name || 'Szolgáltató'
+    };
+
+    if (isSupabaseConfigured) {
+      const { error: respErr } = await supabase
+        .from('reviews')
+        .update({
+          provider_response: providerResponse,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', reviewId);
+      if (respErr) {
+        console.error('Failed to update review response in Supabase:', respErr);
+      }
+    }
+
+    setReviews(prev => prev.map(rev => {
+      if (rev.id !== reviewId) return rev;
+      return {
+        ...rev,
+        provider_response: providerResponse,
+        updated_at: new Date().toISOString()
+      };
+    }));
+
+    return { success: true, message: 'A válaszod sikeresen közzétételre került!' };
+  };
+
+  const moderateReview = async (reviewId: string, status: ReviewStatus): Promise<{ success: boolean; message: string }> => {
+    if (isSupabaseConfigured) {
+      const { error: modErr } = await supabase
+        .from('reviews')
+        .update({ status, updated_at: new Date().toISOString() })
+        .eq('id', reviewId);
+      if (modErr) {
+        console.error('Failed to update review status in Supabase:', modErr);
+      }
+    }
+    setReviews(prev => prev.map(rev => {
+      if (rev.id !== reviewId) return rev;
+      return { ...rev, status, updated_at: new Date().toISOString() };
+    }));
+    return { success: true, message: `Értékelés státusza módosítva: ${status}` };
+  };
+
+  const deleteReview = async (reviewId: string): Promise<{ success: boolean; message: string }> => {
+    if (isSupabaseConfigured) {
+      const { error: delErr } = await supabase.from('reviews').delete().eq('id', reviewId);
+      if (delErr) {
+        console.error('Failed to delete review in Supabase:', delErr);
+      }
+    }
+    setReviews(prev => prev.filter(r => r.id !== reviewId));
+    return { success: true, message: 'Értékelés sikeresen törölve.' };
+  };
+
+  const getProgramReviews = (programId: string): Review[] => {
+    const prog = programs.find(p => p.id === programId || p.slug === programId);
+    const validIds = [programId];
+    if (prog) {
+      validIds.push(prog.id);
+      validIds.push(prog.slug);
+    }
+    return reviews.filter(r => validIds.includes(r.program_id) && r.status === 'published');
+  };
+
+  const getProgramRatingStats = (programId: string) => {
+    const list = getProgramReviews(programId);
+    if (list.length === 0) {
+      return {
+        average: 5.0,
+        count: 0,
+        recommendPercent: 100,
+        breakdown: { guide: 5.0, value: 5.0, organization: 5.0, safety: 5.0 },
+        distribution: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 }
+      };
+    }
+
+    const count = list.length;
+    const sumTotal = list.reduce((acc, r) => acc + r.rating, 0);
+    const sumGuide = list.reduce((acc, r) => acc + r.rating_guide, 0);
+    const sumValue = list.reduce((acc, r) => acc + r.rating_value, 0);
+    const sumOrg = list.reduce((acc, r) => acc + r.rating_organization, 0);
+    const sumSafety = list.reduce((acc, r) => acc + r.rating_safety, 0);
+
+    const dist: Record<number, number> = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+    let recCount = 0;
+    list.forEach(r => {
+      const rounded = Math.round(r.rating);
+      if (dist[rounded] !== undefined) dist[rounded]++;
+      if (r.rating >= 4) recCount++;
+    });
+
+    return {
+      average: Number((sumTotal / count).toFixed(1)),
+      count,
+      recommendPercent: Math.round((recCount / count) * 100),
+      breakdown: {
+        guide: Number((sumGuide / count).toFixed(1)),
+        value: Number((sumValue / count).toFixed(1)),
+        organization: Number((sumOrg / count).toFixed(1)),
+        safety: Number((sumSafety / count).toFixed(1))
+      },
+      distribution: dist
+    };
+  };
+
+  const getProviderRatingStats = (providerId?: string | null): { average: number; count: number } => {
+    if (!providerId) return { average: 5.0, count: 0 };
+    const provProgs = programs.filter(p => p.provider_id === providerId || p.provider?.id === providerId);
+    const provProgIds = provProgs.map(p => p.id);
+    const provProgSlugs = provProgs.map(p => p.slug);
+
+    const allMatching = reviews.filter(r => 
+      (provProgIds.includes(r.program_id) || provProgSlugs.includes(r.program_id) || r.provider_id === providerId) &&
+      r.status === 'published'
+    );
+
+    if (allMatching.length === 0) {
+      return { average: 5.0, count: 0 };
+    }
+
+    const sum = allMatching.reduce((acc, r) => acc + r.rating, 0);
+    return {
+      average: Number((sum / allMatching.length).toFixed(1)),
+      count: allMatching.length
+    };
+  };
+
+  const getUserReviewForOrder = (orderId: string): Review | undefined => {
+    return reviews.find(r => r.order_id === orderId);
+  };
+
+  // Favorites / Wishlists system methods (strictly for logged-in users / programvadászok)
+  const isProgramFavorite = (programId: string): boolean => {
+    if (!isAuthenticated || !currentUser?.user_id) return false;
+    const prog = programs.find(p => p.id === programId || p.slug === programId);
+    const resolvedId = prog ? prog.id : programId;
+    return userFavorites.some((f: FavoriteItem) => f.program_id === resolvedId || (prog && f.program_id === prog.slug));
+  };
+
+  const getProgramFolderIds = (programId: string): string[] => {
+    if (!isAuthenticated || !currentUser?.user_id) return [];
+    const prog = programs.find(p => p.id === programId || p.slug === programId);
+    const resolvedId = prog ? prog.id : programId;
+    return userFavorites
+      .filter((f: FavoriteItem) => f.program_id === resolvedId || (prog && f.program_id === prog.slug))
+      .map((f: FavoriteItem) => f.folder_id);
+  };
+
+  const getProgramFolders = (programId: string): FavoriteFolder[] => {
+    if (!isAuthenticated || !currentUser?.user_id) return [];
+    const folderIds = getProgramFolderIds(programId);
+    return userFavoriteFolders.filter((folder: FavoriteFolder) => folderIds.includes(folder.id));
+  };
+
+  const toggleFavorite = (programId: string, folderId?: string): { added: boolean; folderName: string } => {
+    if (!isAuthenticated || !currentUser?.user_id) {
+      openLoginModal('A kedvencek mentéséhez és saját utazási mappák létrehozásához kérjük, jelentkezz be programvadászként!');
+      setFavoriteToast({
+        message: 'A kedvencek mentéséhez be kell jelentkezned!',
+        folderName: 'Bejelentkezés szükséges'
+      });
+      return { added: false, folderName: '' };
+    }
+
+    const prog = programs.find(p => p.id === programId || p.slug === programId);
+    const resolvedId = prog ? prog.id : programId;
+
+    let defaultFolder = userFavoriteFolders.find((f: FavoriteFolder) => f.is_default) || userFavoriteFolders[0];
+    let targetFolderId = folderId || defaultFolder?.id;
+
+    if (!targetFolderId) {
+      const newDefaultFolder: FavoriteFolder = {
+        id: generateUUID(),
+        user_id: currentUser.user_id,
+        name: 'Általános kedvencek',
+        description: 'Bármikor mentett kedvenc programjaim egy helyen',
+        color: 'emerald',
+        icon: 'heart',
+        is_default: true,
+        created_at: new Date().toISOString()
+      };
+      setRawFavoriteFolders(prev => [newDefaultFolder, ...prev]);
+      if (isSupabaseConfigured) {
+        supabase.from('favorite_folders').insert([newDefaultFolder]).then(() => {}, () => {});
+      }
+      defaultFolder = newDefaultFolder;
+      targetFolderId = newDefaultFolder.id;
+    }
+
+    const targetFolder = userFavoriteFolders.find((f: FavoriteFolder) => f.id === targetFolderId) || defaultFolder;
+
+    // Check if already in target folder for this user
+    const inTargetFolder = userFavorites.some((f: FavoriteItem) => (f.program_id === resolvedId || (prog && f.program_id === prog.slug)) && f.folder_id === targetFolderId);
+
+    if (inTargetFolder) {
+      setRawFavorites(prev => prev.filter(f => !(f.user_id === currentUser.user_id && (f.program_id === resolvedId || (prog && f.program_id === prog.slug)) && f.folder_id === targetFolderId)));
+      if (isSupabaseConfigured) {
+        supabase.from('favorites').delete().eq('user_id', currentUser.user_id).eq('program_id', resolvedId).eq('folder_id', targetFolderId).then(() => {}, () => {});
+      }
+      setFavoriteToast({
+        message: `Eltávolítva a listából: ${targetFolder?.name || 'Kedvencek'}`,
+        program: prog || undefined,
+        folderName: targetFolder?.name
+      });
+      return { added: false, folderName: targetFolder?.name || 'Kedvencek' };
+    } else {
+      const newFav: FavoriteItem = {
+        id: generateUUID(),
+        user_id: currentUser.user_id,
+        program_id: resolvedId,
+        folder_id: targetFolderId,
+        added_at: new Date().toISOString()
+      };
+      setRawFavorites(prev => [newFav, ...prev]);
+      if (isSupabaseConfigured) {
+        supabase.from('favorites').insert([newFav]).then(() => {}, () => {});
+      }
+      setFavoriteToast({
+        message: `Hozzáadva: ${targetFolder?.name || 'Általános kedvencek'}`,
+        program: prog || undefined,
+        folderName: targetFolder?.name || 'Általános kedvencek'
+      });
+      return { added: true, folderName: targetFolder?.name || 'Általános kedvencek' };
+    }
+  };
+
+  const addProgramToFolder = (programId: string, folderId: string) => {
+    if (!isAuthenticated || !currentUser?.user_id) {
+      openLoginModal('A mappákba mentéshez kérjük, lépj be programvadászként!');
+      return;
+    }
+    const prog = programs.find(p => p.id === programId || p.slug === programId);
+    const resolvedId = prog ? prog.id : programId;
+    const exists = userFavorites.some((f: FavoriteItem) => (f.program_id === resolvedId || (prog && f.program_id === prog.slug)) && f.folder_id === folderId);
+    if (!exists) {
+      const folder = userFavoriteFolders.find((f: FavoriteFolder) => f.id === folderId);
+      const newFav: FavoriteItem = {
+        id: generateUUID(),
+        user_id: currentUser.user_id,
+        program_id: resolvedId,
+        folder_id: folderId,
+        added_at: new Date().toISOString()
+      };
+      setRawFavorites(prev => [newFav, ...prev]);
+      if (isSupabaseConfigured) {
+        supabase.from('favorites').insert([newFav]).then(() => {}, () => {});
+      }
+      setFavoriteToast({
+        message: `Hozzáadva: ${folder?.name || 'Mappa'}`,
+        program: prog || undefined,
+        folderName: folder?.name
+      });
+    }
+  };
+
+  const removeProgramFromFolder = (programId: string, folderId: string) => {
+    if (!isAuthenticated || !currentUser?.user_id) return;
+    const prog = programs.find(p => p.id === programId || p.slug === programId);
+    const resolvedId = prog ? prog.id : programId;
+    const folder = userFavoriteFolders.find((f: FavoriteFolder) => f.id === folderId);
+    setRawFavorites(prev => prev.filter(f => !(f.user_id === currentUser.user_id && (f.program_id === resolvedId || (prog && f.program_id === prog.slug)) && f.folder_id === folderId)));
+    if (isSupabaseConfigured) {
+      supabase.from('favorites').delete().eq('user_id', currentUser.user_id).eq('program_id', resolvedId).eq('folder_id', folderId).then(() => {}, () => {});
+    }
+    setFavoriteToast({
+      message: `Eltávolítva a listából: ${folder?.name || 'Mappa'}`,
+      program: prog || undefined,
+      folderName: folder?.name
+    });
+  };
+
+  const setProgramFolders = (programId: string, folderIds: string[]) => {
+    if (!isAuthenticated || !currentUser?.user_id) {
+      openLoginModal('A mappák szerkesztéséhez kérjük, lépj be a fiókodba!');
+      return;
+    }
+    const prog = programs.find(p => p.id === programId || p.slug === programId);
+    const resolvedId = prog ? prog.id : programId;
+    setRawFavorites(prev => {
+      const others = prev.filter(f => !(f.user_id === currentUser.user_id && (f.program_id === resolvedId || (prog && f.program_id === prog.slug))));
+      const additions: FavoriteItem[] = folderIds.map((fId) => ({
+        id: generateUUID(),
+        user_id: currentUser.user_id,
+        program_id: resolvedId,
+        folder_id: fId,
+        added_at: new Date().toISOString()
+      }));
+      return [...additions, ...others];
+    });
+    setFavoriteToast({
+      message: folderIds.length > 0 ? 'Mentett listák sikeresen frissítve!' : 'Eltávolítva a kedvencek közül',
+      program: prog || undefined
+    });
+  };
+
+  const createFavoriteFolder = (data: { name: string; description?: string; color?: string; icon?: string }): FavoriteFolder => {
+    if (!isAuthenticated || !currentUser?.user_id) {
+      openLoginModal('Új mappa létrehozásához kérjük, jelentkezz be!');
+      throw new Error('Not authenticated');
+    }
+    const newFolder: FavoriteFolder = {
+      id: generateUUID(),
+      user_id: currentUser.user_id,
+      name: data.name.trim(),
+      description: data.description?.trim(),
+      color: data.color || 'emerald',
+      icon: data.icon || 'bookmark',
+      is_default: false,
+      created_at: new Date().toISOString()
+    };
+    setRawFavoriteFolders(prev => [...prev, newFolder]);
+    if (isSupabaseConfigured) {
+      supabase.from('favorite_folders').insert([newFolder]).then(() => {}, () => {});
+    }
+    setFavoriteToast({ message: `Új lista létrehozva: „${newFolder.name}”` });
+    return newFolder;
+  };
+
+  const updateFavoriteFolder = (id: string, updates: Partial<FavoriteFolder>) => {
+    if (!isAuthenticated || !currentUser?.user_id) return;
+    setRawFavoriteFolders(prev => prev.map(f => (f.id === id && f.user_id === currentUser.user_id) ? { ...f, ...updates } : f));
+    if (isSupabaseConfigured) {
+      supabase.from('favorite_folders').update(updates).eq('id', id).eq('user_id', currentUser.user_id).then(() => {}, () => {});
+    }
+  };
+
+  const deleteFavoriteFolder = (id: string) => {
+    if (!isAuthenticated || !currentUser?.user_id) return;
+    const folder = userFavoriteFolders.find((f: FavoriteFolder) => f.id === id);
+    if (folder?.is_default) return;
+    setRawFavoriteFolders(prev => prev.filter(f => !(f.id === id && f.user_id === currentUser.user_id)));
+    setRawFavorites(prev => prev.filter(f => !(f.folder_id === id && f.user_id === currentUser.user_id)));
+    if (isSupabaseConfigured) {
+      supabase.from('favorites').delete().eq('folder_id', id).eq('user_id', currentUser.user_id).then(() => {}, () => {});
+      supabase.from('favorite_folders').delete().eq('id', id).eq('user_id', currentUser.user_id).then(() => {}, () => {});
+    }
+    setFavoriteToast({ message: `„${folder?.name || 'Lista'}” törölve.` });
+  };
+
+  const allFavoritePrograms: Program[] = React.useMemo(() => {
+    if (!isAuthenticated || !currentUser?.user_id) return [];
+    const uniqueIds = Array.from(new Set(userFavorites.map((f: FavoriteItem) => f.program_id)));
+    return programs.filter(p => uniqueIds.includes(p.id) || uniqueIds.includes(p.slug));
+  }, [userFavorites, programs, isAuthenticated, currentUser?.user_id]);
+
+  const totalFavoritesCount = allFavoritePrograms.length;
+
+  const getFolderPrograms = (folderId: string): Program[] => {
+    if (!isAuthenticated || !currentUser?.user_id) return [];
+    if (folderId === 'all') {
+      return allFavoritePrograms;
+    }
+    const matchingIds = userFavorites.filter((f: FavoriteItem) => f.folder_id === folderId).map((f: FavoriteItem) => f.program_id);
+    return programs.filter(p => matchingIds.includes(p.id) || matchingIds.includes(p.slug));
+  };
+
+  const openFolderModal = (program: Program) => {
+    if (!isAuthenticated || !currentUser?.user_id) {
+      openLoginModal('A mappák kezeléséhez és mentéshez kérjük, jelentkezz be programvadászként!');
+      setFavoriteToast({
+        message: 'A kedvenc mappákhoz be kell jelentkezned!',
+        folderName: 'Bejelentkezés szükséges'
+      });
+      return;
+    }
+    setFolderModalProgram(program);
+  };
+
+  const closeFolderModal = () => {
+    setFolderModalProgram(null);
+  };
+
+  const dismissFavoriteToast = () => {
+    setFavoriteToast(null);
+  };
+
+  const resetToDefaults = async () => {
+    // Purge any local residual storage
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const legacyKeys = [
+          'vg_regions', 'vg_regions_v2', 'vg_categories', 'vg_categories_v2',
+          'vg_providers', 'vg_providers_v2', 'vg_profiles', 'vg_profiles_v2',
+          'vg_programs', 'vg_programs_v2', 'vg_images', 'vg_images_v2',
+          'vg_inquiries', 'vg_inquiries_v2', 'vg_current_user', 'vg_current_user_v2',
+          'vg_reviews', 'vg_reviews_v1', 'vg_reviews_v2', 'vg_orders', 'vg_orders_v2',
+          'vg_favorite_folders', 'vg_favorite_folders_v2', 'vg_favorite_folders_v3',
+          'vg_favorites', 'vg_favorites_v2', 'vg_favorites_v3'
+        ];
+        legacyKeys.forEach(k => localStorage.removeItem(k));
+      } catch {}
+    }
+
+    if (isSupabaseConfigured) {
+      const [
+        regionsRes,
+        categoriesRes,
+        profilesRes,
+        imagesRes,
+        inquiriesRes,
+        reviewsRes,
+      ] = await Promise.all([
+        supabase.from('regions').select('*'),
+        supabase.from('categories').select('*'),
+        supabase.from('profiles').select('*'),
+        supabase.from('program_images').select('*'),
+        supabase.from('inquiries').select('*'),
+        supabase.from('reviews').select('*').order('created_at', { ascending: false }),
+      ]);
+      if (regionsRes.data) setRegions(regionsRes.data as Region[]);
+      if (categoriesRes.data) setCategories(categoriesRes.data as Category[]);
+      if (profilesRes.data) setRawProfiles(profilesRes.data as Profile[]);
+      if (imagesRes.data) setRawImages(imagesRes.data as ProgramImage[]);
+      if (inquiriesRes.data) setInquiries(inquiriesRes.data as Inquiry[]);
+      if (reviewsRes.data) setReviews(reviewsRes.data as Review[]);
+      loadProgramsAndProviders(isAuthenticated, currentUser.role);
+    }
     setCurrentView('home');
   };
 
@@ -1540,8 +2255,49 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         computeBookingFee,
         computeTotalPrice,
 
+        // Reviews system
+        reviews,
+        addReview,
+        respondToReview,
+        moderateReview,
+        deleteReview,
+        getProgramReviews,
+        getProgramRatingStats,
+        getProviderRatingStats,
+        canUserReviewProgram,
+        getUserReviewForOrder,
+
+        // Favorites / Wishlists system (strictly user-scoped)
+        favoriteFolders: userFavoriteFolders,
+        favorites: userFavorites,
+        isProgramFavorite,
+        getProgramFolderIds,
+        getProgramFolders,
+        toggleFavorite,
+        addProgramToFolder,
+        removeProgramFromFolder,
+        setProgramFolders,
+        createFavoriteFolder,
+        updateFavoriteFolder,
+        deleteFavoriteFolder,
+        getFolderPrograms,
+        allFavoritePrograms,
+        totalFavoritesCount,
+        folderModalProgram,
+        openFolderModal,
+        closeFolderModal,
+        favoriteToast,
+        dismissFavoriteToast,
+
+        // Global Login Modal state
+        isLoginModalOpen,
+        loginModalMessage,
+        openLoginModal,
+        closeLoginModal,
+
         resetToDefaults,
         isSupabaseLive: isSupabaseConfigured,
+        isLoading,
       }}
     >
       {children}

@@ -22,9 +22,14 @@ import {
   Loader2,
   BadgeEuro,
   Banknote,
-  Wallet
+  Wallet,
+  Star,
+  Heart,
+  FolderHeart
 } from 'lucide-react';
 import { CategoryIcon } from './CategoryIcon';
+import { CountryFlag } from './CountryFlag';
+import { ProgramReviewsSection } from './ProgramReviewsSection';
 import { ProgramAvailability, OnsitePaymentMethod, OrderProviderContact, OccurrenceAvailability } from '../types/database';
 
 // Kanban fbf552b2 point 1: a still-gated detail sections (mit tartalmaz/nem tartalmaz)
@@ -59,10 +64,17 @@ export const ProgramDetailView: React.FC = () => {
     createOrder,
     getProviderContactForOrder,
     computeBookingFee,
-    computeTotalPrice
+    computeTotalPrice,
+    getProgramRatingStats,
+    getProviderRatingStats,
+    isProgramFavorite,
+    toggleFavorite,
+    openFolderModal,
+    isLoading
   } = useApp();
 
-  const program = programs.find((p) => p.slug === slug);
+  const program = programs.find((p) => p.slug === slug || p.id === slug);
+  const isFav = program ? isProgramFavorite(program.id) : false;
   const programProvider = providers.find((p) => p.id === program?.provider_id);
   // Payment methods are a provider-level setting, inherited by all their programs
   // (kanban cfa4b20a point 3) -- fall back to cash-only if the provider row hasn't
@@ -71,6 +83,11 @@ export const ProgramDetailView: React.FC = () => {
     programProvider?.accepted_payment_methods?.length ? programProvider.accepted_payment_methods : ['cash'];
 
   useDocumentMeta(program?.title, program?.short_description);
+
+  const programStats = program ? getProgramRatingStats(program.id) : null;
+  const providerStats = (programProvider?.id || program?.provider_id || program?.provider?.id) 
+    ? getProviderRatingStats(programProvider?.id || program?.provider_id || program?.provider?.id) 
+    : null;
 
   // Gallery state
   const [activeImageIndex, setActiveImageIndex] = useState(0);
@@ -185,6 +202,29 @@ export const ProgramDetailView: React.FC = () => {
     }
   };
 
+  if (isLoading && !program) {
+    return (
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 animate-pulse">
+        <div className="h-6 w-36 bg-stone-200 rounded-lg mb-8"></div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 space-y-6">
+            <div className="aspect-[16/10] bg-stone-200 rounded-3xl"></div>
+            <div className="h-10 bg-stone-200 rounded-xl w-3/4"></div>
+            <div className="h-5 bg-stone-200 rounded-lg w-1/2"></div>
+            <div className="space-y-3 pt-4">
+              <div className="h-4 bg-stone-200 rounded w-full"></div>
+              <div className="h-4 bg-stone-200 rounded w-5/6"></div>
+              <div className="h-4 bg-stone-200 rounded w-4/6"></div>
+            </div>
+          </div>
+          <div className="lg:col-span-1">
+            <div className="h-96 bg-stone-200 rounded-3xl"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!program) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-16 text-center">
@@ -240,6 +280,37 @@ export const ProgramDetailView: React.FC = () => {
         </button>
 
         <div className="flex items-center gap-2">
+          {/* Heart / Favorite button */}
+          <button
+            onClick={() => program && toggleFavorite(program.id)}
+            className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border transition-all cursor-pointer ${
+              isFav 
+                ? 'bg-rose-50 border-rose-200 text-rose-700 shadow-xs' 
+                : 'border-stone-200 text-stone-700 hover:text-rose-600 hover:border-stone-300 hover:bg-stone-50'
+            }`}
+            title={
+              !isAuthenticated
+                ? "Jelentkezz be programvadászként a kedvencek mentéséhez (♡)"
+                : isFav 
+                  ? "Mentve a kedvencekhez (Kattints az eltávolításhoz)" 
+                  : "Hozzáadás a kedvencekhez (♡)"
+            }
+          >
+            <Heart className={`w-3.5 h-3.5 ${isFav ? 'fill-rose-500 text-rose-500 scale-105' : 'text-stone-500'}`} />
+            <span>{isFav ? 'Mentve' : 'Mentés (♡)'}</span>
+          </button>
+
+          {isFav && program && (
+            <button
+              onClick={() => openFolderModal(program)}
+              className="inline-flex items-center gap-1 text-xs text-stone-600 hover:text-emerald-700 px-2.5 py-1.5 rounded-lg border border-stone-200 hover:bg-stone-50 transition-colors cursor-pointer"
+              title="Mappa kiválasztása"
+            >
+              <FolderHeart className="w-3.5 h-3.5 text-emerald-600" />
+              <span className="hidden sm:inline">Mappa</span>
+            </button>
+          )}
+
           <button
             onClick={handleCopyLink}
             className="inline-flex items-center gap-1.5 text-xs text-stone-600 hover:text-stone-900 px-3 py-1.5 rounded-lg border border-stone-200 hover:bg-stone-50 transition-colors cursor-pointer"
@@ -258,7 +329,7 @@ export const ProgramDetailView: React.FC = () => {
         <div className="flex flex-wrap gap-2">
           {/* Destination badge */}
           <span className="bg-white border border-stone-200 text-stone-900 text-xs sm:text-sm font-bold px-3 py-1.5 rounded-xl shadow-sm flex items-center gap-1.5">
-            <span>{program.region?.flag_emoji || '✈️'}</span>
+            <CountryFlag emoji={program.region?.flag_emoji} country={program.region?.country || program.country} size="sm" />
             <span>{program.region?.name || program.location}</span>
           </span>
 
@@ -272,7 +343,7 @@ export const ProgramDetailView: React.FC = () => {
 
           {/* Guaranteed Hungarian badge */}
           <span className="bg-emerald-600 text-white text-xs sm:text-sm font-bold px-3 py-1.5 rounded-xl shadow-sm flex items-center gap-1.5">
-            <span>🇭🇺</span>
+            <CountryFlag emoji="🇭🇺" country="Magyarország" size="sm" />
             <span>{program.language || 'Magyar nyelvű vezetés'}</span>
           </span>
 
@@ -290,6 +361,31 @@ export const ProgramDetailView: React.FC = () => {
             alt={program.title}
             className="w-full h-full object-cover transition-opacity duration-300"
           />
+
+          {/* Floating Heart Button in the top right corner of the main photo */}
+          <button
+            type="button"
+            onClick={() => program && toggleFavorite(program.id)}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              if (program) openFolderModal(program);
+            }}
+            className={`absolute top-4 right-4 z-10 w-11 h-11 rounded-full backdrop-blur-md shadow-xl flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-90 cursor-pointer ${
+              isFav 
+                ? 'bg-white text-rose-500 ring-2 ring-rose-400/60 shadow-rose-500/30' 
+                : 'bg-stone-900/60 hover:bg-white text-white hover:text-rose-500'
+            }`}
+            title={
+              !isAuthenticated
+                ? "Jelentkezz be programvadászként a kedvencek mentéséhez (♡)"
+                : isFav 
+                  ? "Mentve a kedvencekhez (Kattints az eltávolításhoz / jobb klikk a mappákhoz)" 
+                  : "Hozzáadás a kedvencekhez (♡)"
+            }
+            aria-label={isFav ? "Kedvenc program" : "Mentés a kedvencek közé"}
+          >
+            <Heart className={`w-5 h-5 transition-transform ${isFav ? 'fill-rose-500 text-rose-500 scale-110' : 'text-current'}`} />
+          </button>
         </div>
 
         {/* Price (Csaba 2026-10-07: a kep ALA kerul, nem ra) */}
@@ -324,12 +420,37 @@ export const ProgramDetailView: React.FC = () => {
         <div className="lg:col-span-2 space-y-8">
           <div>
             <div className="inline-flex items-center gap-2 text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-lg mb-2">
-              <span>🇭🇺</span>
+              <CountryFlag emoji="🇭🇺" country="Magyarország" size="xs" />
               <span>Külföldi program magyar nyelvű vezetéssel vagy sofőrrel</span>
             </div>
-            <h1 className="text-3xl sm:text-4xl font-extrabold font-display text-stone-900 mb-3 tracking-tight">
+            <h1 className="text-3xl sm:text-4xl font-extrabold font-display text-stone-900 mb-2 tracking-tight">
               {program.title}
             </h1>
+
+            {programStats && (
+              <div className="mb-4">
+                <a
+                  href="#reviews-section"
+                  className="inline-flex items-center gap-2 text-xs font-bold text-stone-700 hover:text-emerald-700 bg-stone-100 hover:bg-emerald-50 px-3 py-1.5 rounded-xl border border-stone-200/80 transition-all cursor-pointer"
+                >
+                  <div className="flex text-amber-400">
+                    <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
+                  </div>
+                  <span className="text-stone-900 font-extrabold font-display text-sm">
+                    {programStats.average.toFixed(1)}
+                  </span>
+                  <span className="text-stone-400">•</span>
+                  <span className="text-stone-600">
+                    {programStats.count > 0 ? `${programStats.count} igazolt értékelés` : 'Új program'}
+                  </span>
+                  {programStats.count > 0 && (
+                    <span className="text-emerald-700 font-semibold">
+                      ({programStats.recommendPercent}% ajánlja)
+                    </span>
+                  )}
+                </a>
+              </div>
+            )}
             <p className="text-lg text-stone-600 leading-relaxed font-medium">
               {program.short_description}
             </p>
@@ -461,6 +582,9 @@ export const ProgramDetailView: React.FC = () => {
               ctaLabel="További információk"
             />
           )}
+
+          {/* Reviews & Ratings Section */}
+          <ProgramReviewsSection program={program} />
         </div>
 
         {/* Right Column: Sticky Booking Card & Provider Details (kanban fbf552b2 point 2:
@@ -661,6 +785,33 @@ export const ProgramDetailView: React.FC = () => {
                   )}
                 </div>
               )}
+
+              {/* Quick Favorite Save in Sticky Booking Card */}
+              <div className="pt-2 border-t border-stone-100 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => program && toggleFavorite(program.id)}
+                  className={`flex-1 py-2.5 px-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                    isFav
+                      ? 'bg-rose-50 border-rose-200 text-rose-700 shadow-xs'
+                      : 'bg-white border-stone-200 text-stone-700 hover:border-stone-300 hover:bg-stone-50'
+                  }`}
+                >
+                  <Heart className={`w-4 h-4 ${isFav ? 'fill-rose-500 text-rose-500' : 'text-stone-400'}`} />
+                  <span>{isFav ? 'Mentve a kedvencekhez' : 'Mentés a kedvencekhez (♡)'}</span>
+                </button>
+
+                {program && (
+                  <button
+                    type="button"
+                    onClick={() => openFolderModal(program)}
+                    className="p-2.5 rounded-xl border border-stone-200 hover:bg-stone-50 text-stone-600 hover:text-emerald-700 transition-colors cursor-pointer"
+                    title="Mappa kiválasztása"
+                  >
+                    <FolderHeart className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Provider Info Card (point 3): company_name/description always public
@@ -681,6 +832,20 @@ export const ProgramDetailView: React.FC = () => {
                     <h5 className="font-bold text-stone-900 text-sm">
                       {program.provider.company_name}
                     </h5>
+                    {providerStats && (
+                      <div className="flex items-center gap-1.5 mt-1 text-xs">
+                        <div className="flex text-amber-400">
+                          <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                        </div>
+                        <span className="font-extrabold text-stone-900 font-display">
+                          {providerStats.average.toFixed(1)}
+                        </span>
+                        <span className="text-stone-300">•</span>
+                        <span className="text-stone-500 font-medium">
+                          {providerStats.count > 0 ? `${providerStats.count} túraértékelés alapján` : 'Új helyi partner'}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
 

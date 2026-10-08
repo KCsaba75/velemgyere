@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
+import { CountryFlag } from './CountryFlag';
 import {
   Building2,
   PlusCircle,
@@ -23,7 +24,10 @@ import {
   Banknote,
   Wallet,
   UserCog,
-  Save
+  Save,
+  Star,
+  Send,
+  CornerDownRight
 } from 'lucide-react';
 import { Program, ProgramStatus, OrderBuyerInfo, OnsitePaymentMethod } from '../types/database';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
@@ -46,6 +50,9 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
     programs,
     inquiries,
     orders,
+    reviews,
+    respondToReview,
+    getProviderRatingStats,
     getOrderBuyerInfo,
     openProgramDetail,
     deleteProgram,
@@ -55,10 +62,16 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
 
   useDocumentMeta('Szolgáltatói Dashboard', 'Saját programok, foglalások és érdeklődések kezelése.');
 
-  const [activeTab, setActiveTab] = useState<'programs' | 'bookings' | 'inquiries' | 'profile'>('programs');
+  const [activeTab, setActiveTab] = useState<'programs' | 'bookings' | 'inquiries' | 'reviews' | 'profile'>('programs');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [occurrencesModalProgram, setOccurrencesModalProgram] = useState<Program | null>(null);
   const [rescheduleOrderId, setRescheduleOrderId] = useState<string | null>(null);
+
+  // Review reply state
+  const [replyingReviewId, setReplyingReviewId] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState<string>('');
+  const [replySubmitting, setReplySubmitting] = useState<boolean>(false);
+  const [replySuccessMsg, setReplySuccessMsg] = useState<string | null>(null);
 
   // Profile tab (kanban cfa4b20a point 1): own-profile editable fields, seeded from
   // currentProvider (hydrated via get_my_provider_profile) whenever it changes.
@@ -157,6 +170,32 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
     (inq) => inq.provider_id === currentProvider?.id || (currentUser.role === 'admin' ? true : false)
   );
 
+  // Reviews for this provider's programs
+  const ownProgramSlugs = new Set(ownPrograms.map(p => p.slug));
+  const providerReviews = reviews.filter(r => 
+    ownProgramIds.has(r.program_id) || 
+    ownProgramSlugs.has(r.program_id) || 
+    (currentProvider && r.provider_id === currentProvider.id)
+  );
+  const providerStats = getProviderRatingStats(currentProvider?.id);
+
+  const handleSendReply = async (reviewId: string) => {
+    if (!replyText.trim()) return;
+    setReplySubmitting(true);
+    setReplySuccessMsg(null);
+    try {
+      const res = await respondToReview(reviewId, replyText);
+      if (res.success) {
+        setReplySuccessMsg('Válaszod sikeresen közzétéve a program oldalán!');
+        setReplyingReviewId(null);
+        setReplyText('');
+        setTimeout(() => setReplySuccessMsg(null), 3500);
+      }
+    } finally {
+      setReplySubmitting(false);
+    }
+  };
+
   // Filtered program list for display
   const displayedPrograms = ownPrograms.filter((p) => {
     if (statusFilter === 'all') return true;
@@ -243,7 +282,7 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
       )}
 
       {/* Metric Stat Cards (Section 11) */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
         {/* Saját programok */}
         <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-sm">
           <span className="text-xs font-bold text-stone-500 uppercase tracking-wider block mb-1">
@@ -266,6 +305,20 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
           <div className="text-xs text-emerald-700/80 mt-1">Publikusan böngészhető</div>
         </div>
 
+        {/* Értékelések */}
+        <div className="bg-white p-5 rounded-2xl border border-amber-100 shadow-sm bg-gradient-to-br from-white to-amber-50/30">
+          <span className="text-xs font-bold text-amber-800 uppercase tracking-wider block mb-1">
+            Értékelési átlag
+          </span>
+          <div className="text-3xl font-extrabold font-display text-amber-600 flex items-center gap-1">
+            <span>{providerStats.count > 0 ? providerStats.average.toFixed(1) : '5.0'}</span>
+            <Star className="w-5 h-5 fill-amber-400 text-amber-400 inline" />
+          </div>
+          <div className="text-xs text-amber-700/80 mt-1">
+            {providerReviews.length} igazolt utazói vélemény
+          </div>
+        </div>
+
         {/* Piszkozatok & függőben */}
         <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-sm">
           <span className="text-xs font-bold text-stone-500 uppercase tracking-wider block mb-1">
@@ -275,12 +328,12 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
             {draftProgramsCount + pendingProgramsCount}
           </div>
           <div className="text-xs text-stone-400 mt-1">
-            {draftProgramsCount} piszkozat, {pendingProgramsCount} jóváhagyásra vár
+            {draftProgramsCount} piszkozat, {pendingProgramsCount} ellenőrzésre
           </div>
         </div>
 
         {/* Érdeklődések */}
-        <div className="bg-white p-5 rounded-2xl border border-teal-100 shadow-sm bg-gradient-to-br from-white to-teal-50/40">
+        <div className="bg-white p-5 rounded-2xl border border-teal-100 shadow-sm bg-gradient-to-br from-white to-teal-50/40 col-span-2 sm:col-span-1">
           <span className="text-xs font-bold text-teal-800 uppercase tracking-wider block mb-1">
             Érdeklődések
           </span>
@@ -292,10 +345,10 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
       </div>
 
       {/* Tabs navigation */}
-      <div className="flex border-b border-stone-200 mb-6 gap-6">
+      <div className="flex border-b border-stone-200 mb-6 gap-6 overflow-x-auto no-scrollbar">
         <button
           onClick={() => setActiveTab('programs')}
-          className={`pb-3 text-sm font-bold transition-colors cursor-pointer border-b-2 flex items-center gap-2 ${
+          className={`pb-3 text-sm font-bold transition-colors cursor-pointer border-b-2 flex items-center gap-2 shrink-0 ${
             activeTab === 'programs'
               ? 'border-emerald-600 text-emerald-700'
               : 'border-transparent text-stone-500 hover:text-stone-800'
@@ -307,7 +360,7 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
 
         <button
           onClick={() => setActiveTab('bookings')}
-          className={`pb-3 text-sm font-bold transition-colors cursor-pointer border-b-2 flex items-center gap-2 ${
+          className={`pb-3 text-sm font-bold transition-colors cursor-pointer border-b-2 flex items-center gap-2 shrink-0 ${
             activeTab === 'bookings'
               ? 'border-emerald-600 text-emerald-700'
               : 'border-transparent text-stone-500 hover:text-stone-800'
@@ -318,8 +371,20 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
         </button>
 
         <button
+          onClick={() => setActiveTab('reviews')}
+          className={`pb-3 text-sm font-bold transition-colors cursor-pointer border-b-2 flex items-center gap-2 shrink-0 ${
+            activeTab === 'reviews'
+              ? 'border-emerald-600 text-emerald-700'
+              : 'border-transparent text-stone-500 hover:text-stone-800'
+          }`}
+        >
+          <Star className="w-4 h-4" />
+          <span>Értékelések ({providerReviews.length})</span>
+        </button>
+
+        <button
           onClick={() => setActiveTab('inquiries')}
-          className={`pb-3 text-sm font-bold transition-colors cursor-pointer border-b-2 flex items-center gap-2 ${
+          className={`pb-3 text-sm font-bold transition-colors cursor-pointer border-b-2 flex items-center gap-2 shrink-0 ${
             activeTab === 'inquiries'
               ? 'border-emerald-600 text-emerald-700'
               : 'border-transparent text-stone-500 hover:text-stone-800'
@@ -390,8 +455,9 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
                           <div className="flex flex-wrap items-center gap-2 mb-1">
                             {getStatusBadge(prog.status)}
                             {prog.region && (
-                              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-stone-100 text-stone-800">
-                                {prog.region.flag_emoji} {prog.region.name}
+                              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-stone-100 text-stone-800 flex items-center gap-1">
+                                <CountryFlag emoji={prog.region.flag_emoji} country={prog.region.country || prog.region.name} size="xs" />
+                                <span>{prog.region.name}</span>
                               </span>
                             )}
                             {prog.category && (
@@ -399,8 +465,9 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
                                 • {prog.category.name}
                               </span>
                             )}
-                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
-                              🇭🇺 {prog.language || 'Magyar nyelvű'}
+                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded flex items-center gap-1">
+                              <CountryFlag emoji="🇭🇺" country="Magyarország" size="xs" />
+                              <span>{prog.language || 'Magyar nyelvű'}</span>
                             </span>
                           </div>
                           <h4 className="font-bold text-base text-stone-900 truncate font-display">

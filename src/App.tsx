@@ -14,6 +14,9 @@ import { ProviderRegisterModal } from './components/ProviderRegisterModal';
 import { NewProgramModal } from './components/NewProgramModal';
 import { Footer } from './components/Footer';
 import { MyAccountView } from './components/MyAccountView';
+import { FavoritesView } from './components/FavoritesView';
+import { FavoriteFolderModal } from './components/FavoriteFolderModal';
+import { FavoriteToast } from './components/FavoriteToast';
 import { UserRole } from './types/database';
 
 // 16241c32: gates a route behind auth/role, redirecting home instead of rendering a
@@ -28,7 +31,7 @@ const ProtectedRoute: React.FC<{ allow: UserRole[]; children: React.ReactNode }>
 };
 
 const AppContent: React.FC = () => {
-  const [loginModalOpen, setLoginModalOpen] = useState(false);
+  const { isLoginModalOpen, openLoginModal, closeLoginModal } = useApp();
   const [registerModalOpen, setRegisterModalOpen] = useState(false);
   const [newProgramModalOpen, setNewProgramModalOpen] = useState(false);
 
@@ -36,7 +39,7 @@ const AppContent: React.FC = () => {
     <div className="min-h-screen flex flex-col bg-stone-50 font-sans selection:bg-emerald-500 selection:text-white">
       {/* Sticky Main Navigation */}
       <Navbar
-        onOpenLogin={() => setLoginModalOpen(true)}
+        onOpenLogin={() => openLoginModal()}
         onOpenNewProgram={() => setNewProgramModalOpen(true)}
       />
 
@@ -54,7 +57,7 @@ const AppContent: React.FC = () => {
             element={
               <ProviderLanding
                 onOpenRegister={() => setRegisterModalOpen(true)}
-                onOpenLogin={() => setLoginModalOpen(true)}
+                onOpenLogin={() => openLoginModal()}
               />
             }
           />
@@ -82,6 +85,7 @@ const AppContent: React.FC = () => {
               </ProtectedRoute>
             }
           />
+          <Route path="/kedvencek" element={<FavoritesView />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
@@ -91,8 +95,8 @@ const AppContent: React.FC = () => {
 
       {/* Global Interactive Modals */}
       <LoginModal
-        isOpen={loginModalOpen}
-        onClose={() => setLoginModalOpen(false)}
+        isOpen={isLoginModalOpen}
+        onClose={closeLoginModal}
       />
 
       <ProviderRegisterModal
@@ -104,6 +108,10 @@ const AppContent: React.FC = () => {
         isOpen={newProgramModalOpen}
         onClose={() => setNewProgramModalOpen(false)}
       />
+
+      {/* Favorites / Wishlist Modal & Toast */}
+      <FavoriteFolderModal />
+      <FavoriteToast />
     </div>
   );
 };

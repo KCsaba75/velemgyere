@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { ProgramCard } from './ProgramCard';
+import { CountryFlag } from './CountryFlag';
 import { SearchX, RotateCcw, Globe } from 'lucide-react';
 
 export const ProgramList: React.FC = () => {
@@ -16,7 +17,8 @@ export const ProgramList: React.FC = () => {
     selectedDurationType,
     maxPrice,
     openProgramDetail,
-    resetFilters
+    resetFilters,
+    isLoading
   } = useApp();
 
   // Active region details
@@ -120,8 +122,8 @@ export const ProgramList: React.FC = () => {
               Külföldi Magyar Programkatalógus
             </span>
             {activeRegionObj && (
-              <span className="text-xs font-bold text-stone-700 bg-stone-100 px-2.5 py-0.5 rounded-lg flex items-center gap-1">
-                <span>{activeRegionObj.flag_emoji}</span>
+              <span className="text-xs font-bold text-stone-700 bg-stone-100 px-2.5 py-0.5 rounded-lg flex items-center gap-1.5">
+                <CountryFlag emoji={activeRegionObj.flag_emoji} country={activeRegionObj.country || activeRegionObj.name} size="xs" />
                 <span>Szűkítve: {activeRegionObj.name}</span>
               </span>
             )}
@@ -135,13 +137,32 @@ export const ProgramList: React.FC = () => {
         </div>
 
         <div className="text-xs sm:text-sm font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-3.5 py-1.5 rounded-xl self-start sm:self-auto flex items-center gap-1.5">
-          <span>🇭🇺</span>
+          <CountryFlag emoji="🇭🇺" country="Magyarország" size="xs" />
           <span>{filteredPrograms.length} magyar nyelvű program</span>
         </div>
       </div>
 
       {/* Program Cards Grid */}
-      {filteredPrograms.length > 0 ? (
+      {isLoading && programs.length === 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 animate-pulse">
+          {[1, 2, 3, 4, 5, 6].map((idx) => (
+            <div key={idx} className="bg-white rounded-2xl border border-stone-200 overflow-hidden flex flex-col">
+              <div className="aspect-[16/10] bg-stone-200 w-full"></div>
+              <div className="p-5 space-y-3 flex-1 flex flex-col justify-between">
+                <div className="space-y-2">
+                  <div className="h-4 bg-stone-200 rounded w-1/3"></div>
+                  <div className="h-6 bg-stone-200 rounded w-3/4"></div>
+                  <div className="h-4 bg-stone-200 rounded w-full"></div>
+                </div>
+                <div className="pt-4 border-t border-stone-100 flex items-center justify-between">
+                  <div className="h-6 bg-stone-200 rounded w-20"></div>
+                  <div className="h-8 bg-stone-200 rounded-xl w-24"></div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : filteredPrograms.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
           {filteredPrograms.map((program) => (
             <ProgramCard

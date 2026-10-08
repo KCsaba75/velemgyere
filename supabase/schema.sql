@@ -1313,3 +1313,138 @@ $$;
 
 revoke all on function public.reschedule_order(uuid, uuid) from public, anon;
 grant execute on function public.reschedule_order(uuid, uuid) to authenticated;
+
+-- ==========================================
+-- 9. FAVORITE_FOLDERS (Utazási mappák & Tematikus kedvencek gyűjtemények)
+-- ==========================================
+create table if not exists public.favorite_folders (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  name text not null,
+  description text,
+  color text default 'emerald',
+  icon text default 'heart',
+  is_default boolean default false,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- ==========================================
+-- 10. FAVORITES (Elmentett kedvenc programok a felhasználó mappáiban)
+-- ==========================================
+create table if not exists public.favorites (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  program_id uuid not null references public.programs(id) on delete cascade,
+  folder_id uuid not null references public.favorite_folders(id) on delete cascade,
+  added_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- ==========================================
+-- 11. REVIEWS (Értékelések & Részletes visszajelzések igazolt vásárlóktól)
+-- ==========================================
+create table if not exists public.reviews (
+  id uuid primary key default uuid_generate_v4(),
+  program_id uuid not null references public.programs(id) on delete cascade,
+  order_id uuid references public.orders(id) on delete set null,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  user_name text not null,
+  rating numeric(2,1) not null check (rating >= 1 and rating <= 5),
+  rating_guide numeric(2,1) not null default 5,
+  rating_value numeric(2,1) not null default 5,
+  rating_organization numeric(2,1) not null default 5,
+  rating_safety numeric(2,1) not null default 5,
+  title text,
+  comment text not null,
+  positive_feedback text,
+  improvement_feedback text,
+  travel_type text default 'couple',
+  tour_date text not null,
+  is_verified_buyer boolean default true,
+  photos text[] default '{}'::text[],
+  provider_id uuid references public.providers(id) on delete cascade,
+  provider_name text,
+  provider_response jsonb,
+  status text not null default 'published' check (status in ('pending', 'published', 'flagged', 'hidden')),
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now())
+);
+
+-- Indexek
+create index if not exists idx_favorite_folders_user on public.favorite_folders(user_id);
+create index if not exists idx_favorites_user on public.favorites(user_id);
+create index if not exists idx_favorites_folder on public.favorites(folder_id);
+create index if not exists idx_favorites_program on public.favorites(program_id);
+create index if not exists idx_reviews_program on public.reviews(program_id);
+create index if not exists idx_reviews_provider on public.reviews(provider_id);
+create index if not exists idx_reviews_user on public.reviews(user_id);
+
+-- Enable RLS
+alter table public.favorite_folders enable row level security;
+alter table public.favorites enable row level security;
+alter table public.reviews enable row level security;
+
+-- RLS: FAVORITE_FOLDERS (felhasználó csak a sajátjait látja/kezeli)
+drop policy if exists "Users can view own favorite folders" on public.favorite_folders;
+create policy "Users can view own favorite folders"
+  on public.favorite_folders for select
+  using (auth.uid() = user_id or public.is_admin());
+
+drop policy if exists "Users can insert own favorite folders" on public.favorite_folders;
+create policy "Users can insert own favorite folders"
+  on public.favorite_folders for insert
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update own favorite folders" on public.favorite_folders;
+create policy "Users can update own favorite folders"
+  on public.favorite_folders for update
+  using (auth.uid() = user_id or public.is_admin());
+
+drop policy if exists "Users can delete own favorite folders" on public.favorite_folders;
+create policy "Users can delete own favorite folders"
+  on public.favorite_folders for delete
+  using (auth.uid() = user_id or public.is_admin());
+
+-- RLS: FAVORITES (felhasználó csak a sajátjait látja/kezeli)
+drop policy if exists "Users can view own favorites" on public.favorites;
+create policy "Users can view own favorites"
+  on public.favorites for select
+  using (auth.uid() = user_id or public.is_admin());
+
+drop policy if exists "Users can insert own favorites" on public.favorites;
+create policy "Users can insert own favorites"
+  on public.favorites for insert
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Users can delete own favorites" on public.favorites;
+create policy "Users can delete own favorites"
+  on public.favorites for delete
+  using (auth.uid() = user_id or public.is_admin());
+
+-- RLS: REVIEWS
+drop policy if exists "Anyone can read published reviews" on public.reviews;
+create policy "Anyone can read published reviews"
+  on public.reviews for select
+  using (status = 'published' or auth.uid() = user_id or public.is_admin());
+
+drop policy if exists "Verified users can insert reviews" on public.reviews;
+create policy "Verified users can insert reviews"
+  on public.reviews for insert
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Users and providers can update reviews" on public.reviews;
+create policy "Users and providers can update reviews"
+  on public.reviews for update
+  using (
+    auth.uid() = user_id 
+    or exists (
+      select 1 from public.providers 
+      where providers.id = reviews.provider_id and providers.user_id = auth.uid()
+    )
+    or public.is_admin()
+  );
+
+drop policy if exists "Admins can delete reviews" on public.reviews;
+create policy "Admins can delete reviews"
+  on public.reviews for delete
+  using (public.is_admin());
+

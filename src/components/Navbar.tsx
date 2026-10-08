@@ -7,7 +7,8 @@ import {
   Briefcase,
   User,
   LogOut,
-  PlusCircle
+  PlusCircle,
+  Heart
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -25,6 +26,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     currentUser,
     currentProvider,
     isAuthenticated,
+    totalFavoritesCount,
     logout
   } = useApp();
 
@@ -38,17 +40,6 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-stone-200">
-      {isAuthenticated && (
-        <div className="bg-stone-900 text-stone-300 text-xs px-4 py-1.5 flex items-center gap-2 overflow-x-auto no-scrollbar">
-          <span className="font-semibold text-emerald-400 uppercase tracking-wider text-[11px] whitespace-nowrap">
-            Bejelentkezve:
-          </span>
-          <span className="px-2 py-0.5 rounded bg-stone-800 text-white font-medium whitespace-nowrap border border-stone-700">
-            {currentUser.role === 'admin' ? '🛡️ Rendszer Admin' : currentUser.role === 'provider' ? `🏢 Szolgáltató (${currentProvider?.company_name || currentUser.name})` : `👤 ${currentUser.name}`}
-          </span>
-        </div>
-      )}
-
       {/* Main Navbar */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 sm:h-20">
@@ -91,6 +82,20 @@ export const Navbar: React.FC<NavbarProps> = ({
               Kategóriák
             </button>
             <button
+              onClick={() => navigateTo('favorites')}
+              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
+                currentView === 'favorites' ? 'text-rose-700 bg-rose-50/80 font-bold' : 'text-stone-700 hover:text-stone-900 hover:bg-stone-100'
+              }`}
+            >
+              <Heart className={`w-4 h-4 ${totalFavoritesCount > 0 ? 'fill-rose-500 text-rose-500' : 'text-stone-400'}`} />
+              <span>Kedvencek</span>
+              {totalFavoritesCount > 0 && (
+                <span className="bg-rose-500 text-white text-[11px] font-extrabold px-1.5 py-0.5 rounded-full leading-none">
+                  {totalFavoritesCount}
+                </span>
+              )}
+            </button>
+            <button
               onClick={() => navigateTo('provider-landing')}
               className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
                 currentView === 'provider-landing' ? 'text-emerald-700 bg-emerald-50/80' : 'text-stone-700 hover:text-stone-900 hover:bg-stone-100'
@@ -130,10 +135,13 @@ export const Navbar: React.FC<NavbarProps> = ({
             ) : isAuthenticated ? (
               <button
                 onClick={() => navigateTo('my-account')}
-                className="px-4 py-2 rounded-xl border border-stone-300 hover:bg-stone-100 text-stone-800 font-medium text-sm flex items-center gap-1.5 transition-colors cursor-pointer"
+                className="px-3.5 py-2 rounded-xl border border-stone-300 hover:bg-stone-100 text-stone-800 font-medium text-sm flex items-center gap-2 transition-colors cursor-pointer max-w-[220px]"
+                title={`Profil: ${currentUser.name || currentUser.email}`}
               >
-                <User className="w-4 h-4 text-emerald-700" />
-                Saját fiókom
+                <div className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center text-xs font-bold shrink-0">
+                  {(currentUser.name || currentUser.email || 'U').charAt(0).toUpperCase()}
+                </div>
+                <span className="truncate">{currentUser.name || currentUser.email || 'Fiókom'}</span>
               </button>
             ) : (
               <button
@@ -206,6 +214,22 @@ export const Navbar: React.FC<NavbarProps> = ({
               Kategóriák
             </button>
             <button
+              onClick={() => navigateTo('favorites')}
+              className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium flex items-center justify-between ${
+                currentView === 'favorites' ? 'bg-rose-50 text-rose-800 font-bold' : 'text-stone-700 hover:bg-stone-100'
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                <Heart className={`w-4 h-4 ${totalFavoritesCount > 0 ? 'fill-rose-500 text-rose-500' : 'text-stone-400'}`} />
+                <span>Kedvencek</span>
+              </span>
+              {totalFavoritesCount > 0 && (
+                <span className="bg-rose-500 text-white text-xs font-extrabold px-2 py-0.5 rounded-full">
+                  {totalFavoritesCount}
+                </span>
+              )}
+            </button>
+            <button
               onClick={() => navigateTo('provider-landing')}
               className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium ${
                 currentView === 'provider-landing' ? 'bg-emerald-50 text-emerald-800 font-semibold' : 'text-stone-700 hover:bg-stone-100'
@@ -246,8 +270,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                 onClick={() => navigateTo('my-account')}
                 className="w-full py-2.5 rounded-xl border border-stone-300 text-stone-800 font-medium text-sm flex items-center justify-center gap-2"
               >
-                <User className="w-4 h-4 text-emerald-700" />
-                Saját fiókom
+                <div className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center text-[10px] font-bold">
+                  {(currentUser.name || currentUser.email || 'U').charAt(0).toUpperCase()}
+                </div>
+                <span>{currentUser.name || currentUser.email || 'Fiókom'}</span>
               </button>
             ) : (
               <button

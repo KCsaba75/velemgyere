@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { CountryFlag } from './CountryFlag';
 import { 
   Filter, 
   RotateCcw, 
@@ -188,8 +189,8 @@ export const FilterBar: React.FC = () => {
 
           <div className="flex items-center gap-2 self-start sm:self-center">
             <span className="text-xs font-semibold text-stone-500">Kiemelt garancia:</span>
-            <span className="text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg flex items-center gap-1">
-              <span>🇭🇺</span>
+            <span className="text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg flex items-center gap-1.5">
+              <CountryFlag emoji="🇭🇺" country="Magyarország" size="xs" />
               <span>Garantált magyar nyelvű vezetés vagy asszisztencia</span>
             </span>
           </div>

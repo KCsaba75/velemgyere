@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { CategoryIcon } from './CategoryIcon';
+import { CountryFlag } from './CountryFlag';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import { ArrowRight, Compass, Globe, Layers } from 'lucide-react';
 
@@ -82,11 +83,13 @@ export const CategoriesView: React.FC = () => {
                   {reg.image_url ? (
                     <img src={reg.image_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-4xl">{reg.flag_emoji || '✈️'}</div>
+                    <div className="w-full h-full flex items-center justify-center">
+                      <CountryFlag emoji={reg.flag_emoji} country={reg.country || reg.name} size="xl" className="w-20 h-14 rounded-lg" />
+                    </div>
                   )}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent"></div>
-                  <div className="absolute bottom-3 left-4 flex items-center gap-2 text-white">
-                    <span className="text-2xl">{reg.flag_emoji}</span>
+                  <div className="absolute bottom-3 left-4 flex items-center gap-2.5 text-white">
+                    <CountryFlag emoji={reg.flag_emoji} country={reg.country || reg.name} size="lg" className="w-7 h-5 rounded shadow" />
                     <div>
                       <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-300 block">
                         {reg.country}

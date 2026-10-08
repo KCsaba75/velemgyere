@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
-import { User, MessageSquare, Calendar, Compass, BadgeEuro, Ticket, X, Building2, Phone, Mail, Globe, Banknote, Wallet } from 'lucide-react';
-import { OrderStatus, OrderProviderContact, OnsitePaymentMethod } from '../types/database';
+import { User, MessageSquare, Calendar, Compass, BadgeEuro, Ticket, X, Building2, Phone, Mail, Globe, Banknote, Wallet, Star, CheckCircle2, Heart } from 'lucide-react';
+import { OrderStatus, OrderProviderContact, OnsitePaymentMethod, Order } from '../types/database';
+import { ReviewModal } from './ReviewModal';
 
 const PAYMENT_METHOD_LABEL: Record<OnsitePaymentMethod, string> = {
   cash: 'Készpénz',
@@ -22,12 +23,23 @@ const ORDER_STATUS_CLASS: Record<OrderStatus, string> = {
 };
 
 export const MyAccountView: React.FC = () => {
-  const { currentUser, inquiries, orders, creditTransactions, creditBalance, cancelOrder, getProviderContactForOrder, setCurrentView } = useApp();
+  const { 
+    currentUser, 
+    inquiries, 
+    orders, 
+    programs,
+    creditTransactions, 
+    creditBalance, 
+    cancelOrder, 
+    getProviderContactForOrder, 
+    getUserReviewForOrder,
+    totalFavoritesCount,
+    setCurrentView 
+  } = useApp();
 
   useDocumentMeta('Saját fiókom', 'Korábbi érdeklődéseid, foglalásaid, kredit-egyenleged és fiókadataid egy helyen.');
 
-  // Provider contact per confirmed order (kanban fbf552b2 point 5a) -- resolved
-  // server-side, only for the buyer's own confirmed order, see schema.sql.
+  const [reviewModalOrder, setReviewModalOrder] = useState<Order | null>(null);
   const [providerContacts, setProviderContacts] = useState<Record<string, OrderProviderContact>>({});
   const confirmedOrderIds = orders.filter(o => o.status === 'confirmed').map(o => o.id).join(',');
 
@@ -68,22 +80,45 @@ export const MyAccountView: React.FC = () => {
         </div>
       </div>
 
-      {/* Credit balance (kanban 71215856 point 5) */}
-      <div className="bg-emerald-50/70 border border-emerald-100 rounded-2xl p-5 mb-10 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
-            <BadgeEuro className="w-6 h-6" />
+      {/* Stats Cards: Credit balance & Favorites */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
+        <div className="bg-emerald-50/70 border border-emerald-100 rounded-2xl p-5 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+              <BadgeEuro className="w-6 h-6" />
+            </div>
+            <div>
+              <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider block">Kredit-egyenleg</span>
+              <span className="text-2xl font-extrabold text-stone-900 font-display">
+                {creditBalance.toFixed(2)} €
+              </span>
+            </div>
           </div>
-          <div>
-            <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider block">Kredit-egyenleg</span>
-            <span className="text-2xl font-extrabold text-stone-900 font-display">
-              {creditBalance.toFixed(2)} €
-            </span>
-          </div>
+          <p className="text-[11px] text-stone-500 max-w-[140px] text-right">
+            Jóváírások és visszatérítések
+          </p>
         </div>
-        <p className="text-xs text-stone-500 max-w-xs text-right">
-          Regisztrációs ajándék és meghiúsult programok visszatérítése itt gyűlik -- kifizetését az ügyfélszolgálat intézi.
-        </p>
+
+        <div className="bg-rose-50/70 border border-rose-100 rounded-2xl p-5 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+              <Heart className="w-6 h-6 fill-rose-500 text-rose-500" />
+            </div>
+            <div>
+              <span className="text-xs font-bold text-rose-700 uppercase tracking-wider block">Mentett kedvencek</span>
+              <span className="text-2xl font-extrabold text-stone-900 font-display">
+                {totalFavoritesCount} program
+              </span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => { setCurrentView('favorites'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+            className="text-xs font-bold text-rose-700 hover:text-rose-800 bg-white px-3.5 py-2 rounded-xl border border-rose-200 shadow-xs hover:bg-rose-50 transition-colors cursor-pointer"
+          >
+            Mappák &rarr;
+          </button>
+        </div>
       </div>
 
       {creditTransactions.length > 0 && (
@@ -118,20 +153,44 @@ export const MyAccountView: React.FC = () => {
         <div className="space-y-3 mb-10">
           {orders.map(order => {
             const contact = providerContacts[order.id];
+            const prog = order.program || programs.find(p => p.id === order.program_id || p.slug === order.program_id);
             return (
               <div key={order.id} className="bg-white rounded-2xl border border-stone-200 p-5">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <h3 className="font-bold text-stone-900 text-sm mb-1">
-                      {order.program?.title || 'Program'}
+                      {prog?.title || 'Program'}
                     </h3>
                     <p className="text-xs text-stone-500 mb-2">
                       {order.participants_count} fő · {order.total_price} {order.currency === 'EUR' ? '€' : order.currency}
                       {order.booking_fee > 0 && ` (fizetve online: ${order.booking_fee} € · helyszínen: ${order.onsite_amount} €)`} · {formatDate(order.created_at)}
                     </p>
-                    <span className={`inline-block text-[11px] font-bold px-2.5 py-1 rounded-lg border ${ORDER_STATUS_CLASS[order.status]}`}>
-                      {ORDER_STATUS_LABEL[order.status]}
-                    </span>
+                    <div className="flex flex-wrap items-center gap-2 mt-2">
+                      <span className={`inline-block text-[11px] font-bold px-2.5 py-1 rounded-lg border ${ORDER_STATUS_CLASS[order.status]}`}>
+                        {ORDER_STATUS_LABEL[order.status]}
+                      </span>
+                      {order.status === 'confirmed' && (() => {
+                        const existingReview = getUserReviewForOrder(order.id);
+                        if (existingReview) {
+                          return (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>Értékelve ({existingReview.rating}★)</span>
+                            </span>
+                          );
+                        }
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => setReviewModalOrder(order)}
+                            className="inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-white transition-colors cursor-pointer shadow-xs"
+                          >
+                            <Star className="w-3.5 h-3.5 fill-white text-white" />
+                            <span>⭐ Értékelés leadása</span>
+                          </button>
+                        );
+                      })()}
+                    </div>
                   </div>
                   {order.status !== 'cancelled' && (
                     <button
@@ -219,6 +278,20 @@ export const MyAccountView: React.FC = () => {
           ))}
         </div>
       )}
+      {/* Review Modal for confirmed order */}
+      {reviewModalOrder && (() => {
+        const prog = programs.find(p => p.id === reviewModalOrder.program_id || p.slug === reviewModalOrder.program_id) || reviewModalOrder.program;
+        if (!prog) return null;
+        return (
+          <ReviewModal
+            isOpen={true}
+            onClose={() => setReviewModalOrder(null)}
+            program={prog}
+            order={reviewModalOrder}
+            onSuccess={() => setReviewModalOrder(null)}
+          />
+        );
+      })()}
     </div>
   );
 };

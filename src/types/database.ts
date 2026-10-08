@@ -224,3 +224,66 @@ export interface Inquiry {
   provider_name?: string;
 }
 
+export type TravelType = 'couple' | 'family' | 'friends' | 'solo';
+export type ReviewStatus = 'published' | 'flagged' | 'hidden';
+
+export interface ProviderReviewResponse {
+  response_text: string;
+  responded_at: string;
+  responder_name?: string;
+}
+
+export interface Review {
+  id: string;
+  program_id: string;
+  order_id: string; // strictly tied to a confirmed order!
+  user_id: string;
+  user_name: string;
+  user_avatar?: string;
+  // Ratings (1 to 5 stars)
+  rating: number; // Overall rating (Összesített élmény, 1-5)
+  rating_guide: number; // Idegenvezető / Túravezető szakértelme és hozzáállása (1-5)
+  rating_value: number; // Ár-érték arány (1-5)
+  rating_organization: number; // Szervezés / Menetrend (1-5)
+  rating_safety: number; // Biztonság / Tisztaság / Szolgáltatás minősége (1-5)
+  // Text review
+  title?: string;
+  comment: string;
+  positive_feedback?: string;
+  improvement_feedback?: string;
+  // Metadata
+  travel_type: TravelType;
+  tour_date: string;
+  is_verified_buyer: boolean; // Always true for verified orders
+  photos?: string[];
+  // Provider public reply
+  provider_response?: ProviderReviewResponse | null;
+  // Moderation status
+  status: ReviewStatus;
+  created_at: string;
+  updated_at?: string;
+  // Joined fields
+  program_title?: string;
+  provider_id?: string;
+  provider_name?: string;
+}
+
+export interface FavoriteFolder {
+  id: string;
+  user_id: string;
+  name: string;
+  description?: string;
+  color?: string;
+  icon?: string;
+  is_default?: boolean;
+  created_at: string;
+}
+
+export interface FavoriteItem {
+  id: string;
+  user_id: string;
+  program_id: string;
+  folder_id: string;
+  added_at: string;
+}
+
