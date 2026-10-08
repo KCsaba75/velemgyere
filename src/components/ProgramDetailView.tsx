@@ -413,30 +413,36 @@ export const ProgramDetailView: React.FC = () => {
           </button>
         </div>
 
-        {/* Price (Csaba 2026-10-07: a kep ALA kerul, nem ra) */}
-        <div className="flex justify-end">
-          <div className="inline-block bg-emerald-600 text-white font-extrabold text-lg sm:text-2xl px-5 py-2.5 rounded-2xl shadow-xl">
-            {formatPrice(computeTotalPrice(program.price))} {program.currency === 'EUR' ? '€' : program.currency}
-            <span className="text-xs sm:text-sm font-normal text-emerald-100"> / fő</span>
+        {/* Alatta: bal oldalon a kisképek (galéria), jobb oldalon az összegcímke - azonos távolságra a nagy képtől */}
+        <div className="flex items-center justify-between gap-3">
+          {/* Thumbnail gallery if multiple images */}
+          {images.length > 1 ? (
+            <div className="flex gap-2 overflow-x-auto py-1 no-scrollbar min-w-0">
+              {images.map((img, idx) => (
+                <button
+                  key={img.id}
+                  onClick={() => setActiveImageIndex(idx)}
+                  className={`relative w-20 sm:w-24 h-14 sm:h-16 rounded-xl overflow-hidden shrink-0 border-2 transition-all cursor-pointer ${
+                    activeImageIndex === idx ? 'border-emerald-600 ring-2 ring-emerald-300 scale-95' : 'border-transparent opacity-70 hover:opacity-100'
+                  }`}
+                  aria-label={`Kép ${idx + 1}`}
+                >
+                  <img src={img.image_url} alt="" className="w-full h-full object-cover" />
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div />
+          )}
+
+          {/* Price badge (összegcímke) */}
+          <div className="shrink-0 ml-auto">
+            <div className="inline-block bg-emerald-600 text-white font-extrabold text-lg sm:text-2xl px-5 py-2.5 rounded-2xl shadow-xl whitespace-nowrap">
+              {formatPrice(computeTotalPrice(program.price))} {program.currency === 'EUR' ? '€' : program.currency}
+              <span className="text-xs sm:text-sm font-normal text-emerald-100"> / fő</span>
+            </div>
           </div>
         </div>
-
-        {/* Thumbnail gallery if multiple images */}
-        {images.length > 1 && (
-          <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-            {images.map((img, idx) => (
-              <button
-                key={img.id}
-                onClick={() => setActiveImageIndex(idx)}
-                className={`relative w-24 h-16 rounded-xl overflow-hidden shrink-0 border-2 transition-all cursor-pointer ${
-                  activeImageIndex === idx ? 'border-emerald-600 ring-2 ring-emerald-300 scale-95' : 'border-transparent opacity-70 hover:opacity-100'
-                }`}
-              >
-                <img src={img.image_url} alt="" className="w-full h-full object-cover" />
-              </button>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* Main Content Layout */}
