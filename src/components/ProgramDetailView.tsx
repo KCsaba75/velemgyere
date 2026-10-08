@@ -205,10 +205,10 @@ export const ProgramDetailView: React.FC = () => {
 
   if (isLoading && !program) {
     return (
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 animate-pulse">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 animate-pulse">
         <div className="h-6 w-36 bg-stone-200 rounded-lg mb-8"></div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          <div className="lg:col-span-7 space-y-6">
             <div className="aspect-[16/10] bg-stone-200 rounded-3xl"></div>
             <div className="h-10 bg-stone-200 rounded-xl w-3/4"></div>
             <div className="h-5 bg-stone-200 rounded-lg w-1/2"></div>
@@ -218,7 +218,7 @@ export const ProgramDetailView: React.FC = () => {
               <div className="h-4 bg-stone-200 rounded w-4/6"></div>
             </div>
           </div>
-          <div className="lg:col-span-1">
+          <div className="lg:col-span-5">
             <div className="h-96 bg-stone-200 rounded-3xl"></div>
           </div>
         </div>
@@ -284,7 +284,7 @@ export const ProgramDetailView: React.FC = () => {
   };
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-in fade-in duration-200">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-in fade-in duration-200">
       {/* Top Breadcrumb & Back button */}
       <div className="flex items-center justify-between gap-4 mb-6">
         <button
@@ -446,9 +446,9 @@ export const ProgramDetailView: React.FC = () => {
       </div>
 
       {/* Main Content Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Left Column: Details & Program Description */}
-        <div className="lg:col-span-2 space-y-8">
+        <div className="lg:col-span-7 space-y-8">
           <div>
             <div className="inline-flex items-center gap-2 text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-lg mb-2">
               <CountryFlag emoji="🇭🇺" country="Magyarország" size="xs" />
@@ -627,13 +627,8 @@ export const ProgramDetailView: React.FC = () => {
           <ProgramReviewsSection program={program} />
         </div>
 
-        {/* Right Column: Sticky Booking Card & Provider Details (kanban fbf552b2 point 2:
-            replaces the old "Érdekel a program!" inquiry CTA + modal, which let a buyer
-            and provider negotiate directly and skip the booking fee entirely. The
-            availability-check + reservation flow below used to live in the left column
-            (point 6, "Szabad helyek ellenőrzése" + "Helyfoglalás") -- consolidated here as
-            the page's one primary CTA.) */}
-        <div className="space-y-6">
+        {/* Right Column: Sticky Booking Card & Provider Details */}
+        <div className="lg:col-span-5 space-y-6">
           <div className="bg-white rounded-3xl border border-stone-200 shadow-xl p-6 sticky top-28 space-y-6">
             {/* Price Header & Transparent Fee Breakdown */}
             <div className="border-b border-stone-100 pb-5 space-y-3.5">
@@ -661,21 +656,21 @@ export const ProgramDetailView: React.FC = () => {
                       Fizetési részletezés (1 fő esetén):
                     </span>
                     <div className="space-y-1.5">
-                      <div className="flex items-center justify-between text-stone-700">
-                        <span className="flex items-center gap-1.5">
+                      <div className="flex items-center justify-between gap-3 text-stone-700">
+                        <span className="flex items-center gap-1.5 min-w-0">
                           <CreditCard className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                          Platform használati kényelmi díj:
+                          <span className="truncate sm:whitespace-normal">Platform használati kényelmi díj:</span>
                         </span>
-                        <strong className="font-bold text-stone-900">
+                        <strong className="font-bold text-stone-900 whitespace-nowrap shrink-0 ml-auto">
                           {formatPlatformFee(baseFee)} {curr}
                         </strong>
                       </div>
-                      <div className="flex items-center justify-between text-stone-700">
-                        <span className="flex items-center gap-1.5">
+                      <div className="flex items-center justify-between gap-3 text-stone-700">
+                        <span className="flex items-center gap-1.5 min-w-0">
                           <Banknote className="w-3.5 h-3.5 text-stone-500 shrink-0" />
-                          Helyszínen fizetendő díj:
+                          <span className="truncate sm:whitespace-normal">Helyszínen fizetendő díj:</span>
                         </span>
-                        <strong className="font-bold text-stone-900">
+                        <strong className="font-bold text-stone-900 whitespace-nowrap shrink-0 ml-auto">
                           {formatPrice(baseNet)} {curr}
                         </strong>
                       </div>
@@ -853,27 +848,27 @@ export const ProgramDetailView: React.FC = () => {
                               Fizetési részletezés ({participantsCount} fő):
                             </span>
                             <div className="space-y-1.5">
-                              <div className="flex items-center justify-between text-stone-700">
-                                <span className="flex items-center gap-1.5">
+                              <div className="flex items-center justify-between gap-3 text-stone-700">
+                                <span className="flex items-center gap-1.5 min-w-0">
                                   <CreditCard className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                                  Platform használati kényelmi díj:
+                                  <span className="truncate sm:whitespace-normal">Platform használati kényelmi díj:</span>
                                 </span>
-                                <strong className="text-emerald-700 font-bold text-sm">
+                                <strong className="text-emerald-700 font-bold text-sm whitespace-nowrap shrink-0 ml-auto">
                                   {formatPlatformFee(fee)} {curr}
                                 </strong>
                               </div>
-                              <div className="flex items-center justify-between text-stone-700">
-                                <span className="flex items-center gap-1.5">
+                              <div className="flex items-center justify-between gap-3 text-stone-700">
+                                <span className="flex items-center gap-1.5 min-w-0">
                                   <Banknote className="w-3.5 h-3.5 text-stone-500 shrink-0" />
-                                  Helyszínen fizetendő díj:
+                                  <span className="truncate sm:whitespace-normal">Helyszínen fizetendő díj:</span>
                                 </span>
-                                <strong className="text-stone-900 font-bold text-sm">
+                                <strong className="text-stone-900 font-bold text-sm whitespace-nowrap shrink-0 ml-auto">
                                   {formatPrice(netTotal)} {curr}
                                 </strong>
                               </div>
-                              <div className="pt-2 border-t border-stone-200 flex items-center justify-between text-stone-900 font-bold text-sm">
-                                <span>Teljes fizetendő összeg:</span>
-                                <span className="text-emerald-700 font-extrabold text-base">
+                              <div className="pt-2 border-t border-stone-200 flex items-center justify-between gap-3 text-stone-900 font-bold text-sm">
+                                <span className="min-w-0">Teljes fizetendő összeg:</span>
+                                <span className="text-emerald-700 font-extrabold text-base whitespace-nowrap shrink-0 ml-auto">
                                   {formatPrice(total)} {curr}
                                 </span>
                               </div>
