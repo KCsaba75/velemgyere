@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useApp } from '../context/AppContext';
+import { useApp, formatPrice } from '../context/AppContext';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import { User, MessageSquare, Calendar, Compass, BadgeEuro, Ticket, X, Building2, Phone, Mail, Globe, Banknote, Wallet, Star, CheckCircle2, Heart } from 'lucide-react';
 import { OrderStatus, OrderProviderContact, OnsitePaymentMethod, Order } from '../types/database';
@@ -162,8 +162,8 @@ export const MyAccountView: React.FC = () => {
                       {prog?.title || 'Program'}
                     </h3>
                     <p className="text-xs text-stone-500 mb-2">
-                      {order.participants_count} fő · {order.total_price} {order.currency === 'EUR' ? '€' : order.currency}
-                      {order.booking_fee > 0 && ` (fizetve online: ${order.booking_fee} € · helyszínen: ${order.onsite_amount} €)`} · {formatDate(order.created_at)}
+                      {order.participants_count} fő · {formatPrice(order.total_price)} {order.currency === 'EUR' ? '€' : order.currency}
+                      {order.booking_fee > 0 && ` (fizetve online: ${formatPrice(order.booking_fee)} € · helyszínen: ${formatPrice(order.onsite_amount)} €)`} · {formatDate(order.created_at)}
                     </p>
                     <div className="flex flex-wrap items-center gap-2 mt-2">
                       <span className={`inline-block text-[11px] font-bold px-2.5 py-1 rounded-lg border ${ORDER_STATUS_CLASS[order.status]}`}>

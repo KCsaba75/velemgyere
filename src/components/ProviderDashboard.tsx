@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useApp } from '../context/AppContext';
+import { useApp, formatPrice } from '../context/AppContext';
 import { CountryFlag } from './CountryFlag';
 import {
   Building2,
@@ -477,7 +477,7 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
                             <span className="flex items-center gap-1">📍 {prog.location}</span>
                             <span className="flex items-center gap-1">📅 {prog.event_date}</span>
                             <span className="flex items-center gap-1 font-bold text-emerald-800">
-                              💰 {prog.price} {prog.currency === 'EUR' ? '€' : prog.currency}/fő
+                              💰 {formatPrice(prog.price)} {prog.currency === 'EUR' ? '€' : prog.currency}/fő
                             </span>
                           </div>
                         </div>
@@ -578,7 +578,7 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
                         </span>
                       </div>
                       <p className="text-xs text-stone-500">
-                        {order.participants_count} fő · helyszínen fizetendő: {order.onsite_amount} {order.currency === 'EUR' ? '€' : order.currency}
+                        {order.participants_count} fő · helyszínen fizetendő: {formatPrice(order.onsite_amount)} {order.currency === 'EUR' ? '€' : order.currency}
                         {order.onsite_payment_method && (
                           <span className="inline-flex items-center gap-1 ml-1">
                             ({order.onsite_payment_method === 'revolut' ? <Wallet className="w-3 h-3" /> : <Banknote className="w-3 h-3" />} {PAYMENT_METHOD_LABEL[order.onsite_payment_method]})

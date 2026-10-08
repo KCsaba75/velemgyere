@@ -38,6 +38,7 @@ import {
   INITIAL_FAVORITE_FOLDERS,
   INITIAL_FAVORITES
 } from '../data/seedData';
+import { roundToHalfEuro, formatPrice } from '../lib/priceUtils';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 // 16241c32: real react-router URLs replaced the old pure-state "currentView" router.
@@ -1571,7 +1572,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return Math.max((netAmount * feePercentage) / 100, feeMinimumEur);
   };
   const computeTotalPrice = (netAmount: number): number => {
-    return netAmount + computeBookingFee(netAmount);
+    const rawTotal = netAmount + computeBookingFee(netAmount);
+    return roundToHalfEuro(rawTotal);
   };
 
   // Reviews system
@@ -2312,3 +2314,5 @@ export const useApp = () => {
   }
   return context;
 };
+
+export { roundToHalfEuro, formatPrice } from '../lib/priceUtils';

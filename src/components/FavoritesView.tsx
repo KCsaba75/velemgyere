@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useApp } from '../context/AppContext';
+import { useApp, formatPrice } from '../context/AppContext';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import { ProgramCard } from './ProgramCard';
 import { CountryFlag } from './CountryFlag';
@@ -163,7 +163,7 @@ export const FavoritesView: React.FC = () => {
 
   const handleShareList = () => {
     const title = activeFolder ? activeFolder.name : 'Mentett Velem Gyere Programok';
-    const listSummary = displayedPrograms.map((p, i) => `${i + 1}. ${p.title} (${p.price} €/fő - ${p.country || p.region?.name})`).join('\n');
+    const listSummary = displayedPrograms.map((p, i) => `${i + 1}. ${p.title} (${formatPrice(p.price)} €/fő - ${p.country || p.region?.name})`).join('\n');
     const textToCopy = `📌 ${title} - Velem Gyere:\n\n${listSummary}\n\nFedezd fel: ${window.location.origin}/kedvencek`;
 
     if (navigator.clipboard) {
@@ -284,7 +284,7 @@ export const FavoritesView: React.FC = () => {
             {displayedPrograms.length > 0 && (
               <div className="flex items-center gap-2 bg-stone-50 px-3.5 py-2 rounded-xl border border-stone-200/80 text-xs text-stone-700">
                 <Wallet className="w-4 h-4 text-emerald-600" />
-                <span>Összköltség: <strong className="text-stone-900 font-extrabold font-display text-sm">{totalCost.toFixed(2)} €</strong>/fő</span>
+                <span>Összköltség: <strong className="text-stone-900 font-extrabold font-display text-sm">{formatPrice(totalCost)} €</strong>/fő</span>
               </div>
             )}
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { useApp } from '../context/AppContext';
+import { useApp, formatPrice } from '../context/AppContext';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import {
   ArrowLeft,
@@ -192,7 +192,7 @@ export const ProgramDetailView: React.FC = () => {
         program_id: program.id,
         occurrence_id: selectedOccurrenceId,
         participants_count: participantsCount,
-        total_price: netTotal + computeBookingFee(netTotal),
+        total_price: computeTotalPrice(netTotal),
         currency: program.currency,
         onsite_payment_method: onsitePaymentMethod,
       });
@@ -391,7 +391,7 @@ export const ProgramDetailView: React.FC = () => {
         {/* Price (Csaba 2026-10-07: a kep ALA kerul, nem ra) */}
         <div className="flex justify-end">
           <div className="inline-block bg-emerald-600 text-white font-extrabold text-lg sm:text-2xl px-5 py-2.5 rounded-2xl shadow-xl">
-            {computeTotalPrice(program.price).toFixed(2)} {program.currency === 'EUR' ? '€' : program.currency}
+            {formatPrice(computeTotalPrice(program.price))} {program.currency === 'EUR' ? '€' : program.currency}
             <span className="text-xs sm:text-sm font-normal text-emerald-100"> / fő</span>
           </div>
         </div>
@@ -599,7 +599,7 @@ export const ProgramDetailView: React.FC = () => {
               <div>
                 <span className="text-xs text-stone-500 font-bold block uppercase">Részvételi díj</span>
                 <span className="text-3xl font-extrabold text-stone-900 font-display">
-                  {computeTotalPrice(program.price).toFixed(2)} {program.currency === 'EUR' ? '€' : program.currency}
+                  {formatPrice(computeTotalPrice(program.price))} {program.currency === 'EUR' ? '€' : program.currency}
                 </span>
                 <span className="text-xs text-stone-500 font-medium"> / fő</span>
               </div>
@@ -754,14 +754,14 @@ export const ProgramDetailView: React.FC = () => {
                         // price row -- this is display-only, mirroring it so the visitor
                         // sees the real split before submitting.
                         const netTotal = program.price * participantsCount;
-                        const fee = computeBookingFee(netTotal);
-                        const total = netTotal + fee;
+                        const total = computeTotalPrice(netTotal);
+                        const fee = total - netTotal;
                         const curr = program.currency === 'EUR' ? '€' : program.currency;
                         return (
                           <div className="text-sm text-stone-600 space-y-0.5">
-                            <p>Teljes ár: <strong className="text-stone-900">{total.toFixed(2)} {curr}</strong></p>
-                            <p>Most fizetendő (foglalási díj): <strong className="text-stone-900">{fee.toFixed(2)} {curr}</strong></p>
-                            <p>Helyszínen fizetendő: <strong className="text-stone-900">{netTotal.toFixed(2)} {curr}</strong></p>
+                            <p>Teljes ár: <strong className="text-stone-900">{formatPrice(total)} {curr}</strong></p>
+                            <p>Most fizetendő (foglalási díj): <strong className="text-stone-900">{formatPrice(fee)} {curr}</strong></p>
+                            <p>Helyszínen fizetendő: <strong className="text-stone-900">{formatPrice(netTotal)} {curr}</strong></p>
                           </div>
                         );
                       })()}

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useApp } from '../context/AppContext';
+import { useApp, formatPrice } from '../context/AppContext';
 import { CountryFlag } from './CountryFlag';
 import {
   ShieldCheck,
@@ -509,7 +509,7 @@ export const AdminDashboard: React.FC = () => {
                           <span>📍 {prog.location}</span>
                           <span>📅 {prog.event_date}</span>
                           <span className="font-bold text-emerald-800">
-                            💰 {prog.price} {prog.currency === 'EUR' ? '€' : prog.currency}/fő
+                            💰 {formatPrice(prog.price)} {prog.currency === 'EUR' ? '€' : prog.currency}/fő
                           </span>
                         </div>
                       </div>
@@ -859,8 +859,8 @@ export const AdminDashboard: React.FC = () => {
                       </span>
                     </div>
                     <p className="text-xs text-stone-500">
-                      {order.participants_count} fő · {order.total_price} {order.currency === 'EUR' ? '€' : order.currency}
-                      {' '}(foglalási díj {order.booking_fee} € · helyszínen {order.onsite_amount} €)
+                      {order.participants_count} fő · {formatPrice(order.total_price)} {order.currency === 'EUR' ? '€' : order.currency}
+                      {' '}(foglalási díj {formatPrice(order.booking_fee)} € · helyszínen {formatPrice(order.onsite_amount)} €)
                       {order.onsite_payment_method && (
                         <span className="inline-flex items-center gap-1 ml-1">
                           {order.onsite_payment_method === 'revolut' ? <Wallet className="w-3 h-3" /> : <Banknote className="w-3 h-3" />}

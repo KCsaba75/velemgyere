@@ -3,7 +3,7 @@ import { Program } from '../types/database';
 import { MapPin, Calendar, Clock, ArrowRight, Sparkles, Building2, Heart, Star } from 'lucide-react';
 import { CategoryIcon } from './CategoryIcon';
 import { CountryFlag } from './CountryFlag';
-import { useApp } from '../context/AppContext';
+import { useApp, formatPrice } from '../context/AppContext';
 
 interface ProgramCardProps {
   program: Program;
@@ -130,7 +130,7 @@ export const ProgramCard: React.FC<ProgramCardProps> = ({ program, onSelect }) =
 
         {/* Price Tag overlay on image */}
         <div className="absolute bottom-3 right-3 bg-emerald-600/95 backdrop-blur-sm text-white px-2.5 sm:px-3 py-1 rounded-xl shadow-lg font-bold text-xs sm:text-sm z-10">
-          <span className="font-extrabold">{displayPrice.toFixed(2)} {program.currency === 'EUR' ? '€' : program.currency}/fő</span>
+          <span className="font-extrabold">{formatPrice(displayPrice)} {program.currency === 'EUR' ? '€' : program.currency}/fő</span>
         </div>
       </div>
 
@@ -176,7 +176,7 @@ export const ProgramCard: React.FC<ProgramCardProps> = ({ program, onSelect }) =
               {/* Price */}
               <div className="flex items-center gap-1 text-emerald-800 font-bold shrink-0">
                 <span className="text-base">💰</span>
-                <span>{displayPrice.toFixed(2)} {program.currency === 'EUR' ? '€' : program.currency} / fő</span>
+                <span>{formatPrice(displayPrice)} {program.currency === 'EUR' ? '€' : program.currency} / fő</span>
               </div>
             </div>
           </div>
