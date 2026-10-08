@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { useApp, formatPrice } from '../context/AppContext';
+import { useApp, formatPrice, formatPlatformFee } from '../context/AppContext';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import {
   ArrowLeft,
@@ -661,7 +661,7 @@ export const ProgramDetailView: React.FC = () => {
                           Platform használati kényelmi díj:
                         </span>
                         <strong className="font-bold text-stone-900">
-                          {formatPrice(baseFee)} {curr}
+                          {formatPlatformFee(baseFee)} {curr}
                         </strong>
                       </div>
                       <div className="flex items-center justify-between text-stone-700">
@@ -853,7 +853,7 @@ export const ProgramDetailView: React.FC = () => {
                                   Platform használati kényelmi díj:
                                 </span>
                                 <strong className="text-emerald-700 font-bold text-sm">
-                                  {formatPrice(fee)} {curr}
+                                  {formatPlatformFee(fee)} {curr}
                                 </strong>
                               </div>
                               <div className="flex items-center justify-between text-stone-700">
