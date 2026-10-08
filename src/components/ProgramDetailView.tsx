@@ -22,6 +22,7 @@ import {
   Loader2,
   BadgeEuro,
   Banknote,
+  CreditCard,
   Wallet,
   Star,
   Heart,
@@ -246,20 +247,35 @@ export const ProgramDetailView: React.FC = () => {
 
   const currentImage = images[activeImageIndex]?.image_url || images[0].image_url;
 
-  // Format Hungarian date
-  const formattedDate = (() => {
+  // Format Hungarian date nicely (avoid UTC midnight shifting and long weekday truncation)
+  const { dateFormatted, weekdayFormatted, fullDateFormatted } = (() => {
     try {
-      const d = new Date(program.event_date);
-      return d.toLocaleDateString('hu-HU', {
+      if (!program.event_date) {
+        return { dateFormatted: 'Egyeztetés szerint', weekdayFormatted: '', fullDateFormatted: 'Egyeztetés szerint' };
+      }
+      const dateStr = program.event_date.includes('T') ? program.event_date : `${program.event_date}T00:00:00`;
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) {
+        return { dateFormatted: program.event_date, weekdayFormatted: '', fullDateFormatted: program.event_date };
+      }
+      const dateFormatted = d.toLocaleDateString('hu-HU', {
         year: 'numeric',
         month: 'long',
-        day: 'numeric',
+        day: 'numeric'
+      });
+      const weekdayFormatted = d.toLocaleDateString('hu-HU', {
         weekday: 'long'
       });
+      return {
+        dateFormatted,
+        weekdayFormatted,
+        fullDateFormatted: `${dateFormatted} (${weekdayFormatted})`
+      };
     } catch {
-      return program.event_date;
+      return { dateFormatted: program.event_date, weekdayFormatted: '', fullDateFormatted: program.event_date };
     }
   })();
+  const formattedDate = fullDateFormatted;
 
   const handleCopyLink = () => {
     navigator.clipboard?.writeText(window.location.href);
@@ -331,6 +347,15 @@ export const ProgramDetailView: React.FC = () => {
           <span className="bg-white border border-stone-200 text-stone-900 text-xs sm:text-sm font-bold px-3 py-1.5 rounded-xl shadow-sm flex items-center gap-1.5">
             <CountryFlag emoji={program.region?.flag_emoji} country={program.region?.country || program.country} size="sm" />
             <span>{program.region?.name || program.location}</span>
+          </span>
+
+          {/* Date badge */}
+          <span className="bg-white border border-stone-200 text-stone-900 text-xs sm:text-sm font-bold px-3 py-1.5 rounded-xl shadow-sm flex items-center gap-1.5">
+            <Calendar className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>{dateFormatted}</span>
+            {weekdayFormatted && (
+              <span className="text-stone-500 font-normal text-xs capitalize hidden sm:inline">({weekdayFormatted})</span>
+            )}
           </span>
 
           {/* Service type badge */}
@@ -462,9 +487,18 @@ export const ProgramDetailView: React.FC = () => {
               <span className="text-xs font-bold text-stone-500 uppercase tracking-wider block mb-1">
                 Dátum
               </span>
-              <div className="flex items-center gap-1.5 font-bold text-stone-900 text-sm">
-                <Calendar className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span className="truncate">{formattedDate}</span>
+              <div className="flex items-start gap-1.5 text-stone-900">
+                <Calendar className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <div className="min-w-0">
+                  <span className="font-bold text-sm text-stone-900 block leading-tight whitespace-normal break-words">
+                    {dateFormatted}
+                  </span>
+                  {weekdayFormatted && (
+                    <span className="text-xs font-semibold text-emerald-700 capitalize block mt-0.5 whitespace-normal">
+                      {weekdayFormatted}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -595,14 +629,54 @@ export const ProgramDetailView: React.FC = () => {
             the page's one primary CTA.) */}
         <div className="space-y-6">
           <div className="bg-white rounded-3xl border border-stone-200 shadow-xl p-6 sticky top-28 space-y-6">
-            <div className="flex items-baseline justify-between border-b border-stone-100 pb-4">
+            {/* Price Header & Transparent Fee Breakdown */}
+            <div className="border-b border-stone-100 pb-5 space-y-3.5">
               <div>
-                <span className="text-xs text-stone-500 font-bold block uppercase">Részvételi díj</span>
-                <span className="text-3xl font-extrabold text-stone-900 font-display">
-                  {formatPrice(computeTotalPrice(program.price))} {program.currency === 'EUR' ? '€' : program.currency}
+                <span className="text-xs text-stone-500 font-bold block uppercase tracking-wider">
+                  Részvételi díj
                 </span>
-                <span className="text-xs text-stone-500 font-medium"> / fő</span>
+                <div className="flex items-baseline gap-1.5 mt-0.5">
+                  <span className="text-3xl sm:text-4xl font-extrabold text-stone-900 font-display">
+                    {formatPrice(computeTotalPrice(program.price))} {program.currency === 'EUR' ? '€' : program.currency}
+                  </span>
+                  <span className="text-xs text-stone-500 font-medium"> / fő</span>
+                </div>
               </div>
+
+              {/* Detailed Payment Breakdown per person */}
+              {(() => {
+                const baseNet = program.price;
+                const baseTotal = computeTotalPrice(baseNet);
+                const baseFee = baseTotal - baseNet;
+                const curr = program.currency === 'EUR' ? '€' : program.currency;
+                return (
+                  <div className="bg-stone-50 rounded-2xl p-3.5 border border-stone-200/90 space-y-2 text-xs">
+                    <span className="text-[11px] font-bold text-stone-500 uppercase tracking-wider block">
+                      Fizetési részletezés (1 fő esetén):
+                    </span>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between text-stone-700">
+                        <span className="flex items-center gap-1.5">
+                          <CreditCard className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          Platform használati kényelmi díj:
+                        </span>
+                        <strong className="font-bold text-stone-900">
+                          {formatPrice(baseFee)} {curr}
+                        </strong>
+                      </div>
+                      <div className="flex items-center justify-between text-stone-700">
+                        <span className="flex items-center gap-1.5">
+                          <Banknote className="w-3.5 h-3.5 text-stone-500 shrink-0" />
+                          Helyszínen fizetendő díj:
+                        </span>
+                        <strong className="font-bold text-stone-900">
+                          {formatPrice(baseNet)} {curr}
+                        </strong>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Availability + Reservation ("Helyfoglalás") */}
@@ -653,14 +727,16 @@ export const ProgramDetailView: React.FC = () => {
                         </div>
                       </div>
                     ) : (
-                      <div className="flex items-center justify-between gap-2 bg-emerald-50/60 border border-emerald-100 rounded-xl p-3">
-                        <p className="text-sm text-emerald-800 font-semibold flex items-center gap-1.5">
-                          <CheckCircle2 className="w-4 h-4 shrink-0" />
-                          {selectedOccurrence && new Date(selectedOccurrence.event_date + 'T00:00:00').toLocaleDateString('hu-HU', { year: 'numeric', month: 'short', day: 'numeric' })}
+                      <div className="flex flex-wrap items-center justify-between gap-2 bg-emerald-50/60 border border-emerald-100 rounded-xl p-3">
+                        <div className="flex items-center gap-1.5 text-sm text-emerald-800 font-semibold min-w-0">
+                          <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+                          <span className="whitespace-normal">
+                            {selectedOccurrence && new Date(selectedOccurrence.event_date + 'T00:00:00').toLocaleDateString('hu-HU', { year: 'numeric', month: 'short', day: 'numeric' })}
+                          </span>
                           {selectedOccurrence?.available !== null && selectedOccurrence?.available !== undefined && (
-                            <span className="text-emerald-700 font-normal"> · {selectedOccurrence.available} szabad hely</span>
+                            <span className="text-emerald-700 font-normal text-xs whitespace-nowrap"> · {selectedOccurrence.available} szabad hely</span>
                           )}
-                        </p>
+                        </div>
                         <button
                           type="button"
                           onClick={() => setSelectedOccurrenceId(null)}
@@ -701,6 +777,17 @@ export const ProgramDetailView: React.FC = () => {
                     </p>
                   ) : (occurrenceOptions.length === 0 || selectedOccurrenceId) && (
                     <form onSubmit={handleReservationSubmit} className="space-y-3">
+                      {occurrenceOptions.length === 0 && (
+                        <div className="flex items-center gap-2.5 bg-stone-50 border border-stone-200/80 rounded-xl p-3 text-xs text-stone-700">
+                          <Calendar className="w-4 h-4 text-emerald-600 shrink-0" />
+                          <div className="min-w-0">
+                            <span className="font-bold text-stone-900 block leading-tight">{dateFormatted}</span>
+                            {weekdayFormatted && (
+                              <span className="text-stone-500 capitalize block text-[11px] mt-0.5">{weekdayFormatted}</span>
+                            )}
+                          </div>
+                        </div>
+                      )}
                       <div>
                         <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
                           Résztvevők száma
@@ -749,19 +836,42 @@ export const ProgramDetailView: React.FC = () => {
                       </div>
 
                       {(() => {
-                        // Checkout breakdown (point 3): the server's set_order_booking_fee
-                        // trigger computes the exact same way from the program's own
-                        // price row -- this is display-only, mirroring it so the visitor
-                        // sees the real split before submitting.
+                        // Detailed checkout breakdown for chosen number of participants
                         const netTotal = program.price * participantsCount;
                         const total = computeTotalPrice(netTotal);
                         const fee = total - netTotal;
                         const curr = program.currency === 'EUR' ? '€' : program.currency;
                         return (
-                          <div className="text-sm text-stone-600 space-y-0.5">
-                            <p>Teljes ár: <strong className="text-stone-900">{formatPrice(total)} {curr}</strong></p>
-                            <p>Most fizetendő (foglalási díj): <strong className="text-stone-900">{formatPrice(fee)} {curr}</strong></p>
-                            <p>Helyszínen fizetendő: <strong className="text-stone-900">{formatPrice(netTotal)} {curr}</strong></p>
+                          <div className="bg-stone-50 rounded-2xl p-3.5 border border-stone-200 space-y-2.5 text-xs">
+                            <span className="text-[11px] font-bold text-stone-500 uppercase tracking-wider block">
+                              Fizetési részletezés ({participantsCount} fő):
+                            </span>
+                            <div className="space-y-1.5">
+                              <div className="flex items-center justify-between text-stone-700">
+                                <span className="flex items-center gap-1.5">
+                                  <CreditCard className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                  Platform használati kényelmi díj:
+                                </span>
+                                <strong className="text-emerald-700 font-bold text-sm">
+                                  {formatPrice(fee)} {curr}
+                                </strong>
+                              </div>
+                              <div className="flex items-center justify-between text-stone-700">
+                                <span className="flex items-center gap-1.5">
+                                  <Banknote className="w-3.5 h-3.5 text-stone-500 shrink-0" />
+                                  Helyszínen fizetendő díj:
+                                </span>
+                                <strong className="text-stone-900 font-bold text-sm">
+                                  {formatPrice(netTotal)} {curr}
+                                </strong>
+                              </div>
+                              <div className="pt-2 border-t border-stone-200 flex items-center justify-between text-stone-900 font-bold text-sm">
+                                <span>Teljes fizetendő összeg:</span>
+                                <span className="text-emerald-700 font-extrabold text-base">
+                                  {formatPrice(total)} {curr}
+                                </span>
+                              </div>
+                            </div>
                           </div>
                         );
                       })()}
@@ -776,10 +886,8 @@ export const ProgramDetailView: React.FC = () => {
                       {reservationResult && !reservationResult.success && (
                         <p className="text-sm text-rose-600">{reservationResult.message}</p>
                       )}
-                      <p className="text-[11px] text-stone-400">
-                        Ez egy foglalási szándék rögzítése, nem végleges fizetés -- az adminisztrátor
-                        hamarosan jóváhagyja. A foglalási díj a jóváhagyás utáni lépésben esedékes, a
-                        fennmaradó összeget a helyszínen, a fent választott móddal rendezed a szolgáltatóval.
+                      <p className="text-[11px] text-stone-400 leading-relaxed">
+                        Ez egy foglalási szándék rögzítése. A <strong>platform használati kényelmi díj</strong> online fizetendő a foglalás adminisztrátori jóváhagyása után. A <strong>helyszínen fizetendő díj</strong> a választott módon ({onsitePaymentMethod === 'cash' ? 'készpénzben' : 'Revoluton'}), közvetlenül a szolgáltatónak fizetendő a program napján.
                       </p>
                     </form>
                   )}
