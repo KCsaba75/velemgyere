@@ -1,6 +1,6 @@
 import React from 'react';
 import { Program } from '../types/database';
-import { MapPin, Calendar, Clock, ArrowRight, Sparkles, Building2, Heart } from 'lucide-react';
+import { MapPin, Calendar, Clock, ArrowRight, Sparkles, Building2, Heart, Star } from 'lucide-react';
 import { CategoryIcon } from './CategoryIcon';
 import { CountryFlag } from './CountryFlag';
 import { useApp } from '../context/AppContext';
@@ -13,9 +13,18 @@ interface ProgramCardProps {
 export const ProgramCard: React.FC<ProgramCardProps> = ({ program, onSelect }) => {
   // program.price is the NET amount the provider receives -- the catalog shows
   // the buyer-facing TOTAL (net+fee), see kanban 71215856 penzugyi-mukodesi-modell.
-  const { computeTotalPrice, openProgramDetail, isProgramFavorite, toggleFavorite, openFolderModal, isAuthenticated } = useApp();
+  const { 
+    computeTotalPrice, 
+    openProgramDetail, 
+    isProgramFavorite, 
+    toggleFavorite, 
+    openFolderModal, 
+    isAuthenticated,
+    getProgramRatingStats
+  } = useApp();
   const displayPrice = computeTotalPrice(program.price);
   const isFav = isProgramFavorite(program.id);
+  const stats = getProgramRatingStats(program.id);
 
   const handleCardClick = () => {
     if (onSelect) {
@@ -119,9 +128,14 @@ export const ProgramCard: React.FC<ProgramCardProps> = ({ program, onSelect }) =
           </div>
         )}
 
-        {/* Price Tag overlay on image */}
-        <div className="absolute bottom-3 right-3 bg-emerald-600/95 backdrop-blur-sm text-white px-3 py-1 rounded-xl shadow-lg font-extrabold text-sm sm:text-base">
-          {displayPrice.toFixed(2)} {program.currency === 'EUR' ? '€' : program.currency}/fő
+        {/* Rating & Price Tag overlay on image */}
+        <div className="absolute bottom-3 right-3 bg-emerald-600/95 backdrop-blur-sm text-white px-2.5 sm:px-3 py-1 rounded-xl shadow-lg font-bold text-xs sm:text-sm flex items-center gap-1.5 z-10">
+          <div className="flex items-center gap-1 text-amber-300 pr-1.5 border-r border-white/25">
+            <Star className="w-3.5 h-3.5 fill-amber-300 text-amber-300 shrink-0" />
+            <span className="font-extrabold text-white text-xs">{stats.average.toFixed(1)}</span>
+            <span className="text-white/80 text-[11px] font-medium">({stats.count})</span>
+          </div>
+          <span className="font-extrabold">{displayPrice.toFixed(2)} {program.currency === 'EUR' ? '€' : program.currency}/fő</span>
         </div>
       </div>
 
@@ -156,9 +170,19 @@ export const ProgramCard: React.FC<ProgramCardProps> = ({ program, onSelect }) =
               <span className="text-stone-700">{program.duration}</span>
             </div>
 
-            <div className="flex items-center gap-2 text-emerald-800 font-bold">
-              <span className="text-base">💰</span>
-              <span>{displayPrice.toFixed(2)} {program.currency === 'EUR' ? '€' : program.currency} / fő</span>
+            <div className="flex items-center justify-between pt-1.5 border-t border-stone-200/70 gap-2">
+              {/* Rating before price */}
+              <div className="flex items-center gap-1.5 text-stone-800 font-bold">
+                <Star className="w-4 h-4 fill-amber-400 text-amber-400 shrink-0" />
+                <span className="text-stone-900 font-extrabold">{stats.average.toFixed(1)}</span>
+                <span className="text-stone-500 font-medium text-xs">({stats.count})</span>
+              </div>
+
+              {/* Price */}
+              <div className="flex items-center gap-1 text-emerald-800 font-bold shrink-0">
+                <span className="text-base">💰</span>
+                <span>{displayPrice.toFixed(2)} {program.currency === 'EUR' ? '€' : program.currency} / fő</span>
+              </div>
             </div>
           </div>
         </div>
