@@ -13,7 +13,7 @@ export const FavoriteToast: React.FC = () => {
   if (!favoriteToast) return null;
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 max-w-sm w-full bg-stone-900/95 backdrop-blur-md text-white p-4 rounded-2xl shadow-2xl border border-stone-800 animate-in slide-in-from-bottom-5 fade-in duration-300">
+    <div className="fixed bottom-20 md:bottom-6 right-4 sm:right-6 left-4 sm:left-auto z-50 max-w-sm w-auto sm:w-full bg-stone-900/95 backdrop-blur-md text-white p-4 rounded-2xl shadow-2xl border border-stone-800 animate-in slide-in-from-bottom-5 fade-in duration-300">
       <div className="flex items-start gap-3">
         <div className="w-9 h-9 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center shrink-0 border border-rose-500/30">
           <Heart className="w-5 h-5 fill-rose-500 text-rose-500 animate-pulse" />
