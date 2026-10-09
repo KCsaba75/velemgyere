@@ -210,8 +210,7 @@ export const ProgramDetailView: React.FC = () => {
 
   if (isLoading && !program) {
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 animate-pulse">
-        <div className="h-6 w-36 bg-stone-200 rounded-lg mb-8"></div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-pulse">
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_440px] gap-8">
           <div className="min-w-0 space-y-6">
             <div className="aspect-[16/10] bg-stone-200 rounded-3xl"></div>
@@ -289,65 +288,11 @@ export const ProgramDetailView: React.FC = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-in fade-in duration-200">
-      {/* Top Breadcrumb & Back button */}
-      <div className="flex items-center justify-between gap-4 mb-6">
-        <button
-          onClick={() => setCurrentView('programs')}
-          className="inline-flex items-center gap-2 text-stone-600 hover:text-stone-900 font-semibold text-sm px-3 py-1.5 rounded-lg hover:bg-stone-100 transition-colors cursor-pointer"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Vissza a katalógushoz</span>
-        </button>
-
-        <div className="flex items-center gap-2">
-          {/* Heart / Favorite button */}
-          <button
-            onClick={() => program && toggleFavorite(program.id)}
-            className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border transition-all cursor-pointer ${
-              isFav 
-                ? 'bg-rose-50 border-rose-200 text-rose-700 shadow-xs' 
-                : 'border-stone-200 text-stone-700 hover:text-rose-600 hover:border-stone-300 hover:bg-stone-50'
-            }`}
-            title={
-              !isAuthenticated
-                ? "Jelentkezz be programvadászként a kedvencek mentéséhez (♡)"
-                : isFav 
-                  ? "Mentve a kedvencekhez (Kattints az eltávolításhoz)" 
-                  : "Hozzáadás a kedvencekhez (♡)"
-            }
-          >
-            <Heart className={`w-3.5 h-3.5 ${isFav ? 'fill-rose-500 text-rose-500 scale-105' : 'text-stone-500'}`} />
-            <span>{isFav ? 'Mentve' : 'Mentés (♡)'}</span>
-          </button>
-
-          {isFav && program && (
-            <button
-              onClick={() => openFolderModal(program)}
-              className="inline-flex items-center gap-1 text-xs text-stone-600 hover:text-emerald-700 px-2.5 py-1.5 rounded-lg border border-stone-200 hover:bg-stone-50 transition-colors cursor-pointer"
-              title="Mappa kiválasztása"
-            >
-              <FolderHeart className="w-3.5 h-3.5 text-emerald-600" />
-              <span className="hidden sm:inline">Mappa</span>
-            </button>
-          )}
-
-          <button
-            onClick={handleCopyLink}
-            className="inline-flex items-center gap-1.5 text-xs text-stone-600 hover:text-stone-900 px-3 py-1.5 rounded-lg border border-stone-200 hover:bg-stone-50 transition-colors cursor-pointer"
-            title="Link másolása"
-          >
-            {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Share2 className="w-3.5 h-3.5" />}
-            <span>{copiedLink ? 'Megosztva!' : 'Megosztás'}</span>
-          </button>
-        </div>
-      </div>
-
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 animate-in fade-in duration-200">
       {/* Main Image & Gallery */}
       <div className="space-y-3 mb-8">
-        {/* Badges (Csaba 2026-10-07: a kep MELLE/korulle kerulnek, nem rea -- ne
-            takarjak ki a kepet) */}
-        <div className="flex flex-wrap gap-2">
+        {/* Badges */}
+        <div className="flex flex-wrap gap-2 items-center">
           {/* Destination badge */}
           <span className="bg-white border border-stone-200 text-stone-900 text-xs sm:text-sm font-bold px-3 py-1.5 rounded-xl shadow-sm flex items-center gap-1.5">
             <CountryFlag emoji={program.region?.flag_emoji} country={program.region?.country || program.country} size="sm" />
@@ -383,6 +328,17 @@ export const ProgramDetailView: React.FC = () => {
               Kiemelt élmény
             </span>
           )}
+
+          {/* Megosztás gomb közvetlenül a kép felett a többi címkével egy sorban */}
+          <button
+            type="button"
+            onClick={handleCopyLink}
+            className="bg-white border border-stone-200 text-stone-700 hover:text-stone-900 hover:border-stone-300 hover:bg-stone-50 text-xs sm:text-sm font-bold px-3 py-1.5 rounded-xl shadow-sm flex items-center gap-1.5 transition-colors cursor-pointer sm:ml-auto"
+            title="Link másolása"
+          >
+            {copiedLink ? <Check className="w-4 h-4 text-emerald-600" /> : <Share2 className="w-4 h-4 text-stone-500" />}
+            <span>{copiedLink ? 'Megosztva!' : 'Megosztás'}</span>
+          </button>
         </div>
 
         <div className="relative aspect-[16/9] sm:aspect-[21/9] w-full rounded-3xl overflow-hidden shadow-lg border border-stone-200 bg-stone-900">
