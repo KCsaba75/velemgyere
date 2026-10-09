@@ -1426,10 +1426,26 @@ create policy "Anyone can read published reviews"
   on public.reviews for select
   using (status = 'published' or auth.uid() = user_id or public.is_admin());
 
+-- auth.uid()=user_id ALONE is not enough: it only proves who is inserting,
+-- not that they actually booked and completed the program. A real, confirmed,
+-- non-cancelled order for the SAME program must exist, owned by this user
+-- (or by anyone, if the inserter is admin) -- otherwise the client-side
+-- eligibility check (canUserReviewProgram) was the only thing standing
+-- between any logged-in user and a fake "verified buyer" review (found in
+-- kanban velemgyere-ai-studio-dev-review, 2026-10-09).
 drop policy if exists "Verified users can insert reviews" on public.reviews;
 create policy "Verified users can insert reviews"
   on public.reviews for insert
-  with check (auth.uid() = user_id);
+  with check (
+    auth.uid() = user_id
+    and exists (
+      select 1 from public.orders o
+      where o.id = reviews.order_id
+        and o.program_id = reviews.program_id
+        and o.status = 'confirmed'
+        and (o.user_id = auth.uid() or public.is_admin())
+    )
+  );
 
 drop policy if exists "Users and providers can update reviews" on public.reviews;
 create policy "Users and providers can update reviews"
