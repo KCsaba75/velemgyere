@@ -70,8 +70,8 @@ export const ProgramReviewsSection: React.FC<ProgramReviewsSectionProps> = ({ pr
       </div>
 
       {/* Rating Overview Dashboard */}
-      <div className="bg-stone-50 rounded-3xl border border-stone-200 p-6 sm:p-8">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+      <div className="bg-stone-50 rounded-3xl border border-stone-200 p-4 sm:p-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
           {/* Main Score Column */}
           <div className="lg:col-span-4 text-center sm:text-left border-b lg:border-b-0 lg:border-r border-stone-200 pb-6 lg:pb-0 lg:pr-8">
             <div className="flex items-center justify-center sm:justify-start gap-3 mb-2">
@@ -113,7 +113,6 @@ export const ProgramReviewsSection: React.FC<ProgramReviewsSectionProps> = ({ pr
                 </div>
                 <div>
                   <h4 className="text-xs font-bold text-stone-900">Idegenvezető / Sofőr</h4>
-                  <p className="text-[11px] text-stone-500">Szakértelem és felkészültség</p>
                 </div>
               </div>
               <div className="text-right">
@@ -132,7 +131,6 @@ export const ProgramReviewsSection: React.FC<ProgramReviewsSectionProps> = ({ pr
                 </div>
                 <div>
                   <h4 className="text-xs font-bold text-stone-900">Ár-érték arány</h4>
-                  <p className="text-[11px] text-stone-500">Megérte a kifizetett összeget</p>
                 </div>
               </div>
               <div className="text-right">
@@ -151,7 +149,6 @@ export const ProgramReviewsSection: React.FC<ProgramReviewsSectionProps> = ({ pr
                 </div>
                 <div>
                   <h4 className="text-xs font-bold text-stone-900">Szervezés & Menetrend</h4>
-                  <p className="text-[11px] text-stone-500">Pontosság és gördülékenység</p>
                 </div>
               </div>
               <div className="text-right">
@@ -170,7 +167,6 @@ export const ProgramReviewsSection: React.FC<ProgramReviewsSectionProps> = ({ pr
                 </div>
                 <div>
                   <h4 className="text-xs font-bold text-stone-900">Biztonság & Minőség</h4>
-                  <p className="text-[11px] text-stone-500">Jármű állapota, kényelem</p>
                 </div>
               </div>
               <div className="text-right">
