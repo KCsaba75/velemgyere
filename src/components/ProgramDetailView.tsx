@@ -1074,8 +1074,7 @@ export const ProgramDetailView: React.FC = () => {
                   <div className="pt-2 border-t border-stone-100 bg-stone-50 border border-dashed border-stone-300 rounded-xl p-4 flex items-center gap-3 text-xs text-stone-600">
                     <Lock className="w-4 h-4 text-stone-400 shrink-0" />
                     <span>
-                      A szolgáltató elérhetőségei a foglalás jóváhagyása után válnak láthatóvá
-                      a Saját fiókomban.
+                      A szolgáltató elérhetőségeit a foglalás befejezése után a fiókodban találod meg.
                     </span>
                   </div>
                 )}
