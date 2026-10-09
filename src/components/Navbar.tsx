@@ -36,7 +36,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const showFavorites = currentView !== 'home' && currentView !== 'programs';
-  const showProviderLanding = currentView !== 'programs';
 
   const navigateTo = (view: string) => {
     setCurrentView(view);
@@ -124,16 +123,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                     {totalFavoritesCount}
                   </span>
                 )}
-              </button>
-            )}
-            {showProviderLanding && (
-              <button
-                onClick={() => navigateTo('provider-landing')}
-                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
-                  currentView === 'provider-landing' ? 'text-emerald-700 bg-emerald-50/80' : 'text-stone-700 hover:text-stone-900 hover:bg-stone-100'
-                }`}
-              >
-                Szolgáltatóknak
               </button>
             )}
           </nav>
@@ -254,16 +243,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                     {totalFavoritesCount}
                   </span>
                 )}
-              </button>
-            )}
-            {showProviderLanding && (
-              <button
-                onClick={() => navigateTo('provider-landing')}
-                className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium ${
-                  currentView === 'provider-landing' ? 'bg-emerald-50 text-emerald-800 font-semibold' : 'text-stone-700 hover:bg-stone-100'
-                }`}
-              >
-                Szolgáltatóknak
               </button>
             )}
           </div>
