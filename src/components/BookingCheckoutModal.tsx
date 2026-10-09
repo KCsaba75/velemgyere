@@ -257,17 +257,21 @@ export const BookingCheckoutModal: React.FC<BookingCheckoutModalProps> = ({
 
                 <div className="bg-white border border-stone-200 rounded-2xl p-3.5 space-y-1">
                   <span className="text-stone-400 font-bold uppercase tracking-wider text-[10px] block">
-                    Helyszíni fizetés módja
+                    Helyszínen elfogadott fizetés
                   </span>
-                  <div className="flex items-center gap-2 font-bold text-stone-900">
-                    {onsitePaymentMethod === 'revolut' ? (
-                      <Wallet className="w-4 h-4 text-emerald-600 shrink-0" />
-                    ) : (
-                      <Banknote className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <div className="flex items-center gap-2 font-bold text-stone-900 flex-wrap">
+                    {(!program.provider?.accepted_payment_methods || program.provider.accepted_payment_methods.includes('cash')) && (
+                      <span className="inline-flex items-center gap-1 text-xs">
+                        <Banknote className="w-3.5 h-3.5 text-emerald-600 shrink-0" /> Készpénz
+                      </span>
                     )}
-                    <span>{onsitePaymentMethod === 'revolut' ? 'Revolut átutalás' : 'Készpénz'}</span>
+                    {(!program.provider?.accepted_payment_methods || program.provider.accepted_payment_methods.includes('revolut')) && (
+                      <span className="inline-flex items-center gap-1 text-xs">
+                        <Wallet className="w-3.5 h-3.5 text-emerald-600 shrink-0" /> Revolut
+                      </span>
+                    )}
                   </div>
-                  <span className="text-stone-500 block pl-6 text-[11px]">Közvetlenül a szolgáltatónak</span>
+                  <span className="text-stone-500 block text-[11px]">Közvetlenül a szolgáltatónak a program napján</span>
                 </div>
               </div>
 

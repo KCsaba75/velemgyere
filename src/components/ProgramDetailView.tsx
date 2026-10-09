@@ -813,35 +813,21 @@ export const ProgramDetailView: React.FC = () => {
                       </div>
 
                       <div>
-                        <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
-                          Helyszíni fizetés módja
-                        </label>
-                        <div className="flex gap-2">
+                        <span className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
+                          Helyszínen elfogadott fizetés
+                        </span>
+                        <div className="flex flex-wrap gap-2 text-xs">
                           {acceptedPaymentMethods.includes('cash') && (
-                            <button
-                              type="button"
-                              onClick={() => setOnsitePaymentMethod('cash')}
-                              className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border cursor-pointer transition-colors ${
-                                onsitePaymentMethod === 'cash'
-                                  ? 'bg-emerald-600 border-emerald-600 text-white'
-                                  : 'bg-white border-stone-300 text-stone-600 hover:bg-stone-50'
-                              }`}
-                            >
-                              <Banknote className="w-3.5 h-3.5" /> Készpénz
-                            </button>
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-stone-100 text-stone-800 font-semibold border border-stone-200">
+                              <Banknote className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                              <span>Készpénz</span>
+                            </span>
                           )}
                           {acceptedPaymentMethods.includes('revolut') && (
-                            <button
-                              type="button"
-                              onClick={() => setOnsitePaymentMethod('revolut')}
-                              className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border cursor-pointer transition-colors ${
-                                onsitePaymentMethod === 'revolut'
-                                  ? 'bg-emerald-600 border-emerald-600 text-white'
-                                  : 'bg-white border-stone-300 text-stone-600 hover:bg-stone-50'
-                              }`}
-                            >
-                              <Wallet className="w-3.5 h-3.5" /> Revolut
-                            </button>
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-stone-100 text-stone-800 font-semibold border border-stone-200">
+                              <Wallet className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                              <span>Revolut</span>
+                            </span>
                           )}
                         </div>
                       </div>
@@ -911,7 +897,7 @@ export const ProgramDetailView: React.FC = () => {
                         </p>
                       )}
                       <p className="text-[11px] text-stone-400 leading-relaxed">
-                        A gombra kattintva áttekintheted a foglalás összes adatát, majd a <strong>platform használati kényelmi díjat</strong> bankkártyával (Stripe Demo) rendezheted. A <strong>helyszínen fizetendő díj</strong> ({onsitePaymentMethod === 'cash' ? 'készpénzben' : 'Revoluton'}) a program napján közvetlenül a szolgáltatónak fizetendő.
+                        A gombra kattintva áttekintheted a foglalás összes adatát, majd a <strong>platform használati kényelmi díjat</strong> bankkártyával (Stripe Demo) rendezheted. A <strong>helyszínen fizetendő díj</strong> ({acceptedPaymentMethods.map(m => m === 'cash' ? 'készpénzben' : 'Revoluton').join(' vagy ')}) a program napján közvetlenül a szolgáltatónak fizetendő.
                       </p>
                     </form>
                   )}
