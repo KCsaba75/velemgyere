@@ -1,21 +1,19 @@
 import React, { useState } from 'react';
 import { Program, Review, TravelType } from '../types/database';
 import { useApp } from '../context/AppContext';
-import { ReviewModal } from './ReviewModal';
-import { 
-  Star, 
-  ShieldCheck, 
-  MessageSquare, 
-  Compass, 
-  BadgePercent, 
-  Clock, 
-  Shield, 
-  Users, 
-  Camera, 
-  ThumbsUp, 
-  Building2, 
+import {
+  Star,
+  ShieldCheck,
+  MessageSquare,
+  Compass,
+  BadgePercent,
+  Clock,
+  Shield,
+  Users,
+  Camera,
+  ThumbsUp,
+  Building2,
   Sparkles,
-  Info,
   Calendar,
   X
 } from 'lucide-react';
@@ -25,24 +23,17 @@ interface ProgramReviewsSectionProps {
 }
 
 export const ProgramReviewsSection: React.FC<ProgramReviewsSectionProps> = ({ program }) => {
-  const { 
-    getProgramReviews, 
-    getProgramRatingStats, 
-    canUserReviewProgram, 
-    currentUser, 
-    isAuthenticated,
-    openLoginModal,
-    setCurrentView 
+  const {
+    getProgramReviews,
+    getProgramRatingStats,
+    setCurrentView
   } = useApp();
 
   const [activeFilter, setActiveFilter] = useState<'all' | TravelType>('all');
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
-  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
-  const [eligibilityNotice, setEligibilityNotice] = useState<string | null>(null);
 
   const reviews = getProgramReviews(program.id);
   const stats = getProgramRatingStats(program.id);
-  const eligibility = canUserReviewProgram(program.id);
 
   const filteredReviews = reviews.filter(r => {
     if (activeFilter === 'all') return true;
@@ -51,22 +42,6 @@ export const ProgramReviewsSection: React.FC<ProgramReviewsSectionProps> = ({ pr
 
   // Extract all photos from verified reviews
   const allReviewPhotos = reviews.flatMap(r => r.photos || []);
-
-  const handleOpenReviewModal = () => {
-    if (!isAuthenticated || !currentUser) {
-      openLoginModal('Kérjük jelentkezz be az értékelés leadásához!');
-      setEligibilityNotice('Az értékeléshez be kell jelentkezned a saját fiókodba.');
-      return;
-    }
-
-    if (!eligibility.eligible) {
-      setEligibilityNotice(eligibility.reason || 'Csak bejelentkezett felhasználók adhatnak le értékelést.');
-      return;
-    }
-
-    setEligibilityNotice(null);
-    setIsReviewModalOpen(true);
-  };
 
   const travelTypeBadge = (type: TravelType) => {
     switch (type) {
@@ -93,43 +68,7 @@ export const ProgramReviewsSection: React.FC<ProgramReviewsSectionProps> = ({ pr
             Minden vélemény valós, a felületünkön lefoglalt és lezajlott program után érkezett.
           </p>
         </div>
-
-        {/* Action Button */}
-        <div>
-          <button
-            onClick={handleOpenReviewModal}
-            className="w-full sm:w-auto bg-stone-900 hover:bg-emerald-600 text-white font-bold py-2.5 px-5 rounded-xl text-sm transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
-          >
-            <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
-            <span>Értékelés írása</span>
-          </button>
-        </div>
       </div>
-
-      {/* Eligibility notification prompt if user clicks but is not eligible */}
-      {eligibilityNotice && (
-        <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-3 text-xs sm:text-sm text-amber-900 animate-fadeIn">
-          <Info className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <p className="font-bold mb-0.5">Ki értékelhet a Velem Gyere rendszerében?</p>
-            <p className="text-stone-700 leading-relaxed">{eligibilityNotice}</p>
-            {(!isAuthenticated || !currentUser) && (
-              <button
-                onClick={() => openLoginModal('Kérjük jelentkezz be az értékelés leadásához!')}
-                className="mt-2 text-xs font-bold text-emerald-700 underline cursor-pointer"
-              >
-                Bejelentkezés a saját fiókodba &rarr;
-              </button>
-            )}
-          </div>
-          <button
-            onClick={() => setEligibilityNotice(null)}
-            className="text-stone-400 hover:text-stone-700 p-1 cursor-pointer"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
 
       {/* Rating Overview Dashboard */}
       <div className="bg-stone-50 rounded-3xl border border-stone-200 p-6 sm:p-8">
@@ -510,19 +449,6 @@ export const ProgramReviewsSection: React.FC<ProgramReviewsSectionProps> = ({ pr
             />
           </div>
         </div>
-      )}
-
-      {/* Review Modal */}
-      {eligibility.order && (
-        <ReviewModal
-          isOpen={isReviewModalOpen}
-          onClose={() => setIsReviewModalOpen(false)}
-          program={program}
-          order={eligibility.order}
-          onSuccess={() => {
-            setIsReviewModalOpen(false);
-          }}
-        />
       )}
     </section>
   );
