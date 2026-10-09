@@ -658,11 +658,16 @@ export const ProgramDetailView: React.FC = () => {
               </div>
             </div>
           ) : (
-            <LoginToSeeMore
-              label="Mit tartalmaz és mit nem tartalmaz az ár -- bejelentkezve látható."
-              onLogin={() => openLoginModal('A részletes információk (mit tartalmaz és mit nem tartalmaz az ár) megtekintéséhez kérjük jelentkezz be!')}
-              ctaLabel="További információk"
-            />
+            <div>
+              <button
+                type="button"
+                onClick={() => openLoginModal('A részletes információk (mit tartalmaz és mit nem tartalmaz az ár) megtekintéséhez kérjük jelentkezz be!')}
+                className="inline-flex items-center justify-center gap-2 text-sm font-bold bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-3 rounded-2xl transition-all cursor-pointer shadow-xs hover:shadow-sm"
+              >
+                <LogIn className="w-4 h-4" />
+                <span>További információkhoz bejelentkezés szükséges</span>
+              </button>
+            </div>
           )}
 
           {/* Reviews & Ratings Section */}
