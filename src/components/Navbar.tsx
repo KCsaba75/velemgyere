@@ -45,7 +45,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     if (!isAuthenticated) {
       openLoginModal('A foglalásaid megtekintéséhez kérjük jelentkezz be a saját fiókodba!');
     } else {
-      navigateTo('my-account');
+      navigateTo('bookings');
     }
   };
 
@@ -68,7 +68,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     }
   };
 
-  const isBookingsActive = currentView === 'my-account' && (currentUser.role === 'visitor' || !isAuthenticated);
+  const isBookingsActive = currentView === 'bookings';
   const isAccountActive =
     currentUser.role === 'admin'
       ? currentView === 'admin-dashboard'
@@ -153,7 +153,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button
                 onClick={handleBookingsClick}
                 className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
-                  currentView === 'my-account' ? 'text-emerald-700 bg-emerald-50/80 font-bold' : 'text-stone-700 hover:text-stone-900 hover:bg-stone-100'
+                  isBookingsActive ? 'text-emerald-700 bg-emerald-50/80 font-bold' : 'text-stone-700 hover:text-stone-900 hover:bg-stone-100'
                 }`}
               >
                 <Ticket className={`w-4 h-4 ${isAuthenticated && orders.length > 0 ? 'text-emerald-600' : 'text-stone-400'}`} />

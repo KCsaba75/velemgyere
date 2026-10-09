@@ -51,6 +51,7 @@ const VIEW_TO_PATH: Record<string, string> = {
   programs: '/programok',
   categories: '/kategoriak',
   favorites: '/kedvencek',
+  bookings: '/foglalasaim',
   'provider-landing': '/szolgaltatoknak',
   'provider-dashboard': '/szolgaltato/dashboard',
   'admin-dashboard': '/admin',
@@ -61,6 +62,7 @@ function pathToView(pathname: string): string {
   if (pathname.startsWith('/programok')) return 'programs';
   if (pathname.startsWith('/kategoriak') || pathname.startsWith('/regiok')) return 'categories';
   if (pathname.startsWith('/kedvencek')) return 'favorites';
+  if (pathname.startsWith('/foglalasaim')) return 'bookings';
   if (pathname.startsWith('/szolgaltatoknak')) return 'provider-landing';
   if (pathname.startsWith('/szolgaltato/dashboard')) return 'provider-dashboard';
   if (pathname.startsWith('/admin')) return 'admin-dashboard';

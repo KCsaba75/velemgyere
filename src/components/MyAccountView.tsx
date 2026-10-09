@@ -1,63 +1,20 @@
-import React, { useEffect, useState } from 'react';
-import { useApp, formatPrice } from '../context/AppContext';
+import React from 'react';
+import { useApp } from '../context/AppContext';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
-import { User, MessageSquare, Calendar, Compass, BadgeEuro, Ticket, X, Building2, Phone, Mail, Globe, Banknote, Wallet, Star, CheckCircle2, Heart, CreditCard } from 'lucide-react';
-import { OrderStatus, OrderProviderContact, OnsitePaymentMethod, Order } from '../types/database';
-import { ReviewModal } from './ReviewModal';
-
-const PAYMENT_METHOD_LABEL: Record<OnsitePaymentMethod, string> = {
-  cash: 'Készpénz',
-  revolut: 'Revolut',
-};
-
-const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
-  pending: 'Függőben (szolgáltatói visszaigazolásra vár)',
-  confirmed: 'Megerősítve (szolgáltató visszaigazolta)',
-  cancelled: 'Lemondva',
-};
-
-const ORDER_STATUS_CLASS: Record<OrderStatus, string> = {
-  pending: 'bg-amber-50 text-amber-700 border-amber-200',
-  confirmed: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  cancelled: 'bg-stone-100 text-stone-500 border-stone-200',
-};
+import { User, MessageSquare, Calendar, Compass, BadgeEuro, Ticket, Heart } from 'lucide-react';
 
 export const MyAccountView: React.FC = () => {
-  const { 
-    currentUser, 
-    inquiries, 
-    orders, 
-    programs,
-    reviews,
-    creditTransactions, 
-    creditBalance, 
-    cancelOrder, 
-    getProviderContactForOrder, 
-    getUserReviewForOrder,
+  const {
+    currentUser,
+    inquiries,
+    orders,
+    creditTransactions,
+    creditBalance,
     totalFavoritesCount,
-    setCurrentView 
+    setCurrentView
   } = useApp();
 
-  useDocumentMeta('Saját fiókom', 'Korábbi érdeklődéseid, foglalásaid, kredit-egyenleged és fiókadataid egy helyen.');
-
-  const [reviewModalOrder, setReviewModalOrder] = useState<Order | null>(null);
-  const [providerContacts, setProviderContacts] = useState<Record<string, OrderProviderContact>>({});
-  const confirmedOrderIds = orders.filter(o => o.status === 'confirmed').map(o => o.id).join(',');
-
-  useEffect(() => {
-    const confirmedIds = confirmedOrderIds ? confirmedOrderIds.split(',') : [];
-    let cancelled = false;
-    confirmedIds.forEach(id => {
-      getProviderContactForOrder(id).then(contact => {
-        if (cancelled || !contact) return;
-        setProviderContacts(prev => ({ ...prev, [id]: contact }));
-      });
-    });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [confirmedOrderIds]);
+  useDocumentMeta('Saját fiókom', 'Korábbi érdeklődéseid, kredit-egyenleged és fiókadataid egy helyen.');
 
   const formatDate = (iso: string) => {
     try {
@@ -81,8 +38,8 @@ export const MyAccountView: React.FC = () => {
         </div>
       </div>
 
-      {/* Stats Cards: Credit balance & Favorites */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
+      {/* Stats Cards: Credit balance, Favorites & Bookings */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
         <div className="bg-emerald-50/70 border border-emerald-100 rounded-2xl p-5 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
@@ -95,9 +52,6 @@ export const MyAccountView: React.FC = () => {
               </span>
             </div>
           </div>
-          <p className="text-[11px] text-stone-500 max-w-[140px] text-right">
-            Jóváírások és visszatérítések
-          </p>
         </div>
 
         <div className="bg-rose-50/70 border border-rose-100 rounded-2xl p-5 flex items-center justify-between gap-4">
@@ -106,18 +60,39 @@ export const MyAccountView: React.FC = () => {
               <Heart className="w-6 h-6 fill-rose-500 text-rose-500" />
             </div>
             <div>
-              <span className="text-xs font-bold text-rose-700 uppercase tracking-wider block">Mentett kedvencek</span>
+              <span className="text-xs font-bold text-rose-700 uppercase tracking-wider block">Kedvencek</span>
               <span className="text-2xl font-extrabold text-stone-900 font-display">
-                {totalFavoritesCount} program
+                {totalFavoritesCount}
               </span>
             </div>
           </div>
           <button
             type="button"
             onClick={() => { setCurrentView('favorites'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-            className="text-xs font-bold text-rose-700 hover:text-rose-800 bg-white px-3.5 py-2 rounded-xl border border-rose-200 shadow-xs hover:bg-rose-50 transition-colors cursor-pointer"
+            className="text-xs font-bold text-rose-700 hover:text-rose-800 bg-white px-3 py-2 rounded-xl border border-rose-200 shadow-xs hover:bg-rose-50 transition-colors cursor-pointer shrink-0"
           >
             Mappák &rarr;
+          </button>
+        </div>
+
+        <div className="bg-stone-100/80 border border-stone-200 rounded-2xl p-5 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl bg-stone-200/80 text-stone-700 flex items-center justify-center shrink-0">
+              <Ticket className="w-6 h-6" />
+            </div>
+            <div>
+              <span className="text-xs font-bold text-stone-600 uppercase tracking-wider block">Foglalásaim</span>
+              <span className="text-2xl font-extrabold text-stone-900 font-display">
+                {orders.length}
+              </span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => { setCurrentView('bookings'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+            className="text-xs font-bold text-stone-700 hover:text-stone-900 bg-white px-3 py-2 rounded-xl border border-stone-300 shadow-xs hover:bg-stone-50 transition-colors cursor-pointer shrink-0"
+          >
+            Megnyitás &rarr;
           </button>
         </div>
       </div>
@@ -132,120 +107,6 @@ export const MyAccountView: React.FC = () => {
               </span>
             </div>
           ))}
-        </div>
-      )}
-
-      {/* Orders / reservations (point 2) */}
-      <div className="flex items-center gap-2 mb-5">
-        <Ticket className="w-5 h-5 text-stone-400" />
-        <h2 className="font-display text-lg font-bold text-stone-900">
-          Foglalásaim ({orders.length})
-        </h2>
-      </div>
-
-      {orders.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-stone-200 p-10 text-center mb-10">
-          <Ticket className="w-10 h-10 text-stone-300 mx-auto mb-3" />
-          <p className="text-sm text-stone-600">
-            Még nincs helyfoglalásod. A programok részletes nézetén foglalhatsz helyet.
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-3 mb-10">
-          {orders.map(order => {
-            const contact = providerContacts[order.id];
-            const prog = order.program || programs.find(p => p.id === order.program_id || p.slug === order.program_id);
-            return (
-              <div key={order.id} className="bg-white rounded-2xl border border-stone-200 p-5">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <h3 className="font-bold text-stone-900 text-sm mb-1">
-                      {prog?.title || 'Program'}
-                    </h3>
-                    <p className="text-xs text-stone-500 mb-2">
-                      {order.participants_count} fő · {formatPrice(order.total_price)} {order.currency === 'EUR' ? '€' : order.currency}
-                      {order.booking_fee > 0 && ` (fizetve online: ${formatPrice(order.booking_fee)} € · helyszínen: ${formatPrice(order.onsite_amount)} €)`} · {formatDate(order.created_at)}
-                    </p>
-                    <div className="flex flex-wrap items-center gap-2 mt-2">
-                      <span className={`inline-block text-[11px] font-bold px-2.5 py-1 rounded-lg border ${ORDER_STATUS_CLASS[order.status]}`}>
-                        {ORDER_STATUS_LABEL[order.status]}
-                      </span>
-                      {order.booking_fee > 0 && (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200">
-                          <CreditCard className="w-3.5 h-3.5" />
-                          <span>Kényelmi díj rendezve (Stripe)</span>
-                        </span>
-                      )}
-                      {order.status !== 'cancelled' && (() => {
-                        const existingReview = getUserReviewForOrder(order.id) || reviews.find(r => 
-                          (r.order_id === order.id || r.program_id === order.program_id) && 
-                          (r.user_id === currentUser?.id || r.user_id === currentUser?.user_id)
-                        );
-                        if (existingReview) {
-                          return (
-                            <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200">
-                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                              <span>Értékelve ({existingReview.rating}★)</span>
-                            </span>
-                          );
-                        }
-                        return (
-                          <button
-                            type="button"
-                            onClick={() => setReviewModalOrder(order)}
-                            className="inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-white transition-colors cursor-pointer shadow-xs"
-                          >
-                            <Star className="w-3.5 h-3.5 fill-white text-white" />
-                            <span>⭐ Értékelés leadása</span>
-                          </button>
-                        );
-                      })()}
-                    </div>
-                  </div>
-                  {order.status !== 'cancelled' && (
-                    <button
-                      onClick={() => cancelOrder(order.id)}
-                      className="inline-flex items-center gap-1 text-xs text-stone-400 hover:text-rose-600 font-semibold shrink-0 cursor-pointer"
-                    >
-                      <X className="w-3.5 h-3.5" /> Lemondás
-                    </button>
-                  )}
-                </div>
-
-                {/* Full booking confirmation (kanban fbf552b2 point 5a): buyer's own data
-                    (above), program details (above), provider's data + payment details
-                    (below) -- only once confirmed, contact resolved via the RPC. */}
-                {order.status === 'confirmed' && (
-                  <div className="mt-4 pt-4 border-t border-stone-100 bg-emerald-50/40 -mx-5 -mb-5 px-5 pb-5 rounded-b-2xl space-y-3">
-                    <h4 className="text-xs font-bold text-emerald-800 uppercase tracking-wider">
-                      Foglalás visszaigazolása
-                    </h4>
-                    <div className="text-xs text-stone-600 space-y-1">
-                      <div>👤 Foglaló: <strong className="text-stone-800">{currentUser.name}</strong> ({currentUser.email})</div>
-                      <div className="flex items-center gap-1.5">
-                        {order.onsite_payment_method === 'revolut' ? <Wallet className="w-3.5 h-3.5" /> : <Banknote className="w-3.5 h-3.5" />}
-                        Helyszíni fizetés módja: <strong className="text-stone-800">
-                          {order.onsite_payment_method ? PAYMENT_METHOD_LABEL[order.onsite_payment_method] : 'nincs megadva'}
-                        </strong>
-                      </div>
-                    </div>
-                    {contact ? (
-                      <div className="text-xs text-stone-600 space-y-1 pt-2 border-t border-emerald-100">
-                        <div className="flex items-center gap-1.5"><Building2 className="w-3.5 h-3.5" /> Kapcsolattartó: <strong className="text-stone-800">{contact.contact_name}</strong></div>
-                        <div className="flex items-center gap-1.5"><Phone className="w-3.5 h-3.5" /> <strong className="text-stone-800">{contact.phone}</strong></div>
-                        <div className="flex items-center gap-1.5"><Mail className="w-3.5 h-3.5" /> <strong className="text-stone-800">{contact.email}</strong></div>
-                        {contact.website && (
-                          <div className="flex items-center gap-1.5"><Globe className="w-3.5 h-3.5" /> <a href={contact.website} target="_blank" rel="noreferrer" className="text-emerald-700 hover:underline font-semibold">{contact.website}</a></div>
-                        )}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-stone-400 pt-2 border-t border-emerald-100">Szolgáltató adatainak betöltése...</p>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
         </div>
       )}
 
@@ -288,20 +149,6 @@ export const MyAccountView: React.FC = () => {
           ))}
         </div>
       )}
-      {/* Review Modal for confirmed order */}
-      {reviewModalOrder && (() => {
-        const prog = programs.find(p => p.id === reviewModalOrder.program_id || p.slug === reviewModalOrder.program_id) || reviewModalOrder.program;
-        if (!prog) return null;
-        return (
-          <ReviewModal
-            isOpen={true}
-            onClose={() => setReviewModalOrder(null)}
-            program={prog}
-            order={reviewModalOrder}
-            onSuccess={() => setReviewModalOrder(null)}
-          />
-        );
-      })()}
     </div>
   );
 };

@@ -15,6 +15,7 @@ import { NewProgramModal } from './components/NewProgramModal';
 import { Footer } from './components/Footer';
 import { MyAccountView } from './components/MyAccountView';
 import { FavoritesView } from './components/FavoritesView';
+import { BookingsView } from './components/BookingsView';
 import { FavoriteFolderModal } from './components/FavoriteFolderModal';
 import { FavoriteToast } from './components/FavoriteToast';
 import { UserRole } from './types/database';
@@ -86,6 +87,7 @@ const AppContent: React.FC = () => {
             }
           />
           <Route path="/kedvencek" element={<FavoritesView />} />
+          <Route path="/foglalasaim" element={<BookingsView />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
