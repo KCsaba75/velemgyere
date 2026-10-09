@@ -684,8 +684,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       if (prof && !cancelled) {
-        const isAdminEmail = session.user?.email === 'ycrow75@gmail.com' || session.user?.email === 'admin@velemgyere.hu';
-        const role = isAdminEmail ? 'admin' : (prof as Profile).role;
+        const role = (prof as Profile).role;
         const profileObj: Profile = { ...(prof as Profile), role };
         setIsAuthenticated(true);
         setCurrentUser(profileObj);
@@ -1647,7 +1646,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const matchingOrders = orders.filter(o => {
       const isProgMatch = o.program_id === resolvedId || (prog && (o.program_id === prog.slug || o.program_id === prog.id));
       const isUserMatch = o.user_id === currentUser.id || o.user_id === currentUser.user_id || currentUser.role === 'admin';
-      return isProgMatch && isUserMatch && o.status !== 'cancelled';
+      return isProgMatch && isUserMatch && o.status === 'confirmed';
     });
 
     if (matchingOrders.length > 0) {
@@ -1657,18 +1656,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           return { eligible: true, order: ord };
         }
       }
+      return { eligible: false, reason: 'Ezt a lezárult foglalásodat már korábban értékelted. Köszönjük a visszajelzést!' };
     }
 
-    if (matchingOrders.length === 0) {
-      return { 
-        eligible: false, 
-        reason: 'Csak a korábban már lefoglalt programjaidat tudod értékelni a saját fiókodban.' 
-      };
-    }
-
-    return { 
-      eligible: false, 
-      reason: 'Ezt a lefoglalt programodat már korábban értékelted. Köszönjük a visszajelzésedet!' 
+    return {
+      eligible: false,
+      reason: 'Csak a korábban már lefoglalt programjaidat tudod értékelni a saját fiókodban.'
     };
   };
 
@@ -1710,6 +1703,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const ord = orders.find(o => o.id === data.order_id);
 
+    // Defense in depth: addReview must not trust a caller-supplied order_id on
+    // its own (canUserReviewProgram gates the UI, but this is the actual write
+    // path) -- require a real, non-cancelled order for this program, owned by
+    // this user (or an admin acting on it), matching the pre-fix eligibility
+    // rule. Without this, is_verified_buyer below would be a bare claim with
+    // nothing backing it.
+    const isOwnOrAdminOrder = !!ord && (
+      ord.user_id === currentUser.id ||
+      ord.user_id === currentUser.user_id ||
+      currentUser.role === 'admin'
+    );
+    const isProgramMatch = !!ord && (ord.program_id === resolvedProgId || ord.program_id === data.program_id);
+    const isVerifiedBuyer = !!ord && isOwnOrAdminOrder && isProgramMatch && ord.status === 'confirmed';
+    if (!isVerifiedBuyer) {
+      return { success: false, message: 'Kizárólag igazolt vásárlók értékelhetnek, akik a velemgyere felületén keresztül foglalták le az adott programot és a részvétel megtörtént.' };
+    }
+
     const newReview: Review = {
       id: generateUUID(),
       program_id: resolvedProgId,
@@ -1727,7 +1737,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       improvement_feedback: data.improvement_feedback?.trim() || undefined,
       travel_type: data.travel_type,
       tour_date: ord?.created_at ? ord.created_at.split('T')[0] : new Date().toISOString().split('T')[0],
-      is_verified_buyer: true,
+      is_verified_buyer: isVerifiedBuyer,
       photos: data.photos && data.photos.length > 0 ? data.photos : undefined,
       provider_response: null,
       status: initialStatus,
@@ -1755,7 +1765,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         improvement_feedback: newReview.improvement_feedback || null,
         travel_type: newReview.travel_type,
         tour_date: newReview.tour_date,
-        is_verified_buyer: true,
+        is_verified_buyer: newReview.is_verified_buyer,
         photos: newReview.photos || [],
         provider_id: newReview.provider_id || null,
         provider_name: newReview.provider_name || null,
