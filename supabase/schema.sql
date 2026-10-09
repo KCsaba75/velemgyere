@@ -12,7 +12,13 @@ create table if not exists public.profiles (
   name text not null,
   email text not null unique,
   role text not null check (role in ('admin', 'provider', 'visitor')) default 'visitor',
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  -- Added live 2026-10-09 (kanban e3d1d669 point 1 + 5): szemelyes adatok
+  -- szerkesztheto telefon mezo + kommunikacios preferenciak.
+  phone text,
+  notify_booking_reminders boolean not null default true,
+  notify_newsletter boolean not null default true,
+  notify_promo boolean not null default false
 );
 
 -- 2. PROVIDERS (Helyi magyar szolgáltatók külföldön)
@@ -166,6 +172,15 @@ create policy "Users can update own profile"
 create policy "Users can insert own profile"
   on public.profiles for insert
   with check (auth.uid() = user_id);
+
+-- Added live 2026-10-09 (kanban e3d1d669 point 1): column-level grant so the
+-- "Users can update own profile" policy above cannot be used to write `role`
+-- (privilege escalation) from the client -- same pattern as the providers
+-- table's own-update guard further below (revoke broad update, grant only the
+-- editable columns).
+revoke update on public.profiles from authenticated;
+grant update (name, email, phone, notify_booking_reminders, notify_newsletter, notify_promo)
+  on public.profiles to authenticated;
 
 -- RLS: PROVIDERS
 create policy "Anyone can read approved providers"

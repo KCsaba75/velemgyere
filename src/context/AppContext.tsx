@@ -106,6 +106,15 @@ interface AppContextType {
   login: (email: string, password: string) => Promise<{ success: boolean; message: string }>;
   logout: () => void;
   registerVisitor: (data: { name: string; email: string; password: string }) => Promise<{ success: boolean; message: string }>;
+  deleteMyAccount: () => Promise<{ success: boolean; message: string }>;
+  updateMyProfile: (updates: {
+    name?: string;
+    email?: string;
+    phone?: string;
+    notify_booking_reminders?: boolean;
+    notify_newsletter?: boolean;
+    notify_promo?: boolean;
+  }) => Promise<{ success: boolean; message: string }>;
   registerProvider: (data: {
     company_name: string;
     contact_name: string;
@@ -913,6 +922,82 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: true, message: `Sikeres bejelentkezés mint ${prov.company_name}!` };
     }
     return { success: false, message: 'Nincs fiók ezzel az e-mail címmel. Kérjük regisztráljon!' };
+  };
+
+  // Kanban e3d1d669 point 1 (szemelyes adatok szerkesztese) + point 5 (kommunikacios
+  // preferenciak). Az email csere KULON a Supabase Auth-on megy at (a bejelentkezesi
+  // hitelesito adat, nem csak a profiles-tabla megjelenitesi mezoje) -- a klienssel
+  // mar hasznalt supabase.auth.updateUser()-t hivja, es megerosito linket kuld az uj
+  // cimre, a profiles.phone/name/notify_* mezok onnan column-grant-tal irhatok
+  // (lasd schema.sql "revoke update ... grant update (name, email, phone, ...)").
+  const updateMyProfile = async (updates: {
+    name?: string;
+    email?: string;
+    phone?: string;
+    notify_booking_reminders?: boolean;
+    notify_newsletter?: boolean;
+    notify_promo?: boolean;
+  }): Promise<{ success: boolean; message: string }> => {
+    if (!isAuthenticated || !currentUser?.user_id) {
+      return { success: false, message: 'Nincs bejelentkezve.' };
+    }
+
+    const emailChanged = updates.email !== undefined && updates.email !== currentUser.email;
+
+    if (emailChanged && isSupabaseConfigured) {
+      const { error: authErr } = await supabase.auth.updateUser({ email: updates.email });
+      if (authErr) {
+        return { success: false, message: `Email módosítása sikertelen: ${authErr.message}` };
+      }
+    }
+
+    setCurrentUser(prev => ({ ...prev, ...updates }));
+    setRawProfiles(prev => prev.map(p => (p.user_id === currentUser.user_id ? { ...p, ...updates } : p)));
+
+    if (isSupabaseConfigured) {
+      const { error } = await supabase
+        .from('profiles')
+        .update(updates)
+        .eq('user_id', currentUser.user_id);
+      if (error) {
+        return { success: false, message: `Mentés sikertelen: ${error.message}` };
+      }
+    }
+
+    return {
+      success: true,
+      message: emailChanged
+        ? 'Adatok mentve. Az email cím módosításának megerősítéséhez kattints az új címre küldött linkre.'
+        : 'Adatok sikeresen mentve.',
+    };
+  };
+
+  // Kanban e3d1d669 point 6 (fiok vegleges torlese). A delete_my_account() RPC
+  // migraciojat (auth.users SAJAT sorának torlese, security definer) a destruktiv-SQL
+  // jovahagyasi kapu ismetelten elutasitotta ebben a sessionben -- szandekosan NEM
+  // erőltettem at, ez Csaba dontesere var (lasd kanban-komment). A fuggveny itt a
+  // RPC-t MEGIS meghivja: amig nincs eleösítve, a Supabase egy valodi "function does
+  // not exist" hibat ad vissza, amit ide forditunk emberi uzenette -- igy a UI oszinte
+  // (nem egy nema no-op gomb), es automatikusan elkezd mukodni, amint az RPC elesedik.
+  const deleteMyAccount = async (): Promise<{ success: boolean; message: string }> => {
+    if (!isAuthenticated || !currentUser?.user_id) {
+      return { success: false, message: 'Nincs bejelentkezve.' };
+    }
+    if (!isSupabaseConfigured) {
+      return { success: false, message: 'A fiók törlése csak éles (Supabase-sel összekötött) környezetben érhető el.' };
+    }
+    const { error } = await supabase.rpc('delete_my_account');
+    if (error) {
+      console.error('delete_my_account failed:', error);
+      return {
+        success: false,
+        message: 'A végleges törlés háttérfunkciója még nincs élesítve -- Csaba jóváhagyására vár.',
+      };
+    }
+    await supabase.auth.signOut();
+    setIsAuthenticated(false);
+    setCurrentView('home');
+    return { success: true, message: 'A fiókod véglegesen törölve.' };
   };
 
   const logout = () => {
@@ -2394,6 +2479,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         login,
         logout,
         registerVisitor,
+        deleteMyAccount,
+        updateMyProfile,
         registerProvider,
 
         regions,

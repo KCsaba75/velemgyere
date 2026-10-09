@@ -11,6 +11,11 @@ export interface Profile {
   email: string;
   role: UserRole;
   created_at: string;
+  // Added live 2026-10-09 (kanban e3d1d669 point 1 + 5).
+  phone?: string | null;
+  notify_booking_reminders?: boolean;
+  notify_newsletter?: boolean;
+  notify_promo?: boolean;
 }
 
 export interface Provider {
