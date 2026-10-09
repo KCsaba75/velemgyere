@@ -28,11 +28,13 @@ import {
   Save,
   Star,
   Send,
-  CornerDownRight
+  CornerDownRight,
+  BadgeEuro
 } from 'lucide-react';
 import { Program, ProgramStatus, OrderBuyerInfo, OnsitePaymentMethod } from '../types/database';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import { ProgramOccurrencesModal } from './ProgramOccurrencesModal';
+import { ProgramPricingModal } from './ProgramPricingModal';
 import { RescheduleOrderModal } from './RescheduleOrderModal';
 
 const PAYMENT_METHOD_LABEL: Record<OnsitePaymentMethod, string> = {
@@ -67,6 +69,7 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
   const [activeTab, setActiveTab] = useState<'programs' | 'bookings' | 'inquiries' | 'reviews' | 'profile'>('programs');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [occurrencesModalProgram, setOccurrencesModalProgram] = useState<Program | null>(null);
+  const [pricingModalProgram, setPricingModalProgram] = useState<Program | null>(null);
   const [rescheduleOrderId, setRescheduleOrderId] = useState<string | null>(null);
   const [confirmingOrderId, setConfirmingOrderId] = useState<string | null>(null);
 
@@ -489,7 +492,9 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
                             <span className="flex items-center gap-1">📍 {prog.location}</span>
                             <span className="flex items-center gap-1">📅 {prog.event_date}</span>
                             <span className="flex items-center gap-1 font-bold text-emerald-800">
-                              💰 {formatPrice(prog.price)} {prog.currency === 'EUR' ? '€' : prog.currency}/fő
+                              💰 {prog.pricing_mode === 'tiered'
+                                ? 'Sávos (csoportos) árazás'
+                                : `${formatPrice(prog.price)} ${prog.currency === 'EUR' ? '€' : prog.currency}/fő`}
                             </span>
                           </div>
                         </div>
@@ -513,6 +518,15 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
                         >
                           <Calendar className="w-3.5 h-3.5" />
                           <span>Időpontok</span>
+                        </button>
+
+                        <button
+                          onClick={() => setPricingModalProgram(prog)}
+                          className="px-3 py-1.5 rounded-xl border border-stone-200 text-stone-700 hover:bg-stone-100 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                          title="Árazás kezelése"
+                        >
+                          <BadgeEuro className="w-3.5 h-3.5" />
+                          <span>Árazás</span>
                         </button>
 
                         {/* Submit draft for review button */}
@@ -860,6 +874,10 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
       <ProgramOccurrencesModal
         program={occurrencesModalProgram}
         onClose={() => setOccurrencesModalProgram(null)}
+      />
+      <ProgramPricingModal
+        program={pricingModalProgram}
+        onClose={() => setPricingModalProgram(null)}
       />
       <RescheduleOrderModal
         orderId={rescheduleOrderId}
