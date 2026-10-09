@@ -19,6 +19,7 @@ import {
   Edit,
   RotateCcw,
   Ban,
+  ShieldOff,
   Tag,
   Ticket,
   Banknote,
@@ -53,6 +54,7 @@ export const AdminDashboard: React.FC = () => {
     toggleFeaturedProgram,
     approveProvider,
     suspendProvider,
+    banProvider,
     openProgramDetail,
     deleteProgram,
     createRegion,
@@ -744,6 +746,7 @@ export const AdminDashboard: React.FC = () => {
               { id: 'pending', label: 'Új / Jóváhagyásra vár' },
               { id: 'approved', label: 'Jóváhagyott (Approved)' },
               { id: 'suspended', label: 'Felfüggesztett (Suspended)' },
+              { id: 'banned', label: 'Véglegesen letiltott (Banned)' },
             ].map((btn) => (
               <button
                 key={btn.id}
@@ -769,10 +772,12 @@ export const AdminDashboard: React.FC = () => {
                       <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
                         prov.status === 'approved' ? 'bg-emerald-100 text-emerald-800' :
                         prov.status === 'pending' ? 'bg-amber-100 text-amber-900 ring-1 ring-amber-300' :
-                        'bg-rose-100 text-rose-800'
+                        prov.status === 'suspended' ? 'bg-orange-100 text-orange-900 ring-1 ring-orange-300' :
+                        'bg-rose-100 text-rose-800 ring-1 ring-rose-300'
                       }`}>
                         {prov.status === 'approved' ? 'Jóváhagyva' :
-                         prov.status === 'pending' ? 'Függőben (Új regisztráció)' : 'Letiltva / Felfüggesztve'}
+                         prov.status === 'pending' ? 'Függőben (Új regisztráció)' :
+                         prov.status === 'suspended' ? 'Felfüggesztve (ideiglenes)' : 'Véglegesen letiltva'}
                       </span>
 
                       <span className="text-xs text-stone-400">
@@ -812,10 +817,26 @@ export const AdminDashboard: React.FC = () => {
                     {prov.status !== 'suspended' && (
                       <button
                         onClick={() => suspendProvider(prov.id)}
-                        className="px-3.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                        className="px-3.5 py-1.5 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-700 text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                        title="Ideiglenes, visszavonható -- a Jóváhagyás gombbal bármikor újraaktiválható"
                       >
                         <Ban className="w-3.5 h-3.5" />
-                        <span>Letiltás</span>
+                        <span>Felfüggesztés</span>
+                      </button>
+                    )}
+
+                    {prov.status !== 'banned' && (
+                      <button
+                        onClick={() => {
+                          if (window.confirm(`Biztosan VÉGLEGESEN letiltod a(z) "${prov.company_name}" szolgáltatót? Ez admin-szemantikailag végleges döntés (a Jóváhagyás gombbal technikailag visszaállítható, de ez nem a szándékolt út).`)) {
+                            banProvider(prov.id);
+                          }
+                        }}
+                        className="px-3.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                        title="Végleges tiltás"
+                      >
+                        <ShieldOff className="w-3.5 h-3.5" />
+                        <span>Végleges tiltás</span>
                       </button>
                     )}
                   </div>

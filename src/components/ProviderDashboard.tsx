@@ -276,21 +276,44 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
 
         <button
           onClick={onOpenNewProgram}
-          className="bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold px-5 py-3 rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer text-sm shrink-0"
+          disabled={currentProvider?.status === 'suspended' || currentProvider?.status === 'banned'}
+          title={
+            currentProvider?.status === 'suspended' || currentProvider?.status === 'banned'
+              ? 'Felfüggesztett/letiltott fiókkal nem hozható létre új program'
+              : undefined
+          }
+          className="bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold px-5 py-3 rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer text-sm shrink-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-emerald-600"
         >
           <PlusCircle className="w-4 h-4" />
           <span>+ Új program</span>
         </button>
       </div>
 
-      {/* Provider Status Alert if pending */}
+      {/* Provider Status Alert -- pending (legacy/ritka), suspended (visszavonhato) vagy
+          banned (vegleges) eseten, kanban b73c3ee2: a suspended/banned sav PIROS legyen,
+          jol lathato. */}
       {currentProvider?.status === 'pending' && (
         <div className="mb-8 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 flex items-start gap-3">
           <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
           <div>
-            <h4 className="font-bold text-sm">Fiókod még adminisztrátori ellenőrzés alatt áll</h4>
+            <h4 className="font-bold text-sm">Fiókod adminisztrátori jóváhagyásra vár</h4>
             <p className="text-xs text-amber-800 mt-0.5">
-              Új programokat felvihetsz és elküldhetsz felülvizsgálatra, de a publikus katalógusban a jóváhagyás után jelennek majd meg.
+              Hamarosan aktívvá válik -- addig a programjaid nem jelennek meg a publikus katalógusban.
+            </p>
+          </div>
+        </div>
+      )}
+      {(currentProvider?.status === 'suspended' || currentProvider?.status === 'banned') && (
+        <div className="mb-8 p-4 rounded-2xl bg-rose-50 border border-rose-300 text-rose-900 flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+          <div>
+            <h4 className="font-bold text-sm">
+              {currentProvider?.status === 'banned' ? 'Fiókod véglegesen letiltva' : 'Fiókod felfüggesztve'}
+            </h4>
+            <p className="text-xs text-rose-800 mt-0.5">
+              Programjaid jelenleg nem jelennek meg a publikus katalógusban, és új programot sem tudsz felvenni.
+              A meglévő foglalásaidat (visszaigazolás, lemondás) továbbra is tudod kezelni.
+              {currentProvider?.status === 'suspended' ? ' Ez egy ideiglenes, visszavonható állapot.' : ''}
             </p>
           </div>
         </div>
@@ -529,14 +552,15 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
                           <span>Árazás</span>
                         </button>
 
-                        {/* Submit draft for review button */}
+                        {/* Kanban b73c3ee2: admin-jovahagyas kiesett, a piszkozat kozvetlenul
+                            publikalhato -- nincs tobbe kozbenso "pending_review" lepes. */}
                         {prog.status === 'draft' && (
                           <button
-                            onClick={() => updateProgram(prog.id, { status: 'pending_review' })}
-                            className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                            onClick={() => updateProgram(prog.id, { status: 'published' })}
+                            className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
                           >
                             <Sparkles className="w-3.5 h-3.5" />
-                            <span>Jóváhagyásra küld</span>
+                            <span>Közzététel</span>
                           </button>
                         )}
 

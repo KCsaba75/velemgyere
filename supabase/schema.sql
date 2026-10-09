@@ -1621,3 +1621,112 @@ $$;
 -- atfednek, a set_order_booking_fee() a legkisebb min_participants-u egyezo savot
 -- valasztja (determinisztikus, de nem feltetlenul a szolgaltato szandeka) -- ez egy
 -- ismert, dokumentalt korlat, nem csendes hiba.
+
+-- ==========================================
+-- Added live 2026-10-09 (kanban b73c3ee2, Csaba kerese): uj szolgaltato/program
+-- regisztracio automatikus (admin-jovahagyas NELKUL), de az admin tovabbra is tudja
+-- FELFUGGESZTENI (visszavonhato) VAGY VEGLEG TILTANI (nem visszavonhato -- a UI nem
+-- ad ra "visszavonas" gombot, de admin at tudja allitani approved-ra, ha mégis kell)
+-- a szolgaltatot. SAJAT DONTES a ketto megkulonbozetesere: EGYETLEN status-oszlop NEGY
+-- ertekkel ('pending'|'approved'|'suspended'|'banned'), NEM kulon flag -- minden
+-- downstream query (providers_public, katalogus-szures) ugyanazt az EGY mezot nezi,
+-- a felfuggesztve/tiltva hatasa (katalogusbol kiesik, ProviderDashboard piros jelzes,
+-- uj program letrehozasa zarva) funkcionalisan AZONOS, a ketto csak admin-szemantikailag
+-- ter el (ideiglenes vs vegleges admin-dontes), ezt a UI-szoveg/gomb kulonbozteti meg,
+-- nem az adatmodell-logika. Egy kulon has_been_banned boolean flag ketszer annyi
+-- helyen igenyelt volna OR-feltetelt (minden "nem approved" check -> "suspended OR
+-- banned"), ami hibalehetoseget szaporitana, nem csokkentene.
+-- ==========================================
+
+alter table public.providers drop constraint if exists providers_status_check;
+alter table public.providers add constraint providers_status_check
+  check (status in ('pending', 'approved', 'suspended', 'banned'));
+alter table public.providers alter column status set default 'approved';
+
+-- Uj regisztracio MOST kozvetlenul 'approved'-ra kerul (admin-jovahagyas kiesik ebbol
+-- az agbol) -- a 'pending' ertek a CHECK-ben marad (legacy sorok / admin-manualis
+-- visszaallitas miatt), csak uj INSERT-nel nem ez a kotelezo ertek tobbe.
+drop policy "Anyone authenticated can register as provider" on public.providers;
+create policy "Anyone authenticated can register as provider"
+  on public.providers
+  for insert
+  with check (auth.uid() = user_id and status = 'approved');
+
+create or replace function public.admin_set_provider_status(p_provider_id uuid, p_status text)
+returns void
+language plpgsql
+security definer
+set search_path to 'public'
+as $$
+begin
+  if not is_admin() then
+    raise exception 'not authorized';
+  end if;
+  if p_status not in ('pending', 'approved', 'suspended', 'banned') then
+    raise exception 'invalid status: %', p_status;
+  end if;
+  update providers set status = p_status where id = p_provider_id;
+end;
+$$;
+
+-- POINT 8: uj program letrehozasa zarva, ha a szolgaltato felfuggesztve/tiltva van --
+-- RLS-szinten, nem csak UI-gatinggel. Sajat MEGLEVO programjainak szerkesztese/
+-- orders-kezelese tovabbra sem erintett (az UPDATE policy es az orders policy-k nem
+-- neznek provider-statuszt, csendben megmaradnak a regi viselkedesnel -- 7. pont).
+drop policy "Providers can insert programs" on public.programs;
+create policy "Providers can insert programs"
+  on public.programs for insert
+  with check (
+    exists (
+      select 1 from public.providers
+      where providers.id = programs.provider_id
+        and providers.user_id = auth.uid()
+        and providers.status = 'approved'
+    )
+    or public.is_admin()
+  );
+
+-- POINT 5: a publikus katalogus-lathatosag NE csak a program statusat (published)
+-- nezze, a szolgaltato statusat IS -- felfuggesztett/tiltott szolgaltato programjai
+-- tunjenek el a katalogusbol, meg akkor is ha a program maga published marad. A sajat
+-- szolgaltato tovabbra is latja SAJAT programjait barmilyen statuszban (hogy tudja
+-- kezelni/archivalni), admin mindent lat. Ez a BAZIS-tablara vonatkozik -- minden mas
+-- hely ami ebbol EXISTS-szel olvas (programs_public view, program_occurrences/
+-- program_price_tiers "published program" policy-i) automatikusan orokli ezt a
+-- szurest, mert az o sajat EXISTS-alkerdesuk ugyanezen az RLS-en megy at (nincs
+-- SECURITY DEFINER bypass koztuk) -- nem kell kulon modositani oket.
+drop policy "Visitors can view published programs" on public.programs;
+create policy "Visitors can view published programs"
+  on public.programs for select
+  using (
+    (
+      status = 'published'
+      and exists (
+        select 1 from public.providers
+        where providers.id = programs.provider_id and providers.status = 'approved'
+      )
+    )
+    or exists (
+      select 1 from public.providers
+      where providers.id = programs.provider_id and providers.user_id = auth.uid()
+    )
+    or public.is_admin()
+  );
+
+-- Az anon-oldali programs_public view is explicit kiveszi a nem-approved szolgaltato
+-- programjait -- redundans a fenti bazis-RLS-szel (security_invoker=true miatt ugyanis
+-- amugy is orokolne), de a Csaba-kerte "WHERE-feltetelbe bele kell venni" szo szerint
+-- itt is latszodjon, ne csak kovetkeztetve a RLS-bol.
+create or replace view public.programs_public with (security_invoker = true) as
+  select
+    id, provider_id, category_id, region_id,
+    title, slug, short_description,
+    country, price, currency, event_date,
+    featured, status, created_at, updated_at,
+    location, duration, language
+  from public.programs
+  where status = 'published'
+    and exists (
+      select 1 from public.providers
+      where providers.id = programs.provider_id and providers.status = 'approved'
+    );

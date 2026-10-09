@@ -146,6 +146,7 @@ interface AppContextType {
   // Provider Management
   approveProvider: (id: string) => Promise<void>;
   suspendProvider: (id: string) => Promise<void>;
+  banProvider: (id: string) => Promise<void>;
 
   // Provider self-service: own profile fields only (kanban cfa4b20a point 1) --
   // status/stripe_account_id/payouts_enabled/payment_mode are deliberately excluded,
@@ -636,7 +637,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             phone: pending.phone,
             website: pending.website || null,
             description: pending.description,
-            status: 'pending' as const,
+            // Kanban b73c3ee2 (2026-10-09): uj szolgaltato regisztracio automatikus,
+            // admin-jovahagyas nelkul -- egyenesen 'approved'.
+            status: 'approved' as const,
             accepted_payment_methods: pending.accepted_payment_methods,
           };
           // .select('id') only -- RETURNING the other columns would need a table-wide
@@ -1000,11 +1003,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // anyway so this doesn't silently break if that setting changes: the session-sync
         // effect (listening to onAuthStateChange, which signUp also fires for an immediate
         // session) creates the real providers/profiles rows from pending_provider right away.
-        return { success: true, message: 'Sikeres szolgáltatói regisztráció! Fiókod függőben (pending) van az adminisztrátori jóváhagyásig.' };
+        return { success: true, message: 'Sikeres szolgáltatói regisztráció! A fiókod rögtön aktív, programokat is azonnal felvehetsz.' };
       }
       return {
         success: true,
-        message: 'Majdnem kész! Erősítsd meg az e-mail címed a kiküldött linkkel, utána jelentkezz be -- a szolgáltatói fiókod ekkor jön létre automatikusan, függőben (pending) az adminisztrátori jóváhagyásig.',
+        message: 'Majdnem kész! Erősítsd meg az e-mail címed a kiküldött linkkel, utána jelentkezz be -- a szolgáltatói fiókod ekkor jön létre automatikusan, rögtön aktív állapotban.',
       };
     }
 
@@ -1020,7 +1023,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       phone: data.phone,
       website: data.website || '',
       description: data.description,
-      status: 'pending',
+      status: 'approved',
       created_at: new Date().toISOString(),
       accepted_payment_methods: data.accepted_payment_methods,
     };
@@ -1195,7 +1198,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       included: data.included || [],
       not_included: data.not_included || [],
       max_participants: data.max_participants ? Number(data.max_participants) : null,
-      status: currentUser.role === 'admin' ? (data.status || 'published') : (data.status === 'draft' ? 'draft' : 'pending_review'),
+      // Kanban b73c3ee2 (2026-10-09): uj program admin-jovahagyas nelkul egyenesen
+      // publikus -- a 'pending_review' admin-gate kiesett ebbol az agbol. 'draft' csak
+      // akkor, ha a szolgaltato explicit piszkozatkent menti.
+      status: currentUser.role === 'admin' ? (data.status || 'published') : (data.status === 'draft' ? 'draft' : 'published'),
       featured: Boolean(data.featured),
     };
 
@@ -1307,6 +1313,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (error) throw error;
     }
     setRawProviders(prev => prev.map(p => p.id === id ? { ...p, status: 'suspended' } : p));
+  };
+
+  // Kanban b73c3ee2 (2026-10-09): felfuggesztestol (suspend) elkulonitve -- admin-
+  // szemantikailag vegleges dontes (suspend ideiglenes/visszavonhato), funkcionalis
+  // hatasa (katalogusbol kiesik, uj program letrehozasa zarva) a suspend-del azonos.
+  const banProvider = async (id: string): Promise<void> => {
+    if (isSupabaseConfigured) {
+      const { error } = await supabase.rpc('admin_set_provider_status', { p_provider_id: id, p_status: 'banned' });
+      if (error) throw error;
+    }
+    setRawProviders(prev => prev.map(p => p.id === id ? { ...p, status: 'banned' } : p));
   };
 
   const updateProviderProfile = async (updates: {
@@ -2391,6 +2408,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         approveProvider,
         suspendProvider,
+        banProvider,
         updateProviderProfile,
 
         submitInquiry,

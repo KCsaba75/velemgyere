@@ -1,6 +1,6 @@
 export type UserRole = 'admin' | 'provider' | 'visitor';
 
-export type ProviderStatus = 'pending' | 'approved' | 'suspended';
+export type ProviderStatus = 'pending' | 'approved' | 'suspended' | 'banned';
 
 export type ProgramStatus = 'draft' | 'pending_review' | 'published' | 'rejected' | 'archived';
 
