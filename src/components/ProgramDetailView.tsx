@@ -31,7 +31,7 @@ import {
 import { CategoryIcon } from './CategoryIcon';
 import { CountryFlag } from './CountryFlag';
 import { ProgramReviewsSection } from './ProgramReviewsSection';
-import { ProgramAvailability, OnsitePaymentMethod, OrderProviderContact, OccurrenceAvailability } from '../types/database';
+import { ProgramAvailability, OnsitePaymentMethod, OrderProviderContact, OccurrenceAvailability, ProgramPriceTier } from '../types/database';
 
 // Kanban fbf552b2 point 1: a still-gated detail sections (mit tartalmaz/nem tartalmaz)
 // share this one prompt instead of each rolling their own "please log in" box. ctaLabel
@@ -62,6 +62,7 @@ export const ProgramDetailView: React.FC = () => {
     orders,
     checkProgramAvailability,
     listOpenOccurrences,
+    getProgramPriceTiers,
     createOrder,
     getProviderContactForOrder,
     computeBookingFee,
@@ -138,6 +139,33 @@ export const ProgramDetailView: React.FC = () => {
   }, [program?.id]);
 
   const selectedOccurrence = occurrenceOptions.find(o => o.id === selectedOccurrenceId) || null;
+
+  // Savos/csoportos arazas (kanban 62e69729): 'tiered' programnal a letszamhoz tartozo
+  // SAV OSSZES ara donti el a netTotal-t, nem a price*participantsCount linearis szorzas.
+  const [priceTiers, setPriceTiers] = useState<ProgramPriceTier[]>([]);
+  useEffect(() => {
+    setPriceTiers([]);
+    if (!program || program.pricing_mode !== 'tiered') return;
+    let cancelled = false;
+    getProgramPriceTiers(program.id).then(rows => {
+      if (!cancelled) setPriceTiers(rows);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [program?.id, program?.pricing_mode]);
+
+  const matchingTier = program?.pricing_mode === 'tiered'
+    ? priceTiers.find(t => participantsCount >= t.min_participants && (t.max_participants == null || participantsCount <= t.max_participants)) || null
+    : null;
+  const lowestTier = priceTiers.length > 0 ? priceTiers[0] : null;
+  // null = tiered program, de nincs a jelenlegi letszamhoz illo sav -- a form ezt jelzi,
+  // nem enged tovabb (a szerver enfore_order_capacity/set_order_booking_fee ugyanezt
+  // utolag is kikenyszeriti, ez csak elore jelzi a vevonek).
+  const netTotalForCount = program
+    ? (program.pricing_mode === 'tiered' ? (matchingTier ? matchingTier.total_price : null) : program.price * participantsCount)
+    : null;
 
   // Keep the selection valid if the provider doesn't accept the default/previous
   // choice (e.g. a cash-only provider, or switching between programs of different

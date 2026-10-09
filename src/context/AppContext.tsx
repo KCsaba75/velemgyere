@@ -23,7 +23,8 @@ import {
   ReviewStatus,
   TravelType,
   FavoriteFolder,
-  FavoriteItem
+  FavoriteItem,
+  ProgramPriceTier
 } from '../types/database';
 import { 
   INITIAL_CATEGORIES, 
@@ -205,6 +206,12 @@ interface AppContextType {
   ) => Promise<void>;
   deleteOccurrence: (id: string) => Promise<void>;
   rescheduleOrder: (orderId: string, newOccurrenceId: string) => Promise<void>;
+
+  // Savos/csoportos arazas (kanban 62e69729). pricing_mode valtasa updateProgram(id,
+  // {pricing_mode})-dal megy, nincs kulon fuggveny ra.
+  getProgramPriceTiers: (programId: string) => Promise<ProgramPriceTier[]>;
+  createPriceTier: (programId: string, tier: { min_participants: number; max_participants?: number | null; total_price: number }) => Promise<void>;
+  deletePriceTier: (id: string) => Promise<void>;
 
   // Admin approval + privacy-gated contact lookups (kanban fbf552b2 points 3/4/5).
   confirmOrder: (id: string) => Promise<{ success: boolean; message: string }>;
@@ -1196,6 +1203,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newProg: Program = {
       id: newId,
       ...payload,
+      pricing_mode: 'per_person',
       max_participants: payload.max_participants ?? undefined,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -1498,6 +1506,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const { error } = await supabase.rpc('reschedule_order', { p_order_id: orderId, p_new_occurrence_id: newOccurrenceId });
     if (error) throw error;
     setOrders(prev => prev.map(o => (o.id === orderId ? { ...o, occurrence_id: newOccurrenceId } : o)));
+  };
+
+  // Savos/csoportos arazas (kanban 62e69729) -- direkt tabla-CRUD, RLS-gatelt
+  // (owner/admin ir, barki olvashatja publikalt program eseten, lasd schema.sql).
+  const getProgramPriceTiers = async (programId: string): Promise<ProgramPriceTier[]> => {
+    if (!isSupabaseConfigured) return [];
+    const { data, error } = await supabase
+      .from('program_price_tiers')
+      .select('*')
+      .eq('program_id', programId)
+      .order('min_participants', { ascending: true });
+    if (error) {
+      console.error('getProgramPriceTiers failed:', error);
+      return [];
+    }
+    return (data as ProgramPriceTier[]) || [];
+  };
+
+  const createPriceTier = async (
+    programId: string,
+    tier: { min_participants: number; max_participants?: number | null; total_price: number }
+  ): Promise<void> => {
+    if (!isSupabaseConfigured) return;
+    const { error } = await supabase.from('program_price_tiers').insert({
+      program_id: programId,
+      min_participants: tier.min_participants,
+      max_participants: tier.max_participants ?? null,
+      total_price: tier.total_price,
+    });
+    if (error) throw error;
+  };
+
+  const deletePriceTier = async (id: string): Promise<void> => {
+    if (!isSupabaseConfigured) return;
+    const { error } = await supabase.from('program_price_tiers').delete().eq('id', id);
+    if (error) throw error;
   };
 
   // Admin-only "szimulált fizetés-teljesülés" (kanban fbf552b2 point 4): the confirm_order
@@ -2247,6 +2291,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateOccurrence,
         deleteOccurrence,
         rescheduleOrder,
+        getProgramPriceTiers,
+        createPriceTier,
+        deletePriceTier,
         confirmOrder,
         getProviderContactForOrder,
         getOrderBuyerInfo,
