@@ -423,7 +423,7 @@ export const ProgramDetailView: React.FC = () => {
       {/* Main Content Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_440px] gap-8 items-start">
         {/* Left Column: Details & Program Description */}
-        <div className="min-w-0 space-y-8">
+        <div className="min-w-0 space-y-8 lg:col-start-1 lg:row-start-1">
           <div>
             <div className="inline-flex items-center gap-2 text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-lg mb-2">
               <CountryFlag emoji="🇭🇺" country="Magyarország" size="xs" />
@@ -603,13 +603,11 @@ export const ProgramDetailView: React.FC = () => {
             </div>
           )}
 
-          {/* Reviews & Ratings Section */}
-          <ProgramReviewsSection program={program} />
         </div>
 
         {/* Right Column: Sticky Booking Card & Provider Details */}
-        <div className="space-y-6 w-full lg:w-[440px]">
-          <div className="bg-white rounded-3xl border border-stone-200 shadow-xl p-6 sticky top-28 space-y-6">
+        <div className="space-y-6 w-full lg:w-[440px] lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:self-stretch">
+          <div className="bg-white rounded-3xl border border-stone-200 shadow-xl p-6 lg:sticky lg:top-28 space-y-6">
             {/* Price Header & Transparent Fee Breakdown */}
             <div className="border-b border-stone-100 pb-5 space-y-3.5">
               <div>
@@ -1013,6 +1011,11 @@ export const ProgramDetailView: React.FC = () => {
               </div>
             )}
           </div>
+        </div>
+
+        {/* Reviews & Ratings Section: comes before right column on desktop, but after right column on mobile */}
+        <div className="min-w-0 lg:col-start-1 lg:row-start-2">
+          <ProgramReviewsSection program={program} />
         </div>
       </div>
 
