@@ -35,29 +35,6 @@ import { ProgramReviewsSection } from './ProgramReviewsSection';
 import { BookingCheckoutModal } from './BookingCheckoutModal';
 import { ProgramAvailability, OnsitePaymentMethod, OrderProviderContact, OccurrenceAvailability, ProgramPriceTier } from '../types/database';
 
-// Kanban fbf552b2 point 1: a still-gated detail sections (mit tartalmaz/nem tartalmaz)
-// share this one prompt instead of each rolling their own "please log in" box. ctaLabel
-// defaults to a plain login CTA, but the still-gated sections use a clearer
-// "További információk" wording per Csaba's request.
-const LoginToSeeMore: React.FC<{ label: string; onLogin: () => void; ctaLabel?: string }> = ({ label, onLogin, ctaLabel }) => (
-  <div className="bg-stone-50 border border-dashed border-stone-300 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm text-stone-600">
-    <div className="flex items-center gap-2.5">
-      <div className="w-8 h-8 rounded-xl bg-stone-200/60 flex items-center justify-center text-stone-500 shrink-0">
-        <Lock className="w-4 h-4" />
-      </div>
-      <span className="leading-snug">{label}</span>
-    </div>
-    <button
-      type="button"
-      onClick={onLogin}
-      className="inline-flex items-center justify-center gap-1.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl transition-all shrink-0 cursor-pointer shadow-xs hover:shadow-sm"
-    >
-      <LogIn className="w-3.5 h-3.5" />
-      <span>{ctaLabel || 'Bejelentkezés'}</span>
-    </button>
-  </div>
-);
-
 export const ProgramDetailView: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   const {
@@ -756,11 +733,19 @@ export const ProgramDetailView: React.FC = () => {
               </h3>
 
               {!isAuthenticated ? (
-                <LoginToSeeMore
-                  label="A helyfoglaláshoz és a saját fiókodban való nyilvántartásához bejelentkezés szükséges."
-                  onLogin={() => openLoginModal('A helyfoglaláshoz és a foglalás véglegesítéséhez kérjük jelentkezz be!')}
-                  ctaLabel="Bejelentkezés"
-                />
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => openLoginModal('A helyfoglaláshoz és a foglalás véglegesítéséhez kérjük jelentkezz be!')}
+                    className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3.5 px-5 rounded-xl text-sm cursor-pointer shadow-md transition-all hover:shadow-lg flex items-center justify-center gap-2"
+                  >
+                    <Ticket className="w-4 h-4" />
+                    <span>Érdekel a Program!</span>
+                  </button>
+                  <p className="text-[11px] text-stone-400 text-center">
+                    A helyfoglaláshoz bejelentkezés szükséges
+                  </p>
+                </div>
               ) : (
                 <div className="space-y-4">
                   {occurrencesLoading ? (
@@ -962,7 +947,7 @@ export const ProgramDetailView: React.FC = () => {
                         className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3.5 px-5 rounded-xl text-sm cursor-pointer shadow-md transition-all hover:shadow-lg flex items-center justify-center gap-2 disabled:opacity-60"
                       >
                         <Ticket className="w-4 h-4" />
-                        <span>Foglalás véglegesítése</span>
+                        <span>Érdekel a Program!</span>
                       </button>
                       {reservationResult && (
                         <p className={`text-xs font-semibold ${reservationResult.success ? 'text-emerald-700' : 'text-rose-600'}`}>
