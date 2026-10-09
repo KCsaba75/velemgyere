@@ -71,19 +71,19 @@ export const ProgramReviewsSection: React.FC<ProgramReviewsSectionProps> = ({ pr
 
       {/* Rating Overview Dashboard */}
       <div className="bg-stone-50 rounded-3xl border border-stone-200 p-4 sm:p-6">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-center">
           {/* Main Score Column */}
-          <div className="lg:col-span-4 text-center sm:text-left border-b lg:border-b-0 lg:border-r border-stone-200 pb-6 lg:pb-0 lg:pr-8">
-            <div className="flex items-center justify-center sm:justify-start gap-3 mb-2">
-              <span className="text-5xl sm:text-6xl font-black font-display text-stone-900">
+          <div className="md:col-span-5 text-center sm:text-left border-b md:border-b-0 md:border-r border-stone-200 pb-5 md:pb-0 md:pr-6">
+            <div className="flex items-center justify-center sm:justify-start gap-3 mb-3">
+              <span className="text-3xl sm:text-4xl font-black font-display text-stone-900 leading-none">
                 {reviews.length > 0 ? stats.average.toFixed(1) : '5.0'}
               </span>
-              <div>
-                <div className="flex text-amber-400 text-xl">
+              <div className="flex flex-col justify-center">
+                <div className="flex items-center gap-1 text-amber-400">
                   {[1, 2, 3, 4, 5].map((s) => (
                     <Star
                       key={s}
-                      className={`w-5 h-5 ${
+                      className={`w-4 h-4 ${
                         s <= Math.round(stats.average)
                           ? 'fill-amber-400 text-amber-400'
                           : 'text-stone-300'
@@ -91,20 +91,20 @@ export const ProgramReviewsSection: React.FC<ProgramReviewsSectionProps> = ({ pr
                     />
                   ))}
                 </div>
-                <span className="text-xs font-bold text-stone-600 block mt-1">
+                <span className="text-xs font-semibold text-stone-500 mt-1">
                   {stats.count} ellenőrzött értékelés alapján
                 </span>
               </div>
             </div>
 
-            <div className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-800 bg-emerald-100/70 px-3 py-1 rounded-full mt-2">
-              <ThumbsUp className="w-3.5 h-3.5" />
-              <span>Az utazók {stats.recommendPercent}%-a ajánlja ezt a programot</span>
+            <div className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-800 bg-emerald-100/80 px-3 py-1 rounded-full">
+              <ThumbsUp className="w-3.5 h-3.5 shrink-0" />
+              <span>Az utazók {stats.recommendPercent}%-a ajánlja!</span>
             </div>
           </div>
 
           {/* Sub-criteria 4 Category Scores */}
-          <div className="lg:col-span-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="md:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             {/* Guide */}
             <div className="bg-white p-3.5 rounded-2xl border border-stone-200/80 shadow-xs flex items-center justify-between gap-3">
               <div className="flex items-center gap-2.5">
