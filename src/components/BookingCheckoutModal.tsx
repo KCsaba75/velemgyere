@@ -31,6 +31,10 @@ interface BookingCheckoutModalProps {
   selectedOccurrence?: ProgramOccurrence | OccurrenceAvailability | null;
   selectedOccurrenceId?: string | null;
   participantsCount: number;
+  // Savos/csoportos arazasnal (program.pricing_mode === 'tiered') a matching
+  // sav teljes ara, nem program.price*participantsCount -- a szulo
+  // (ProgramDetailView) mar kiszamolta, ez csak atveszi.
+  netTotal: number;
   onsitePaymentMethod: OnsitePaymentMethod;
   dateFormatted: string;
   weekdayFormatted?: string;
@@ -44,6 +48,7 @@ export const BookingCheckoutModal: React.FC<BookingCheckoutModalProps> = ({
   selectedOccurrence,
   selectedOccurrenceId,
   participantsCount,
+  netTotal,
   onsitePaymentMethod,
   dateFormatted,
   weekdayFormatted,
@@ -76,11 +81,16 @@ export const BookingCheckoutModal: React.FC<BookingCheckoutModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Price calculations
-  const netTotal = program.price * participantsCount;
+  // Price calculations -- netTotal a szulotol jon (tiered programnal a sav
+  // ara, kulonben program.price*participantsCount), itt nem szamoljuk ujra.
   const total = computeTotalPrice(netTotal);
   const fee = total - netTotal;
   const curr = program.currency === 'EUR' ? '€' : program.currency;
+  // Tiered programnal a netTotal nem participantsCount*program.price, ezert a
+  // breakdown-ban nem azt a szorzast irjuk ki, hanem a sav-alapu magyarazatot.
+  const netTotalLabel = program.pricing_mode === 'tiered'
+    ? `${participantsCount} fő (sávos ár)`
+    : `${participantsCount} × ${formatPrice(program.price)} ${curr}`;
 
   const handleSimulatePayment = async () => {
     setIsProcessing(true);
@@ -228,7 +238,7 @@ export const BookingCheckoutModal: React.FC<BookingCheckoutModalProps> = ({
                     <span>{participantsCount} fő</span>
                   </div>
                   <span className="text-stone-500 block pl-6 text-[11px]">
-                    {participantsCount} × {formatPrice(program.price)} {curr}
+                    {netTotalLabel}
                   </span>
                 </div>
 
@@ -268,7 +278,7 @@ export const BookingCheckoutModal: React.FC<BookingCheckoutModalProps> = ({
                 </span>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-stone-600">
-                    <span>Részvételi alapár ({participantsCount} × {formatPrice(program.price)} {curr}):</span>
+                    <span>Részvételi alapár ({netTotalLabel}):</span>
                     <strong className="text-stone-900 font-semibold">{formatPrice(netTotal)} {curr}</strong>
                   </div>
                   <div className="flex items-center justify-between text-emerald-800 bg-emerald-50/70 p-2 rounded-xl border border-emerald-100">

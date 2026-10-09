@@ -224,6 +224,10 @@ export const ProgramDetailView: React.FC = () => {
       openLoginModal('A foglalás véglegesítéséhez és a fizetéshez kérjük jelentkezz be a saját fiókodba!');
       return;
     }
+    // Tiered programnal nincs illo sav a jelenlegi letszamhoz -- ugyanezt a
+    // szerver (set_order_booking_fee) is FAIL LOUD-dal elutasitana, de ne is
+    // probalkozzunk, a gomb is le van tiltva erre az esetre.
+    if (netTotalForCount === null) return;
     setIsCheckoutModalOpen(true);
   };
 
@@ -459,11 +463,25 @@ export const ProgramDetailView: React.FC = () => {
             <div />
           )}
 
-          {/* Price badge (összegcímke) */}
+          {/* Price badge (összegcímke) -- savos (tiered) programnal a legalacsonyabb sav
+              "-tol, csoportonkent" arat mutatja, mert nincs egyetlen fix fejenkenti ar. */}
           <div className="shrink-0 ml-auto">
             <div className="inline-block bg-emerald-600 text-white font-extrabold text-lg sm:text-2xl px-5 py-2.5 rounded-2xl shadow-xl whitespace-nowrap">
-              {formatPrice(computeTotalPrice(program.price))} {program.currency === 'EUR' ? '€' : program.currency}
-              <span className="text-xs sm:text-sm font-normal text-emerald-100"> / fő</span>
+              {program.pricing_mode === 'tiered' ? (
+                lowestTier ? (
+                  <>
+                    {formatPrice(computeTotalPrice(lowestTier.total_price))} {program.currency === 'EUR' ? '€' : program.currency}
+                    <span className="text-xs sm:text-sm font-normal text-emerald-100"> -tól / csoport</span>
+                  </>
+                ) : (
+                  <span className="text-xs sm:text-sm font-normal">Ár hamarosan</span>
+                )
+              ) : (
+                <>
+                  {formatPrice(computeTotalPrice(program.price))} {program.currency === 'EUR' ? '€' : program.currency}
+                  <span className="text-xs sm:text-sm font-normal text-emerald-100"> / fő</span>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -661,15 +679,36 @@ export const ProgramDetailView: React.FC = () => {
                   Részvételi díj
                 </span>
                 <div className="flex items-baseline gap-1.5 mt-0.5">
-                  <span className="text-3xl sm:text-4xl font-extrabold text-stone-900 font-display">
-                    {formatPrice(computeTotalPrice(program.price))} {program.currency === 'EUR' ? '€' : program.currency}
-                  </span>
-                  <span className="text-xs text-stone-500 font-medium"> / fő</span>
+                  {program.pricing_mode === 'tiered' ? (
+                    lowestTier ? (
+                      <>
+                        <span className="text-3xl sm:text-4xl font-extrabold text-stone-900 font-display">
+                          {formatPrice(computeTotalPrice(lowestTier.total_price))} {program.currency === 'EUR' ? '€' : program.currency}
+                        </span>
+                        <span className="text-xs text-stone-500 font-medium"> -tól / csoport</span>
+                      </>
+                    ) : (
+                      <span className="text-sm text-stone-500 font-medium">Ár hamarosan</span>
+                    )
+                  ) : (
+                    <>
+                      <span className="text-3xl sm:text-4xl font-extrabold text-stone-900 font-display">
+                        {formatPrice(computeTotalPrice(program.price))} {program.currency === 'EUR' ? '€' : program.currency}
+                      </span>
+                      <span className="text-xs text-stone-500 font-medium"> / fő</span>
+                    </>
+                  )}
                 </div>
               </div>
 
-              {/* Detailed Payment Breakdown per person */}
-              {(() => {
+              {/* Detailed Payment Breakdown -- tiered programnal nincs egyetlen fix
+                  "1 fő esetén" bontas (a vegosszeg a letszamtol fugg, azt a lenti,
+                  resztvevo-szam-fuggo bontas mutatja), csak egy rovid utalas. */}
+              {program.pricing_mode === 'tiered' ? (
+                <div className="bg-stone-50 rounded-2xl p-3.5 border border-stone-200/90 text-xs text-stone-600">
+                  Sávos (csoportos) árazás: a végösszeg a résztvevők számától függ, lásd a foglalási űrlap részletezését lent.
+                </div>
+              ) : (() => {
                 const baseNet = program.price;
                 const baseTotal = computeTotalPrice(baseNet);
                 const baseFee = baseTotal - baseNet;
@@ -862,11 +901,21 @@ export const ProgramDetailView: React.FC = () => {
                       </div>
 
                       {(() => {
-                        // Detailed checkout breakdown for chosen number of participants
-                        const netTotal = program.price * participantsCount;
+                        // Detailed checkout breakdown for chosen number of participants.
+                        // Tiered programnal netTotalForCount null, ha nincs a letszamhoz
+                        // illo sav -- ilyenkor nincs bontas, csak egy figyelmeztetes,
+                        // es a submit gomb (lentebb) is le van tiltva.
+                        const curr = program.currency === 'EUR' ? '€' : program.currency;
+                        if (netTotalForCount === null) {
+                          return (
+                            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3.5 text-xs text-amber-800 font-semibold">
+                              Ehhez a létszámhoz ({participantsCount} fő) jelenleg nincs megadva ár ennél a programnál. Próbálj másik létszámot, vagy keresd a szolgáltatót.
+                            </div>
+                          );
+                        }
+                        const netTotal = netTotalForCount;
                         const total = computeTotalPrice(netTotal);
                         const fee = total - netTotal;
-                        const curr = program.currency === 'EUR' ? '€' : program.currency;
                         return (
                           <div className="bg-stone-50 rounded-2xl p-3.5 border border-stone-200 space-y-2.5 text-xs">
                             <span className="text-[11px] font-bold text-stone-500 uppercase tracking-wider block">
@@ -904,7 +953,8 @@ export const ProgramDetailView: React.FC = () => {
 
                       <button
                         type="submit"
-                        className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3.5 px-5 rounded-xl text-sm cursor-pointer shadow-md transition-all hover:shadow-lg flex items-center justify-center gap-2"
+                        disabled={reservationSubmitting || netTotalForCount === null}
+                        className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3.5 px-5 rounded-xl text-sm cursor-pointer shadow-md transition-all hover:shadow-lg flex items-center justify-center gap-2 disabled:opacity-60"
                       >
                         <Ticket className="w-4 h-4" />
                         <span>Foglalás véglegesítése</span>
@@ -1044,6 +1094,10 @@ export const ProgramDetailView: React.FC = () => {
           selectedOccurrence={selectedOccurrence}
           selectedOccurrenceId={selectedOccurrenceId}
           participantsCount={participantsCount}
+          // A modal csak akkor nyilhat meg, ha netTotalForCount nem null (lasd
+          // handleReservationSubmit + a submit gomb disabled-feltetele) -- a ??0
+          // itt csak a TS-nek kell, futasidoben sosem er el 0-t.
+          netTotal={netTotalForCount ?? 0}
           onsitePaymentMethod={onsitePaymentMethod}
           dateFormatted={dateFormatted}
           weekdayFormatted={weekdayFormatted}
