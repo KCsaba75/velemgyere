@@ -233,10 +233,10 @@ export const ProgramDetailView: React.FC = () => {
 
   if (isLoading && !program) {
     return (
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 animate-pulse">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 animate-pulse">
         <div className="h-6 w-36 bg-stone-200 rounded-lg mb-8"></div>
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          <div className="lg:col-span-7 space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_440px] gap-8">
+          <div className="min-w-0 space-y-6">
             <div className="aspect-[16/10] bg-stone-200 rounded-3xl"></div>
             <div className="h-10 bg-stone-200 rounded-xl w-3/4"></div>
             <div className="h-5 bg-stone-200 rounded-lg w-1/2"></div>
@@ -246,7 +246,7 @@ export const ProgramDetailView: React.FC = () => {
               <div className="h-4 bg-stone-200 rounded w-4/6"></div>
             </div>
           </div>
-          <div className="lg:col-span-5">
+          <div className="lg:w-[440px]">
             <div className="h-96 bg-stone-200 rounded-3xl"></div>
           </div>
         </div>
@@ -312,7 +312,7 @@ export const ProgramDetailView: React.FC = () => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-in fade-in duration-200">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-in fade-in duration-200">
       {/* Top Breadcrumb & Back button */}
       <div className="flex items-center justify-between gap-4 mb-6">
         <button
@@ -488,9 +488,9 @@ export const ProgramDetailView: React.FC = () => {
       </div>
 
       {/* Main Content Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_440px] gap-8 items-start">
         {/* Left Column: Details & Program Description */}
-        <div className="lg:col-span-7 space-y-8">
+        <div className="min-w-0 space-y-8">
           <div>
             <div className="inline-flex items-center gap-2 text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-lg mb-2">
               <CountryFlag emoji="🇭🇺" country="Magyarország" size="xs" />
@@ -670,7 +670,7 @@ export const ProgramDetailView: React.FC = () => {
         </div>
 
         {/* Right Column: Sticky Booking Card & Provider Details */}
-        <div className="lg:col-span-5 space-y-6">
+        <div className="space-y-6 w-full lg:w-[440px]">
           <div className="bg-white rounded-3xl border border-stone-200 shadow-xl p-6 sticky top-28 space-y-6">
             {/* Price Header & Transparent Fee Breakdown */}
             <div className="border-b border-stone-100 pb-5 space-y-3.5">
