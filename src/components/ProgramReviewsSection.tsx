@@ -70,111 +70,109 @@ export const ProgramReviewsSection: React.FC<ProgramReviewsSectionProps> = ({ pr
       </div>
 
       {/* Rating Overview Dashboard */}
-      <div className="bg-stone-50 rounded-3xl border border-stone-200 p-4 sm:p-6">
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-center">
-          {/* Main Score Column */}
-          <div className="md:col-span-5 text-center sm:text-left border-b md:border-b-0 md:border-r border-stone-200 pb-5 md:pb-0 md:pr-6">
-            <div className="flex items-center justify-center sm:justify-start gap-3 mb-3">
-              <span className="text-3xl sm:text-4xl font-black font-display text-stone-900 leading-none">
-                {reviews.length > 0 ? stats.average.toFixed(1) : '5.0'}
-              </span>
-              <div className="flex flex-col justify-center">
-                <div className="flex items-center gap-1 text-amber-400">
-                  {[1, 2, 3, 4, 5].map((s) => (
-                    <Star
-                      key={s}
-                      className={`w-4 h-4 ${
-                        s <= Math.round(stats.average)
-                          ? 'fill-amber-400 text-amber-400'
-                          : 'text-stone-300'
-                      }`}
-                    />
-                  ))}
-                </div>
-                <span className="text-xs font-semibold text-stone-500 mt-1">
-                  {stats.count} ellenőrzött értékelés alapján
-                </span>
+      <div className="bg-stone-50 rounded-3xl border border-stone-200 p-5 sm:p-6 space-y-5">
+        {/* Top: Score, Stars & Recommendation Pill */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-stone-200">
+          <div className="flex items-center gap-3.5 flex-wrap sm:flex-nowrap">
+            <span className="text-3xl sm:text-4xl font-black font-display text-stone-900 leading-none">
+              {reviews.length > 0 ? stats.average.toFixed(1) : '5.0'}
+            </span>
+            <div className="flex flex-col justify-center">
+              <div className="flex items-center gap-1 text-amber-400">
+                {[1, 2, 3, 4, 5].map((s) => (
+                  <Star
+                    key={s}
+                    className={`w-4 h-4 ${
+                      s <= Math.round(stats.average)
+                        ? 'fill-amber-400 text-amber-400'
+                        : 'text-stone-300'
+                    }`}
+                  />
+                ))}
               </div>
-            </div>
-
-            <div className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-800 bg-emerald-100/80 px-3 py-1 rounded-full">
-              <ThumbsUp className="w-3.5 h-3.5 shrink-0" />
-              <span>Az utazók {stats.recommendPercent}%-a ajánlja!</span>
+              <span className="text-xs font-semibold text-stone-500 mt-0.5 whitespace-nowrap">
+                {stats.count} ellenőrzött értékelés alapján
+              </span>
             </div>
           </div>
 
-          {/* Sub-criteria 4 Category Scores */}
-          <div className="md:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-            {/* Guide */}
-            <div className="bg-white p-3.5 rounded-2xl border border-stone-200/80 shadow-xs flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
-                  <Compass className="w-5 h-5" />
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-stone-900">Idegenvezető / Sofőr</h4>
-                </div>
+          <div className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-800 bg-emerald-100/90 px-3.5 py-1.5 rounded-full shrink-0 self-start sm:self-auto whitespace-nowrap shadow-xs">
+            <ThumbsUp className="w-3.5 h-3.5 shrink-0" />
+            <span>Az utazók {stats.recommendPercent}%-a ajánlja!</span>
+          </div>
+        </div>
+
+        {/* Sub-criteria 4 Category Scores */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+          {/* Guide */}
+          <div className="bg-white p-3.5 rounded-2xl border border-stone-200/80 shadow-xs flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+                <Compass className="w-5 h-5" />
               </div>
-              <div className="text-right">
-                <span className="text-sm font-extrabold text-stone-900 font-display">
-                  {stats.breakdown.guide.toFixed(1)}
-                </span>
-                <span className="text-[10px] text-stone-400 block">/ 5.0</span>
+              <div className="min-w-0">
+                <h4 className="text-xs sm:text-sm font-bold text-stone-900 truncate">Idegenvezető / Sofőr</h4>
               </div>
             </div>
+            <div className="text-right shrink-0">
+              <span className="text-sm font-extrabold text-stone-900 font-display">
+                {stats.breakdown.guide.toFixed(1)}
+              </span>
+              <span className="text-[10px] text-stone-400 block">/ 5.0</span>
+            </div>
+          </div>
 
-            {/* Value for money */}
-            <div className="bg-white p-3.5 rounded-2xl border border-stone-200/80 shadow-xs flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center shrink-0">
-                  <BadgePercent className="w-5 h-5" />
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-stone-900">Ár-érték arány</h4>
-                </div>
+          {/* Value for money */}
+          <div className="bg-white p-3.5 rounded-2xl border border-stone-200/80 shadow-xs flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-9 h-9 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center shrink-0">
+                <BadgePercent className="w-5 h-5" />
               </div>
-              <div className="text-right">
-                <span className="text-sm font-extrabold text-stone-900 font-display">
-                  {stats.breakdown.value.toFixed(1)}
-                </span>
-                <span className="text-[10px] text-stone-400 block">/ 5.0</span>
+              <div className="min-w-0">
+                <h4 className="text-xs sm:text-sm font-bold text-stone-900 truncate">Ár-érték arány</h4>
               </div>
             </div>
+            <div className="text-right shrink-0">
+              <span className="text-sm font-extrabold text-stone-900 font-display">
+                {stats.breakdown.value.toFixed(1)}
+              </span>
+              <span className="text-[10px] text-stone-400 block">/ 5.0</span>
+            </div>
+          </div>
 
-            {/* Organization */}
-            <div className="bg-white p-3.5 rounded-2xl border border-stone-200/80 shadow-xs flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-sky-50 text-sky-700 flex items-center justify-center shrink-0">
-                  <Clock className="w-5 h-5" />
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-stone-900">Szervezés & Menetrend</h4>
-                </div>
+          {/* Organization */}
+          <div className="bg-white p-3.5 rounded-2xl border border-stone-200/80 shadow-xs flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-9 h-9 rounded-xl bg-sky-50 text-sky-700 flex items-center justify-center shrink-0">
+                <Clock className="w-5 h-5" />
               </div>
-              <div className="text-right">
-                <span className="text-sm font-extrabold text-stone-900 font-display">
-                  {stats.breakdown.organization.toFixed(1)}
-                </span>
-                <span className="text-[10px] text-stone-400 block">/ 5.0</span>
+              <div className="min-w-0">
+                <h4 className="text-xs sm:text-sm font-bold text-stone-900 truncate">Szervezés & Menetrend</h4>
               </div>
             </div>
+            <div className="text-right shrink-0">
+              <span className="text-sm font-extrabold text-stone-900 font-display">
+                {stats.breakdown.organization.toFixed(1)}
+              </span>
+              <span className="text-[10px] text-stone-400 block">/ 5.0</span>
+            </div>
+          </div>
 
-            {/* Safety & Cleanliness */}
-            <div className="bg-white p-3.5 rounded-2xl border border-stone-200/80 shadow-xs flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center shrink-0">
-                  <Shield className="w-5 h-5" />
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-stone-900">Biztonság & Minőség</h4>
-                </div>
+          {/* Safety & Cleanliness */}
+          <div className="bg-white p-3.5 rounded-2xl border border-stone-200/80 shadow-xs flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center shrink-0">
+                <Shield className="w-5 h-5" />
               </div>
-              <div className="text-right">
-                <span className="text-sm font-extrabold text-stone-900 font-display">
-                  {stats.breakdown.safety.toFixed(1)}
-                </span>
-                <span className="text-[10px] text-stone-400 block">/ 5.0</span>
+              <div className="min-w-0">
+                <h4 className="text-xs sm:text-sm font-bold text-stone-900 truncate">Biztonság & Minőség</h4>
               </div>
+            </div>
+            <div className="text-right shrink-0">
+              <span className="text-sm font-extrabold text-stone-900 font-display">
+                {stats.breakdown.safety.toFixed(1)}
+              </span>
+              <span className="text-[10px] text-stone-400 block">/ 5.0</span>
             </div>
           </div>
         </div>
