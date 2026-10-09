@@ -9,7 +9,8 @@ import {
   LogOut,
   PlusCircle,
   Heart,
-  Search
+  Search,
+  Ticket
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -28,6 +29,8 @@ export const Navbar: React.FC<NavbarProps> = ({
     currentProvider,
     isAuthenticated,
     totalFavoritesCount,
+    orders,
+    openLoginModal,
     logout,
     searchQuery,
     setSearchQuery
@@ -35,12 +38,19 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const showFavorites = currentView !== 'home' && currentView !== 'programs';
-
   const navigateTo = (view: string) => {
     setCurrentView(view);
     setMobileMenuOpen(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleBookingsClick = () => {
+    if (!isAuthenticated) {
+      setMobileMenuOpen(false);
+      openLoginModal('A foglalásaid megtekintéséhez kérjük jelentkezz be a saját fiókodba!');
+    } else {
+      navigateTo('my-account');
+    }
   };
 
   const handleSearchSubmit = (e: React.FormEvent) => {
@@ -109,22 +119,34 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               Kategóriák
             </button>
-            {showFavorites && (
-              <button
-                onClick={() => navigateTo('favorites')}
-                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
-                  currentView === 'favorites' ? 'text-rose-700 bg-rose-50/80 font-bold' : 'text-stone-700 hover:text-stone-900 hover:bg-stone-100'
-                }`}
-              >
-                <Heart className={`w-4 h-4 ${totalFavoritesCount > 0 ? 'fill-rose-500 text-rose-500' : 'text-stone-400'}`} />
-                <span>Kedvencek</span>
-                {totalFavoritesCount > 0 && (
-                  <span className="bg-rose-500 text-white text-[11px] font-extrabold px-1.5 py-0.5 rounded-full leading-none">
-                    {totalFavoritesCount}
-                  </span>
-                )}
-              </button>
-            )}
+            <button
+              onClick={() => navigateTo('favorites')}
+              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
+                currentView === 'favorites' ? 'text-rose-700 bg-rose-50/80 font-bold' : 'text-stone-700 hover:text-stone-900 hover:bg-stone-100'
+              }`}
+            >
+              <Heart className={`w-4 h-4 ${totalFavoritesCount > 0 ? 'fill-rose-500 text-rose-500' : 'text-stone-400'}`} />
+              <span>Kedvencek</span>
+              {totalFavoritesCount > 0 && (
+                <span className="bg-rose-500 text-white text-[11px] font-extrabold px-1.5 py-0.5 rounded-full leading-none">
+                  {totalFavoritesCount}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={handleBookingsClick}
+              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
+                currentView === 'my-account' ? 'text-emerald-700 bg-emerald-50/80 font-bold' : 'text-stone-700 hover:text-stone-900 hover:bg-stone-100'
+              }`}
+            >
+              <Ticket className={`w-4 h-4 ${isAuthenticated && orders.length > 0 ? 'text-emerald-600' : 'text-stone-400'}`} />
+              <span>Foglalásaim</span>
+              {isAuthenticated && orders.length > 0 && (
+                <span className="bg-emerald-600 text-white text-[11px] font-extrabold px-1.5 py-0.5 rounded-full leading-none">
+                  {orders.length}
+                </span>
+              )}
+            </button>
           </nav>
 
           {/* Desktop Action Buttons */}
@@ -227,24 +249,38 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               Kategóriák
             </button>
-            {showFavorites && (
-              <button
-                onClick={() => navigateTo('favorites')}
-                className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium flex items-center justify-between ${
-                  currentView === 'favorites' ? 'bg-rose-50 text-rose-800 font-bold' : 'text-stone-700 hover:bg-stone-100'
-                }`}
-              >
-                <span className="flex items-center gap-2">
-                  <Heart className={`w-4 h-4 ${totalFavoritesCount > 0 ? 'fill-rose-500 text-rose-500' : 'text-stone-400'}`} />
-                  <span>Kedvencek</span>
+            <button
+              onClick={() => navigateTo('favorites')}
+              className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium flex items-center justify-between ${
+                currentView === 'favorites' ? 'bg-rose-50 text-rose-800 font-bold' : 'text-stone-700 hover:bg-stone-100'
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                <Heart className={`w-4 h-4 ${totalFavoritesCount > 0 ? 'fill-rose-500 text-rose-500' : 'text-stone-400'}`} />
+                <span>Kedvencek</span>
+              </span>
+              {totalFavoritesCount > 0 && (
+                <span className="bg-rose-500 text-white text-xs font-extrabold px-2 py-0.5 rounded-full">
+                  {totalFavoritesCount}
                 </span>
-                {totalFavoritesCount > 0 && (
-                  <span className="bg-rose-500 text-white text-xs font-extrabold px-2 py-0.5 rounded-full">
-                    {totalFavoritesCount}
-                  </span>
-                )}
-              </button>
-            )}
+              )}
+            </button>
+            <button
+              onClick={handleBookingsClick}
+              className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium flex items-center justify-between ${
+                currentView === 'my-account' ? 'bg-emerald-50 text-emerald-800 font-bold' : 'text-stone-700 hover:bg-stone-100'
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                <Ticket className={`w-4 h-4 ${isAuthenticated && orders.length > 0 ? 'text-emerald-600' : 'text-stone-400'}`} />
+                <span>Foglalásaim</span>
+              </span>
+              {isAuthenticated && orders.length > 0 && (
+                <span className="bg-emerald-600 text-white text-xs font-extrabold px-2 py-0.5 rounded-full">
+                  {orders.length}
+                </span>
+              )}
+            </button>
           </div>
 
           <div className="pt-3 border-t border-stone-100 space-y-2">
