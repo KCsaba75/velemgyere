@@ -79,11 +79,6 @@ export interface Program {
   duration: string; // public teaser field (shown on catalog cards)
   price: number;
   currency: string; // 'EUR' or 'Ft'
-  // Kanban 62e69729: 'per_person' -- price * participants_count (regi, valtozatlan
-  // viselkedes). 'tiered' -- a ProgramPriceTier sorok dontik el az OSSZES arat egy
-  // letszam-sav alapjan (nem fejenkenti szorzas), lasd set_order_booking_fee() a
-  // schema.sql-ben.
-  pricing_mode: 'per_person' | 'tiered';
   language: string; // default: "Magyar nyelvű vezetés" -- public teaser field
   status: ProgramStatus;
   featured: boolean;
@@ -106,17 +101,6 @@ export interface Program {
   region?: Region;
   provider?: Provider;
   images?: ProgramImage[];
-}
-
-// Kanban 62e69729: egy letszam-sav OSSZES ara (nem fejenkenti) egy 'tiered'
-// pricing_mode-u programhoz. max_participants NULL = nyitott felso hatar.
-export interface ProgramPriceTier {
-  id: string;
-  program_id: string;
-  min_participants: number;
-  max_participants?: number | null;
-  total_price: number;
-  created_at?: string;
 }
 
 export type OccurrenceStatus = 'open' | 'cancelled';

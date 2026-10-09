@@ -13,6 +13,7 @@ import {
   Edit,
   Trash2,
   CheckCircle,
+  CheckCircle2,
   Clock3,
   FileText,
   AlertCircle,
@@ -27,13 +28,11 @@ import {
   Save,
   Star,
   Send,
-  CornerDownRight,
-  BadgeEuro
+  CornerDownRight
 } from 'lucide-react';
 import { Program, ProgramStatus, OrderBuyerInfo, OnsitePaymentMethod } from '../types/database';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import { ProgramOccurrencesModal } from './ProgramOccurrencesModal';
-import { ProgramPricingModal } from './ProgramPricingModal';
 import { RescheduleOrderModal } from './RescheduleOrderModal';
 
 const PAYMENT_METHOD_LABEL: Record<OnsitePaymentMethod, string> = {
@@ -59,7 +58,8 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
     openProgramDetail,
     deleteProgram,
     updateProgram,
-    updateProviderProfile
+    updateProviderProfile,
+    confirmOrder
   } = useApp();
 
   useDocumentMeta('Szolgáltatói Dashboard', 'Saját programok, foglalások és érdeklődések kezelése.');
@@ -67,8 +67,17 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
   const [activeTab, setActiveTab] = useState<'programs' | 'bookings' | 'inquiries' | 'reviews' | 'profile'>('programs');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [occurrencesModalProgram, setOccurrencesModalProgram] = useState<Program | null>(null);
-  const [pricingModalProgram, setPricingModalProgram] = useState<Program | null>(null);
   const [rescheduleOrderId, setRescheduleOrderId] = useState<string | null>(null);
+  const [confirmingOrderId, setConfirmingOrderId] = useState<string | null>(null);
+
+  const handleConfirmOrder = async (id: string) => {
+    setConfirmingOrderId(id);
+    try {
+      await confirmOrder(id);
+    } finally {
+      setConfirmingOrderId(null);
+    }
+  };
 
   // Review reply state
   const [replyingReviewId, setReplyingReviewId] = useState<string | null>(null);
@@ -145,10 +154,10 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
   const confirmedOwnOrders = ownOrders.filter(o => o.status === 'confirmed');
 
   const [buyerInfos, setBuyerInfos] = useState<Record<string, OrderBuyerInfo>>({});
-  const confirmedOwnOrderIds = confirmedOwnOrders.map(o => o.id).join(',');
+  const ownOrderIds = ownOrders.map(o => o.id).join(',');
 
   useEffect(() => {
-    const ids = confirmedOwnOrderIds ? confirmedOwnOrderIds.split(',') : [];
+    const ids = ownOrderIds ? ownOrderIds.split(',') : [];
     let cancelled = false;
     ids.forEach(id => {
       getOrderBuyerInfo(id).then(info => {
@@ -160,7 +169,7 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [confirmedOwnOrderIds]);
+  }, [ownOrderIds]);
 
   // Status counts (Section 11)
   const totalProgramsCount = ownPrograms.length;
@@ -480,9 +489,7 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
                             <span className="flex items-center gap-1">📍 {prog.location}</span>
                             <span className="flex items-center gap-1">📅 {prog.event_date}</span>
                             <span className="flex items-center gap-1 font-bold text-emerald-800">
-                              💰 {prog.pricing_mode === 'tiered'
-                                ? 'Sávos (csoportos) árazás'
-                                : `${formatPrice(prog.price)} ${prog.currency === 'EUR' ? '€' : prog.currency}/fő`}
+                              💰 {formatPrice(prog.price)} {prog.currency === 'EUR' ? '€' : prog.currency}/fő
                             </span>
                           </div>
                         </div>
@@ -506,15 +513,6 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
                         >
                           <Calendar className="w-3.5 h-3.5" />
                           <span>Időpontok</span>
-                        </button>
-
-                        <button
-                          onClick={() => setPricingModalProgram(prog)}
-                          className="px-3 py-1.5 rounded-xl border border-stone-200 text-stone-700 hover:bg-stone-100 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-                          title="Árazás kezelése"
-                        >
-                          <BadgeEuro className="w-3.5 h-3.5" />
-                          <span>Árazás</span>
                         </button>
 
                         {/* Submit draft for review button */}
@@ -580,7 +578,7 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
                   const program = programs.find(p => p.id === order.program_id);
                   const buyer = buyerInfos[order.id];
                   return (
-                    <div key={order.id} className="p-5 hover:bg-stone-50/50 transition-colors space-y-2">
+                    <div key={order.id} className="p-5 hover:bg-stone-50/50 transition-colors space-y-3">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <h4 className="font-bold text-stone-900 text-sm">{program?.title || 'Program'}</h4>
                         <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
@@ -588,34 +586,54 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
                           order.status === 'pending' ? 'bg-amber-100 text-amber-900' :
                           'bg-stone-100 text-stone-500'
                         }`}>
-                          {order.status === 'confirmed' ? 'Megerősítve' : order.status === 'pending' ? 'Függőben (jóváhagyásra vár)' : 'Lemondva'}
+                          {order.status === 'confirmed' ? 'Megerősítve (visszaigazolva)' : order.status === 'pending' ? 'Visszaigazolásra vár' : 'Lemondva'}
                         </span>
                       </div>
-                      <p className="text-xs text-stone-500">
-                        {order.participants_count} fő · helyszínen fizetendő: {formatPrice(order.onsite_amount)} {order.currency === 'EUR' ? '€' : order.currency}
+                      <div className="flex flex-wrap items-center gap-3 text-xs text-stone-500">
+                        <span>{order.participants_count} fő · helyszínen fizetendő: <strong className="text-stone-800">{formatPrice(order.onsite_amount)} {order.currency === 'EUR' ? '€' : order.currency}</strong></span>
                         {order.onsite_payment_method && (
-                          <span className="inline-flex items-center gap-1 ml-1">
-                            ({order.onsite_payment_method === 'revolut' ? <Wallet className="w-3 h-3" /> : <Banknote className="w-3 h-3" />} {PAYMENT_METHOD_LABEL[order.onsite_payment_method]})
+                          <span className="inline-flex items-center gap-1 text-stone-600 bg-stone-100 px-2 py-0.5 rounded-md">
+                            {order.onsite_payment_method === 'revolut' ? <Wallet className="w-3 h-3" /> : <Banknote className="w-3 h-3" />}
+                            {PAYMENT_METHOD_LABEL[order.onsite_payment_method]}
                           </span>
                         )}
-                      </p>
-                      {order.status === 'confirmed' && (
-                        <div className="bg-emerald-50/60 border border-emerald-100 rounded-xl p-3 text-xs text-stone-700">
+                        {order.booking_fee > 0 && (
+                          <span className="text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
+                            ✓ Kényelmi díj kifizetve (Stripe)
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="bg-stone-50 border border-stone-200/80 rounded-xl p-3 text-xs text-stone-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div>
                           {buyer ? (
-                            <span>👤 Vevő: <strong className="text-stone-900">{buyer.name}</strong> ({buyer.email})</span>
+                            <span>👤 Vevő (Programvadász): <strong className="text-stone-900">{buyer.name}</strong> ({buyer.email})</span>
                           ) : (
-                            <span className="text-stone-400">Vevő adatainak betöltése...</span>
+                            <span className="text-stone-500">👤 Vevő: Programvadász</span>
                           )}
                         </div>
-                      )}
-                      {order.status !== 'cancelled' && (
-                        <button
-                          onClick={() => setRescheduleOrderId(order.id)}
-                          className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 hover:underline flex items-center gap-1 cursor-pointer"
-                        >
-                          <Calendar className="w-3.5 h-3.5" /> Áthelyezés másik időpontra
-                        </button>
-                      )}
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          {order.status === 'pending' && (
+                            <button
+                              onClick={() => handleConfirmOrder(order.id)}
+                              disabled={confirmingOrderId === order.id}
+                              className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-sm transition-all disabled:opacity-60"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>{confirmingOrderId === order.id ? 'Visszaigazolás...' : 'Foglalás visszaigazolása'}</span>
+                            </button>
+                          )}
+                          {order.status !== 'cancelled' && (
+                            <button
+                              onClick={() => setRescheduleOrderId(order.id)}
+                              className="text-xs font-semibold text-stone-600 hover:text-stone-900 hover:underline flex items-center gap-1 cursor-pointer"
+                            >
+                              <Calendar className="w-3.5 h-3.5" /> Áthelyezés
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   );
                 })}
@@ -628,7 +646,7 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
                 Még nem érkezett foglalás
               </h4>
               <p className="text-xs text-stone-500">
-                Amint egy látogató lefoglal egy helyet, és az adminisztrátor jóváhagyja, itt megjelenik a vevő adataival.
+                Amint egy látogató lefoglal egy programot és rendezi a platform kényelmi díjat, itt megjelenik visszaigazolásra.
               </p>
             </div>
           )}
@@ -842,10 +860,6 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
       <ProgramOccurrencesModal
         program={occurrencesModalProgram}
         onClose={() => setOccurrencesModalProgram(null)}
-      />
-      <ProgramPricingModal
-        program={pricingModalProgram}
-        onClose={() => setPricingModalProgram(null)}
       />
       <RescheduleOrderModal
         orderId={rescheduleOrderId}

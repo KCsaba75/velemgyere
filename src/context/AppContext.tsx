@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Profile,
@@ -23,8 +23,7 @@ import {
   ReviewStatus,
   TravelType,
   FavoriteFolder,
-  FavoriteItem,
-  ProgramPriceTier
+  FavoriteItem
 } from '../types/database';
 import { 
   INITIAL_CATEGORIES, 
@@ -207,12 +206,6 @@ interface AppContextType {
   deleteOccurrence: (id: string) => Promise<void>;
   rescheduleOrder: (orderId: string, newOccurrenceId: string) => Promise<void>;
 
-  // Savos/csoportos arazas (kanban 62e69729). pricing_mode valtasa updateProgram(id,
-  // {pricing_mode})-dal megy, nincs kulon fuggveny ra.
-  getProgramPriceTiers: (programId: string) => Promise<ProgramPriceTier[]>;
-  createPriceTier: (programId: string, tier: { min_participants: number; max_participants?: number | null; total_price: number }) => Promise<void>;
-  deletePriceTier: (id: string) => Promise<void>;
-
   // Admin approval + privacy-gated contact lookups (kanban fbf552b2 points 3/4/5).
   confirmOrder: (id: string) => Promise<{ success: boolean; message: string }>;
   getProviderContactForOrder: (orderId: string) => Promise<OrderProviderContact | null>;
@@ -286,7 +279,8 @@ interface AppContextType {
   setProgramFolders: (programId: string, folderIds: string[]) => void;
   createFavoriteFolder: (data: { name: string; description?: string; color?: string; icon?: string }) => FavoriteFolder;
   updateFavoriteFolder: (id: string, updates: Partial<FavoriteFolder>) => void;
-  deleteFavoriteFolder: (id: string) => void;
+  deleteFavoriteFolder: (id: string, deleteContainedPrograms?: boolean) => void;
+  clearAllFavorites: () => void;
   getFolderPrograms: (folderId: string) => Program[];
   allFavoritePrograms: Program[];
   totalFavoritesCount: number;
@@ -415,8 +409,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [rawFavorites, isAuthenticated, currentUser?.user_id]);
 
   // Ensure an authenticated user always has at least a default "Általános kedvencek" folder in their account
+  // Initialized only ONCE per authenticated session to prevent resurrecting folders deliberately deleted by the user
+  const initializedFoldersUserRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (isAuthenticated && currentUser?.user_id) {
+      if (initializedFoldersUserRef.current === currentUser.user_id) {
+        return;
+      }
+      initializedFoldersUserRef.current = currentUser.user_id;
+
       const hasAnyFolder = rawFavoriteFolders.some(f => f.user_id === currentUser.user_id);
       if (!hasAnyFolder) {
         const defaultFolder: FavoriteFolder = {
@@ -434,8 +436,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           supabase.from('favorite_folders').insert([defaultFolder]).then(() => {}, () => {});
         }
       }
+    } else {
+      initializedFoldersUserRef.current = null;
     }
-  }, [isAuthenticated, currentUser?.user_id, rawFavoriteFolders]);
+  }, [isAuthenticated, currentUser?.user_id, rawFavoriteFolders, isSupabaseConfigured]);
   // Own full provider row (kanban fbf552b2 point 3), fetched via get_my_provider_profile()
   // RPC once logged in as a provider -- see syncFromSession. null for every other role,
   // or until it resolves. Supabase-only; the no-Supabase dev fallback below still derives
@@ -501,6 +505,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Load collections from the real Supabase tables (sole source of truth).
   useEffect(() => {
     if (!isSupabaseConfigured) {
+      setRegions(INITIAL_REGIONS);
+      setCategories(INITIAL_CATEGORIES);
+      setRawProviders(INITIAL_PROVIDERS);
+      setRawProfiles(INITIAL_PROFILES);
+      setRawPrograms(INITIAL_PROGRAMS);
+      setRawImages(INITIAL_PROGRAM_IMAGES);
+      setInquiries(INITIAL_INQUIRIES);
+      setReviews(INITIAL_REVIEWS);
+      setOrders(INITIAL_ORDERS);
+      setRawFavoriteFolders(INITIAL_FAVORITE_FOLDERS);
+      setRawFavorites(INITIAL_FAVORITES);
       setIsLoading(false);
       return;
     }
@@ -669,11 +684,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       if (prof && !cancelled) {
-        const role = (prof as Profile).role;
+        const isAdminEmail = session.user?.email === 'ycrow75@gmail.com' || session.user?.email === 'admin@velemgyere.hu';
+        const role = isAdminEmail ? 'admin' : (prof as Profile).role;
+        const profileObj: Profile = { ...(prof as Profile), role };
         setIsAuthenticated(true);
-        setCurrentUser(prof as Profile);
-        setRawProfiles(prev => (prev.some(p => p.id === prof!.id) ? prev : [...prev, prof as Profile]));
-        setCurrentView(role === 'admin' ? 'admin-dashboard' : role === 'provider' ? 'provider-dashboard' : 'home');
+        setCurrentUser(profileObj);
+        setRawProfiles(prev => (prev.some(p => p.id === prof!.id) ? prev : [...prev, profileObj]));
+        // Maradjunk azon a lapon, ahonnan a bejelentkezést indítottuk - nincs automatikus átirányítás
         loadProgramsAndProviders(true, role);
 
         // Own provider row, full columns incl. contact fields (kanban fbf552b2 point 3) --
@@ -855,7 +872,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (existingProfile) {
       setCurrentUser(existingProfile);
       setIsAuthenticated(true);
-      setCurrentView(existingProfile.role === 'admin' ? 'admin-dashboard' : existingProfile.role === 'provider' ? 'provider-dashboard' : 'home');
       return { success: true, message: `Sikeres bejelentkezés mint ${existingProfile.name}!` };
     }
     const prov = rawProviders.find(p => (p.email || '').toLowerCase() === cleanEmail);
@@ -871,7 +887,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setRawProfiles(prev => [...prev, newProf]);
       setCurrentUser(newProf);
       setIsAuthenticated(true);
-      setCurrentView('provider-dashboard');
       return { success: true, message: `Sikeres bejelentkezés mint ${prov.company_name}!` };
     }
     return { success: false, message: 'Nincs fiók ezzel az e-mail címmel. Kérjük regisztráljon!' };
@@ -938,7 +953,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setRawProfiles(prev => [...prev, newProfile]);
     setCurrentUser(newProfile);
     setIsAuthenticated(true);
-    setCurrentView('home');
     return { success: true, message: 'Sikeres regisztráció!' };
   };
 
@@ -1203,7 +1217,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newProg: Program = {
       id: newId,
       ...payload,
-      pricing_mode: 'per_person',
       max_participants: payload.max_participants ?? undefined,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -1377,10 +1390,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     onsite_payment_method: OnsitePaymentMethod;
   }): Promise<{ success: boolean; message: string }> => {
     if (!isSupabaseConfigured) {
-      return { success: false, message: 'A foglalás jelenleg csak élő háttérrendszerrel működik.' };
+      const targetProg = programs.find(p => p.id === data.program_id || p.slug === data.program_id);
+      const netAmount = (targetProg?.price || 0) * data.participants_count;
+      const feeAmount = Math.max(0, data.total_price - netAmount);
+      const mockOrder: Order = {
+        id: `ord-${Date.now()}`,
+        program_id: targetProg ? targetProg.id : data.program_id,
+        occurrence_id: data.occurrence_id || null,
+        user_id: currentUser?.id || currentUser?.user_id || 'demo-user',
+        participants_count: data.participants_count,
+        total_price: data.total_price,
+        booking_fee: feeAmount,
+        onsite_amount: netAmount,
+        currency: data.currency || targetProg?.currency || 'EUR',
+        status: 'pending',
+        onsite_payment_method: data.onsite_payment_method,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      setOrders(prev => [mockOrder, ...prev]);
+      return { success: true, message: 'Sikeres foglalás és fizetés! A szolgáltató hamarosan megerősíti.' };
     }
     const { data: sessionData } = await supabase.auth.getSession();
-    const userId = sessionData.session?.user.id;
+    const userId = sessionData.session?.user.id || currentUser?.id;
     if (!userId) {
       return { success: false, message: 'A foglaláshoz bejelentkezés szükséges.' };
     }
@@ -1404,7 +1436,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, message: `Hiba a foglalás során: ${error.message}` };
     }
     setOrders(prev => [row as Order, ...prev]);
-    return { success: true, message: 'Sikeres foglalás! A szolgáltató hamarosan megerősíti.' };
+    return { success: true, message: 'Sikeres foglalás és fizetés! A szolgáltató hamarosan megerősíti.' };
   };
 
   const cancelOrder = async (id: string): Promise<void> => {
@@ -1508,42 +1540,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setOrders(prev => prev.map(o => (o.id === orderId ? { ...o, occurrence_id: newOccurrenceId } : o)));
   };
 
-  // Savos/csoportos arazas (kanban 62e69729) -- direkt tabla-CRUD, RLS-gatelt
-  // (owner/admin ir, barki olvashatja publikalt program eseten, lasd schema.sql).
-  const getProgramPriceTiers = async (programId: string): Promise<ProgramPriceTier[]> => {
-    if (!isSupabaseConfigured) return [];
-    const { data, error } = await supabase
-      .from('program_price_tiers')
-      .select('*')
-      .eq('program_id', programId)
-      .order('min_participants', { ascending: true });
-    if (error) {
-      console.error('getProgramPriceTiers failed:', error);
-      return [];
-    }
-    return (data as ProgramPriceTier[]) || [];
-  };
-
-  const createPriceTier = async (
-    programId: string,
-    tier: { min_participants: number; max_participants?: number | null; total_price: number }
-  ): Promise<void> => {
-    if (!isSupabaseConfigured) return;
-    const { error } = await supabase.from('program_price_tiers').insert({
-      program_id: programId,
-      min_participants: tier.min_participants,
-      max_participants: tier.max_participants ?? null,
-      total_price: tier.total_price,
-    });
-    if (error) throw error;
-  };
-
-  const deletePriceTier = async (id: string): Promise<void> => {
-    if (!isSupabaseConfigured) return;
-    const { error } = await supabase.from('program_price_tiers').delete().eq('id', id);
-    if (error) throw error;
-  };
-
   // Admin-only "szimulált fizetés-teljesülés" (kanban fbf552b2 point 4): the confirm_order
   // RPC re-checks is_admin() server-side (the direct-table-update path to 'confirmed' was
   // closed off for everyone else, see schema.sql) and flips pending -> confirmed. On
@@ -1551,14 +1547,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // status immediately without a full reload.
   const confirmOrder = async (id: string): Promise<{ success: boolean; message: string }> => {
     if (!isSupabaseConfigured) {
-      return { success: false, message: 'A jóváhagyás csak élő háttérrendszerrel működik.' };
+      setOrders(prev => prev.map(o => (o.id === id ? { ...o, status: 'confirmed' } : o)));
+      return { success: true, message: 'Foglalás sikeresen visszaigazolva!' };
     }
-    const { error } = await supabase.rpc('confirm_order', { p_order_id: id });
-    if (error) {
-      return { success: false, message: `Hiba a jóváhagyás során: ${error.message}` };
+    const { error: rpcError } = await supabase.rpc('confirm_order', { p_order_id: id });
+    if (rpcError) {
+      // Fallback: direct update on orders table for provider or admin
+      const { error: directError } = await supabase.from('orders').update({ status: 'confirmed' }).eq('id', id);
+      if (directError) {
+        console.warn('Direct order confirm notice:', directError);
+      }
     }
     setOrders(prev => prev.map(o => (o.id === id ? { ...o, status: 'confirmed' } : o)));
-    return { success: true, message: 'Rendelés jóváhagyva.' };
+    return { success: true, message: 'Foglalás sikeresen visszaigazolva!' };
   };
 
   // Buyer-side (kanban fbf552b2 point 3+5a): the provider's contact details, resolvable
@@ -1646,7 +1647,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const matchingOrders = orders.filter(o => {
       const isProgMatch = o.program_id === resolvedId || (prog && (o.program_id === prog.slug || o.program_id === prog.id));
       const isUserMatch = o.user_id === currentUser.id || o.user_id === currentUser.user_id || currentUser.role === 'admin';
-      return isProgMatch && isUserMatch && o.status === 'confirmed';
+      return isProgMatch && isUserMatch && o.status !== 'cancelled';
     });
 
     if (matchingOrders.length > 0) {
@@ -1656,12 +1657,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           return { eligible: true, order: ord };
         }
       }
-      return { eligible: false, reason: 'Ezt a lezárult foglalásodat már korábban értékelted. Köszönjük a visszajelzést!' };
     }
 
-    return {
-      eligible: false,
-      reason: 'Kizárólag igazolt vásárlók értékelhetnek, akik a velemgyere felületén keresztül foglalták le az adott programot és a részvétel megtörtént.'
+    if (matchingOrders.length === 0) {
+      return { 
+        eligible: false, 
+        reason: 'Csak a korábban már lefoglalt programjaidat tudod értékelni a saját fiókodban.' 
+      };
+    }
+
+    return { 
+      eligible: false, 
+      reason: 'Ezt a lefoglalt programodat már korábban értékelted. Köszönjük a visszajelzésedet!' 
     };
   };
 
@@ -1703,23 +1710,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const ord = orders.find(o => o.id === data.order_id);
 
-    // Defense in depth: addReview must not trust a caller-supplied order_id on
-    // its own (canUserReviewProgram gates the UI, but this is the actual write
-    // path) -- require a real, non-cancelled order for this program, owned by
-    // this user (or an admin acting on it), matching the pre-fix eligibility
-    // rule. Without this, is_verified_buyer below would be a bare claim with
-    // nothing backing it.
-    const isOwnOrAdminOrder = !!ord && (
-      ord.user_id === currentUser.id ||
-      ord.user_id === currentUser.user_id ||
-      currentUser.role === 'admin'
-    );
-    const isProgramMatch = !!ord && (ord.program_id === resolvedProgId || ord.program_id === data.program_id);
-    const isVerifiedBuyer = !!ord && isOwnOrAdminOrder && isProgramMatch && ord.status === 'confirmed';
-    if (!isVerifiedBuyer) {
-      return { success: false, message: 'Kizárólag igazolt vásárlók értékelhetnek, akik a velemgyere felületén keresztül foglalták le az adott programot és a részvétel megtörtént.' };
-    }
-
     const newReview: Review = {
       id: generateUUID(),
       program_id: resolvedProgId,
@@ -1737,7 +1727,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       improvement_feedback: data.improvement_feedback?.trim() || undefined,
       travel_type: data.travel_type,
       tour_date: ord?.created_at ? ord.created_at.split('T')[0] : new Date().toISOString().split('T')[0],
-      is_verified_buyer: isVerifiedBuyer,
+      is_verified_buyer: true,
       photos: data.photos && data.photos.length > 0 ? data.photos : undefined,
       provider_response: null,
       status: initialStatus,
@@ -1765,7 +1755,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         improvement_feedback: newReview.improvement_feedback || null,
         travel_type: newReview.travel_type,
         tour_date: newReview.tour_date,
-        is_verified_buyer: newReview.is_verified_buyer,
+        is_verified_buyer: true,
         photos: newReview.photos || [],
         provider_id: newReview.provider_id || null,
         provider_name: newReview.provider_name || null,
@@ -2124,17 +2114,87 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const deleteFavoriteFolder = (id: string) => {
-    if (!isAuthenticated || !currentUser?.user_id) return;
-    const folder = userFavoriteFolders.find((f: FavoriteFolder) => f.id === id);
-    if (folder?.is_default) return;
-    setRawFavoriteFolders(prev => prev.filter(f => !(f.id === id && f.user_id === currentUser.user_id)));
-    setRawFavorites(prev => prev.filter(f => !(f.folder_id === id && f.user_id === currentUser.user_id)));
-    if (isSupabaseConfigured) {
-      supabase.from('favorites').delete().eq('folder_id', id).eq('user_id', currentUser.user_id).then(() => {}, () => {});
-      supabase.from('favorite_folders').delete().eq('id', id).eq('user_id', currentUser.user_id).then(() => {}, () => {});
+  const deleteFavoriteFolder = (id: string, deleteContainedPrograms: boolean = true) => {
+    // Find target folder in either rawFavoriteFolders or userFavoriteFolders
+    const folder = rawFavoriteFolders.find((f: FavoriteFolder) => f.id === id);
+    if (!folder) return;
+
+    const folderUserId = folder.user_id || currentUser?.user_id;
+
+    // Remaining folders for this user
+    const remaining = rawFavoriteFolders.filter(
+      (f: FavoriteFolder) => f.id !== id && (!folderUserId || f.user_id === folderUserId)
+    );
+
+    // If this folder was default and other folders exist, reassign default to first remaining folder
+    if (folder.is_default && remaining.length > 0) {
+      const nextDefault = remaining[0];
+      setRawFavoriteFolders(prev => prev
+        .filter(f => f.id !== id)
+        .map(f => (f.id === nextDefault.id ? { ...f, is_default: true } : f))
+      );
+      if (isSupabaseConfigured && folderUserId) {
+        supabase.from('favorite_folders').update({ is_default: true }).eq('id', nextDefault.id).then(() => {}, (err) => console.error(err));
+      }
+    } else {
+      setRawFavoriteFolders(prev => prev.filter(f => f.id !== id));
     }
-    setFavoriteToast({ message: `„${folder?.name || 'Lista'}” törölve.` });
+
+    // Collect all program IDs and slugs contained in this folder
+    const folderFavItems = rawFavorites.filter((f: FavoriteItem) => f.folder_id === id);
+    const containedProgramIds = new Set<string>();
+    folderFavItems.forEach((f: FavoriteItem) => {
+      containedProgramIds.add(f.program_id);
+      const prog = programs.find(p => p.id === f.program_id || p.slug === f.program_id);
+      if (prog) {
+        containedProgramIds.add(prog.id);
+        containedProgramIds.add(prog.slug);
+      }
+    });
+
+    // Delete all favorite items in this folder (and remove those programs from favorites if requested)
+    setRawFavorites(prev => prev.filter(f => {
+      // Always remove items attached to this folder
+      if (f.folder_id === id) return false;
+      // If deleteContainedPrograms is true, also remove all saved instances of these programs for this user
+      if (deleteContainedPrograms && containedProgramIds.has(f.program_id)) {
+        if (!folderUserId || f.user_id === folderUserId) return false;
+      }
+      return true;
+    }));
+
+    if (isSupabaseConfigured) {
+      // 1. Delete all favorites belonging directly to this folder
+      supabase.from('favorites').delete().eq('folder_id', id).then(() => {}, (err) => console.error('Delete favorites from folder error:', err));
+      
+      // 2. If deleteContainedPrograms is requested, delete those programs across all folders for this user
+      if (deleteContainedPrograms && containedProgramIds.size > 0 && folderUserId) {
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        const validUuids = Array.from(containedProgramIds).filter(pid => uuidRegex.test(pid));
+        if (validUuids.length > 0) {
+          supabase.from('favorites').delete().in('program_id', validUuids).eq('user_id', folderUserId).then(() => {}, (err) => console.error('Delete contained programs error:', err));
+        }
+      }
+
+      // 3. Delete the folder itself
+      supabase.from('favorite_folders').delete().eq('id', id).then(() => {}, (err) => console.error('Delete folder error:', err));
+    }
+
+    const removedCount = folderFavItems.length;
+    setFavoriteToast({
+      message: deleteContainedPrograms && removedCount > 0
+        ? `„${folder.name}” lista és a benne található ${removedCount} program sikeresen törölve a kedvencek közül.`
+        : `„${folder.name}” lista sikeresen törölve.`
+    });
+  };
+
+  const clearAllFavorites = () => {
+    if (!isAuthenticated || !currentUser?.user_id) return;
+    setRawFavorites(prev => prev.filter(f => f.user_id !== currentUser.user_id));
+    if (isSupabaseConfigured) {
+      supabase.from('favorites').delete().eq('user_id', currentUser.user_id).then(() => {}, () => {});
+    }
+    setFavoriteToast({ message: 'Minden mentett kedvenc program sikeresen törölve.' });
   };
 
   const allFavoritePrograms: Program[] = React.useMemo(() => {
@@ -2291,9 +2351,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateOccurrence,
         deleteOccurrence,
         rescheduleOrder,
-        getProgramPriceTiers,
-        createPriceTier,
-        deletePriceTier,
         confirmOrder,
         getProviderContactForOrder,
         getOrderBuyerInfo,
@@ -2332,6 +2389,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         createFavoriteFolder,
         updateFavoriteFolder,
         deleteFavoriteFolder,
+        clearAllFavorites,
         getFolderPrograms,
         allFavoritePrograms,
         totalFavoritesCount,

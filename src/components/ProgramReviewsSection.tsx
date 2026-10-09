@@ -1,18 +1,18 @@
 import React, { useState } from 'react';
-import { Program, Review, TravelType } from '../types/database';
+import { Program, TravelType } from '../types/database';
 import { useApp } from '../context/AppContext';
-import {
-  Star,
-  ShieldCheck,
-  MessageSquare,
-  Compass,
-  BadgePercent,
-  Clock,
-  Shield,
-  Users,
-  Camera,
-  ThumbsUp,
-  Building2,
+import { 
+  Star, 
+  ShieldCheck, 
+  MessageSquare, 
+  Compass, 
+  BadgePercent, 
+  Clock, 
+  Shield, 
+  Users, 
+  Camera, 
+  ThumbsUp, 
+  Building2, 
   Sparkles,
   Calendar,
   X
@@ -23,10 +23,9 @@ interface ProgramReviewsSectionProps {
 }
 
 export const ProgramReviewsSection: React.FC<ProgramReviewsSectionProps> = ({ program }) => {
-  const {
-    getProgramReviews,
-    getProgramRatingStats,
-    setCurrentView
+  const { 
+    getProgramReviews, 
+    getProgramRatingStats, 
   } = useApp();
 
   const [activeFilter, setActiveFilter] = useState<'all' | TravelType>('all');
@@ -65,7 +64,7 @@ export const ProgramReviewsSection: React.FC<ProgramReviewsSectionProps> = ({ pr
             Utazói Értékelések & Tapasztalatok
           </h2>
           <p className="text-sm text-stone-500 mt-1">
-            Minden vélemény valós, a felületünkön lefoglalt és lezajlott program után érkezett.
+            Minden vélemény valós, a felületünkön lefoglalt és lezajlott program után érkezett a saját fiókból.
           </p>
         </div>
       </div>

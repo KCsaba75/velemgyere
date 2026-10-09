@@ -8,7 +8,8 @@ import {
   FolderHeart, 
   Plus, 
   MapPin, 
-  Sparkles 
+  Sparkles,
+  Trash2
 } from 'lucide-react';
 import { CountryFlag } from './CountryFlag';
 
@@ -29,6 +30,7 @@ export const FavoriteFolderModal: React.FC = () => {
     addProgramToFolder, 
     removeProgramFromFolder, 
     createFavoriteFolder,
+    deleteFavoriteFolder,
     favorites,
     setCurrentView,
     isAuthenticated
@@ -142,24 +144,26 @@ export const FavoriteFolderModal: React.FC = () => {
             const folderCount = favorites.filter(f => f.folder_id === folder.id).length;
 
             return (
-              <button
+              <div
                 key={folder.id}
-                type="button"
-                onClick={() => handleToggleFolder(folder.id)}
-                className={`w-full p-3.5 rounded-2xl border transition-all flex items-center justify-between text-left cursor-pointer ${
+                className={`w-full p-3 rounded-2xl border transition-all flex items-center justify-between ${
                   isSelected
                     ? 'border-emerald-500 bg-emerald-50/60 shadow-xs'
                     : 'border-stone-200 hover:border-stone-300 hover:bg-stone-50/60'
                 }`}
               >
-                <div className="flex items-center gap-3 min-w-0">
+                <button
+                  type="button"
+                  onClick={() => handleToggleFolder(folder.id)}
+                  className="flex items-center gap-3 min-w-0 flex-1 text-left cursor-pointer"
+                >
                   <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 border ${
                     isSelected ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-stone-100 text-stone-600 border-stone-200'
                   }`}>
                     {isSelected ? <Check className="w-4 h-4 stroke-[3]" /> : <Heart className="w-4 h-4 text-stone-400" />}
                   </div>
 
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-stone-900 text-sm truncate">
                         {folder.name}
@@ -176,12 +180,27 @@ export const FavoriteFolderModal: React.FC = () => {
                       </p>
                     )}
                   </div>
-                </div>
+                </button>
 
-                <span className="text-xs font-semibold text-stone-400 shrink-0 ml-2">
-                  {folderCount} tétel
-                </span>
-              </button>
+                <div className="flex items-center gap-2 shrink-0 ml-2">
+                  <span className="text-xs font-semibold text-stone-400">
+                    {folderCount} tétel
+                  </span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      deleteFavoriteFolder(folder.id, true);
+                    }}
+                    className="p-1.5 text-stone-300 hover:text-rose-600 rounded-lg hover:bg-stone-100 transition-colors cursor-pointer"
+                    title={`„${folder.name}” lista törlése a programokkal együtt`}
+                    aria-label={`„${folder.name}” lista törlése`}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
             );
           })}
 

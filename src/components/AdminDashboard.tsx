@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useApp, formatPrice } from '../context/AppContext';
+import { useApp, formatPrice, formatPlatformFee } from '../context/AppContext';
 import { CountryFlag } from './CountryFlag';
 import {
   ShieldCheck,
@@ -53,7 +53,6 @@ export const AdminDashboard: React.FC = () => {
     toggleFeaturedProgram,
     approveProvider,
     suspendProvider,
-    confirmOrder,
     openProgramDetail,
     deleteProgram,
     createRegion,
@@ -74,21 +73,12 @@ export const AdminDashboard: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<'programs' | 'providers' | 'bookings' | 'reviews' | 'regions' | 'categories' | 'inquiries' | 'settings'>('programs');
   const [reviewFilter, setReviewFilter] = useState<'all' | 'published' | 'flagged' | 'hidden'>('all');
-  const [confirmingOrderId, setConfirmingOrderId] = useState<string | null>(null);
   const [rescheduleOrderId, setRescheduleOrderId] = useState<string | null>(null);
 
-  // Bookings tab (kanban fbf552b2 point 4, NEW): admin sees ALL orders ("Visitors can
-  // view own orders" RLS also has an is_admin() branch, see schema.sql).
+  // Bookings tab: admin nyilvántartás & státuszfigyelés
+  const [bookingStatusFilter, setBookingStatusFilter] = useState<'all' | 'pending' | 'confirmed' | 'cancelled'>('all');
+  const [bookingSearch, setBookingSearch] = useState('');
   const pendingOrders = orders.filter(o => o.status === 'pending');
-
-  const handleConfirmOrder = async (id: string) => {
-    setConfirmingOrderId(id);
-    try {
-      await confirmOrder(id);
-    } finally {
-      setConfirmingOrderId(null);
-    }
-  };
 
   // Fee settings editor (Csaba 2026-10-07 penzugyi-mukodesi-modell PDF): local
   // draft inputs, only written on save.
@@ -836,69 +826,191 @@ export const AdminDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* TAB: FOGLALÁSOK (kanban fbf552b2 point 4, NEW) -- "jóváhagyás" itt szimulálja a
-          fizetés-teljesülést; a confirm_order RPC admin-only, lásd schema.sql. */}
+      {/* TAB: FOGLALÁSOK NYILVÁNTARTÁSA ÉS STÁTUSZFIGYELÉS */}
       {activeTab === 'bookings' && (
-        <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden shadow-sm">
-          <div className="p-4 bg-stone-50 border-b border-stone-100 text-xs font-bold text-stone-500 uppercase tracking-wider">
-            Összes Foglalás ({orders.length})
+        <div className="space-y-6">
+          {/* Metrics summary cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-2xs">
+              <span className="text-stone-400 font-bold uppercase tracking-wider text-[10px] block">
+                Összes foglalás
+              </span>
+              <div className="text-2xl font-black text-stone-900 font-display mt-1">
+                {orders.length}
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-amber-200/80 bg-amber-50/30 shadow-2xs">
+              <span className="text-amber-800 font-bold uppercase tracking-wider text-[10px] block">
+                Szolgáltatóra vár
+              </span>
+              <div className="text-2xl font-black text-amber-700 font-display mt-1">
+                {orders.filter(o => o.status === 'pending').length}
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-emerald-200/80 bg-emerald-50/30 shadow-2xs">
+              <span className="text-emerald-800 font-bold uppercase tracking-wider text-[10px] block">
+                Megerősítve
+              </span>
+              <div className="text-2xl font-black text-emerald-700 font-display mt-1">
+                {orders.filter(o => o.status === 'confirmed').length}
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-2xs">
+              <span className="text-stone-400 font-bold uppercase tracking-wider text-[10px] block">
+                Platform díjbevétel
+              </span>
+              <div className="text-2xl font-black text-indigo-700 font-display mt-1">
+                {formatPrice(orders.reduce((sum, o) => o.status !== 'cancelled' ? sum + (Number(o.booking_fee) || 0) : sum, 0))} €
+              </div>
+            </div>
           </div>
-          {orders.length > 0 ? (
-            <div className="divide-y divide-stone-100">
-              {orders.map((order) => (
-                <div key={order.id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <h4 className="font-bold text-stone-900 text-sm">{order.program?.title || 'Program'}</h4>
-                      <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
-                        order.status === 'confirmed' ? 'bg-emerald-100 text-emerald-800' :
-                        order.status === 'pending' ? 'bg-amber-100 text-amber-900' :
-                        'bg-stone-100 text-stone-500'
-                      }`}>
-                        {order.status === 'confirmed' ? 'Megerősítve' : order.status === 'pending' ? 'Jóváhagyásra vár' : 'Lemondva'}
-                      </span>
+
+          <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden shadow-sm">
+            {/* Header with status filters and search */}
+            <div className="p-4 sm:p-5 bg-stone-50 border-b border-stone-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h3 className="font-bold text-stone-900 text-sm font-display">
+                  Foglalási Nyilvántartás & Státuszfigyelő ({orders.length})
+                </h3>
+                <p className="text-xs text-stone-500 mt-0.5">
+                  Nyomon követheted az összes beérkezett foglalást és a fizetési/visszaigazolási státuszokat.
+                </p>
+              </div>
+
+              {/* Status filter pills */}
+              <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setBookingStatusFilter('all')}
+                  className={`px-3 py-1.5 rounded-xl font-semibold transition-colors cursor-pointer ${
+                    bookingStatusFilter === 'all'
+                      ? 'bg-stone-900 text-white'
+                      : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-100'
+                  }`}
+                >
+                  Mind ({orders.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBookingStatusFilter('pending')}
+                  className={`px-3 py-1.5 rounded-xl font-semibold transition-colors cursor-pointer ${
+                    bookingStatusFilter === 'pending'
+                      ? 'bg-amber-600 text-white'
+                      : 'bg-white text-amber-800 border border-amber-200 hover:bg-amber-50'
+                  }`}
+                >
+                  Visszaigazolásra vár ({orders.filter(o => o.status === 'pending').length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBookingStatusFilter('confirmed')}
+                  className={`px-3 py-1.5 rounded-xl font-semibold transition-colors cursor-pointer ${
+                    bookingStatusFilter === 'confirmed'
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-white text-emerald-800 border border-emerald-200 hover:bg-emerald-50'
+                  }`}
+                >
+                  Megerősítve ({orders.filter(o => o.status === 'confirmed').length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBookingStatusFilter('cancelled')}
+                  className={`px-3 py-1.5 rounded-xl font-semibold transition-colors cursor-pointer ${
+                    bookingStatusFilter === 'cancelled'
+                      ? 'bg-stone-600 text-white'
+                      : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-100'
+                  }`}
+                >
+                  Lemondva ({orders.filter(o => o.status === 'cancelled').length})
+                </button>
+              </div>
+            </div>
+
+            {/* Orders list */}
+            {(() => {
+              const filteredOrders = orders.filter((o) => {
+                if (bookingStatusFilter !== 'all' && o.status !== bookingStatusFilter) return false;
+                if (bookingSearch.trim()) {
+                  const q = bookingSearch.toLowerCase();
+                  const matchTitle = (o.program?.title || '').toLowerCase().includes(q);
+                  const matchId = o.id.toLowerCase().includes(q);
+                  return matchTitle || matchId;
+                }
+                return true;
+              });
+
+              if (filteredOrders.length === 0) {
+                return (
+                  <div className="p-12 text-center">
+                    <Ticket className="w-12 h-12 text-stone-300 mx-auto mb-3" />
+                    <p className="text-sm text-stone-600">Nincs a szűrésnek megfelelő foglalás a nyilvántartásban.</p>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="divide-y divide-stone-100">
+                  {filteredOrders.map((order) => (
+                    <div key={order.id} className="p-5 hover:bg-stone-50/50 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="space-y-1.5 flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-mono text-[11px] font-bold text-stone-500 bg-stone-100 px-2 py-0.5 rounded-md">
+                            #{order.id.slice(0, 10)}
+                          </span>
+                          <h4 
+                            onClick={() => order.program_id && openProgramDetail(order.program_id)}
+                            className="font-bold text-stone-900 text-sm hover:text-emerald-700 cursor-pointer transition-colors truncate max-w-md"
+                          >
+                            {order.program?.title || 'Program'}
+                          </h4>
+                          <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
+                            order.status === 'confirmed' ? 'bg-emerald-100 text-emerald-800' :
+                            order.status === 'pending' ? 'bg-amber-100 text-amber-900' :
+                            'bg-stone-100 text-stone-500'
+                          }`}>
+                            {order.status === 'confirmed' ? 'Megerősítve (visszaigazolva)' : order.status === 'pending' ? 'Szolgáltatói visszaigazolásra vár' : 'Lemondva'}
+                          </span>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-3 text-xs text-stone-500">
+                          <span>{order.participants_count} fő</span>
+                          <span>·</span>
+                          <span>Teljes: <strong className="text-stone-800">{formatPrice(order.total_price)} {order.currency === 'EUR' ? '€' : order.currency}</strong></span>
+                          <span>·</span>
+                          <span className="text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
+                            Platform kényelmi díj (Stripe fizetve): {formatPlatformFee(order.booking_fee)} €
+                          </span>
+                          <span>·</span>
+                          <span>Helyszínen: <strong className="text-stone-800">{formatPrice(order.onsite_amount)} €</strong></span>
+                          {order.onsite_payment_method && (
+                            <span className="inline-flex items-center gap-1 text-stone-600 bg-stone-100 px-2 py-0.5 rounded-md">
+                              {order.onsite_payment_method === 'revolut' ? <Wallet className="w-3 h-3" /> : <Banknote className="w-3 h-3" />}
+                              {PAYMENT_METHOD_LABEL[order.onsite_payment_method]}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        {order.status !== 'cancelled' && (
+                          <button
+                            onClick={() => setRescheduleOrderId(order.id)}
+                            className="px-3 py-1.5 rounded-xl border border-stone-200 text-stone-700 hover:bg-stone-100 text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                          >
+                            <Clock className="w-3.5 h-3.5" />
+                            <span>Áthelyezés</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    <p className="text-xs text-stone-500">
-                      {order.participants_count} fő · {formatPrice(order.total_price)} {order.currency === 'EUR' ? '€' : order.currency}
-                      {' '}(foglalási díj {formatPrice(order.booking_fee)} € · helyszínen {formatPrice(order.onsite_amount)} €)
-                      {order.onsite_payment_method && (
-                        <span className="inline-flex items-center gap-1 ml-1">
-                          {order.onsite_payment_method === 'revolut' ? <Wallet className="w-3 h-3" /> : <Banknote className="w-3 h-3" />}
-                          {PAYMENT_METHOD_LABEL[order.onsite_payment_method]}
-                        </span>
-                      )}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {order.status !== 'cancelled' && (
-                      <button
-                        onClick={() => setRescheduleOrderId(order.id)}
-                        className="px-3 py-1.5 rounded-xl border border-stone-200 text-stone-700 hover:bg-stone-100 text-xs font-semibold flex items-center gap-1 cursor-pointer"
-                      >
-                        <Clock className="w-3.5 h-3.5" />
-                        <span>Áthelyezés</span>
-                      </button>
-                    )}
-                    {order.status === 'pending' && (
-                      <button
-                        onClick={() => handleConfirmOrder(order.id)}
-                        disabled={confirmingOrderId === order.id}
-                        className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1 cursor-pointer shadow-sm disabled:opacity-60"
-                      >
-                        <Check className="w-3.5 h-3.5" />
-                        <span>{confirmingOrderId === order.id ? 'Jóváhagyás...' : 'Jóváhagyás (fizetés szimulálása)'}</span>
-                      </button>
-                    )}
-                  </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="p-12 text-center">
-              <Ticket className="w-12 h-12 text-stone-300 mx-auto mb-3" />
-              <p className="text-sm text-stone-600">Még nem érkezett foglalás.</p>
-            </div>
-          )}
+              );
+            })()}
+          </div>
         </div>
       )}
 

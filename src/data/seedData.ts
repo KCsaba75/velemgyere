@@ -208,7 +208,6 @@ Délután Omodos macskaköves utcáin sétálunk, meglátogatjuk a Szent Kereszt
     duration: 'Egész napos (9 óra)',
     price: 65,
     currency: 'EUR',
-    pricing_mode: 'per_person' as const,
     language: 'Magyar nyelvű vezetés',
     included: [
       'Szállodai transzfer oda-vissza kényelmes kisbusszal',
@@ -247,7 +246,6 @@ Délután Omodos macskaköves utcáin sétálunk, meglátogatjuk a Szent Kereszt
     duration: '45-60 perc',
     price: 55,
     currency: 'EUR',
-    pricing_mode: 'per_person' as const,
     language: 'Magyar sofőr és asszisztencia',
     included: [
       'Privát transzfer max. 4 vagy 8 fő részére',
@@ -287,7 +285,6 @@ Délután a sziget ősi fővárosába, Mdinába utazunk, ahol a Trónok Harca fo
     duration: '6.5 óra',
     price: 49,
     currency: 'EUR',
-    pricing_mode: 'per_person' as const,
     language: 'Magyar nyelvű idegenvezetés',
     included: [
       'Hivatalos helyi magyar idegenvezető végig a nap folyamán',
@@ -323,7 +320,6 @@ Délután a sziget ősi fővárosába, Mdinába utazunk, ahol a Trónok Harca fo
     duration: '9 óra',
     price: 58,
     currency: 'EUR',
-    pricing_mode: 'per_person' as const,
     language: 'Magyar nyelvű kíséret',
     included: [
       'Hajójegy oda-vissza a modern katamaránon',
@@ -363,7 +359,6 @@ A délelőtti templomlátogatás után a Park Güell mesebeli mozaikteraszához 
     duration: '4.5 óra',
     price: 59,
     currency: 'EUR',
-    pricing_mode: 'per_person' as const,
     language: 'Magyar nyelvű vezetés',
     included: [
       'Magyar nyelvű akkreditált idegenvezető',
@@ -399,7 +394,6 @@ A délelőtti templomlátogatás után a Park Güell mesebeli mozaikteraszához 
     duration: '8 óra',
     price: 79,
     currency: 'EUR',
-    pricing_mode: 'per_person' as const,
     language: 'Magyar nyelvű vezetés',
     included: [
       'Utazás kényelmes kisbusszal Barcelonából oda-vissza',
@@ -436,7 +430,6 @@ A délelőtti templomlátogatás után a Park Güell mesebeli mozaikteraszához 
     duration: '7.5 óra',
     price: 68,
     currency: 'EUR',
-    pricing_mode: 'per_person' as const,
     language: 'Magyar kísérő és vezetés',
     included: [
       'Garantált Caminito del Rey belépőjegy és védősisak',
@@ -473,7 +466,6 @@ A délelőtti templomlátogatás után a Park Güell mesebeli mozaikteraszához 
     duration: '8.5 óra',
     price: 72,
     currency: 'EUR',
-    pricing_mode: 'per_person' as const,
     language: 'Magyar nyelvű vezetés',
     included: [
       'Kényelmes kisbuszos utazás Palma környékéről',
@@ -510,7 +502,6 @@ A délelőtti templomlátogatás után a Park Güell mesebeli mozaikteraszához 
     duration: '6.5 óra',
     price: 65,
     currency: 'EUR',
-    pricing_mode: 'per_person' as const,
     language: 'Magyar régész-idegenvezető',
     included: [
       'Hivatalos magyar anyanyelvű római idegenvezető',
@@ -546,7 +537,6 @@ A délelőtti templomlátogatás után a Park Güell mesebeli mozaikteraszához 
     duration: '40 perc',
     price: 60,
     currency: 'EUR',
-    pricing_mode: 'per_person' as const,
     language: 'Magyar asszisztencia',
     included: [
       'Privát Mercedes jármű (max 4 vagy 7 fő)',
@@ -585,7 +575,6 @@ Délután privát hajóra szállunk, és a Boszporusz vizéről csodáljuk meg a
     duration: '7 óra',
     price: 55,
     currency: 'EUR',
-    pricing_mode: 'per_person' as const,
     language: 'Magyar nyelvű vezetés',
     included: [
       'Magyar nyelvű hivatalos helyi idegenvezetés',
@@ -621,7 +610,6 @@ Délután privát hajóra szállunk, és a Boszporusz vizéről csodáljuk meg a
     duration: '5 óra',
     price: 45,
     currency: 'EUR',
-    pricing_mode: 'per_person' as const,
     language: 'Magyar nyelvű kíséret',
     included: [
       'Magyar gasztro-idegenvezetés',

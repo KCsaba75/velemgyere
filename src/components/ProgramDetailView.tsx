@@ -26,27 +26,34 @@ import {
   Wallet,
   Star,
   Heart,
-  FolderHeart
+  FolderHeart,
+  Ticket
 } from 'lucide-react';
 import { CategoryIcon } from './CategoryIcon';
 import { CountryFlag } from './CountryFlag';
 import { ProgramReviewsSection } from './ProgramReviewsSection';
-import { ProgramAvailability, OnsitePaymentMethod, OrderProviderContact, OccurrenceAvailability, ProgramPriceTier } from '../types/database';
+import { BookingCheckoutModal } from './BookingCheckoutModal';
+import { ProgramAvailability, OnsitePaymentMethod, OrderProviderContact, OccurrenceAvailability } from '../types/database';
 
 // Kanban fbf552b2 point 1: a still-gated detail sections (mit tartalmaz/nem tartalmaz)
 // share this one prompt instead of each rolling their own "please log in" box. ctaLabel
 // defaults to a plain login CTA, but the still-gated sections use a clearer
 // "További információk" wording per Csaba's request.
-const LoginToSeeMore: React.FC<{ label: string; setCurrentView: (v: string) => void; ctaLabel?: string }> = ({ label, setCurrentView, ctaLabel }) => (
-  <div className="bg-stone-50 border border-dashed border-stone-300 rounded-xl p-4 flex items-center gap-3 text-sm text-stone-600">
-    <Lock className="w-4 h-4 text-stone-400 shrink-0" />
-    <span className="flex-1">{label}</span>
+const LoginToSeeMore: React.FC<{ label: string; onLogin: () => void; ctaLabel?: string }> = ({ label, onLogin, ctaLabel }) => (
+  <div className="bg-stone-50 border border-dashed border-stone-300 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm text-stone-600">
+    <div className="flex items-center gap-2.5">
+      <div className="w-8 h-8 rounded-xl bg-stone-200/60 flex items-center justify-center text-stone-500 shrink-0">
+        <Lock className="w-4 h-4" />
+      </div>
+      <span className="leading-snug">{label}</span>
+    </div>
     <button
-      onClick={() => setCurrentView('home')}
-      className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 hover:text-emerald-800 shrink-0 cursor-pointer"
+      type="button"
+      onClick={onLogin}
+      className="inline-flex items-center justify-center gap-1.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl transition-all shrink-0 cursor-pointer shadow-xs hover:shadow-sm"
     >
       <LogIn className="w-3.5 h-3.5" />
-      {ctaLabel || 'Bejelentkezés'}
+      <span>{ctaLabel || 'Bejelentkezés'}</span>
     </button>
   </div>
 );
@@ -59,10 +66,10 @@ export const ProgramDetailView: React.FC = () => {
     setCurrentView,
     currentUser,
     isAuthenticated,
+    openLoginModal,
     orders,
     checkProgramAvailability,
     listOpenOccurrences,
-    getProgramPriceTiers,
     createOrder,
     getProviderContactForOrder,
     computeBookingFee,
@@ -108,6 +115,7 @@ export const ProgramDetailView: React.FC = () => {
   const [onsitePaymentMethod, setOnsitePaymentMethod] = useState<OnsitePaymentMethod>('cash');
   const [reservationSubmitting, setReservationSubmitting] = useState(false);
   const [reservationResult, setReservationResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
 
   // Occurrence/slot-rendszer (kanban c039bfb6 point 4): ha a programhoz van nyitott,
   // jövőbeli időpont, a vevő EGY konkrétat választ -- az időpont-specifikus kapacitás
@@ -139,33 +147,6 @@ export const ProgramDetailView: React.FC = () => {
   }, [program?.id]);
 
   const selectedOccurrence = occurrenceOptions.find(o => o.id === selectedOccurrenceId) || null;
-
-  // Savos/csoportos arazas (kanban 62e69729): 'tiered' programnal a letszamhoz tartozo
-  // SAV OSSZES ara donti el a netTotal-t, nem a price*participantsCount linearis szorzas.
-  const [priceTiers, setPriceTiers] = useState<ProgramPriceTier[]>([]);
-  useEffect(() => {
-    setPriceTiers([]);
-    if (!program || program.pricing_mode !== 'tiered') return;
-    let cancelled = false;
-    getProgramPriceTiers(program.id).then(rows => {
-      if (!cancelled) setPriceTiers(rows);
-    });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [program?.id, program?.pricing_mode]);
-
-  const matchingTier = program?.pricing_mode === 'tiered'
-    ? priceTiers.find(t => participantsCount >= t.min_participants && (t.max_participants == null || participantsCount <= t.max_participants)) || null
-    : null;
-  const lowestTier = priceTiers.length > 0 ? priceTiers[0] : null;
-  // null = tiered program, de nincs a jelenlegi letszamhoz illo sav -- a form ezt jelzi,
-  // nem enged tovabb (a szerver enfore_order_capacity/set_order_booking_fee ugyanezt
-  // utolag is kikenyszeriti, ez csak elore jelzi a vevonek).
-  const netTotalForCount = program
-    ? (program.pricing_mode === 'tiered' ? (matchingTier ? matchingTier.total_price : null) : program.price * participantsCount)
-    : null;
 
   // Keep the selection valid if the provider doesn't accept the default/previous
   // choice (e.g. a cash-only provider, or switching between programs of different
@@ -208,32 +189,14 @@ export const ProgramDetailView: React.FC = () => {
     }
   };
 
-  const handleReservationSubmit = async (e: React.FormEvent) => {
+  const handleReservationSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!program) return;
-    // Tiered programnal nincs illo sav a jelenlegi letszamhoz -- ugyanezt a
-    // szerver (set_order_booking_fee) is FAIL LOUD-dal elutasitana, de ne is
-    // probalkozzunk, a gomb is le van tiltva erre az esetre.
-    if (netTotalForCount === null) return;
-    setReservationSubmitting(true);
-    try {
-      // Display-only estimate -- the server's set_order_booking_fee trigger always
-      // recomputes booking_fee/onsite_amount/total_price from the program's own
-      // price row (per_person) or the matching tier's total_price (tiered), this
-      // submitted total_price is never trusted (schema.sql).
-      const netTotal = netTotalForCount;
-      const result = await createOrder({
-        program_id: program.id,
-        occurrence_id: selectedOccurrenceId,
-        participants_count: participantsCount,
-        total_price: computeTotalPrice(netTotal),
-        currency: program.currency,
-        onsite_payment_method: onsitePaymentMethod,
-      });
-      setReservationResult(result);
-    } finally {
-      setReservationSubmitting(false);
+    if (!isAuthenticated || !currentUser) {
+      openLoginModal('A foglalás véglegesítéséhez és a fizetéshez kérjük jelentkezz be a saját fiókodba!');
+      return;
     }
+    setIsCheckoutModalOpen(true);
   };
 
   if (isLoading && !program) {
@@ -468,25 +431,11 @@ export const ProgramDetailView: React.FC = () => {
             <div />
           )}
 
-          {/* Price badge (összegcímke) -- savos (tiered) programnal a legalacsonyabb sav
-              "-tol, csoportonkent" arat mutatja, mert nincs egyetlen fix fejenkenti ar. */}
+          {/* Price badge (összegcímke) */}
           <div className="shrink-0 ml-auto">
             <div className="inline-block bg-emerald-600 text-white font-extrabold text-lg sm:text-2xl px-5 py-2.5 rounded-2xl shadow-xl whitespace-nowrap">
-              {program.pricing_mode === 'tiered' ? (
-                lowestTier ? (
-                  <>
-                    {formatPrice(computeTotalPrice(lowestTier.total_price))} {program.currency === 'EUR' ? '€' : program.currency}
-                    <span className="text-xs sm:text-sm font-normal text-emerald-100"> -tól / csoport</span>
-                  </>
-                ) : (
-                  <span className="text-xs sm:text-sm font-normal">Ár hamarosan</span>
-                )
-              ) : (
-                <>
-                  {formatPrice(computeTotalPrice(program.price))} {program.currency === 'EUR' ? '€' : program.currency}
-                  <span className="text-xs sm:text-sm font-normal text-emerald-100"> / fő</span>
-                </>
-              )}
+              {formatPrice(computeTotalPrice(program.price))} {program.currency === 'EUR' ? '€' : program.currency}
+              <span className="text-xs sm:text-sm font-normal text-emerald-100"> / fő</span>
             </div>
           </div>
         </div>
@@ -665,7 +614,7 @@ export const ProgramDetailView: React.FC = () => {
           ) : (
             <LoginToSeeMore
               label="Mit tartalmaz és mit nem tartalmaz az ár -- bejelentkezve látható."
-              setCurrentView={setCurrentView}
+              onLogin={() => openLoginModal('A részletes információk (mit tartalmaz és mit nem tartalmaz az ár) megtekintéséhez kérjük jelentkezz be!')}
               ctaLabel="További információk"
             />
           )}
@@ -684,36 +633,15 @@ export const ProgramDetailView: React.FC = () => {
                   Részvételi díj
                 </span>
                 <div className="flex items-baseline gap-1.5 mt-0.5">
-                  {program.pricing_mode === 'tiered' ? (
-                    lowestTier ? (
-                      <>
-                        <span className="text-3xl sm:text-4xl font-extrabold text-stone-900 font-display">
-                          {formatPrice(computeTotalPrice(lowestTier.total_price))} {program.currency === 'EUR' ? '€' : program.currency}
-                        </span>
-                        <span className="text-xs text-stone-500 font-medium"> -tól / csoport</span>
-                      </>
-                    ) : (
-                      <span className="text-sm text-stone-500 font-medium">Ár hamarosan</span>
-                    )
-                  ) : (
-                    <>
-                      <span className="text-3xl sm:text-4xl font-extrabold text-stone-900 font-display">
-                        {formatPrice(computeTotalPrice(program.price))} {program.currency === 'EUR' ? '€' : program.currency}
-                      </span>
-                      <span className="text-xs text-stone-500 font-medium"> / fő</span>
-                    </>
-                  )}
+                  <span className="text-3xl sm:text-4xl font-extrabold text-stone-900 font-display">
+                    {formatPrice(computeTotalPrice(program.price))} {program.currency === 'EUR' ? '€' : program.currency}
+                  </span>
+                  <span className="text-xs text-stone-500 font-medium"> / fő</span>
                 </div>
               </div>
 
-              {/* Detailed Payment Breakdown -- tiered programnal nincs egyetlen fix
-                  "1 fő esetén" bontas (a vegosszeg a letszamtol fugg, azt a lenti,
-                  resztvevo-szam-fuggo bontas mutatja), csak egy rovid utalas. */}
-              {program.pricing_mode === 'tiered' ? (
-                <div className="bg-stone-50 rounded-2xl p-3.5 border border-stone-200/90 text-xs text-stone-600">
-                  Sávos (csoportos) árazás: a végösszeg a résztvevők számától függ, lásd a foglalási űrlap részletezését lent.
-                </div>
-              ) : (() => {
+              {/* Detailed Payment Breakdown per person */}
+              {(() => {
                 const baseNet = program.price;
                 const baseTotal = computeTotalPrice(baseNet);
                 const baseFee = baseTotal - baseNet;
@@ -758,7 +686,8 @@ export const ProgramDetailView: React.FC = () => {
               {!isAuthenticated ? (
                 <LoginToSeeMore
                   label="A helyfoglaláshoz és a saját fiókodban való nyilvántartásához bejelentkezés szükséges."
-                  setCurrentView={setCurrentView}
+                  onLogin={() => openLoginModal('A helyfoglaláshoz és a foglalás véglegesítéséhez kérjük jelentkezz be!')}
+                  ctaLabel="Bejelentkezés"
                 />
               ) : (
                 <div className="space-y-4">
@@ -905,21 +834,11 @@ export const ProgramDetailView: React.FC = () => {
                       </div>
 
                       {(() => {
-                        // Detailed checkout breakdown for chosen number of participants.
-                        // Tiered programnal netTotalForCount null, ha nincs a letszamhoz
-                        // illo sav -- ilyenkor nincs bontas, csak egy figyelmeztetes,
-                        // es a submit gomb (lentebb) is le van tiltva.
-                        const curr = program.currency === 'EUR' ? '€' : program.currency;
-                        if (netTotalForCount === null) {
-                          return (
-                            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3.5 text-xs text-amber-800 font-semibold">
-                              Ehhez a létszámhoz ({participantsCount} fő) jelenleg nincs megadva ár ennél a programnál. Próbálj másik létszámot, vagy keresd a szolgáltatót.
-                            </div>
-                          );
-                        }
-                        const netTotal = netTotalForCount;
+                        // Detailed checkout breakdown for chosen number of participants
+                        const netTotal = program.price * participantsCount;
                         const total = computeTotalPrice(netTotal);
                         const fee = total - netTotal;
+                        const curr = program.currency === 'EUR' ? '€' : program.currency;
                         return (
                           <div className="bg-stone-50 rounded-2xl p-3.5 border border-stone-200 space-y-2.5 text-xs">
                             <span className="text-[11px] font-bold text-stone-500 uppercase tracking-wider block">
@@ -957,16 +876,18 @@ export const ProgramDetailView: React.FC = () => {
 
                       <button
                         type="submit"
-                        disabled={reservationSubmitting || netTotalForCount === null}
-                        className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-5 rounded-xl text-sm cursor-pointer disabled:opacity-60"
+                        className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3.5 px-5 rounded-xl text-sm cursor-pointer shadow-md transition-all hover:shadow-lg flex items-center justify-center gap-2"
                       >
-                        {reservationSubmitting ? 'Foglalás...' : 'Foglalás véglegesítése'}
+                        <Ticket className="w-4 h-4" />
+                        <span>Foglalás véglegesítése</span>
                       </button>
-                      {reservationResult && !reservationResult.success && (
-                        <p className="text-sm text-rose-600">{reservationResult.message}</p>
+                      {reservationResult && (
+                        <p className={`text-xs font-semibold ${reservationResult.success ? 'text-emerald-700' : 'text-rose-600'}`}>
+                          {reservationResult.message}
+                        </p>
                       )}
                       <p className="text-[11px] text-stone-400 leading-relaxed">
-                        Ez egy foglalási szándék rögzítése. A <strong>platform használati kényelmi díj</strong> online fizetendő a foglalás adminisztrátori jóváhagyása után. A <strong>helyszínen fizetendő díj</strong> a választott módon ({onsitePaymentMethod === 'cash' ? 'készpénzben' : 'Revoluton'}), közvetlenül a szolgáltatónak fizetendő a program napján.
+                        A gombra kattintva áttekintheted a foglalás összes adatát, majd a <strong>platform használati kényelmi díjat</strong> bankkártyával (Stripe Demo) rendezheted. A <strong>helyszínen fizetendő díj</strong> ({onsitePaymentMethod === 'cash' ? 'készpénzben' : 'Revoluton'}) a program napján közvetlenül a szolgáltatónak fizetendő.
                       </p>
                     </form>
                   )}
@@ -1086,6 +1007,26 @@ export const ProgramDetailView: React.FC = () => {
         </div>
       </div>
 
+      {/* Booking Checkout Modal with Stripe Demo Payment */}
+      {program && (
+        <BookingCheckoutModal
+          isOpen={isCheckoutModalOpen}
+          onClose={() => setIsCheckoutModalOpen(false)}
+          program={program}
+          selectedOccurrence={selectedOccurrence}
+          selectedOccurrenceId={selectedOccurrenceId}
+          participantsCount={participantsCount}
+          onsitePaymentMethod={onsitePaymentMethod}
+          dateFormatted={dateFormatted}
+          weekdayFormatted={weekdayFormatted}
+          onSuccess={() => {
+            setReservationResult({
+              success: true,
+              message: 'Sikeres foglalás és fizetés! A foglalást rögzítettük a saját fiókodban és továbbítottuk a szolgáltatónak visszaigazolásra.'
+            });
+          }}
+        />
+      )}
     </div>
   );
 };

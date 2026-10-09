@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useApp, formatPrice } from '../context/AppContext';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
-import { User, MessageSquare, Calendar, Compass, BadgeEuro, Ticket, X, Building2, Phone, Mail, Globe, Banknote, Wallet, Star, CheckCircle2, Heart } from 'lucide-react';
+import { User, MessageSquare, Calendar, Compass, BadgeEuro, Ticket, X, Building2, Phone, Mail, Globe, Banknote, Wallet, Star, CheckCircle2, Heart, CreditCard } from 'lucide-react';
 import { OrderStatus, OrderProviderContact, OnsitePaymentMethod, Order } from '../types/database';
 import { ReviewModal } from './ReviewModal';
 
@@ -11,8 +11,8 @@ const PAYMENT_METHOD_LABEL: Record<OnsitePaymentMethod, string> = {
 };
 
 const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
-  pending: 'Függőben (adminisztrátori jóváhagyásra vár)',
-  confirmed: 'Megerősítve',
+  pending: 'Függőben (szolgáltatói visszaigazolásra vár)',
+  confirmed: 'Megerősítve (szolgáltató visszaigazolta)',
   cancelled: 'Lemondva',
 };
 
@@ -28,6 +28,7 @@ export const MyAccountView: React.FC = () => {
     inquiries, 
     orders, 
     programs,
+    reviews,
     creditTransactions, 
     creditBalance, 
     cancelOrder, 
@@ -169,8 +170,17 @@ export const MyAccountView: React.FC = () => {
                       <span className={`inline-block text-[11px] font-bold px-2.5 py-1 rounded-lg border ${ORDER_STATUS_CLASS[order.status]}`}>
                         {ORDER_STATUS_LABEL[order.status]}
                       </span>
-                      {order.status === 'confirmed' && (() => {
-                        const existingReview = getUserReviewForOrder(order.id);
+                      {order.booking_fee > 0 && (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200">
+                          <CreditCard className="w-3.5 h-3.5" />
+                          <span>Kényelmi díj rendezve (Stripe)</span>
+                        </span>
+                      )}
+                      {order.status !== 'cancelled' && (() => {
+                        const existingReview = getUserReviewForOrder(order.id) || reviews.find(r => 
+                          (r.order_id === order.id || r.program_id === order.program_id) && 
+                          (r.user_id === currentUser?.id || r.user_id === currentUser?.user_id)
+                        );
                         if (existingReview) {
                           return (
                             <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200">

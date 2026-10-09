@@ -31,6 +31,7 @@ export const FavoritesView: React.FC = () => {
     createFavoriteFolder, 
     updateFavoriteFolder, 
     deleteFavoriteFolder,
+    clearAllFavorites,
     removeProgramFromFolder,
     openFolderModal,
     setCurrentView,
@@ -44,6 +45,8 @@ export const FavoritesView: React.FC = () => {
   const [activeFolderId, setActiveFolderId] = useState<string>('all');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingFolder, setEditingFolder] = useState<FavoriteFolder | null>(null);
+  const [folderToDelete, setFolderToDelete] = useState<FavoriteFolder | null>(null);
+  const [isClearAllConfirmOpen, setIsClearAllConfirmOpen] = useState(false);
 
   const [newFolderName, setNewFolderName] = useState('');
   const [newFolderDesc, setNewFolderDesc] = useState('');
@@ -236,24 +239,45 @@ export const FavoritesView: React.FC = () => {
             const isActive = activeFolderId === folder.id;
 
             return (
-              <button
+              <div
                 key={folder.id}
-                type="button"
-                onClick={() => setActiveFolderId(folder.id)}
-                className={`px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
+                className={`relative shrink-0 inline-flex items-center rounded-xl border transition-all ${
                   isActive
-                    ? 'bg-emerald-700 text-white shadow-sm'
-                    : 'bg-white border border-stone-200 text-stone-600 hover:bg-stone-50'
+                    ? 'bg-emerald-700 text-white border-emerald-700 shadow-sm'
+                    : 'bg-white border-stone-200 text-stone-600 hover:bg-stone-50'
                 }`}
               >
-                <FolderHeart className={`w-4 h-4 ${isActive ? 'text-white' : 'text-stone-400'}`} />
-                <span>{folder.name}</span>
-                <span className={`text-[11px] px-2 py-0.5 rounded-full font-extrabold ${
-                  isActive ? 'bg-white/20 text-white' : 'bg-stone-100 text-stone-700'
-                }`}>
-                  {folderCount}
-                </span>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveFolderId(folder.id)}
+                  className="px-3.5 py-2 font-bold flex items-center gap-2 cursor-pointer text-left"
+                >
+                  <FolderHeart className={`w-4 h-4 ${isActive ? 'text-white' : 'text-stone-400'}`} />
+                  <span>{folder.name}</span>
+                  <span className={`text-[11px] px-2 py-0.5 rounded-full font-extrabold ${
+                    isActive ? 'bg-white/20 text-white' : 'bg-stone-100 text-stone-700'
+                  }`}>
+                    {folderCount}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    setFolderToDelete(folder);
+                  }}
+                  className={`p-1.5 mr-1.5 rounded-lg transition-colors cursor-pointer ${
+                    isActive
+                      ? 'text-white/70 hover:text-white hover:bg-white/20'
+                      : 'text-stone-400 hover:text-rose-600 hover:bg-rose-50'
+                  }`}
+                  title={`„${folder.name}” lista és programjainak törlése`}
+                  aria-label={`„${folder.name}” lista törlése`}
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
             );
           })}
         </div>
@@ -300,30 +324,39 @@ export const FavoritesView: React.FC = () => {
               </button>
             )}
 
-            {activeFolder && !activeFolder.is_default && (
-              <div className="flex items-center gap-1">
+            {activeFolder && (
+              <div className="flex items-center gap-1.5">
                 <button
                   type="button"
                   onClick={() => setEditingFolder(activeFolder)}
-                  className="p-2 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-xl transition-colors cursor-pointer"
-                  title="Mappa átnevezése / szerkesztése"
+                  className="px-3 py-2 text-stone-600 hover:text-stone-900 bg-stone-100 hover:bg-stone-200 rounded-xl transition-colors cursor-pointer text-xs font-bold flex items-center gap-1.5"
+                  title="Lista átnevezése / szerkesztése"
                 >
-                  <Edit3 className="w-4 h-4" />
+                  <Edit3 className="w-3.5 h-3.5" />
+                  <span>Szerkesztés</span>
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    if (window.confirm(`Biztosan törlöd a(z) „${activeFolder.name}” listát? (A benne lévő programok nem törlődnek a rendszerből).`)) {
-                      deleteFavoriteFolder(activeFolder.id);
-                      setActiveFolderId('all');
-                    }
-                  }}
-                  className="p-2 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
-                  title="Mappa törlése"
+                  onClick={() => setFolderToDelete(activeFolder)}
+                  className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 hover:text-rose-800 border border-rose-200 rounded-xl transition-colors cursor-pointer text-xs font-bold flex items-center gap-1.5 shadow-2xs"
+                  title="Lista törlése a benne lévő programokkal együtt"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                  <span>Lista törlése</span>
                 </button>
               </div>
+            )}
+
+            {!activeFolder && allFavoritePrograms.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setIsClearAllConfirmOpen(true)}
+                className="px-3.5 py-2 bg-stone-100 hover:bg-rose-50 text-stone-600 hover:text-rose-700 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer border border-stone-200 hover:border-rose-200"
+                title="Minden mentett program törlése a kedvencek közül"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                <span>Összes törlése</span>
+              </button>
             )}
           </div>
         </div>
@@ -356,17 +389,30 @@ export const FavoritesView: React.FC = () => {
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={() => {
-                setCurrentView('programs');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              className="px-6 py-2.5 bg-stone-900 hover:bg-emerald-600 text-white font-bold rounded-xl text-sm transition-all cursor-pointer shadow-sm inline-flex items-center gap-2"
-            >
-              <Compass className="w-4 h-4" />
-              <span>Programok felfedezése</span>
-            </button>
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setCurrentView('programs');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                className="px-6 py-2.5 bg-stone-900 hover:bg-emerald-600 text-white font-bold rounded-xl text-sm transition-all cursor-pointer shadow-sm inline-flex items-center gap-2"
+              >
+                <Compass className="w-4 h-4" />
+                <span>Programok felfedezése</span>
+              </button>
+
+              {activeFolder && (
+                <button
+                  type="button"
+                  onClick={() => setFolderToDelete(activeFolder)}
+                  className="px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-xl text-sm transition-all cursor-pointer border border-rose-200 inline-flex items-center gap-2"
+                >
+                  <Trash2 className="w-4 h-4 text-rose-600" />
+                  <span>Üres lista törlése</span>
+                </button>
+              )}
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
@@ -522,22 +568,162 @@ export const FavoritesView: React.FC = () => {
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-stone-100">
+              <div className="flex items-center justify-between pt-3 border-t border-stone-100">
                 <button
                   type="button"
-                  onClick={() => setEditingFolder(null)}
-                  className="px-4 py-2 rounded-xl text-stone-600 hover:bg-stone-100 text-xs font-semibold cursor-pointer"
+                  onClick={() => {
+                    const toDel = editingFolder;
+                    setEditingFolder(null);
+                    setFolderToDelete(toDel);
+                  }}
+                  className="px-3 py-2 text-rose-600 hover:bg-rose-50 border border-rose-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
                 >
-                  Mégse
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Lista törlése</span>
                 </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs shadow-xs transition-colors cursor-pointer"
-                >
-                  Módosítás mentése
-                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingFolder(null)}
+                    className="px-4 py-2 rounded-xl text-stone-600 hover:bg-stone-100 text-xs font-semibold cursor-pointer"
+                  >
+                    Mégse
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs shadow-xs transition-colors cursor-pointer"
+                  >
+                    Módosítás mentése
+                  </button>
+                </div>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: CONFIRM DELETE FOLDER & ITS PROGRAMS */}
+      {folderToDelete && (() => {
+        const folderProgCount = favorites.filter(f => f.folder_id === folderToDelete.id).length;
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-stone-200 animate-in zoom-in-95 duration-200 space-y-5">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0 shadow-inner">
+                  <Trash2 className="w-6 h-6 text-rose-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-display font-bold text-lg text-stone-900 leading-snug">
+                    Lista és programok törlése
+                  </h3>
+                  <p className="text-xs text-stone-500 mt-0.5">
+                    Biztosan törölni szeretnéd ezt a kedvencek listát?
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setFolderToDelete(null)}
+                  className="p-1.5 text-stone-400 hover:text-stone-700 rounded-xl"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Warning preview banner */}
+              <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl space-y-2 text-xs text-rose-900">
+                <div className="flex items-center justify-between font-bold">
+                  <span className="flex items-center gap-1.5">
+                    <FolderHeart className="w-4 h-4 text-rose-600" />
+                    <span>{folderToDelete.name}</span>
+                  </span>
+                  <span className="bg-rose-200/80 text-rose-900 px-2 py-0.5 rounded-full text-[11px]">
+                    {folderProgCount} db mentett program
+                  </span>
+                </div>
+                <p className="text-stone-600 text-[11px] leading-relaxed pt-1 border-t border-rose-200/60">
+                  A lista törlésével <strong>a benne található összes ({folderProgCount} db) program is törlődik a kedvenceid közül</strong>.
+                </p>
+              </div>
+
+              {/* Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setFolderToDelete(null)}
+                  className="px-4 py-2.5 rounded-xl border border-stone-300 text-stone-700 hover:bg-stone-100 text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  Mégsem
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    deleteFavoriteFolder(folderToDelete.id, true);
+                    if (activeFolderId === folderToDelete.id) {
+                      setActiveFolderId('all');
+                    }
+                    setFolderToDelete(null);
+                  }}
+                  className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 cursor-pointer"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>Igen, törlés a programokkal együtt</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* MODAL: CONFIRM CLEAR ALL FAVORITES */}
+      {isClearAllConfirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-stone-200 animate-in zoom-in-95 duration-200 space-y-5">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0 shadow-inner">
+                <Trash2 className="w-6 h-6 text-rose-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-display font-bold text-lg text-stone-900 leading-snug">
+                  Minden kedvenc program törlése
+                </h3>
+                <p className="text-xs text-stone-500 mt-0.5">
+                  Ki szeretnéd üríteni az összes kedvencedet?
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsClearAllConfirmOpen(false)}
+                className="p-1.5 text-stone-400 hover:text-stone-700 rounded-xl"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-900 leading-relaxed">
+              Biztosan törölni szeretnéd az <strong>összes mentett programot ({allFavoritePrograms.length} db)</strong> a kedvenceid közül?
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsClearAllConfirmOpen(false)}
+                className="px-4 py-2.5 rounded-xl border border-stone-300 text-stone-700 hover:bg-stone-100 text-xs font-semibold transition-colors cursor-pointer"
+              >
+                Mégsem
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  clearAllFavorites();
+                  setIsClearAllConfirmOpen(false);
+                }}
+                className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 cursor-pointer"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Igen, összes kedvenc törlése</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
