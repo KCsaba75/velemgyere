@@ -363,6 +363,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [reviews, setReviews] = useState<Review[]>([]);
   const [rawFavoriteFolders, setRawFavoriteFolders] = useState<FavoriteFolder[]>([]);
   const [rawFavorites, setRawFavorites] = useState<FavoriteItem[]>([]);
+  // Tracks which user's favorite_folders fetch from Supabase has completed, so the
+  // default-folder bootstrap effect below never races the async fetch and creates
+  // a duplicate "Általános kedvencek" folder on every fresh page load.
+  const [foldersFetchedForUser, setFoldersFetchedForUser] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // Global Login Modal state
@@ -408,7 +412,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Active user's favorite folders and items (strictly scoped to currentUser.user_id when authenticated)
   const userFavoriteFolders = useMemo<FavoriteFolder[]>(() => {
     if (!isAuthenticated || !currentUser?.user_id) return [];
-    return rawFavoriteFolders.filter(f => f.user_id === currentUser.user_id);
+    return rawFavoriteFolders
+      .filter(f => f.user_id === currentUser.user_id)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   }, [rawFavoriteFolders, isAuthenticated, currentUser?.user_id]);
 
   const userFavorites = useMemo<FavoriteItem[]>(() => {
@@ -417,11 +423,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [rawFavorites, isAuthenticated, currentUser?.user_id]);
 
   // Ensure an authenticated user always has at least a default "Általános kedvencek" folder in their account
-  // Initialized only ONCE per authenticated session to prevent resurrecting folders deliberately deleted by the user
+  // Initialized only ONCE per authenticated session to prevent resurrecting folders deliberately deleted by the user.
+  // Gated on foldersFetchedForUser so this never races the async favorite_folders fetch above --
+  // without that gate, hasAnyFolder below could see a still-empty rawFavoriteFolders right after
+  // login and insert a brand new duplicate default folder on every fresh page load.
   const initializedFoldersUserRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (isAuthenticated && currentUser?.user_id) {
+    if (isAuthenticated && currentUser?.user_id && foldersFetchedForUser === currentUser.user_id) {
       if (initializedFoldersUserRef.current === currentUser.user_id) {
         return;
       }
@@ -447,7 +456,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } else {
       initializedFoldersUserRef.current = null;
     }
-  }, [isAuthenticated, currentUser?.user_id, rawFavoriteFolders, isSupabaseConfigured]);
+  }, [isAuthenticated, currentUser?.user_id, foldersFetchedForUser, rawFavoriteFolders, isSupabaseConfigured]);
   // Own full provider row (kanban fbf552b2 point 3), fetched via get_my_provider_profile()
   // RPC once logged in as a provider -- see syncFromSession. null for every other role,
   // or until it resolves. Supabase-only; the no-Supabase dev fallback below still derives
@@ -728,7 +737,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 return [...(fData as FavoriteFolder[]), ...others];
               });
             }
-          }, () => {});
+            if (!cancelled) setFoldersFetchedForUser(session.user.id);
+          }, () => {
+            if (!cancelled) setFoldersFetchedForUser(session.user.id);
+          });
 
           supabase.from('favorites').select('*').eq('user_id', session.user.id).then(({ data: favData, error: favErr }) => {
             if (!favErr && favData && !cancelled) {

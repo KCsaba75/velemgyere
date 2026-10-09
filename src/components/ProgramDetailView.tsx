@@ -26,7 +26,6 @@ import {
   Wallet,
   Star,
   Heart,
-  FolderHeart,
   Ticket
 } from 'lucide-react';
 import { CategoryIcon } from './CategoryIcon';
@@ -55,7 +54,6 @@ export const ProgramDetailView: React.FC = () => {
     getProgramRatingStats,
     getProviderRatingStats,
     isProgramFavorite,
-    toggleFavorite,
     openFolderModal,
     isLoading
   } = useApp();
@@ -351,22 +349,18 @@ export const ProgramDetailView: React.FC = () => {
           {/* Floating Heart Button in the top right corner of the main photo */}
           <button
             type="button"
-            onClick={() => program && toggleFavorite(program.id)}
-            onContextMenu={(e) => {
-              e.preventDefault();
-              if (program) openFolderModal(program);
-            }}
+            onClick={() => program && openFolderModal(program)}
             className={`absolute top-4 right-4 z-10 w-11 h-11 rounded-full backdrop-blur-md shadow-xl flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-90 cursor-pointer ${
-              isFav 
-                ? 'bg-white text-rose-500 ring-2 ring-rose-400/60 shadow-rose-500/30' 
+              isFav
+                ? 'bg-white text-rose-500 ring-2 ring-rose-400/60 shadow-rose-500/30'
                 : 'bg-stone-900/60 hover:bg-white text-white hover:text-rose-500'
             }`}
             title={
               !isAuthenticated
                 ? "Jelentkezz be programvadászként a kedvencek mentéséhez (♡)"
-                : isFav 
-                  ? "Mentve a kedvencekhez (Kattints az eltávolításhoz / jobb klikk a mappákhoz)" 
-                  : "Hozzáadás a kedvencekhez (♡)"
+                : isFav
+                  ? "Mentve a kedvencekhez (mappák kezelése)"
+                  : "Mentés egy mappába (♡)"
             }
             aria-label={isFav ? "Kedvenc program" : "Mentés a kedvencek közé"}
           >
@@ -906,7 +900,7 @@ export const ProgramDetailView: React.FC = () => {
               <div className="pt-2 border-t border-stone-100 flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => program && toggleFavorite(program.id)}
+                  onClick={() => program && openFolderModal(program)}
                   className={`flex-1 py-2.5 px-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
                     isFav
                       ? 'bg-rose-50 border-rose-200 text-rose-700 shadow-xs'
@@ -914,19 +908,8 @@ export const ProgramDetailView: React.FC = () => {
                   }`}
                 >
                   <Heart className={`w-4 h-4 ${isFav ? 'fill-rose-500 text-rose-500' : 'text-stone-400'}`} />
-                  <span>{isFav ? 'Mentve a kedvencekhez' : 'Mentés a kedvencekhez (♡)'}</span>
+                  <span>{isFav ? 'Mentve a kedvencekhez (mappák kezelése)' : 'Mentés egy mappába (♡)'}</span>
                 </button>
-
-                {program && (
-                  <button
-                    type="button"
-                    onClick={() => openFolderModal(program)}
-                    className="p-2.5 rounded-xl border border-stone-200 hover:bg-stone-50 text-stone-600 hover:text-emerald-700 transition-colors cursor-pointer"
-                    title="Mappa kiválasztása"
-                  >
-                    <FolderHeart className="w-4 h-4" />
-                  </button>
-                )}
               </div>
             </div>
 

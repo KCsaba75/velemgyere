@@ -22,13 +22,13 @@ const FOLDER_COLORS = [
 ];
 
 export const FavoriteFolderModal: React.FC = () => {
-  const { 
-    folderModalProgram, 
-    closeFolderModal, 
-    favoriteFolders, 
-    getProgramFolderIds, 
-    addProgramToFolder, 
-    removeProgramFromFolder, 
+  const {
+    folderModalProgram,
+    closeFolderModal,
+    favoriteFolders,
+    getProgramFolderIds,
+    addProgramToFolder,
+    removeProgramFromFolder,
     createFavoriteFolder,
     deleteFavoriteFolder,
     favorites,
@@ -38,7 +38,6 @@ export const FavoriteFolderModal: React.FC = () => {
 
   const [isCreatingNew, setIsCreatingNew] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
-  const [newFolderDesc, setNewFolderDesc] = useState('');
   const [newFolderColor, setNewFolderColor] = useState('emerald');
 
   if (!folderModalProgram || !isAuthenticated) return null;
@@ -59,7 +58,6 @@ export const FavoriteFolderModal: React.FC = () => {
 
     const newFolder = createFavoriteFolder({
       name: newFolderName.trim(),
-      description: newFolderDesc.trim() || undefined,
       color: newFolderColor
     });
 
@@ -67,7 +65,6 @@ export const FavoriteFolderModal: React.FC = () => {
     addProgramToFolder(folderModalProgram.id, newFolder.id);
 
     setNewFolderName('');
-    setNewFolderDesc('');
     setIsCreatingNew(false);
   };
 
@@ -238,16 +235,6 @@ export const FavoriteFolderModal: React.FC = () => {
                   placeholder="Lista neve (pl. Róma 2026, Gasztrotúrák)..."
                   value={newFolderName}
                   onChange={(e) => setNewFolderName(e.target.value)}
-                  className="w-full text-xs bg-white border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-
-              <div>
-                <input
-                  type="text"
-                  placeholder="Rövid leírás (opcionális)..."
-                  value={newFolderDesc}
-                  onChange={(e) => setNewFolderDesc(e.target.value)}
                   className="w-full text-xs bg-white border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
               </div>

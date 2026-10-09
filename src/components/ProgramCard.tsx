@@ -16,9 +16,8 @@ export const ProgramCard: React.FC<ProgramCardProps> = ({ program, onSelect }) =
   const { 
     computeTotalPrice, 
     openProgramDetail, 
-    isProgramFavorite, 
-    toggleFavorite, 
-    openFolderModal, 
+    isProgramFavorite,
+    openFolderModal,
     isAuthenticated,
     getProgramRatingStats
   } = useApp();
@@ -95,24 +94,19 @@ export const ProgramCard: React.FC<ProgramCardProps> = ({ program, onSelect }) =
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              toggleFavorite(program.id);
-            }}
-            onContextMenu={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
               openFolderModal(program);
             }}
             className={`w-9 h-9 rounded-full backdrop-blur-md shadow-md flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-90 cursor-pointer ${
-              isFav 
-                ? 'bg-white text-rose-500 ring-2 ring-rose-400/50 shadow-rose-500/25' 
+              isFav
+                ? 'bg-white text-rose-500 ring-2 ring-rose-400/50 shadow-rose-500/25'
                 : 'bg-stone-900/60 hover:bg-white text-white hover:text-rose-500'
             }`}
             title={
-              !isAuthenticated 
+              !isAuthenticated
                 ? "Jelentkezz be programvadászként a kedvencek mentéséhez (♡)"
-                : isFav 
-                  ? "Mentve a kedvencekhez (Kattints az eltávolításhoz / jobb klikk a mappákhoz)" 
-                  : "Hozzáadás a kedvencekhez (♡)"
+                : isFav
+                  ? "Mentve a kedvencekhez (mappák kezelése)"
+                  : "Mentés egy mappába (♡)"
             }
             aria-label={isFav ? "Kedvenc program" : "Mentés a kedvencek közé"}
           >
