@@ -25,7 +25,8 @@ import {
   Undo2,
   Gift,
   Send,
-  Clock
+  Clock,
+  LogOut
 } from 'lucide-react';
 
 export const MyAccountView: React.FC = () => {
@@ -41,7 +42,8 @@ export const MyAccountView: React.FC = () => {
     requestPayout,
     updateMyProfile,
     deleteMyAccount,
-    setCurrentView
+    setCurrentView,
+    logout
   } = useApp();
 
   useDocumentMeta('Saját fiókom', 'Személyes adataid, fizetési és kommunikációs beállításaid egy helyen.');
@@ -127,12 +129,20 @@ export const MyAccountView: React.FC = () => {
         <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
           <User className="w-7 h-7" />
         </div>
-        <div>
+        <div className="min-w-0">
           <h1 className="font-display text-2xl sm:text-3xl font-extrabold text-stone-900">
             Saját fiókom
           </h1>
-          <p className="text-sm text-stone-500">{currentUser.name} · {currentUser.email}</p>
+          <p className="text-sm text-stone-500 truncate">{currentUser.name} · {currentUser.email}</p>
         </div>
+        <button
+          type="button"
+          onClick={logout}
+          className="ml-auto flex items-center gap-1.5 text-xs font-bold text-stone-500 hover:text-rose-600 bg-white px-3 py-2 rounded-xl border border-stone-200 shadow-xs hover:border-rose-200 hover:bg-rose-50 transition-colors cursor-pointer shrink-0"
+        >
+          <LogOut className="w-3.5 h-3.5" />
+          <span>Kijelentkezés</span>
+        </button>
       </div>
 
       <div className="space-y-10">
