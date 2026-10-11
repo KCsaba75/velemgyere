@@ -302,8 +302,9 @@ export const FavoritesView: React.FC = () => {
                               Alapértelmezett lista
                             </span>
                           )}
-                          <span className="text-[11px] px-2 py-0.5 rounded-full font-extrabold bg-stone-100 text-stone-700 shrink-0">
-                            {folderPrograms.length} tétel
+                          <span className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-extrabold bg-rose-50 text-rose-700 shrink-0">
+                            <Heart className="w-3 h-3 fill-rose-500 text-rose-500" />
+                            {folderPrograms.length}
                           </span>
                         </div>
                         {folder.description && (
@@ -422,8 +423,9 @@ export const FavoritesView: React.FC = () => {
                               Alapértelmezett lista
                             </span>
                           )}
-                          <span className="text-[11px] px-2 py-0.5 rounded-full font-extrabold bg-stone-100 text-stone-700 shrink-0">
-                            {folderPrograms.length} tétel
+                          <span className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-extrabold bg-rose-50 text-rose-700 shrink-0">
+                            <Heart className="w-3 h-3 fill-rose-500 text-rose-500" />
+                            {folderPrograms.length}
                           </span>
                         </div>
                         {folder.description && (
@@ -510,8 +512,9 @@ export const FavoritesView: React.FC = () => {
                     <h3 className="font-display font-bold text-lg text-stone-900 truncate">
                       {viewingFolder.name}
                     </h3>
-                    <p className="text-xs text-stone-500">
-                      {folderPrograms.length} tétel
+                    <p className="flex items-center gap-1 text-xs text-stone-500">
+                      <Heart className="w-3.5 h-3.5 fill-rose-500 text-rose-500" />
+                      <span className="font-extrabold text-rose-700">{folderPrograms.length}</span>
                       {folderPrograms.length > 0 && (
                         <> &middot; <strong className="text-stone-900">{formatPrice(folderCost)} €</strong>/fő</>
                       )}
