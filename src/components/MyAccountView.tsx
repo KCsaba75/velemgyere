@@ -6,8 +6,6 @@ import {
   MessageSquare,
   Calendar,
   Compass,
-  Ticket,
-  Heart,
   Phone,
   Mail,
   Save,
@@ -41,7 +39,6 @@ export const MyAccountView: React.FC = () => {
     rewardTransactions,
     payoutRequests,
     requestPayout,
-    totalFavoritesCount,
     updateMyProfile,
     deleteMyAccount,
     setCurrentView
@@ -135,47 +132,6 @@ export const MyAccountView: React.FC = () => {
             Saját fiókom
           </h1>
           <p className="text-sm text-stone-500">{currentUser.name} · {currentUser.email}</p>
-        </div>
-      </div>
-
-      {/* Quick-link chips: Kedvencek & Foglalásaim */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10">
-        <div className="bg-rose-50/70 border border-rose-100 rounded-2xl p-5 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
-              <Heart className="w-6 h-6 fill-rose-500 text-rose-500" />
-            </div>
-            <div>
-              <span className="text-xs font-bold text-rose-700 uppercase tracking-wider block">Kedvencek</span>
-              <span className="text-2xl font-extrabold text-stone-900 font-display">{totalFavoritesCount}</span>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => { setCurrentView('favorites'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-            className="text-xs font-bold text-rose-700 hover:text-rose-800 bg-white px-3 py-2 rounded-xl border border-rose-200 shadow-xs hover:bg-rose-50 transition-colors cursor-pointer shrink-0"
-          >
-            Mappák &rarr;
-          </button>
-        </div>
-
-        <div className="bg-stone-100/80 border border-stone-200 rounded-2xl p-5 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-xl bg-stone-200/80 text-stone-700 flex items-center justify-center shrink-0">
-              <Ticket className="w-6 h-6" />
-            </div>
-            <div>
-              <span className="text-xs font-bold text-stone-600 uppercase tracking-wider block">Foglalásaim</span>
-              <span className="text-2xl font-extrabold text-stone-900 font-display">{orders.length}</span>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => { setCurrentView('bookings'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-            className="text-xs font-bold text-stone-700 hover:text-stone-900 bg-white px-3 py-2 rounded-xl border border-stone-300 shadow-xs hover:bg-stone-50 transition-colors cursor-pointer shrink-0"
-          >
-            Megnyitás &rarr;
-          </button>
         </div>
       </div>
 
