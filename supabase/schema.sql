@@ -1745,3 +1745,38 @@ create or replace view public.programs_public with (security_invoker = true) as
       select 1 from public.providers
       where providers.id = programs.provider_id and providers.status = 'approved'
     );
+
+-- PAYOUT_REQUESTS (kanban d82d39ba, 4. pont): a Fiokom "Visszateritesek" zsebe alatti
+-- "Kerem a kifizetest" gomb MOST csak egy kifizetes-IGENYLEST rogzit -- NEM mozgat
+-- penzt es NEM ir a credit_transactions-ba. A tenyleges kifizetesi folyamatot
+-- (Stripe vagy mas szolgaltato, penzmozgas) Csaba dontese szerint KESOBB epitjuk ki;
+-- addig admin kezzel dolgozza fel (status: requested -> processing -> paid/rejected).
+create table if not exists public.payout_requests (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  amount numeric(10, 2) not null check (amount > 0),
+  currency text not null default 'EUR',
+  status text not null default 'requested' check (status in ('requested', 'processing', 'paid', 'rejected')),
+  note text,
+  requested_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  processed_at timestamp with time zone,
+  processed_by uuid references auth.users(id)
+);
+
+alter table public.payout_requests enable row level security;
+
+create policy "Users can view own payout requests"
+  on public.payout_requests for select
+  using (auth.uid() = user_id or public.is_admin());
+
+-- A felhasznalo csak SAJAT maganak, csak 'requested' statusszal hozhat letre kerelmet --
+-- a status/processed_* mezoket (admin feldolgozas) csak admin modosithatja, kulon UPDATE
+-- policy-val, a felhasznalonak nincs UPDATE policy-ja erre a tablara.
+create policy "Users can create own payout requests"
+  on public.payout_requests for insert
+  with check (auth.uid() = user_id and status = 'requested');
+
+create policy "Admins can manage payout requests"
+  on public.payout_requests for update
+  using (public.is_admin())
+  with check (public.is_admin());

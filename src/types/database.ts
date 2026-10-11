@@ -217,6 +217,20 @@ export interface CreditTransaction {
   created_at: string;
 }
 
+export type PayoutRequestStatus = 'requested' | 'processing' | 'paid' | 'rejected';
+
+export interface PayoutRequest {
+  id: string;
+  user_id: string;
+  amount: number;
+  currency: string;
+  status: PayoutRequestStatus;
+  note?: string;
+  requested_at: string;
+  processed_at?: string;
+  processed_by?: string;
+}
+
 export interface ProgramAvailability {
   max_participants: number | null;
   booked: number;

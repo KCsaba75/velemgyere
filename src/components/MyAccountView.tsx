@@ -6,7 +6,6 @@ import {
   MessageSquare,
   Calendar,
   Compass,
-  BadgeEuro,
   Ticket,
   Heart,
   Phone,
@@ -24,7 +23,11 @@ import {
   Trash2,
   AlertTriangle,
   X,
-  ShieldAlert
+  ShieldAlert,
+  Undo2,
+  Gift,
+  Send,
+  Clock
 } from 'lucide-react';
 
 export const MyAccountView: React.FC = () => {
@@ -32,8 +35,12 @@ export const MyAccountView: React.FC = () => {
     currentUser,
     inquiries,
     orders,
-    creditTransactions,
-    creditBalance,
+    refundBalance,
+    refundTransactions,
+    rewardBalance,
+    rewardTransactions,
+    payoutRequests,
+    requestPayout,
     totalFavoritesCount,
     updateMyProfile,
     deleteMyAccount,
@@ -103,6 +110,19 @@ export const MyAccountView: React.FC = () => {
   // Foglalási díjak, amiket ténylegesen kifizettél (Stripe demo) -- meglévő orders
   // adatból, új tranzakció-/számla-tár nélkül (kanban e3d1d669 point 4).
   const paidBookingFees = orders.filter(o => o.booking_fee > 0);
+
+  // --- Block 2a/2b: kredit-pénztárca két zsebre bontva (kanban d82d39ba) ---
+  const openPayoutRequest = payoutRequests.find(r => r.status === 'requested' || r.status === 'processing');
+  const [payoutSubmitting, setPayoutSubmitting] = useState(false);
+  const [payoutMessage, setPayoutMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const handlePayoutRequest = async () => {
+    setPayoutSubmitting(true);
+    setPayoutMessage(null);
+    const result = await requestPayout(refundBalance);
+    setPayoutSubmitting(false);
+    setPayoutMessage({ type: result.success ? 'success' : 'error', text: result.message });
+  };
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14 animate-in fade-in duration-200">
@@ -234,30 +254,89 @@ export const MyAccountView: React.FC = () => {
             <h2 className="font-display text-lg font-bold text-stone-900">Fizetés</h2>
           </div>
 
-          {/* 2a. Kredit pénztárca */}
-          <div className="space-y-3">
-            <h3 className="text-xs font-bold text-stone-500 uppercase tracking-wider">Kredit pénztárca</h3>
-            <div className="bg-emerald-50/70 border border-emerald-100 rounded-2xl p-5 flex items-center gap-3">
-              <div className="w-11 h-11 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
-                <BadgeEuro className="w-6 h-6" />
+          {/* 2a. Kredit pénztárca -- két zsebre bontva forrás szerint (kanban d82d39ba) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            {/* Visszatérítések zseb */}
+            <div className="space-y-3">
+              <h3 className="text-xs font-bold text-stone-500 uppercase tracking-wider">Visszatérítések</h3>
+              <div className="bg-indigo-50/70 border border-indigo-100 rounded-2xl p-5 flex items-center gap-3">
+                <div className="w-11 h-11 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
+                  <Undo2 className="w-6 h-6" />
+                </div>
+                <div>
+                  <span className="text-xs font-bold text-indigo-700 uppercase tracking-wider block">Egyenleg</span>
+                  <span className="text-2xl font-extrabold text-stone-900 font-display">{refundBalance.toFixed(2)} €</span>
+                </div>
               </div>
-              <div>
-                <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider block">Egyenleg</span>
-                <span className="text-2xl font-extrabold text-stone-900 font-display">{creditBalance.toFixed(2)} €</span>
-              </div>
+              <p className="text-[11px] text-stone-400 leading-relaxed">
+                Ide kerül, ha egy foglalásod a Programvadász hibájából hiúsult meg, vagy ha a feltételek szerint szabályosan mondtad le. Felhasználható a következő foglalásodnál fizetésként.
+              </p>
+              {refundTransactions.length > 0 && (
+                <div className="space-y-1.5">
+                  {refundTransactions.slice(0, 5).map(t => (
+                    <div key={t.id} className="flex items-center justify-between text-xs text-stone-600 bg-stone-50 border border-stone-100 rounded-xl px-4 py-2.5">
+                      <span>{t.note || (t.type === 'manual_payout' ? 'Kifizetve' : 'Visszatérítés')}</span>
+                      <span className={`font-bold ${Number(t.amount) >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
+                        {Number(t.amount) >= 0 ? '+' : ''}{Number(t.amount).toFixed(2)} €
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* "Kérem a kifizetést" -- MOST csak kérelem-rögzítés, a tényleges kifizetési folyamat később (kanban d82d39ba point 4) */}
+              {openPayoutRequest ? (
+                <div className="flex items-center gap-2 text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5">
+                  <Clock className="w-3.5 h-3.5 shrink-0" />
+                  <span>Kifizetési kérelmed feldolgozás alatt ({openPayoutRequest.amount.toFixed(2)} €).</span>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handlePayoutRequest}
+                  disabled={payoutSubmitting || !(refundBalance > 0)}
+                  className="w-full px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-stone-200 disabled:text-stone-400 disabled:cursor-not-allowed text-white font-bold rounded-xl text-xs shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center gap-1.5"
+                  title={refundBalance > 0 ? undefined : 'Nincs kifizethető egyenleg a visszatérítések zsebben.'}
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>{payoutSubmitting ? 'Küldés...' : 'Kérem a kifizetést'}</span>
+                </button>
+              )}
+              {payoutMessage && (
+                <p className={`text-xs font-semibold ${payoutMessage.type === 'success' ? 'text-emerald-700' : 'text-rose-600'}`}>
+                  {payoutMessage.text}
+                </p>
+              )}
             </div>
-            {creditTransactions.length > 0 && (
-              <div className="space-y-1.5">
-                {creditTransactions.slice(0, 5).map(t => (
-                  <div key={t.id} className="flex items-center justify-between text-xs text-stone-600 bg-stone-50 border border-stone-100 rounded-xl px-4 py-2.5">
-                    <span>{t.note || t.type}</span>
-                    <span className={`font-bold ${Number(t.amount) >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
-                      {Number(t.amount) >= 0 ? '+' : ''}{Number(t.amount).toFixed(2)} €
-                    </span>
-                  </div>
-                ))}
+
+            {/* Jutalmak zseb */}
+            <div className="space-y-3">
+              <h3 className="text-xs font-bold text-stone-500 uppercase tracking-wider">Jutalmak</h3>
+              <div className="bg-emerald-50/70 border border-emerald-100 rounded-2xl p-5 flex items-center gap-3">
+                <div className="w-11 h-11 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                  <Gift className="w-6 h-6" />
+                </div>
+                <div>
+                  <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider block">Egyenleg</span>
+                  <span className="text-2xl font-extrabold text-stone-900 font-display">{rewardBalance.toFixed(2)} €</span>
+                </div>
               </div>
-            )}
+              <p className="text-[11px] text-stone-400 leading-relaxed">
+                Regisztrációs ajándék és jövőbeli promóciós/hűségjutalmak. Felhasználható a következő foglalásodnál fizetésként.
+              </p>
+              {rewardTransactions.length > 0 && (
+                <div className="space-y-1.5">
+                  {rewardTransactions.slice(0, 5).map(t => (
+                    <div key={t.id} className="flex items-center justify-between text-xs text-stone-600 bg-stone-50 border border-stone-100 rounded-xl px-4 py-2.5">
+                      <span>{t.note || 'Regisztrációs ajándék'}</span>
+                      <span className="font-bold text-emerald-700">
+                        +{Number(t.amount).toFixed(2)} €
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* 2b. Fizetési mód -- kártya hozzáadása: EGYEZTETÉS ALATT, lásd kanban-komment */}

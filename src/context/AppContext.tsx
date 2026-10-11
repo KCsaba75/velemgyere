@@ -12,6 +12,7 @@ import {
   ProviderStatus,
   Order,
   CreditTransaction,
+  PayoutRequest,
   ProgramAvailability,
   OrderProviderContact,
   OrderBuyerInfo,
@@ -235,6 +236,25 @@ interface AppContextType {
   creditTransactions: CreditTransaction[];
   creditBalance: number;
 
+  // Kanban d82d39ba: a kredit-penztarca ket kulon zsebre bontva forras szerint.
+  // VISSZATERITESEK = 'refund' (provider hibajabol meghiusult VAGY szabalyosan
+  // lemondott foglalas) + 'manual_payout' (mar kifizetett resz, csak ebbol a
+  // zsebbol ertelmezett). JUTALMAK = 'signup_bonus' + barmilyen jovobeni promocios/
+  // husegi tipus. A 'usage' tipust egyik zsebhez sem rendeljuk kulon jelenleg --
+  // a kodban sehol nem ir ilyen tranzakciot semmi (csak a CHECK constraint engedi
+  // jovobeli hasznalatra), tehat nincs mit szetvalasztani belole MOST.
+  refundBalance: number;
+  refundTransactions: CreditTransaction[];
+  rewardBalance: number;
+  rewardTransactions: CreditTransaction[];
+
+  // "Kerem a kifizetest" gomb (d82d39ba 4. pont): MOST csak egy kifizetes-IGENYLEST
+  // rogzit a payout_requests tablaba, a tenyleges penzmozgast admin dolgozza fel
+  // kesobb (lasd schema.sql komment). Nem engedi ujra igenyelni, amig van nyitott
+  // ('requested'/'processing') kerelem.
+  payoutRequests: PayoutRequest[];
+  requestPayout: (amount: number) => Promise<{ success: boolean; message: string }>;
+
   // Percentage-based booking fee (Csaba 2026-10-07 penzugyi-mukodesi-modell PDF):
   // dij = MAX(feePercentage% * net_amount, feeMinimumEur), admin-adjustable in
   // app_settings (replaces the old fixed currentBookingFee). The signup bonus
@@ -398,6 +418,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [favoriteToast, setFavoriteToast] = useState<{ message: string; program?: Program; folderName?: string } | null>(null);
 
   const [creditTransactions, setCreditTransactions] = useState<CreditTransaction[]>([]);
+  const [payoutRequests, setPayoutRequests] = useState<PayoutRequest[]>([]);
   // Public settings (app_settings.fee_percentage/fee_minimum_eur) -- readable by
   // anon too, so they load in the main collections effect below, not gated on
   // isAuthenticated.
@@ -785,19 +806,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!isAuthenticated) {
       setOrders([]);
       setCreditTransactions([]);
+      setPayoutRequests([]);
       return;
     }
 
     (async () => {
-      const [ordersRes, creditsRes] = await Promise.all([
+      const [ordersRes, creditsRes, payoutsRes] = await Promise.all([
         supabase.from('orders').select('*').order('created_at', { ascending: false }),
         supabase.from('credit_transactions').select('*').order('created_at', { ascending: false }),
+        supabase.from('payout_requests').select('*').order('requested_at', { ascending: false }),
       ]);
       if (cancelled) return;
       if (ordersRes.error) console.error('Orders load failed:', ordersRes.error);
       else setOrders((ordersRes.data as Order[]) || []);
       if (creditsRes.error) console.error('Credit transactions load failed:', creditsRes.error);
       else setCreditTransactions((creditsRes.data as CreditTransaction[]) || []);
+      if (payoutsRes.error) console.error('Payout requests load failed:', payoutsRes.error);
+      else setPayoutRequests((payoutsRes.data as PayoutRequest[]) || []);
     })();
 
     return () => {
@@ -838,6 +863,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Credit ledger balance (point 5): simple sum, since every row (signup_bonus/refund/
   // manual_payout/usage) already carries the sign (+credit / -payout or -usage).
   const creditBalance = creditTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
+
+  // Kanban d82d39ba: forras szerinti ket zseb (lasd AppContextType komment a tipusoknal).
+  const refundTransactions = creditTransactions.filter(t => t.type === 'refund' || t.type === 'manual_payout');
+  const refundBalance = refundTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
+  const rewardTransactions = creditTransactions.filter(t => t.type === 'signup_bonus');
+  const rewardBalance = rewardTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
 
   // `inquiries` state holds raw Supabase rows (see the load effect above); this derives
   // the program_title/provider_name display fields reactively against `programs`/
@@ -970,6 +1001,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ? 'Adatok mentve. Az email cím módosításának megerősítéséhez kattints az új címre küldött linkre.'
         : 'Adatok sikeresen mentve.',
     };
+  };
+
+  // Kanban d82d39ba point 4 ("Kerem a kifizetest" gomb): csak egy kerelmet rogzit a
+  // payout_requests tablaba, a tenyleges penzmozgast kesobb epitjuk ki -- NEM vonja
+  // le a credit_transactions egyenleget, admin fogja feldolgozni (status: requested ->
+  // processing -> paid/rejected). Egyszerre csak egy nyitott kerelem lehet.
+  const requestPayout = async (amount: number): Promise<{ success: boolean; message: string }> => {
+    if (!isAuthenticated || !currentUser?.user_id) {
+      return { success: false, message: 'Nincs bejelentkezve.' };
+    }
+    if (!(amount > 0)) {
+      return { success: false, message: 'Nincs kifizethető egyenleg a visszatérítések zsebben.' };
+    }
+    if (payoutRequests.some(r => r.status === 'requested' || r.status === 'processing')) {
+      return { success: false, message: 'Már van folyamatban lévő kifizetési kérelmed.' };
+    }
+    if (!isSupabaseConfigured) {
+      return { success: false, message: 'A kifizetés igénylése csak éles (Supabase-sel összekötött) környezetben érhető el.' };
+    }
+
+    const { data, error } = await supabase
+      .from('payout_requests')
+      .insert({ user_id: currentUser.user_id, amount, currency: 'EUR' })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('requestPayout failed:', error);
+      return { success: false, message: `Kérelem rögzítése sikertelen: ${error.message}` };
+    }
+
+    setPayoutRequests(prev => [data as PayoutRequest, ...prev]);
+    return { success: true, message: 'Kifizetési kérelmed rögzítettük, hamarosan feldolgozzuk.' };
   };
 
   // Kanban e3d1d669 point 6 (fiok vegleges torlese). A delete_my_account() RPC
@@ -2533,6 +2597,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         creditTransactions,
         creditBalance,
+        refundBalance,
+        refundTransactions,
+        rewardBalance,
+        rewardTransactions,
+        payoutRequests,
+        requestPayout,
 
         feePercentage,
         feeMinimumEur,
