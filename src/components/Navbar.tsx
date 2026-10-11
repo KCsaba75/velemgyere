@@ -4,7 +4,6 @@ import {
   ShieldCheck,
   Briefcase,
   User,
-  LogOut,
   PlusCircle,
   Heart,
   Search,
@@ -31,7 +30,6 @@ export const Navbar: React.FC<NavbarProps> = ({
     totalFavoritesCount,
     orders,
     openLoginModal,
-    logout,
     searchQuery,
     setSearchQuery
   } = useApp();
@@ -210,16 +208,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                   className="px-4 py-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-medium text-sm shadow-sm transition-colors cursor-pointer"
                 >
                   Belépés / Regisztráció
-                </button>
-              )}
-
-              {isAuthenticated && (
-                <button
-                  onClick={logout}
-                  className="p-2 rounded-lg text-stone-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
-                  title="Kijelentkezés"
-                >
-                  <LogOut className="w-4 h-4" />
                 </button>
               )}
             </div>
