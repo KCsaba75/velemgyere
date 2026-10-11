@@ -16,7 +16,8 @@ import {
   Globe,
   Star,
   CheckCircle2,
-  ArrowRight
+  ArrowRight,
+  LifeBuoy
 } from 'lucide-react';
 import { Order, OrderStatus, OrderProviderContact, OnsitePaymentMethod } from '../types/database';
 import { ReviewModal } from './ReviewModal';
@@ -61,7 +62,7 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
 
   useEffect(() => {
     let cancelled = false;
-    if (order.status === 'confirmed') {
+    if (order.status === 'pending' || order.status === 'confirmed') {
       getProviderContactForOrder(order.id).then(c => {
         if (!cancelled) setContact(c);
       });
@@ -159,8 +160,9 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
             )}
           </div>
 
-          {/* Confirmed contact block */}
-          {order.status === 'confirmed' && (
+          {/* Contact block -- mar fizetes (pending) utan latszik, nem csak admin
+              visszaigazolas (confirmed) utan, Csaba kerese (2026-10-11). */}
+          {(order.status === 'pending' || order.status === 'confirmed') && (
             <div className="bg-emerald-50/60 border border-emerald-100 rounded-2xl p-4 space-y-2">
               <h4 className="text-xs font-bold text-emerald-800 uppercase tracking-wider">
                 Szolgáltató elérhetőségei
@@ -177,6 +179,10 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
               ) : (
                 <p className="text-xs text-stone-400">Szolgáltató adatainak betöltése...</p>
               )}
+              <div className="flex items-center gap-1.5 text-xs text-stone-600 pt-1.5 border-t border-emerald-100/80">
+                <LifeBuoy className="w-3.5 h-3.5" />
+                <span>Programvadász ügyfélszolgálat: <a href="mailto:info@velemgyere.hu" className="text-emerald-700 hover:underline font-semibold">info@velemgyere.hu</a></span>
+              </div>
             </div>
           )}
 

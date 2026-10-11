@@ -26,7 +26,8 @@ import {
   Wallet,
   Star,
   Heart,
-  Ticket
+  Ticket,
+  LifeBuoy
 } from 'lucide-react';
 import { CategoryIcon } from './CategoryIcon';
 import { CountryFlag } from './CountryFlag';
@@ -161,24 +162,25 @@ export const ProgramDetailView: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [program?.id, acceptedPaymentMethods.join(',')]);
 
-  // Provider contact reveal (point 3) -- only once THIS user has a CONFIRMED order for
-  // THIS program, resolved server-side (get_provider_contact_for_order never returns
-  // another user's or a still-pending order's contact details, see schema.sql).
+  // Provider contact reveal (point 3) -- mar a fizetes (pending) utan latszik, nem csak
+  // a kesobbi admin-megerosites (confirmed) utan, resolved server-side
+  // (get_provider_contact_for_order never returns another user's or a cancelled
+  // order's contact details, see schema.sql).
   const [providerContact, setProviderContact] = useState<OrderProviderContact | null>(null);
-  const confirmedOrderForProgram = orders.find(o => o.program_id === program?.id && o.status === 'confirmed');
+  const activeOrderForProgram = orders.find(o => o.program_id === program?.id && (o.status === 'pending' || o.status === 'confirmed'));
 
   useEffect(() => {
     setProviderContact(null);
-    if (!confirmedOrderForProgram) return;
+    if (!activeOrderForProgram) return;
     let cancelled = false;
-    getProviderContactForOrder(confirmedOrderForProgram.id).then(contact => {
+    getProviderContactForOrder(activeOrderForProgram.id).then(contact => {
       if (!cancelled) setProviderContact(contact);
     });
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [confirmedOrderForProgram?.id]);
+  }, [activeOrderForProgram?.id]);
 
   const handleCheckAvailability = async () => {
     if (!program) return;
@@ -988,6 +990,15 @@ export const ProgramDetailView: React.FC = () => {
                     <Lock className="w-4 h-4 text-stone-400 shrink-0" />
                     <span>
                       A szolgáltató elérhetőségeit a foglalás befejezése után a fiókodban találod meg.
+                    </span>
+                  </div>
+                )}
+
+                {activeOrderForProgram && (
+                  <div className="flex items-center gap-2 text-xs text-stone-600 pt-2 border-t border-stone-100">
+                    <LifeBuoy className="w-3.5 h-3.5 text-stone-400 shrink-0" />
+                    <span>
+                      Programvadász ügyfélszolgálat: <a href="mailto:info@velemgyere.hu" className="text-emerald-700 hover:underline font-semibold">info@velemgyere.hu</a>
                     </span>
                   </div>
                 )}

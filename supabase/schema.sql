@@ -755,9 +755,11 @@ $$;
 revoke execute on function public.admin_list_providers() from public, anon;
 grant execute on function public.admin_list_providers() to authenticated;
 
--- A vevonek a szolgaltato kontakt-adatai (contact_name/email/phone/website) CSAK akkor,
--- ha a sajat (auth.uid()) megerositett (confirmed) rendelese van az adott programhoz.
--- Ures eredmeny minden mas esetben (nincs ilyen rendeles, vagy nem a sajat rendelese).
+-- A vevonek a szolgaltato kontakt-adatai (contact_name/email/phone/website) mar a
+-- fizetes (pending) utan, nem csak a kesobbi admin-megerosites (confirmed) utan --
+-- Csaba kerese (2026-10-11): a vevo azonnal elerje a szolgaltatot, ne varjon az
+-- admin-visszaigazolasra. Ures eredmeny minden mas esetben (nincs ilyen rendeles,
+-- nem a sajat rendelese, vagy a rendeles cancelled).
 create or replace function public.get_provider_contact_for_order(p_order_id uuid)
 returns table (contact_name text, email text, phone text, website text)
 language sql
@@ -771,7 +773,7 @@ as $$
   join public.providers pv on pv.id = pg.provider_id
   where o.id = p_order_id
     and o.user_id = auth.uid()
-    and o.status = 'confirmed';
+    and o.status in ('pending', 'confirmed');
 $$;
 
 revoke execute on function public.get_provider_contact_for_order(uuid) from public, anon;
