@@ -29,7 +29,8 @@ import {
   Star,
   Send,
   CornerDownRight,
-  BadgeEuro
+  BadgeEuro,
+  LogOut
 } from 'lucide-react';
 import { Program, ProgramStatus, OrderBuyerInfo, OnsitePaymentMethod } from '../types/database';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
@@ -61,7 +62,8 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
     deleteProgram,
     updateProgram,
     updateProviderProfile,
-    confirmOrder
+    confirmOrder,
+    logout
   } = useApp();
 
   useDocumentMeta('Szolgáltatói Dashboard', 'Saját programok, foglalások és érdeklődések kezelése.');
@@ -883,14 +885,25 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
               </div>
             )}
 
-            <button
-              onClick={handleProfileSave}
-              disabled={profileSaving || profileForm.accepted_payment_methods.length === 0}
-              className="bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold px-5 py-2.5 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer text-sm"
-            >
-              <Save className="w-4 h-4" />
-              <span>{profileSaving ? 'Mentés...' : 'Adatok mentése'}</span>
-            </button>
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                onClick={handleProfileSave}
+                disabled={profileSaving || profileForm.accepted_payment_methods.length === 0}
+                className="bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold px-5 py-2.5 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer text-sm"
+              >
+                <Save className="w-4 h-4" />
+                <span>{profileSaving ? 'Mentés...' : 'Adatok mentése'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={logout}
+                className="flex items-center gap-2 text-sm font-bold text-stone-500 hover:text-rose-600 bg-white px-4 py-2.5 rounded-xl border border-stone-200 hover:border-rose-200 hover:bg-rose-50 transition-colors cursor-pointer"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>Kijelentkezés</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
