@@ -27,7 +27,7 @@ import {
   Star,
   Heart,
   Ticket,
-  LifeBuoy
+  User
 } from 'lucide-react';
 import { CategoryIcon } from './CategoryIcon';
 import { CountryFlag } from './CountryFlag';
@@ -995,11 +995,24 @@ export const ProgramDetailView: React.FC = () => {
                 )}
 
                 {activeOrderForProgram && (
-                  <div className="flex items-center gap-2 text-xs text-stone-600 pt-2 border-t border-stone-100">
-                    <LifeBuoy className="w-3.5 h-3.5 text-stone-400 shrink-0" />
-                    <span>
-                      Programvadász ügyfélszolgálat: <a href="mailto:info@velemgyere.hu" className="text-emerald-700 hover:underline font-semibold">info@velemgyere.hu</a>
+                  <div className="space-y-2 text-xs text-stone-600 pt-2 border-t border-stone-100">
+                    <span className="text-[11px] font-bold text-stone-400 uppercase tracking-wider block">
+                      Igénybe vevő (a te adataid)
                     </span>
+                    <div className="flex items-center gap-2">
+                      <User className="w-3.5 h-3.5 text-stone-400 shrink-0" />
+                      <span className="text-stone-800 font-semibold">{currentUser.name}</span>
+                    </div>
+                    {currentUser.phone && (
+                      <div className="flex items-center gap-2">
+                        <Phone className="w-3.5 h-3.5 text-stone-400 shrink-0" />
+                        <span className="text-stone-800 font-semibold">{currentUser.phone}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <Mail className="w-3.5 h-3.5 text-stone-400 shrink-0" />
+                      <span className="text-stone-800 truncate">{currentUser.email}</span>
+                    </div>
                   </div>
                 )}
               </div>

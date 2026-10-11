@@ -17,7 +17,10 @@ import {
   Star,
   CheckCircle2,
   ArrowRight,
-  LifeBuoy
+  User,
+  Check,
+  XCircle,
+  Navigation
 } from 'lucide-react';
 import { Order, OrderStatus, OrderProviderContact, OnsitePaymentMethod } from '../types/database';
 import { ReviewModal } from './ReviewModal';
@@ -160,28 +163,41 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
             )}
           </div>
 
-          {/* Contact block -- mar fizetes (pending) utan latszik, nem csak admin
-              visszaigazolas (confirmed) utan, Csaba kerese (2026-10-11). */}
+          {/* Contact blokk -- mar fizetes (pending) utan latszik, nem csak admin
+              visszaigazolas (confirmed) utan, Csaba kerese (2026-10-11). Ket fel
+              elerhetosege: igenybe vevo (a sajat profilod, nincs RLS-gat, csak a
+              bejelentkezett sajat adatod) + szolgaltato (server-side RPC-vel gatolt). */}
           {(order.status === 'pending' || order.status === 'confirmed') && (
-            <div className="bg-emerald-50/60 border border-emerald-100 rounded-2xl p-4 space-y-2">
-              <h4 className="text-xs font-bold text-emerald-800 uppercase tracking-wider">
-                Szolgáltató elérhetőségei
-              </h4>
-              {contact ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="bg-stone-50 border border-stone-200 rounded-2xl p-4 space-y-1.5">
+                <h4 className="text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
+                  Igénybe vevő
+                </h4>
                 <div className="text-xs text-stone-600 space-y-1.5">
-                  <div className="flex items-center gap-1.5"><Building2 className="w-3.5 h-3.5" /> <strong className="text-stone-800">{contact.contact_name}</strong></div>
-                  <div className="flex items-center gap-1.5"><Phone className="w-3.5 h-3.5" /> <strong className="text-stone-800">{contact.phone}</strong></div>
-                  <div className="flex items-center gap-1.5"><Mail className="w-3.5 h-3.5" /> <strong className="text-stone-800">{contact.email}</strong></div>
-                  {contact.website && (
-                    <div className="flex items-center gap-1.5"><Globe className="w-3.5 h-3.5" /> <a href={contact.website} target="_blank" rel="noreferrer" className="text-emerald-700 hover:underline font-semibold">{contact.website}</a></div>
+                  <div className="flex items-center gap-1.5"><User className="w-3.5 h-3.5" /> <strong className="text-stone-800">{currentUser.name}</strong></div>
+                  {currentUser.phone && (
+                    <div className="flex items-center gap-1.5"><Phone className="w-3.5 h-3.5" /> <strong className="text-stone-800">{currentUser.phone}</strong></div>
                   )}
+                  <div className="flex items-center gap-1.5"><Mail className="w-3.5 h-3.5" /> <strong className="text-stone-800">{currentUser.email}</strong></div>
                 </div>
-              ) : (
-                <p className="text-xs text-stone-400">Szolgáltató adatainak betöltése...</p>
-              )}
-              <div className="flex items-center gap-1.5 text-xs text-stone-600 pt-1.5 border-t border-emerald-100/80">
-                <LifeBuoy className="w-3.5 h-3.5" />
-                <span>Programvadász ügyfélszolgálat: <a href="mailto:info@velemgyere.hu" className="text-emerald-700 hover:underline font-semibold">info@velemgyere.hu</a></span>
+              </div>
+
+              <div className="bg-emerald-50/60 border border-emerald-100 rounded-2xl p-4 space-y-1.5">
+                <h4 className="text-xs font-bold text-emerald-800 uppercase tracking-wider mb-1">
+                  Szolgáltató
+                </h4>
+                {contact ? (
+                  <div className="text-xs text-stone-600 space-y-1.5">
+                    <div className="flex items-center gap-1.5"><Building2 className="w-3.5 h-3.5" /> <strong className="text-stone-800">{contact.contact_name}</strong></div>
+                    <div className="flex items-center gap-1.5"><Phone className="w-3.5 h-3.5" /> <strong className="text-stone-800">{contact.phone}</strong></div>
+                    <div className="flex items-center gap-1.5"><Mail className="w-3.5 h-3.5" /> <strong className="text-stone-800">{contact.email}</strong></div>
+                    {contact.website && (
+                      <div className="flex items-center gap-1.5"><Globe className="w-3.5 h-3.5" /> <a href={contact.website} target="_blank" rel="noreferrer" className="text-emerald-700 hover:underline font-semibold">{contact.website}</a></div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs text-stone-400">Szolgáltató adatainak betöltése...</p>
+                )}
               </div>
             </div>
           )}
@@ -214,12 +230,14 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
             </div>
           )}
 
-          {/* Program mini-preview with description */}
+          {/* Lefoglalt program -- teljes informacio, nem csak mini-preview (Csaba
+              kerese 2026-10-11: ne kelljen atkattintani a teljes adatlapra). */}
           {program && (
-            <div className="pt-4 border-t border-stone-100">
-              <h4 className="text-xs font-bold text-stone-500 uppercase tracking-wider mb-2.5">
+            <div className="pt-4 border-t border-stone-100 space-y-4">
+              <h4 className="text-xs font-bold text-stone-500 uppercase tracking-wider">
                 A lefoglalt program
               </h4>
+
               <div className="flex gap-3">
                 <img
                   src={coverImage}
@@ -229,25 +247,80 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
                 <div className="min-w-0 flex-1">
                   <h5 className="font-bold text-stone-900 text-sm leading-snug">{program.title}</h5>
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-[11px] text-stone-500">
-                    {program.location && (
-                      <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{program.location}</span>
-                    )}
                     {program.event_date && (
                       <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{formatDate(program.event_date)}</span>
                     )}
                     {program.duration && (
                       <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{program.duration}</span>
                     )}
+                    {(program.start_time || program.end_time) && (
+                      <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{program.start_time} - {program.end_time}</span>
+                    )}
+                    <span className="flex items-center gap-1"><Users className="w-3 h-3" />{program.max_participants ? `Max. ${program.max_participants} fő` : 'Kiscsoportos'}</span>
                   </div>
                 </div>
               </div>
-              <p className="text-xs sm:text-sm text-stone-600 leading-relaxed mt-3">
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                {program.location && (
+                  <div className="bg-stone-50 p-3 rounded-xl border border-stone-100">
+                    <span className="text-[11px] font-bold text-stone-500 block mb-0.5 flex items-center gap-1"><MapPin className="w-3 h-3" /> Program helyszíne</span>
+                    <span className="font-semibold text-stone-900">{program.location}</span>
+                  </div>
+                )}
+                {program.departure_location && (
+                  <div className="bg-stone-50 p-3 rounded-xl border border-stone-100">
+                    <span className="text-[11px] font-bold text-stone-500 block mb-0.5 flex items-center gap-1"><Navigation className="w-3 h-3" /> Indulás / találkozó</span>
+                    <span className="font-semibold text-stone-900">{program.departure_location}</span>
+                  </div>
+                )}
+              </div>
+
+              <p className="text-xs sm:text-sm text-stone-600 whitespace-pre-line leading-relaxed">
                 {program.description || program.short_description}
               </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="bg-emerald-50/60 rounded-xl p-3 border border-emerald-100">
+                  <h5 className="font-bold text-emerald-950 text-xs mb-1.5 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Mit tartalmaz az ár?
+                  </h5>
+                  <ul className="space-y-1 text-xs text-stone-700">
+                    {program.included && program.included.length > 0 ? (
+                      program.included.map((item, idx) => (
+                        <li key={idx} className="flex items-start gap-1.5">
+                          <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                          <span>{item}</span>
+                        </li>
+                      ))
+                    ) : (
+                      <li className="text-stone-500 italic">Nincs részletezve</li>
+                    )}
+                  </ul>
+                </div>
+                <div className="bg-rose-50/60 rounded-xl p-3 border border-rose-100">
+                  <h5 className="font-bold text-rose-950 text-xs mb-1.5 flex items-center gap-1.5">
+                    <XCircle className="w-3.5 h-3.5 text-rose-500" /> Mit nem tartalmaz?
+                  </h5>
+                  <ul className="space-y-1 text-xs text-stone-700">
+                    {program.not_included && program.not_included.length > 0 ? (
+                      program.not_included.map((item, idx) => (
+                        <li key={idx} className="flex items-start gap-1.5">
+                          <span className="text-rose-500 font-bold shrink-0 mt-0.5">✕</span>
+                          <span>{item}</span>
+                        </li>
+                      ))
+                    ) : (
+                      <li className="text-stone-500 italic">Minden lényeges költséget tartalmaz</li>
+                    )}
+                  </ul>
+                </div>
+              </div>
+
               <button
                 type="button"
                 onClick={() => { onClose(); openProgramDetail(program.slug || program.id); }}
-                className="mt-3 text-xs font-bold text-emerald-700 hover:underline flex items-center gap-1 cursor-pointer"
+                className="text-xs font-bold text-emerald-700 hover:underline flex items-center gap-1 cursor-pointer"
               >
                 <span>Program adatlapjának megnyitása</span>
                 <ArrowRight className="w-3.5 h-3.5" />
