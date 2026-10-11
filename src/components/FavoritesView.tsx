@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useApp, formatPrice } from '../context/AppContext';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import { ProgramCard } from './ProgramCard';
@@ -17,6 +17,7 @@ import {
   Calendar,
   X,
   Eye,
+  MoreVertical,
   ArrowRight
 } from 'lucide-react';
 import { FavoriteFolder } from '../types/database';
@@ -49,6 +50,19 @@ export const FavoritesView: React.FC = () => {
 
   const [copiedMessage, setCopiedMessage] = useState<string | null>(null);
   const [viewingFolder, setViewingFolder] = useState<FavoriteFolder | null>(null);
+  const [openMenuFolderId, setOpenMenuFolderId] = useState<string | null>(null);
+  const openMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!openMenuFolderId) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (openMenuRef.current && !openMenuRef.current.contains(e.target as Node)) {
+        setOpenMenuFolderId(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [openMenuFolderId]);
 
   if (!isAuthenticated) {
     return (
@@ -215,9 +229,9 @@ export const FavoritesView: React.FC = () => {
             const folderPrograms = getFolderPrograms(folder.id);
 
             return (
-              <div key={folder.id} className="bg-white rounded-2xl border border-stone-200 shadow-xs overflow-hidden">
+              <div key={folder.id} className="bg-white rounded-2xl border border-stone-200 shadow-xs">
                 {/* Folder header */}
-                <div className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-stone-100 bg-stone-50/60">
+                <div className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-3 rounded-2xl bg-stone-50/60">
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0 border border-emerald-100">
                       <FolderHeart className="w-5 h-5" />
@@ -242,33 +256,56 @@ export const FavoritesView: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Folder actions */}
-                  <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  {/* Folder actions -- egyetlen harom-pontos (kebab) menu mappankent */}
+                  <div
+                    className="relative shrink-0"
+                    ref={openMenuFolderId === folder.id ? openMenuRef : undefined}
+                  >
                     <button
                       type="button"
-                      onClick={() => setViewingFolder(folder)}
-                      className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer border border-emerald-200"
-                      title="Mappa tartalmának megnyitása"
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                      <span>Megnyitás</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setEditingFolder(folder)}
+                      onClick={() => setOpenMenuFolderId(openMenuFolderId === folder.id ? null : folder.id)}
                       className="p-2 rounded-xl text-stone-500 hover:text-stone-800 bg-white hover:bg-stone-100 border border-stone-200 transition-colors cursor-pointer"
-                      title="Lista átnevezése / szerkesztése"
+                      title="Műveletek"
+                      aria-haspopup="menu"
+                      aria-expanded={openMenuFolderId === folder.id}
                     >
-                      <Edit3 className="w-3.5 h-3.5" />
+                      <MoreVertical className="w-4 h-4" />
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => setFolderToDelete(folder)}
-                      className="p-2 rounded-xl text-rose-600 hover:text-rose-800 bg-white hover:bg-rose-50 border border-rose-200 transition-colors cursor-pointer"
-                      title="Lista törlése a benne lévő programokkal együtt"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+
+                    {openMenuFolderId === folder.id && (
+                      <div
+                        role="menu"
+                        className="absolute right-0 top-full mt-1.5 w-48 bg-white rounded-xl border border-stone-200 shadow-lg z-20 overflow-hidden py-1 animate-in fade-in zoom-in-95 duration-150"
+                      >
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => { setViewingFolder(folder); setOpenMenuFolderId(null); }}
+                          className="w-full px-3.5 py-2.5 text-left text-sm text-stone-700 hover:bg-stone-50 flex items-center gap-2 cursor-pointer"
+                        >
+                          <Eye className="w-4 h-4 text-emerald-600" />
+                          <span>Megnyitás</span>
+                        </button>
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => { setEditingFolder(folder); setOpenMenuFolderId(null); }}
+                          className="w-full px-3.5 py-2.5 text-left text-sm text-stone-700 hover:bg-stone-50 flex items-center gap-2 cursor-pointer"
+                        >
+                          <Edit3 className="w-4 h-4 text-stone-500" />
+                          <span>Szerkesztés</span>
+                        </button>
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => { setFolderToDelete(folder); setOpenMenuFolderId(null); }}
+                          className="w-full px-3.5 py-2.5 text-left text-sm text-rose-600 hover:bg-rose-50 flex items-center gap-2 cursor-pointer border-t border-stone-100"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          <span>Törlés</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
