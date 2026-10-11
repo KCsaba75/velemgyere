@@ -194,12 +194,8 @@ export const FavoritesView: React.FC = () => {
           </div>
 
           <h1 className="font-display text-3xl sm:text-4xl font-extrabold text-stone-900 tracking-tight">
-            Mentett Kedvencek & Mappák
+            Kedvenceim
           </h1>
-          <p className="text-sm sm:text-base text-stone-600 mt-2 max-w-2xl leading-relaxed">
-            Kattints bármely program kártyáján vagy adatlapján a szív (♡) ikonra, és mentsd el a kedvenceid közé. 
-            Hozhatsz létre mappákat célállomások (pl. Róma 2026), témák (pl. Gasztrotúrák) vagy utazási stílus szerint!
-          </p>
         </div>
 
         {/* Action Button */}
@@ -403,9 +399,15 @@ export const FavoritesView: React.FC = () => {
                   </div>
                 </div>
 
-                {/* MOBIL nézet: egyszerűsített -- csak név+darabszám, tartalom harom-pontos (kebab) menü mögött */}
+                {/* MOBIL nézet: egyszerűsített -- csak név+darabszám, tartalom a kártyára VAGY a kebab "Megtekintés" opciójára kattintva nyílik */}
                 <div className="md:hidden bg-white rounded-2xl border border-stone-200 shadow-xs">
-                  <div className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-3 rounded-2xl bg-stone-50/60">
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setViewingFolder(folder)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setViewingFolder(folder); } }}
+                    className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-3 rounded-2xl bg-stone-50/60 cursor-pointer"
+                  >
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0 border border-emerald-100">
                         <FolderHeart className="w-5 h-5" />
@@ -430,10 +432,12 @@ export const FavoritesView: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Folder actions -- egyetlen harom-pontos (kebab) menu mappankent */}
+                    {/* Folder actions -- egyetlen harom-pontos (kebab) menu mappankent. stopPropagation,
+                        hogy a kebab/menü-kattintás ne essen át a kártya sajat "nyisd meg" onClick-jén is. */}
                     <div
                       className="relative shrink-0"
                       ref={openMenuFolderId === folder.id ? openMenuRef : undefined}
+                      onClick={(e) => e.stopPropagation()}
                     >
                       <button
                         type="button"
@@ -458,7 +462,7 @@ export const FavoritesView: React.FC = () => {
                             className="w-full px-3.5 py-2.5 text-left text-sm text-stone-700 hover:bg-stone-50 flex items-center gap-2 cursor-pointer"
                           >
                             <Eye className="w-4 h-4 text-emerald-600" />
-                            <span>Megnyitás</span>
+                            <span>Megtekintés</span>
                           </button>
                           <button
                             type="button"
