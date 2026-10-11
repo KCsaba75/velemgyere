@@ -15,6 +15,8 @@ import {
   Sparkles,
   MapPin,
   Calendar,
+  Wallet,
+  Layers,
   X,
   Eye,
   MoreVertical,
@@ -31,6 +33,7 @@ export const FavoritesView: React.FC = () => {
     createFavoriteFolder,
     updateFavoriteFolder,
     deleteFavoriteFolder,
+    clearAllFavorites,
     removeProgramFromFolder,
     openFolderModal,
     setCurrentView,
@@ -44,6 +47,7 @@ export const FavoritesView: React.FC = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingFolder, setEditingFolder] = useState<FavoriteFolder | null>(null);
   const [folderToDelete, setFolderToDelete] = useState<FavoriteFolder | null>(null);
+  const [isClearAllConfirmOpen, setIsClearAllConfirmOpen] = useState(false);
 
   const [newFolderName, setNewFolderName] = useState('');
   const [newFolderColor, setNewFolderColor] = useState('emerald');
@@ -137,6 +141,9 @@ export const FavoritesView: React.FC = () => {
     );
   }
 
+  // Compute total estimated cost across ALL saved favorites (desktop summary section)
+  const totalAllCost = allFavoritePrograms.reduce((sum, p) => sum + (Number(p.price) || 0), 0);
+
   const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newFolderName.trim()) return;
@@ -210,6 +217,57 @@ export const FavoritesView: React.FC = () => {
 
       {/* Main Content Layout */}
       <div className="space-y-10">
+        {/* "Mentett kedvencek" összesítő szekció -- CSAK ASZTALI nézeten (mobilon a kebab-menüs egyszerűsített nézet él) */}
+        <div className="hidden md:flex bg-white rounded-2xl border border-stone-200 p-5 shadow-xs flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl bg-rose-50 text-rose-500 flex items-center justify-center shrink-0">
+              <Layers className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="font-display font-bold text-xl text-stone-900">
+                Mentett kedvencek
+              </h2>
+              <p className="text-xs sm:text-sm text-stone-500 mt-0.5">
+                Összesen <strong className="text-stone-900 font-extrabold">{allFavoritePrograms.length} program</strong>, {favoriteFolders.length} mappában.
+              </p>
+            </div>
+          </div>
+
+          {/* Stats & Actions */}
+          <div className="flex flex-wrap items-center gap-3">
+            {allFavoritePrograms.length > 0 && (
+              <div className="flex items-center gap-2 bg-stone-50 px-3.5 py-2 rounded-xl border border-stone-200/80 text-xs text-stone-700">
+                <Wallet className="w-4 h-4 text-emerald-600" />
+                <span>Összköltség: <strong className="text-stone-900 font-extrabold font-display text-sm">{formatPrice(totalAllCost)} €</strong>/fő</span>
+              </div>
+            )}
+
+            {allFavoritePrograms.length > 0 && (
+              <button
+                type="button"
+                onClick={() => handleShareList('Mentett Velem Gyere Programok', allFavoritePrograms)}
+                className="px-3.5 py-2 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
+                title="Összes mentett program megosztása / Másolása"
+              >
+                <Share2 className="w-3.5 h-3.5" />
+                <span>Megosztás</span>
+              </button>
+            )}
+
+            {allFavoritePrograms.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setIsClearAllConfirmOpen(true)}
+                className="px-3.5 py-2 bg-stone-100 hover:bg-rose-50 text-stone-600 hover:text-rose-700 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer border border-stone-200 hover:border-rose-200"
+                title="Minden mentett program törlése a kedvencek közül"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                <span>Összes törlése</span>
+              </button>
+            )}
+          </div>
+        </div>
+
         {/* Copy toast feedback */}
         {copiedMessage && (
           <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-bold flex items-center gap-2 animate-in fade-in">
@@ -227,88 +285,205 @@ export const FavoritesView: React.FC = () => {
 
           {favoriteFolders.map((folder) => {
             const folderPrograms = getFolderPrograms(folder.id);
+            const folderCost = folderPrograms.reduce((sum, p) => sum + (Number(p.price) || 0), 0);
 
             return (
-              <div key={folder.id} className="bg-white rounded-2xl border border-stone-200 shadow-xs">
-                {/* Folder header */}
-                <div className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-3 rounded-2xl bg-stone-50/60">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0 border border-emerald-100">
-                      <FolderHeart className="w-5 h-5" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="font-display font-bold text-lg text-stone-900 truncate">
-                          {folder.name}
-                        </h3>
-                        {folder.is_default && (
-                          <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-200 shrink-0">
-                            Alapértelmezett lista
-                          </span>
-                        )}
-                        <span className="text-[11px] px-2 py-0.5 rounded-full font-extrabold bg-stone-100 text-stone-700 shrink-0">
-                          {folderPrograms.length} tétel
-                        </span>
+              <React.Fragment key={folder.id}>
+                {/* ASZTALI nézet: jelenlegi (f799fbda utáni) megjelenés -- mindig kibontott mappa-tartalom */}
+                <div className="hidden md:block bg-white rounded-2xl border border-stone-200 shadow-xs overflow-hidden">
+                  <div className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-stone-100 bg-stone-50/60">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0 border border-emerald-100">
+                        <FolderHeart className="w-5 h-5" />
                       </div>
-                      {folder.description && (
-                        <p className="text-xs text-stone-500 mt-0.5 truncate">{folder.description}</p>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="font-display font-bold text-lg text-stone-900 truncate">
+                            {folder.name}
+                          </h3>
+                          {folder.is_default && (
+                            <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-200 shrink-0">
+                              Alapértelmezett lista
+                            </span>
+                          )}
+                          <span className="text-[11px] px-2 py-0.5 rounded-full font-extrabold bg-stone-100 text-stone-700 shrink-0">
+                            {folderPrograms.length} tétel
+                          </span>
+                        </div>
+                        {folder.description && (
+                          <p className="text-xs text-stone-500 mt-0.5 truncate">{folder.description}</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
+                      {folderPrograms.length > 0 && (
+                        <div className="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-xl border border-stone-200/80 text-xs text-stone-700">
+                          <Wallet className="w-3.5 h-3.5 text-emerald-600" />
+                          <span><strong className="text-stone-900 font-extrabold">{formatPrice(folderCost)} €</strong>/fő</span>
+                        </div>
                       )}
+                      {folderPrograms.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => handleShareList(folder.name, folderPrograms)}
+                          className="p-2 rounded-xl text-stone-500 hover:text-stone-800 bg-white hover:bg-stone-100 border border-stone-200 transition-colors cursor-pointer"
+                          title="Lista megosztása / Másolása"
+                        >
+                          <Share2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setEditingFolder(folder)}
+                        className="p-2 rounded-xl text-stone-500 hover:text-stone-800 bg-white hover:bg-stone-100 border border-stone-200 transition-colors cursor-pointer"
+                        title="Lista átnevezése / szerkesztése"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFolderToDelete(folder)}
+                        className="p-2 rounded-xl text-rose-600 hover:text-rose-800 bg-white hover:bg-rose-50 border border-rose-200 transition-colors cursor-pointer"
+                        title="Lista törlése a benne lévő programokkal együtt"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
 
-                  {/* Folder actions -- egyetlen harom-pontos (kebab) menu mappankent */}
-                  <div
-                    className="relative shrink-0"
-                    ref={openMenuFolderId === folder.id ? openMenuRef : undefined}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => setOpenMenuFolderId(openMenuFolderId === folder.id ? null : folder.id)}
-                      className="p-2 rounded-xl text-stone-500 hover:text-stone-800 bg-white hover:bg-stone-100 border border-stone-200 transition-colors cursor-pointer"
-                      title="Műveletek"
-                      aria-haspopup="menu"
-                      aria-expanded={openMenuFolderId === folder.id}
-                    >
-                      <MoreVertical className="w-4 h-4" />
-                    </button>
+                  <div className="p-5">
+                    {folderPrograms.length === 0 ? (
+                      <div className="text-center py-8 space-y-3">
+                        <p className="text-sm text-stone-500">
+                          Ez a mappa még üres. Nyisd meg bármelyik túrát, és a szív ikonnal mentsd ide!
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCurrentView('programs');
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                          }}
+                          className="px-5 py-2 bg-stone-900 hover:bg-emerald-600 text-white font-bold rounded-xl text-xs transition-all cursor-pointer shadow-sm inline-flex items-center gap-2"
+                        >
+                          <Compass className="w-4 h-4" />
+                          <span>Programok felfedezése</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+                        {folderPrograms.map((program) => (
+                          <div key={program.id} className="relative group/favcard flex flex-col">
+                            <ProgramCard program={program} />
 
-                    {openMenuFolderId === folder.id && (
-                      <div
-                        role="menu"
-                        className="absolute right-0 top-full mt-1.5 w-48 bg-white rounded-xl border border-stone-200 shadow-lg z-20 overflow-hidden py-1 animate-in fade-in zoom-in-95 duration-150"
-                      >
-                        <button
-                          type="button"
-                          role="menuitem"
-                          onClick={() => { setViewingFolder(folder); setOpenMenuFolderId(null); }}
-                          className="w-full px-3.5 py-2.5 text-left text-sm text-stone-700 hover:bg-stone-50 flex items-center gap-2 cursor-pointer"
-                        >
-                          <Eye className="w-4 h-4 text-emerald-600" />
-                          <span>Megnyitás</span>
-                        </button>
-                        <button
-                          type="button"
-                          role="menuitem"
-                          onClick={() => { setEditingFolder(folder); setOpenMenuFolderId(null); }}
-                          className="w-full px-3.5 py-2.5 text-left text-sm text-stone-700 hover:bg-stone-50 flex items-center gap-2 cursor-pointer"
-                        >
-                          <Edit3 className="w-4 h-4 text-stone-500" />
-                          <span>Szerkesztés</span>
-                        </button>
-                        <button
-                          type="button"
-                          role="menuitem"
-                          onClick={() => { setFolderToDelete(folder); setOpenMenuFolderId(null); }}
-                          className="w-full px-3.5 py-2.5 text-left text-sm text-rose-600 hover:bg-rose-50 flex items-center gap-2 cursor-pointer border-t border-stone-100"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          <span>Törlés</span>
-                        </button>
+                            <div className="mt-2 bg-white rounded-xl border border-stone-200/90 px-3 py-2 flex items-center justify-between text-xs text-stone-600">
+                              <button
+                                type="button"
+                                onClick={() => openFolderModal(program)}
+                                className="text-[11px] font-bold text-emerald-700 hover:underline flex items-center gap-1 cursor-pointer"
+                              >
+                                <FolderHeart className="w-3.5 h-3.5" />
+                                <span>Mappák módosítása</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => removeProgramFromFolder(program.id, folder.id)}
+                                className="text-[11px] text-stone-400 hover:text-rose-600 flex items-center gap-1 cursor-pointer transition-colors"
+                                title="Eltávolítás ebből a listából"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                                <span>Kivétel a listából</span>
+                              </button>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
                 </div>
-              </div>
+
+                {/* MOBIL nézet: egyszerűsített -- csak név+darabszám, tartalom harom-pontos (kebab) menü mögött */}
+                <div className="md:hidden bg-white rounded-2xl border border-stone-200 shadow-xs">
+                  <div className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-3 rounded-2xl bg-stone-50/60">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0 border border-emerald-100">
+                        <FolderHeart className="w-5 h-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="font-display font-bold text-lg text-stone-900 truncate">
+                            {folder.name}
+                          </h3>
+                          {folder.is_default && (
+                            <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-200 shrink-0">
+                              Alapértelmezett lista
+                            </span>
+                          )}
+                          <span className="text-[11px] px-2 py-0.5 rounded-full font-extrabold bg-stone-100 text-stone-700 shrink-0">
+                            {folderPrograms.length} tétel
+                          </span>
+                        </div>
+                        {folder.description && (
+                          <p className="text-xs text-stone-500 mt-0.5 truncate">{folder.description}</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Folder actions -- egyetlen harom-pontos (kebab) menu mappankent */}
+                    <div
+                      className="relative shrink-0"
+                      ref={openMenuFolderId === folder.id ? openMenuRef : undefined}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setOpenMenuFolderId(openMenuFolderId === folder.id ? null : folder.id)}
+                        className="p-2 rounded-xl text-stone-500 hover:text-stone-800 bg-white hover:bg-stone-100 border border-stone-200 transition-colors cursor-pointer"
+                        title="Műveletek"
+                        aria-haspopup="menu"
+                        aria-expanded={openMenuFolderId === folder.id}
+                      >
+                        <MoreVertical className="w-4 h-4" />
+                      </button>
+
+                      {openMenuFolderId === folder.id && (
+                        <div
+                          role="menu"
+                          className="absolute right-0 top-full mt-1.5 w-48 bg-white rounded-xl border border-stone-200 shadow-lg z-20 overflow-hidden py-1 animate-in fade-in zoom-in-95 duration-150"
+                        >
+                          <button
+                            type="button"
+                            role="menuitem"
+                            onClick={() => { setViewingFolder(folder); setOpenMenuFolderId(null); }}
+                            className="w-full px-3.5 py-2.5 text-left text-sm text-stone-700 hover:bg-stone-50 flex items-center gap-2 cursor-pointer"
+                          >
+                            <Eye className="w-4 h-4 text-emerald-600" />
+                            <span>Megnyitás</span>
+                          </button>
+                          <button
+                            type="button"
+                            role="menuitem"
+                            onClick={() => { setEditingFolder(folder); setOpenMenuFolderId(null); }}
+                            className="w-full px-3.5 py-2.5 text-left text-sm text-stone-700 hover:bg-stone-50 flex items-center gap-2 cursor-pointer"
+                          >
+                            <Edit3 className="w-4 h-4 text-stone-500" />
+                            <span>Szerkesztés</span>
+                          </button>
+                          <button
+                            type="button"
+                            role="menuitem"
+                            onClick={() => { setFolderToDelete(folder); setOpenMenuFolderId(null); }}
+                            className="w-full px-3.5 py-2.5 text-left text-sm text-rose-600 hover:bg-rose-50 flex items-center gap-2 cursor-pointer border-t border-stone-100"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            <span>Törlés</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </React.Fragment>
             );
           })}
         </div>
@@ -623,6 +798,59 @@ export const FavoritesView: React.FC = () => {
           </div>
         );
       })()}
+
+      {/* MODAL: CONFIRM CLEAR ALL FAVORITES -- desktop "Mentett kedvencek" szekcióból nyitható */}
+      {isClearAllConfirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-stone-200 animate-in zoom-in-95 duration-200 space-y-5">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0 shadow-inner">
+                <Trash2 className="w-6 h-6 text-rose-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-display font-bold text-lg text-stone-900 leading-snug">
+                  Minden kedvenc program törlése
+                </h3>
+                <p className="text-xs text-stone-500 mt-0.5">
+                  Ki szeretnéd üríteni az összes kedvencedet?
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsClearAllConfirmOpen(false)}
+                className="p-1.5 text-stone-400 hover:text-stone-700 rounded-xl"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-900 leading-relaxed">
+              Biztosan törölni szeretnéd az <strong>összes mentett programot ({allFavoritePrograms.length} db)</strong> a kedvenceid közül?
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsClearAllConfirmOpen(false)}
+                className="px-4 py-2.5 rounded-xl border border-stone-300 text-stone-700 hover:bg-stone-100 text-xs font-semibold transition-colors cursor-pointer"
+              >
+                Mégsem
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  clearAllFavorites();
+                  setIsClearAllConfirmOpen(false);
+                }}
+                className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 cursor-pointer"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Igen, összes kedvenc törlése</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
