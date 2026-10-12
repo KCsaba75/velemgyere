@@ -369,7 +369,8 @@ interface AppContextType {
   // Global Login Modal state
   isLoginModalOpen: boolean;
   loginModalMessage: string | null;
-  openLoginModal: (message?: string) => void;
+  loginRedirectTo: string | null;
+  openLoginModal: (message?: string, redirectTo?: string) => void;
   closeLoginModal: () => void;
 }
 
@@ -440,15 +441,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Global Login Modal state
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [loginModalMessage, setLoginModalMessage] = useState<string | null>(null);
+  const [loginRedirectTo, setLoginRedirectTo] = useState<string | null>(null);
+  const loginRedirectRef = useRef<string | null>(null);
 
-  const openLoginModal = (message?: string) => {
+  const openLoginModal = (message?: string, redirectTo?: string) => {
     setLoginModalMessage(message || null);
+    setLoginRedirectTo(redirectTo || null);
+    loginRedirectRef.current = redirectTo || null;
     setIsLoginModalOpen(true);
   };
 
   const closeLoginModal = () => {
     setIsLoginModalOpen(false);
     setLoginModalMessage(null);
+    setLoginRedirectTo(null);
+    loginRedirectRef.current = null;
   };
 
   const [folderModalProgram, setFolderModalProgram] = useState<Program | null>(null);
@@ -753,7 +760,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsAuthenticated(true);
         setCurrentUser(profileObj);
         setRawProfiles(prev => (prev.some(p => p.id === prof!.id) ? prev : [...prev, profileObj]));
-        // Maradjunk azon a lapon, ahonnan a bejelentkezést indítottuk - nincs automatikus átirányítás
+        
+        if (loginRedirectRef.current) {
+          const target = loginRedirectRef.current;
+          loginRedirectRef.current = null;
+          setCurrentView(target);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
         loadProgramsAndProviders(true, role);
 
         // Own provider row, full columns incl. contact fields (kanban fbf552b2 point 3) --
@@ -2774,6 +2787,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // Global Login Modal state
         isLoginModalOpen,
         loginModalMessage,
+        loginRedirectTo,
         openLoginModal,
         closeLoginModal,
 

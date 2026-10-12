@@ -49,7 +49,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   const handleAccountClick = () => {
     if (!isAuthenticated) {
-      onOpenLogin();
+      openLoginModal(undefined, 'programs');
     } else if (currentUser.role === 'admin') {
       navigateTo('admin-dashboard');
     } else if (currentUser.role === 'provider') {
@@ -204,7 +204,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </button>
               ) : (
                 <button
-                  onClick={onOpenLogin}
+                  onClick={() => openLoginModal(undefined, 'programs')}
                   className="px-4 py-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-medium text-sm shadow-sm transition-colors cursor-pointer"
                 >
                   Belépés / Regisztráció

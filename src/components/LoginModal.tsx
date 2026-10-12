@@ -8,7 +8,7 @@ interface LoginModalProps {
 }
 
 export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
-  const { login, registerVisitor, setCurrentView, loginModalMessage } = useApp();
+  const { login, registerVisitor, setCurrentView, loginModalMessage, loginRedirectTo } = useApp();
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -47,6 +47,10 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
           // show the message instead of silently closing (there may be no session yet).
           setInfoMessage(res.message);
         } else {
+          if (loginRedirectTo) {
+            setCurrentView(loginRedirectTo);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }
           resetAndClose();
         }
       } else {
