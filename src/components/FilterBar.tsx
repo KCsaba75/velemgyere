@@ -208,7 +208,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({ mobileOpen, onCloseMobile 
     <>
       {/* Desktop: full inline card, unchanged. Mobile keeps only the funnel-icon
           trigger next to the page title (in ProgramList) -- kanban e0ee8b7e. */}
-      <div className="hidden sm:block bg-white rounded-2xl border border-stone-200 shadow-sm p-4 sm:p-5 mb-8">
+      <div className="hidden md:block bg-white rounded-2xl border border-stone-200 shadow-sm p-4 sm:p-5 mb-8">
         <div className="flex items-center justify-between gap-3 mb-4">
           <div className="flex items-center gap-2 text-stone-900 font-bold font-display text-base sm:text-lg">
             <Filter className="w-5 h-5 text-emerald-600" />
@@ -232,7 +232,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({ mobileOpen, onCloseMobile 
       {/* Mobile: filter drawer, opened by the funnel icon next to the page h2. */}
       {mobileOpen && (
         <div
-          className="sm:hidden fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+          className="md:hidden fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
           onClick={onCloseMobile}
         >
           <div

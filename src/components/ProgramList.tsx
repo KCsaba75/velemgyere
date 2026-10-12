@@ -145,117 +145,142 @@ export const ProgramList: React.FC<ProgramListProps> = ({ onOpenMobileFilters })
 
   return (
     <div id="programs-section" className="scroll-mt-24">
-      {/* Header with results count & region indicator */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
+      {/* Mobile Header (< 768px): No 'Magyar Nyelvű', concise, with immediate quick filter bar */}
+      <div className="md:hidden mb-4">
+        <div className="flex items-center justify-between gap-2 mb-2.5">
+          <div>
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
+                Külföldi Programkatalógus
+              </span>
+              {activeRegionObj && (
+                <span className="text-[10px] font-bold text-stone-700 bg-stone-100 px-2 py-0.5 rounded-md flex items-center gap-1">
+                  <CountryFlag emoji={activeRegionObj.flag_emoji} country={activeRegionObj.country || activeRegionObj.name} size="xs" />
+                  <span>{activeRegionObj.name}</span>
+                </span>
+              )}
+            </div>
+            <h1 className="text-lg font-extrabold font-display text-stone-900 tracking-tight">
+              Kirándulások & Élmények
+            </h1>
+          </div>
+
+          <div className="text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-xl shrink-0 flex items-center gap-1.5">
+            <CountryFlag emoji="🇭🇺" country="Magyarország" size="xs" />
+            <span>{filteredPrograms.length} program</span>
+          </div>
+        </div>
+
+        {/* Mobile Quick Filter Bar: Hová utazol, Indulás, Érkezés + Tölcsér (további szűrők) */}
+        <div className="bg-white p-3 rounded-2xl border border-stone-200 shadow-sm space-y-2.5">
+          <div className="flex items-center gap-2">
+            {/* Hová utazol? */}
+            <div className="relative flex-1 min-w-0">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-emerald-600">
+                <MapPin className="w-4 h-4" />
+              </div>
+              <select
+                value={selectedRegion || ''}
+                onChange={(e) => setSelectedRegion(e.target.value || null)}
+                className="w-full pl-9 pr-8 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-bold text-stone-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer appearance-none truncate"
+              >
+                <option value="">Hová utazol? (Összes úticél)</option>
+                {regions.filter(r => r.active).map((reg) => (
+                  <option key={reg.id} value={reg.slug}>
+                    {reg.flag_emoji ? `${reg.flag_emoji} ` : ''}{reg.country ? `${reg.country} – ` : ''}{reg.name}
+                  </option>
+                ))}
+              </select>
+              <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none text-stone-400">
+                <ChevronDown className="w-4 h-4" />
+              </div>
+            </div>
+
+            {/* Tölcsér gomb (További szűrési lehetőségek) */}
+            <button
+              type="button"
+              onClick={onOpenMobileFilters}
+              className={`relative shrink-0 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all cursor-pointer ${
+                hasActiveFilters
+                  ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                  : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
+              }`}
+              aria-label="További szűrési lehetőségek"
+              title="További szűrési lehetőségek"
+            >
+              <Filter className="w-3.5 h-3.5" />
+              <span className="text-[11px]">Szűrők</span>
+              {hasActiveFilters && (
+                <span className="w-2 h-2 rounded-full bg-rose-400 animate-pulse" />
+              )}
+            </button>
+          </div>
+
+          {/* Indulás & Érkezés */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1 flex items-center gap-1">
+                <Calendar className="w-3 h-3 text-emerald-600" />
+                <span>Indulás</span>
+              </label>
+              <input
+                type="date"
+                value={selectedDateFrom}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSelectedDateFrom(val);
+                  if (selectedDateTo && val && val > selectedDateTo) {
+                    setSelectedDateTo('');
+                  }
+                }}
+                className="w-full text-xs bg-stone-50 border border-stone-200 rounded-xl px-2.5 py-1.5 text-stone-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1 flex items-center gap-1">
+                <Calendar className="w-3 h-3 text-emerald-600" />
+                <span>Érkezés</span>
+              </label>
+              <input
+                type="date"
+                value={selectedDateTo}
+                min={selectedDateFrom || undefined}
+                onChange={(e) => setSelectedDateTo(e.target.value)}
+                className="w-full text-xs bg-stone-50 border border-stone-200 rounded-xl px-2.5 py-1.5 text-stone-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Desktop Header (>= 768px): Full banner */}
+      <div className="hidden md:flex items-center justify-between gap-4 mb-6">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-lg">
-              Külföldi <span className="hidden sm:inline">Magyar </span>Programkatalógus
+            <span className="text-xs font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-lg">
+              Külföldi Magyar Programkatalógus
             </span>
             {activeRegionObj && (
-              <span className="text-[11px] sm:text-xs font-bold text-stone-700 bg-stone-100 px-2.5 py-0.5 rounded-lg flex items-center gap-1.5">
+              <span className="text-xs font-bold text-stone-700 bg-stone-100 px-2.5 py-0.5 rounded-lg flex items-center gap-1.5">
                 <CountryFlag emoji={activeRegionObj.flag_emoji} country={activeRegionObj.country || activeRegionObj.name} size="xs" />
                 <span>Szűkítve: {activeRegionObj.name}</span>
               </span>
             )}
           </div>
-          <div>
-            <h2 className="text-xl sm:text-3xl font-extrabold font-display text-stone-900 tracking-tight">
-              <span className="hidden sm:inline">Magyar Nyelvű </span>Kirándulások, Élmények & Transzferek
-            </h2>
-          </div>
-          <p className="hidden sm:block text-sm text-stone-500 mt-1">
+          <h2 className="text-2xl sm:text-3xl font-extrabold font-display text-stone-900 tracking-tight">
+            Magyar Nyelvű Kirándulások, Élmények & Transzferek
+          </h2>
+          <p className="text-sm text-stone-500 mt-1">
             Közvetlen kapcsolat helyi magyar idegenvezetőkkel és tapasztalt túraszervezőkkel
           </p>
         </div>
 
-        <div className="text-xs sm:text-sm font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-3 sm:px-3.5 py-1 sm:py-1.5 rounded-xl self-start sm:self-auto flex items-center gap-1.5">
+        <div className="text-sm font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-3.5 py-1.5 rounded-xl shrink-0 flex items-center gap-1.5">
           <CountryFlag emoji="🇭🇺" country="Magyarország" size="xs" />
           <span>
-            {filteredPrograms.length} <span className="hidden sm:inline">magyar nyelvű </span>program
+            {filteredPrograms.length} magyar nyelvű program
           </span>
-        </div>
-      </div>
-
-      {/* Mobile Quick Filter Bar: Hová utazol, Indulás, Érkezés + Tölcsér (további szűrők) */}
-      <div className="sm:hidden bg-white p-3 rounded-2xl border border-stone-200 shadow-sm mb-5 space-y-2.5">
-        <div className="flex items-center gap-2">
-          {/* Hová utazol? */}
-          <div className="relative flex-1 min-w-0">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-emerald-600">
-              <MapPin className="w-4 h-4" />
-            </div>
-            <select
-              value={selectedRegion || ''}
-              onChange={(e) => setSelectedRegion(e.target.value || null)}
-              className="w-full pl-9 pr-8 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-bold text-stone-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer appearance-none truncate"
-            >
-              <option value="">Hová utazol? (Összes úticél)</option>
-              {regions.filter(r => r.active).map((reg) => (
-                <option key={reg.id} value={reg.slug}>
-                  {reg.flag_emoji ? `${reg.flag_emoji} ` : ''}{reg.country ? `${reg.country} – ` : ''}{reg.name}
-                </option>
-              ))}
-            </select>
-            <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none text-stone-400">
-              <ChevronDown className="w-4 h-4" />
-            </div>
-          </div>
-
-          {/* Tölcsér gomb (További szűrési lehetőségek) */}
-          <button
-            type="button"
-            onClick={onOpenMobileFilters}
-            className={`relative shrink-0 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all cursor-pointer ${
-              hasActiveFilters
-                ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-                : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
-            }`}
-            aria-label="További szűrési lehetőségek"
-            title="További szűrési lehetőségek"
-          >
-            <Filter className="w-3.5 h-3.5" />
-            <span className="text-[11px]">Szűrők</span>
-            {hasActiveFilters && (
-              <span className="w-2 h-2 rounded-full bg-rose-400 animate-pulse" />
-            )}
-          </button>
-        </div>
-
-        {/* Indulás & Érkezés */}
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <label className="block text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1 flex items-center gap-1">
-              <Calendar className="w-3 h-3 text-emerald-600" />
-              <span>Indulás</span>
-            </label>
-            <input
-              type="date"
-              value={selectedDateFrom}
-              onChange={(e) => {
-                const val = e.target.value;
-                setSelectedDateFrom(val);
-                if (selectedDateTo && val && val > selectedDateTo) {
-                  setSelectedDateTo('');
-                }
-              }}
-              className="w-full text-xs bg-stone-50 border border-stone-200 rounded-xl px-2.5 py-1.5 text-stone-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
-            />
-          </div>
-
-          <div>
-            <label className="block text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1 flex items-center gap-1">
-              <Calendar className="w-3 h-3 text-emerald-600" />
-              <span>Érkezés</span>
-            </label>
-            <input
-              type="date"
-              value={selectedDateTo}
-              min={selectedDateFrom || undefined}
-              onChange={(e) => setSelectedDateTo(e.target.value)}
-              className="w-full text-xs bg-stone-50 border border-stone-200 rounded-xl px-2.5 py-1.5 text-stone-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
-            />
-          </div>
         </div>
       </div>
 
