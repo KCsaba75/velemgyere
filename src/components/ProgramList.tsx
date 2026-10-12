@@ -256,6 +256,20 @@ export const ProgramList: React.FC<ProgramListProps> = ({ onOpenMobileFilters })
               />
             </div>
           </div>
+
+          {/* Szűrők törlése: eddig csak a nulla-találatos üres-nézetben volt elérhető
+              (kanban 2a694007) -- most a gyors-szűrő sáv része, mindig látszik amíg
+              van aktív szűrés, nem csak akkor ha a szűrés nulla találatot ad. */}
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={resetFilters}
+              className="w-full flex items-center justify-center gap-1.5 text-xs text-rose-600 hover:text-rose-700 font-semibold py-1 cursor-pointer"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Szűrők törlése</span>
+            </button>
+          )}
         </div>
       </div>
 
