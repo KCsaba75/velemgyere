@@ -242,7 +242,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({ mobileOpen, onCloseMobile 
             <div className="flex items-center justify-between pb-3 border-b border-stone-100">
               <div className="flex items-center gap-2 text-stone-900 font-bold font-display text-base">
                 <Filter className="w-5 h-5 text-emerald-600" />
-                <span>Szűrés</span>
+                <span>További szűrési lehetőségek</span>
               </div>
               <button
                 type="button"
