@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useApp, formatPrice } from '../context/AppContext';
+import { useApp, formatPrice, getBookingReference } from '../context/AppContext';
 import {
   X,
   Ticket,
@@ -65,12 +65,18 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
   const [copiedId, setCopiedId] = useState(false);
   const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
 
+  const bookingCode = getBookingReference(order);
+  const formattedBookingId = `#${bookingCode}`;
+
   const handleCopyId = () => {
-    if (!order.id) return;
-    navigator.clipboard?.writeText(order.id).then(() => {
+    if (!bookingCode) return;
+    navigator.clipboard?.writeText(bookingCode).then(() => {
       setCopiedId(true);
       setTimeout(() => setCopiedId(false), 2000);
-    }).catch(() => {});
+    }).catch(() => {
+      setCopiedId(true);
+      setTimeout(() => setCopiedId(false), 2000);
+    });
   };
 
   const program = order.program || programs.find(p => p.id === order.program_id || p.slug === order.program_id);
@@ -128,8 +134,8 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
               <div className="flex flex-wrap items-center gap-2 text-xs text-stone-500 mt-0.5">
                 <span>{formatDate(order.created_at)}</span>
                 <span className="text-stone-300">•</span>
-                <span className="font-mono text-[11px] font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/70">
-                  #{order.id.slice(0, 12)}
+                <span className="font-mono text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-200">
+                  {formattedBookingId}
                 </span>
               </div>
             </div>
@@ -154,12 +160,12 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
             <button
               type="button"
               onClick={handleCopyId}
-              title="Azonosító másolása a vágólapra"
-              className="inline-flex items-center gap-1.5 text-xs text-stone-600 hover:text-stone-900 bg-stone-100 hover:bg-stone-200/80 px-2.5 py-1.5 rounded-lg border border-stone-200 transition-colors cursor-pointer group"
+              title="Foglalási azonosító másolása a vágólapra"
+              className="inline-flex items-center gap-1.5 text-xs text-stone-700 hover:text-stone-900 bg-stone-100 hover:bg-stone-200/80 px-3 py-1.5 rounded-lg border border-stone-200 transition-colors cursor-pointer group shadow-xs"
             >
               <Hash className="w-3.5 h-3.5 text-stone-400 group-hover:text-stone-600 shrink-0" />
-              <span className="font-mono text-[11px] font-bold text-stone-800">
-                {order.id}
+              <span className="font-mono text-xs font-bold text-stone-900">
+                {bookingCode}
               </span>
               {copiedId ? (
                 <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 ml-1" />
@@ -167,13 +173,19 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
                 <Copy className="w-3.5 h-3.5 text-stone-400 group-hover:text-stone-600 shrink-0 ml-1" />
               )}
               {copiedId && (
-                <span className="text-[10px] font-bold text-emerald-700">Másolva!</span>
+                <span className="text-[10px] font-bold text-emerald-700 ml-0.5">Másolva!</span>
               )}
             </button>
           </div>
 
           {/* Booking data */}
           <div className="bg-stone-50 rounded-2xl border border-stone-200/80 p-4 space-y-2 text-sm text-stone-700">
+            <div className="flex items-center justify-between pb-2 mb-1 border-b border-stone-200/70 text-xs">
+              <span className="text-stone-500 font-medium">Foglalási azonosító:</span>
+              <span className="font-mono font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                {formattedBookingId}
+              </span>
+            </div>
             <div className="flex items-center gap-2">
               <Users className="w-4 h-4 text-stone-400 shrink-0" />
               <span>{order.participants_count} fő</span>

@@ -159,6 +159,7 @@ export type OnsitePaymentMethod = 'cash' | 'revolut';
 
 export interface Order {
   id: string;
+  booking_reference?: string;
   program_id: string;
   // Kanban c039bfb6 -- NULL a regi, occurrence nelkuli programok rendelesein.
   occurrence_id?: string | null;

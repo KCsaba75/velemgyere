@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useApp, formatPrice } from '../context/AppContext';
+import { useApp, formatPrice, getBookingReference } from '../context/AppContext';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import { Ticket, Compass, Eye, Sparkles, ArrowRight, Users } from 'lucide-react';
 import { Order, OrderStatus } from '../types/database';
@@ -139,8 +139,8 @@ export const BookingsView: React.FC = () => {
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2 mb-1">
-                    <span className="font-mono text-[11px] font-bold text-stone-500 bg-stone-100 px-2 py-0.5 rounded-md border border-stone-200">
-                      #{order.id.slice(0, 10)}
+                    <span className="font-mono text-xs font-bold text-stone-600 bg-stone-100 px-2.5 py-0.5 rounded-md border border-stone-200">
+                      #{getBookingReference(order)}
                     </span>
                     <h3 className="font-bold text-stone-900 text-sm sm:text-base truncate">
                       {prog?.title || 'Program'}

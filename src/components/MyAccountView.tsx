@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useApp } from '../context/AppContext';
+import { useApp, getBookingReference } from '../context/AppContext';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import {
   User,
@@ -343,6 +343,9 @@ export const MyAccountView: React.FC = () => {
                   <div key={o.id} className="flex items-center justify-between text-xs text-stone-600 bg-stone-50 border border-stone-100 rounded-xl px-4 py-2.5 gap-3">
                     <span className="flex items-center gap-1.5 min-w-0">
                       <Receipt className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                      <span className="font-mono text-[11px] font-bold text-stone-600 bg-stone-100 px-1.5 py-0.5 rounded border border-stone-200 shrink-0">
+                        #{getBookingReference(o)}
+                      </span>
                       <span className="truncate">{o.program?.title || 'Program'} · {formatDate(o.created_at)}</span>
                     </span>
                     <span className="font-bold text-stone-900 shrink-0">{Number(o.booking_fee).toFixed(2)} €</span>

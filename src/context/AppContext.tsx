@@ -71,6 +71,42 @@ function pathToView(pathname: string): string {
   return 'home';
 }
 
+export function getBookingReference(orderOrId?: { id?: string; booking_reference?: string; created_at?: string } | string | null): string {
+  if (!orderOrId) return 'VG-2026-100001';
+
+  if (typeof orderOrId === 'string') {
+    const raw = orderOrId.trim();
+    if (/^#?(VG|V6)-2026-\d+$/i.test(raw)) {
+      return raw.startsWith('#') ? raw.slice(1) : raw;
+    }
+    let hash = 0;
+    for (let i = 0; i < raw.length; i++) {
+      hash = ((hash << 5) - hash) + raw.charCodeAt(i);
+      hash |= 0;
+    }
+    const num = Math.abs(hash) % 900000 + 100000;
+    return `VG-2026-${num}`;
+  }
+
+  if (orderOrId.booking_reference) {
+    const ref = orderOrId.booking_reference.trim();
+    return ref.startsWith('#') ? ref.slice(1) : ref;
+  }
+
+  const rawId = (orderOrId.id || '').trim();
+  if (/^#?(VG|V6)-2026-\d+$/i.test(rawId)) {
+    return rawId.startsWith('#') ? rawId.slice(1) : rawId;
+  }
+
+  let hash = 0;
+  for (let i = 0; i < rawId.length; i++) {
+    hash = ((hash << 5) - hash) + rawId.charCodeAt(i);
+    hash |= 0;
+  }
+  const num = Math.abs(hash) % 900000 + 100000;
+  return `VG-2026-${num}`;
+}
+
 interface AppContextType {
   // Navigation. currentView/setCurrentView are a compatibility shim over real
   // react-router URLs (16241c32) -- currentView is derived from location.pathname,
@@ -192,7 +228,8 @@ interface AppContextType {
     total_price: number;
     currency?: string;
     onsite_payment_method: OnsitePaymentMethod;
-  }) => Promise<{ success: boolean; message: string }>;
+    booking_reference?: string;
+  }) => Promise<{ success: boolean; message: string; orderId?: string }>;
   cancelOrder: (id: string) => Promise<void>;
 
   // Capacity check (point 6): only meaningful for logged-in users looking at the
@@ -1575,13 +1612,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     total_price: number;
     currency?: string;
     onsite_payment_method: OnsitePaymentMethod;
-  }): Promise<{ success: boolean; message: string }> => {
+    booking_reference?: string;
+  }): Promise<{ success: boolean; message: string; orderId?: string }> => {
+    const bookingRef = data.booking_reference || `VG-2026-${Math.floor(100000 + Math.random() * 900000)}`;
     if (!isSupabaseConfigured) {
       const targetProg = programs.find(p => p.id === data.program_id || p.slug === data.program_id);
       const netAmount = (targetProg?.price || 0) * data.participants_count;
       const feeAmount = Math.max(0, data.total_price - netAmount);
       const mockOrder: Order = {
-        id: `ord-${Date.now()}`,
+        id: bookingRef,
+        booking_reference: bookingRef,
         program_id: targetProg ? targetProg.id : data.program_id,
         occurrence_id: data.occurrence_id || null,
         user_id: currentUser?.id || currentUser?.user_id || 'demo-user',
@@ -1596,7 +1636,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updated_at: new Date().toISOString()
       };
       setOrders(prev => [mockOrder, ...prev]);
-      return { success: true, message: 'Sikeres foglalás és fizetés! A szolgáltató hamarosan megerősíti.' };
+      return { success: true, message: 'Sikeres foglalás és fizetés! A szolgáltató hamarosan megerősíti.', orderId: bookingRef };
     }
     const { data: sessionData } = await supabase.auth.getSession();
     const userId = sessionData.session?.user.id || currentUser?.id;
@@ -1622,8 +1662,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (error) {
       return { success: false, message: `Hiba a foglalás során: ${error.message}` };
     }
-    setOrders(prev => [row as Order, ...prev]);
-    return { success: true, message: 'Sikeres foglalás és fizetés! A szolgáltató hamarosan megerősíti.' };
+    const insertedOrder = {
+      ...(row as Order),
+      booking_reference: bookingRef
+    };
+    setOrders(prev => [insertedOrder, ...prev]);
+    return { success: true, message: 'Sikeres foglalás és fizetés! A szolgáltató hamarosan megerősíti.', orderId: bookingRef };
   };
 
   const cancelOrder = async (id: string): Promise<void> => {

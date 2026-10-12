@@ -813,6 +813,7 @@ export const INITIAL_INQUIRIES: Inquiry[] = [
 export const INITIAL_ORDERS: Order[] = [
   {
     id: 'ord-seed-cyp-1',
+    booking_reference: 'VG-2026-104821',
     program_id: 'prog-cyp-1',
     user_id: 'user-sample-traveler-1',
     participants_count: 2,
@@ -826,6 +827,7 @@ export const INITIAL_ORDERS: Order[] = [
   },
   {
     id: 'ord-seed-cyp-2',
+    booking_reference: 'VG-2026-218943',
     program_id: 'prog-cyp-1',
     user_id: 'user-sample-traveler-2',
     participants_count: 4,
@@ -839,6 +841,7 @@ export const INITIAL_ORDERS: Order[] = [
   },
   {
     id: 'ord-seed-mal-1',
+    booking_reference: 'VG-2026-391402',
     program_id: 'prog-mal-1',
     user_id: 'user-sample-traveler-3',
     participants_count: 2,
@@ -852,6 +855,7 @@ export const INITIAL_ORDERS: Order[] = [
   },
   {
     id: 'ord-seed-esp-1',
+    booking_reference: 'VG-2026-475281',
     program_id: 'prog-esp-1',
     user_id: 'user-sample-traveler-4',
     participants_count: 2,
@@ -865,6 +869,7 @@ export const INITIAL_ORDERS: Order[] = [
   },
   {
     id: 'ord-seed-ita-1',
+    booking_reference: 'VG-2026-583920',
     program_id: 'prog-ita-1',
     user_id: 'user-sample-traveler-5',
     participants_count: 1,
@@ -878,6 +883,7 @@ export const INITIAL_ORDERS: Order[] = [
   },
   {
     id: 'ord-seed-tur-1',
+    booking_reference: 'VG-2026-629104',
     program_id: 'prog-tur-1',
     user_id: 'user-sample-traveler-6',
     participants_count: 2,
@@ -891,6 +897,7 @@ export const INITIAL_ORDERS: Order[] = [
   },
   {
     id: 'ord-seed-vis-1',
+    booking_reference: 'VG-2026-738291',
     program_id: 'prog-cyp-1',
     user_id: 'user-visitor',
     participants_count: 2,
@@ -904,6 +911,7 @@ export const INITIAL_ORDERS: Order[] = [
   },
   {
     id: 'ord-seed-vis-2',
+    booking_reference: 'VG-2026-847291',
     program_id: 'prog-mal-1',
     user_id: 'user-visitor',
     participants_count: 2,

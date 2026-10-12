@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useApp, formatPrice } from '../context/AppContext';
+import { useApp, formatPrice, getBookingReference } from '../context/AppContext';
 import { CountryFlag } from './CountryFlag';
 import {
   Building2,
@@ -631,7 +631,12 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
                   return (
                     <div key={order.id} className="p-5 hover:bg-stone-50/50 transition-colors space-y-3">
                       <div className="flex flex-wrap items-center justify-between gap-2">
-                        <h4 className="font-bold text-stone-900 text-sm">{program?.title || 'Program'}</h4>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-mono text-xs font-bold text-stone-600 bg-stone-100 px-2.5 py-0.5 rounded-md border border-stone-200">
+                            #{getBookingReference(order)}
+                          </span>
+                          <h4 className="font-bold text-stone-900 text-sm">{program?.title || 'Program'}</h4>
+                        </div>
                         <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
                           order.status === 'confirmed' ? 'bg-emerald-100 text-emerald-800' :
                           order.status === 'pending' ? 'bg-amber-100 text-amber-900' :

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Program, Order, TravelType } from '../types/database';
-import { useApp } from '../context/AppContext';
+import { useApp, getBookingReference } from '../context/AppContext';
 import { 
   X, 
   Star, 
@@ -195,7 +195,7 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
               Hiteles, ellenőrzött foglalás
             </p>
             <p className="text-stone-600">
-              Résztvevő: <strong>{currentUser?.name || 'Utazó'}</strong> • Rendelés azonosító: <span className="font-mono text-stone-800">{order.id.slice(0, 14)}...</span>
+              Résztvevő: <strong>{currentUser?.name || 'Utazó'}</strong> • Rendelés azonosító: <span className="font-mono font-bold text-stone-800">#{getBookingReference(order)}</span>
             </p>
           </div>
         </div>

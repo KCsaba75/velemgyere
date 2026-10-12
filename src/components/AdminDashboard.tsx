@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useApp, formatPrice, formatPlatformFee } from '../context/AppContext';
+import { useApp, formatPrice, formatPlatformFee, getBookingReference } from '../context/AppContext';
 import { CountryFlag } from './CountryFlag';
 import {
   ShieldCheck,
@@ -978,8 +978,8 @@ export const AdminDashboard: React.FC = () => {
                     <div key={order.id} className="p-5 hover:bg-stone-50/50 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <div className="space-y-1.5 flex-1 min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-mono text-[11px] font-bold text-stone-500 bg-stone-100 px-2 py-0.5 rounded-md">
-                            #{order.id.slice(0, 10)}
+                          <span className="font-mono text-xs font-bold text-stone-600 bg-stone-100 px-2 py-0.5 rounded-md border border-stone-200">
+                            #{getBookingReference(order)}
                           </span>
                           <h4 
                             onClick={() => order.program_id && openProgramDetail(order.program_id)}

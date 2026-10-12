@@ -107,6 +107,7 @@ export const BookingCheckoutModal: React.FC<BookingCheckoutModalProps> = ({
         total_price: total,
         currency: program.currency,
         onsite_payment_method: onsitePaymentMethod,
+        booking_reference: bookingRef,
       });
 
       if (!result.success) {
