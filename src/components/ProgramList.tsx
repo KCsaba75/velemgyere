@@ -2,9 +2,17 @@ import React, { useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { ProgramCard } from './ProgramCard';
 import { CountryFlag } from './CountryFlag';
-import { SearchX, RotateCcw, Globe } from 'lucide-react';
+import { SearchX, RotateCcw, Globe, Filter } from 'lucide-react';
 
-export const ProgramList: React.FC = () => {
+interface ProgramListProps {
+  // Mobile filter-drawer trigger (kanban e0ee8b7e) -- the open/close state
+  // itself lives in the shared parent page (HomePage/ProgramsPage), since
+  // FilterBar (the drawer's owner) is a sibling of this component, not a
+  // parent.
+  onOpenMobileFilters: () => void;
+}
+
+export const ProgramList: React.FC<ProgramListProps> = ({ onOpenMobileFilters }) => {
   const {
     programs,
     regions,
@@ -16,10 +24,22 @@ export const ProgramList: React.FC = () => {
     selectedDate,
     selectedDurationType,
     maxPrice,
+    currencyFilter,
     openProgramDetail,
     resetFilters,
     isLoading
   } = useApp();
+
+  // Mirrors FilterBar's own hasActiveFilters -- shows a dot on the mobile
+  // funnel icon so a filtered view is visible even with the drawer closed.
+  const hasActiveFilters = Boolean(
+    selectedRegion ||
+    selectedCategory ||
+    selectedDate ||
+    selectedDurationType !== 'all' ||
+    maxPrice < 150 ||
+    currencyFilter !== 'ALL'
+  );
 
   // Active region details
   const activeRegionObj = regions.find(r => r.slug === selectedRegion);
@@ -128,9 +148,23 @@ export const ProgramList: React.FC = () => {
               </span>
             )}
           </div>
-          <h2 className="text-2xl sm:text-3xl font-extrabold font-display text-stone-900 tracking-tight">
-            Magyar Nyelvű Kirándulások, Élmények & Transzferek
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-2xl sm:text-3xl font-extrabold font-display text-stone-900 tracking-tight">
+              Magyar Nyelvű Kirándulások, Élmények & Transzferek
+            </h2>
+            <button
+              type="button"
+              onClick={onOpenMobileFilters}
+              className="sm:hidden relative shrink-0 w-9 h-9 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center justify-center cursor-pointer"
+              aria-label="Szűrők megnyitása"
+              title="Szűrők"
+            >
+              <Filter className="w-4 h-4" />
+              {hasActiveFilters && (
+                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-rose-500 border-2 border-white" />
+              )}
+            </button>
+          </div>
           <p className="text-sm text-stone-500 mt-1">
             Közvetlen kapcsolat helyi magyar idegenvezetőkkel és tapasztalt túraszervezőkkel
           </p>

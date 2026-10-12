@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
@@ -45,10 +45,15 @@ export const ProgramsPage: React.FC<ProgramsPageProps> = ({ filterType }) => {
 
   useDocumentMeta(title, description);
 
+  // Mobile filter drawer (kanban e0ee8b7e): lifted here, same reasoning as
+  // HomePage -- FilterBar (the drawer) and ProgramList (the trigger button)
+  // are siblings below.
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6 pb-8 sm:pb-12">
-      <FilterBar />
-      <ProgramList />
+      <FilterBar mobileOpen={mobileFiltersOpen} onCloseMobile={() => setMobileFiltersOpen(false)} />
+      <ProgramList onOpenMobileFilters={() => setMobileFiltersOpen(true)} />
     </div>
   );
 };

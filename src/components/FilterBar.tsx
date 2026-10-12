@@ -1,19 +1,29 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useApp } from '../context/AppContext';
 import { CountryFlag } from './CountryFlag';
-import { 
-  Filter, 
-  RotateCcw, 
-  MapPin, 
-  Calendar, 
-  DollarSign, 
-  Clock, 
+import {
+  Filter,
+  RotateCcw,
+  MapPin,
+  Calendar,
+  DollarSign,
+  Clock,
   Layers,
-  ChevronDown,
-  Globe
+  Globe,
+  X
 } from 'lucide-react';
 
-export const FilterBar: React.FC = () => {
+interface FilterBarProps {
+  // Mobile-only filter drawer (kanban e0ee8b7e): the trigger button lives next
+  // to the page's own h2 in ProgramList, a sibling component, so the open
+  // state is owned by the shared parent page (HomePage/ProgramsPage) and
+  // handed down here. Desktop keeps the always-visible inline card below,
+  // unaffected by this state.
+  mobileOpen: boolean;
+  onCloseMobile: () => void;
+}
+
+export const FilterBar: React.FC<FilterBarProps> = ({ mobileOpen, onCloseMobile }) => {
   const {
     regions,
     selectedRegion,
@@ -32,8 +42,6 @@ export const FilterBar: React.FC = () => {
     resetFilters,
   } = useApp();
 
-  const [expanded, setExpanded] = useState(false);
-
   const hasActiveFilters = Boolean(
     selectedRegion ||
     selectedCategory ||
@@ -43,36 +51,10 @@ export const FilterBar: React.FC = () => {
     currencyFilter !== 'ALL'
   );
 
-  return (
-    <div className="bg-white rounded-2xl border border-stone-200 shadow-sm p-4 sm:p-5 mb-8">
-      <div className="flex items-center justify-between gap-3 mb-4">
-        <div className="flex items-center gap-2 text-stone-900 font-bold font-display text-base sm:text-lg">
-          <Filter className="w-5 h-5 text-emerald-600" />
-          <span>Szűrés: Külföldi Programok & Transzferek</span>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {hasActiveFilters && (
-            <button
-              onClick={resetFilters}
-              className="text-xs text-rose-600 hover:text-rose-700 font-semibold flex items-center gap-1 hover:underline cursor-pointer"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>Szűrők törlése</span>
-            </button>
-          )}
-
-          <button
-            onClick={() => setExpanded(!expanded)}
-            className="sm:hidden text-xs text-stone-600 font-medium px-2 py-1 bg-stone-100 rounded-lg flex items-center gap-1 cursor-pointer"
-          >
-            <span>{expanded ? 'Kevesebb szűrő' : 'Részletes szűrők'}</span>
-            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${expanded ? 'rotate-180' : ''}`} />
-          </button>
-        </div>
-      </div>
-
-      <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 ${expanded ? 'block' : 'hidden sm:grid'}`}>
+  // Same control set rendered both in the desktop inline card and in the
+  // mobile drawer (kanban e0ee8b7e) -- one definition, two places it mounts.
+  const filterControls = (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* 1. Úticél / Régió */}
         <div>
           <label className="block text-xs font-bold text-stone-700 mb-1.5 flex items-center gap-1">
@@ -195,7 +177,83 @@ export const FilterBar: React.FC = () => {
             </span>
           </div>
         </div>
-      </div>
     </div>
+  );
+
+  return (
+    <>
+      {/* Desktop: full inline card, unchanged. Mobile keeps only the funnel-icon
+          trigger next to the page title (in ProgramList) -- kanban e0ee8b7e. */}
+      <div className="hidden sm:block bg-white rounded-2xl border border-stone-200 shadow-sm p-4 sm:p-5 mb-8">
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <div className="flex items-center gap-2 text-stone-900 font-bold font-display text-base sm:text-lg">
+            <Filter className="w-5 h-5 text-emerald-600" />
+            <span>Szűrés: Külföldi Programok & Transzferek</span>
+          </div>
+
+          {hasActiveFilters && (
+            <button
+              onClick={resetFilters}
+              className="text-xs text-rose-600 hover:text-rose-700 font-semibold flex items-center gap-1 hover:underline cursor-pointer"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Szűrők törlése</span>
+            </button>
+          )}
+        </div>
+
+        {filterControls}
+      </div>
+
+      {/* Mobile: filter drawer, opened by the funnel icon next to the page h2. */}
+      {mobileOpen && (
+        <div
+          className="sm:hidden fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={onCloseMobile}
+        >
+          <div
+            className="bg-white rounded-t-3xl w-full max-h-[85vh] overflow-y-auto p-5 shadow-2xl border border-stone-200 animate-in slide-in-from-bottom duration-200 space-y-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-stone-100">
+              <div className="flex items-center gap-2 text-stone-900 font-bold font-display text-base">
+                <Filter className="w-5 h-5 text-emerald-600" />
+                <span>Szűrés</span>
+              </div>
+              <button
+                type="button"
+                onClick={onCloseMobile}
+                className="p-1.5 text-stone-400 hover:text-stone-700 rounded-xl"
+                aria-label="Szűrők bezárása"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {filterControls}
+
+            <div className="flex items-center justify-between gap-3 pt-3 border-t border-stone-100">
+              {hasActiveFilters ? (
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  className="text-xs text-rose-600 hover:text-rose-700 font-semibold flex items-center gap-1 cursor-pointer"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Szűrők törlése</span>
+                </button>
+              ) : <span />}
+              <button
+                type="button"
+                onClick={onCloseMobile}
+                className="px-5 py-2.5 bg-stone-900 hover:bg-stone-800 text-white font-bold rounded-xl text-xs shadow-sm transition-all cursor-pointer"
+              >
+                Szűrők alkalmazása
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
