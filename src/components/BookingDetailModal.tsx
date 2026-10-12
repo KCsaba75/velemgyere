@@ -63,6 +63,7 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
   const [contact, setContact] = useState<OrderProviderContact | null>(null);
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
+  const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
 
   const handleCopyId = () => {
     if (!order.id) return;
@@ -261,7 +262,7 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
               )}
               <button
                 type="button"
-                onClick={() => cancelOrder(order.id)}
+                onClick={() => setConfirmCancelOpen(true)}
                 className="inline-flex items-center gap-1 text-xs text-stone-500 hover:text-rose-600 font-semibold px-3.5 py-2 rounded-xl border border-stone-200 hover:border-rose-200 hover:bg-rose-50 transition-colors cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" /> Foglalás lemondása
@@ -389,6 +390,47 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
           order={order}
           onSuccess={() => setReviewModalOpen(false)}
         />
+      )}
+
+      {confirmCancelOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-stone-200 animate-in zoom-in-95 duration-200 space-y-5">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0 shadow-inner">
+                <XCircle className="w-6 h-6 text-rose-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-display font-bold text-lg text-stone-900 leading-snug">
+                  Foglalás lemondása
+                </h3>
+                <p className="text-xs text-stone-500 mt-0.5">
+                  Biztosan lemondod ezt a foglalást? Ez a lépés nem vonható vissza.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setConfirmCancelOpen(false)}
+                className="px-4 py-2.5 rounded-xl border border-stone-300 text-stone-700 hover:bg-stone-100 text-xs font-semibold transition-colors cursor-pointer"
+              >
+                Mégsem
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setConfirmCancelOpen(false);
+                  cancelOrder(order.id);
+                }}
+                className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+                <span>Lemondás</span>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );
