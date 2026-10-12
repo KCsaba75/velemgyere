@@ -92,17 +92,17 @@ export const BookingsView: React.FC = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14 animate-in fade-in duration-200">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-2 sm:pt-10 pb-8 sm:pb-14 animate-in fade-in duration-200">
       {/* Header */}
-      <div className="flex items-center gap-4 mb-10 pb-8 border-b border-stone-200">
-        <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-          <Ticket className="w-7 h-7" />
+      <div className="flex items-center gap-3 sm:gap-4 mb-3">
+        <div className="w-11 h-11 sm:w-14 sm:h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+          <Ticket className="w-5 h-5 sm:w-7 sm:h-7" />
         </div>
         <div>
-          <h1 className="font-display text-2xl sm:text-3xl font-extrabold text-stone-900">
+          <h1 className="font-display text-xl sm:text-2xl sm:text-3xl font-extrabold text-stone-900 leading-tight">
             Foglalásaim ({orders.length})
           </h1>
-          <p className="text-sm text-stone-500">{currentUser?.name || currentUser?.email}</p>
+          <p className="text-xs sm:text-sm text-stone-500">{currentUser?.name || currentUser?.email}</p>
         </div>
       </div>
 
