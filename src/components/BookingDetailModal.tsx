@@ -20,7 +20,9 @@ import {
   User,
   Check,
   XCircle,
-  Navigation
+  Navigation,
+  Copy,
+  Hash
 } from 'lucide-react';
 import { Order, OrderStatus, OrderProviderContact, OnsitePaymentMethod } from '../types/database';
 import { ReviewModal } from './ReviewModal';
@@ -60,6 +62,15 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
 
   const [contact, setContact] = useState<OrderProviderContact | null>(null);
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
+  const [copiedId, setCopiedId] = useState(false);
+
+  const handleCopyId = () => {
+    if (!order.id) return;
+    navigator.clipboard?.writeText(order.id).then(() => {
+      setCopiedId(true);
+      setTimeout(() => setCopiedId(false), 2000);
+    }).catch(() => {});
+  };
 
   const program = order.program || programs.find(p => p.id === order.program_id || p.slug === order.program_id);
 
@@ -113,7 +124,13 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
               <h3 className="font-display font-bold text-lg text-stone-900 leading-tight truncate">
                 Foglalás részletei
               </h3>
-              <p className="text-xs text-stone-500">{formatDate(order.created_at)}</p>
+              <div className="flex flex-wrap items-center gap-2 text-xs text-stone-500 mt-0.5">
+                <span>{formatDate(order.created_at)}</span>
+                <span className="text-stone-300">•</span>
+                <span className="font-mono text-[11px] font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/70">
+                  #{order.id.slice(0, 12)}
+                </span>
+              </div>
             </div>
           </div>
           <button
@@ -127,10 +144,32 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
 
         {/* Scrollable content */}
         <div className="p-5 sm:p-6 overflow-y-auto flex-1 space-y-5">
-          {/* Status */}
-          <span className={`inline-block text-xs font-bold px-3 py-1.5 rounded-lg border ${ORDER_STATUS_CLASS[order.status]}`}>
-            {ORDER_STATUS_LABEL[order.status]}
-          </span>
+          {/* Status & Booking ID */}
+          <div className="flex flex-wrap items-center justify-between gap-2.5">
+            <span className={`inline-block text-xs font-bold px-3 py-1.5 rounded-lg border ${ORDER_STATUS_CLASS[order.status]}`}>
+              {ORDER_STATUS_LABEL[order.status]}
+            </span>
+
+            <button
+              type="button"
+              onClick={handleCopyId}
+              title="Azonosító másolása a vágólapra"
+              className="inline-flex items-center gap-1.5 text-xs text-stone-600 hover:text-stone-900 bg-stone-100 hover:bg-stone-200/80 px-2.5 py-1.5 rounded-lg border border-stone-200 transition-colors cursor-pointer group"
+            >
+              <Hash className="w-3.5 h-3.5 text-stone-400 group-hover:text-stone-600 shrink-0" />
+              <span className="font-mono text-[11px] font-bold text-stone-800">
+                {order.id}
+              </span>
+              {copiedId ? (
+                <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 ml-1" />
+              ) : (
+                <Copy className="w-3.5 h-3.5 text-stone-400 group-hover:text-stone-600 shrink-0 ml-1" />
+              )}
+              {copiedId && (
+                <span className="text-[10px] font-bold text-emerald-700">Másolva!</span>
+              )}
+            </button>
+          </div>
 
           {/* Booking data */}
           <div className="bg-stone-50 rounded-2xl border border-stone-200/80 p-4 space-y-2 text-sm text-stone-700">

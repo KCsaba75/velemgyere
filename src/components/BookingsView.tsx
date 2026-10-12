@@ -138,9 +138,14 @@ export const BookingsView: React.FC = () => {
                 className="bg-white rounded-2xl border border-stone-200 p-5 flex items-center justify-between gap-4"
               >
                 <div className="min-w-0 flex-1">
-                  <h3 className="font-bold text-stone-900 text-sm sm:text-base truncate mb-1.5">
-                    {prog?.title || 'Program'}
-                  </h3>
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
+                    <span className="font-mono text-[11px] font-bold text-stone-500 bg-stone-100 px-2 py-0.5 rounded-md border border-stone-200">
+                      #{order.id.slice(0, 10)}
+                    </span>
+                    <h3 className="font-bold text-stone-900 text-sm sm:text-base truncate">
+                      {prog?.title || 'Program'}
+                    </h3>
+                  </div>
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-stone-500">
                     <span>{formatDate(order.created_at)}</span>
                     <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5" />{order.participants_count} fő</span>
