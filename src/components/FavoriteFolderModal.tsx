@@ -136,6 +136,12 @@ export const FavoriteFolderModal: React.FC = () => {
             Válassz mappát:
           </label>
 
+          {favoriteFolders.length === 0 && (
+            <p className="text-xs text-stone-500 py-3 text-center">
+              Még nincs létrehozott mappád. Hozz létre egyet az alábbi gombbal!
+            </p>
+          )}
+
           {favoriteFolders.map((folder) => {
             const isSelected = currentFolderIds.includes(folder.id);
             const folderCount = favorites.filter(f => f.folder_id === folder.id).length;

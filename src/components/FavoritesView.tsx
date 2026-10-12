@@ -280,6 +280,18 @@ export const FavoritesView: React.FC = () => {
             <span>Mappák</span>
           </h2>
 
+          {favoriteFolders.length === 0 && (
+            <div className="bg-white rounded-2xl border border-stone-200 p-8 text-center space-y-3 shadow-xs">
+              <div className="w-12 h-12 rounded-2xl bg-stone-100 text-stone-400 flex items-center justify-center mx-auto">
+                <FolderHeart className="w-6 h-6" />
+              </div>
+              <h3 className="font-bold text-stone-900 text-base">Még nincs utazási listád</h3>
+              <p className="text-stone-500 text-xs max-w-md mx-auto leading-relaxed">
+                Kattints a „+ Új lista létrehozása” gombra egyedi mappa készítéséhez, vagy ments el programokat a katalógusból a szív ikonnal!
+              </p>
+            </div>
+          )}
+
           {favoriteFolders.map((folder) => {
             const folderPrograms = getFolderPrograms(folder.id);
             const folderCost = folderPrograms.reduce((sum, p) => sum + (Number(p.price) || 0), 0);

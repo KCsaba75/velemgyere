@@ -479,53 +479,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   // Active user's favorite folders and items (strictly scoped to currentUser.user_id when authenticated)
+  // Deduplicates folders by case-insensitive name so duplicate "Általános kedvencek" folders can never appear in UI
   const userFavoriteFolders = useMemo<FavoriteFolder[]>(() => {
     if (!isAuthenticated || !currentUser?.user_id) return [];
-    return rawFavoriteFolders
+    const userFolders = rawFavoriteFolders
       .filter(f => f.user_id === currentUser.user_id)
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+    const uniqueMap = new Map<string, FavoriteFolder>();
+    for (const f of userFolders) {
+      const key = f.name.trim().toLowerCase();
+      if (!uniqueMap.has(key)) {
+        uniqueMap.set(key, f);
+      } else if (f.is_default && !uniqueMap.get(key)!.is_default) {
+        uniqueMap.set(key, f);
+      }
+    }
+    return Array.from(uniqueMap.values());
   }, [rawFavoriteFolders, isAuthenticated, currentUser?.user_id]);
 
   const userFavorites = useMemo<FavoriteItem[]>(() => {
     if (!isAuthenticated || !currentUser?.user_id) return [];
     return rawFavorites.filter(f => f.user_id === currentUser.user_id);
   }, [rawFavorites, isAuthenticated, currentUser?.user_id]);
-
-  // Ensure an authenticated user always has at least a default "Általános kedvencek" folder in their account
-  // Initialized only ONCE per authenticated session to prevent resurrecting folders deliberately deleted by the user.
-  // Gated on foldersFetchedForUser so this never races the async favorite_folders fetch above --
-  // without that gate, hasAnyFolder below could see a still-empty rawFavoriteFolders right after
-  // login and insert a brand new duplicate default folder on every fresh page load.
-  const initializedFoldersUserRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (isAuthenticated && currentUser?.user_id && foldersFetchedForUser === currentUser.user_id) {
-      if (initializedFoldersUserRef.current === currentUser.user_id) {
-        return;
-      }
-      initializedFoldersUserRef.current = currentUser.user_id;
-
-      const hasAnyFolder = rawFavoriteFolders.some(f => f.user_id === currentUser.user_id);
-      if (!hasAnyFolder) {
-        const defaultFolder: FavoriteFolder = {
-          id: generateUUID(),
-          user_id: currentUser.user_id,
-          name: 'Általános kedvencek',
-          description: 'Bármikor mentett kedvenc programjaim egy helyen',
-          color: 'emerald',
-          icon: 'heart',
-          is_default: true,
-          created_at: new Date().toISOString()
-        };
-        setRawFavoriteFolders(prev => [defaultFolder, ...prev]);
-        if (isSupabaseConfigured) {
-          supabase.from('favorite_folders').insert([defaultFolder]).then(() => {}, () => {});
-        }
-      }
-    } else {
-      initializedFoldersUserRef.current = null;
-    }
-  }, [isAuthenticated, currentUser?.user_id, foldersFetchedForUser, rawFavoriteFolders, isSupabaseConfigured]);
   // Own full provider row (kanban fbf552b2 point 3), fetched via get_my_provider_profile()
   // RPC once logged in as a provider -- see syncFromSession. null for every other role,
   // or until it resolves. Supabase-only; the no-Supabase dev fallback below still derives
@@ -799,16 +775,91 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         // Sync user's favorite folders and items if available on Supabase
         if (session.user?.id) {
-          supabase.from('favorite_folders').select('*').eq('user_id', session.user.id).then(({ data: fData, error: fErr }) => {
-            if (!fErr && fData && fData.length > 0 && !cancelled) {
-              setRawFavoriteFolders(prev => {
-                const others = prev.filter(f => f.user_id !== session.user.id);
-                return [...(fData as FavoriteFolder[]), ...others];
-              });
+          const userId = session.user.id;
+          supabase.from('favorite_folders').select('*').eq('user_id', userId).then(async ({ data: fData, error: fErr }) => {
+            if (cancelled) return;
+            if (fErr) {
+              console.error('Fetch favorite_folders error:', fErr);
+              setFoldersFetchedForUser(userId);
+              return;
             }
-            if (!cancelled) setFoldersFetchedForUser(session.user.id);
+
+            let folders = (fData as FavoriteFolder[]) || [];
+
+            // 1. DEDUPLICATION: Detect any duplicate folders with identical names (e.g. multiple "Általános kedvencek")
+            const seenNames = new Map<string, FavoriteFolder>();
+            const duplicatesToRemove: FavoriteFolder[] = [];
+            const uniqueFolders: FavoriteFolder[] = [];
+
+            for (const folder of folders) {
+              const normalizedName = folder.name.trim().toLowerCase();
+              if (seenNames.has(normalizedName)) {
+                const primary = seenNames.get(normalizedName)!;
+                if (folder.is_default && !primary.is_default) {
+                  primary.is_default = true;
+                }
+                duplicatesToRemove.push(folder);
+              } else {
+                seenNames.set(normalizedName, folder);
+                uniqueFolders.push(folder);
+              }
+            }
+
+            // If duplicates were found in Supabase, re-link favorites and delete redundant folder records
+            if (duplicatesToRemove.length > 0) {
+              const dupIds = duplicatesToRemove.map(d => d.id);
+              for (const dup of duplicatesToRemove) {
+                const canonical = seenNames.get(dup.name.trim().toLowerCase());
+                if (canonical) {
+                  await supabase
+                    .from('favorites')
+                    .update({ folder_id: canonical.id })
+                    .eq('folder_id', dup.id)
+                    .eq('user_id', userId);
+                }
+              }
+              await supabase
+                .from('favorite_folders')
+                .delete()
+                .in('id', dupIds)
+                .eq('user_id', userId);
+            }
+
+            folders = uniqueFolders;
+
+            // 2. Ensure an initial default "Általános kedvencek" folder exists ONLY IF user has NO folders at all
+            if (folders.length === 0) {
+              const defaultFolder: FavoriteFolder = {
+                id: generateUUID(),
+                user_id: userId,
+                name: 'Általános kedvencek',
+                description: 'Bármikor mentett kedvenc programjaim egy helyen',
+                color: 'emerald',
+                icon: 'heart',
+                is_default: true,
+                created_at: new Date().toISOString()
+              };
+              folders = [defaultFolder];
+              await supabase.from('favorite_folders').insert([defaultFolder]);
+            } else {
+              // Ensure at least one folder is marked is_default
+              const hasDefault = folders.some(f => f.is_default);
+              if (!hasDefault) {
+                const preferred = folders.find(f => f.name.toLowerCase() === 'általános kedvencek') || folders[0];
+                preferred.is_default = true;
+                supabase.from('favorite_folders').update({ is_default: true }).eq('id', preferred.id).eq('user_id', userId).then(() => {}, () => {});
+              }
+            }
+
+            if (!cancelled) {
+              setRawFavoriteFolders(prev => {
+                const others = prev.filter(f => f.user_id !== userId);
+                return [...folders, ...others];
+              });
+              setFoldersFetchedForUser(userId);
+            }
           }, () => {
-            if (!cancelled) setFoldersFetchedForUser(session.user.id);
+            if (!cancelled) setFoldersFetchedForUser(userId);
           });
 
           supabase.from('favorites').select('*').eq('user_id', session.user.id).then(({ data: favData, error: favErr }) => {
@@ -1106,6 +1157,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       supabase.auth.signOut();
     }
     setIsAuthenticated(false);
+    setFoldersFetchedForUser(null);
+    setRawFavoriteFolders([]);
+    setRawFavorites([]);
     const visitor = rawProfiles.find(p => p.role === 'visitor') || {
       id: 'prof-visitor',
       user_id: 'user-visitor',
@@ -2234,26 +2288,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const prog = programs.find(p => p.id === programId || p.slug === programId);
     const resolvedId = prog ? prog.id : programId;
 
-    let defaultFolder = userFavoriteFolders.find((f: FavoriteFolder) => f.is_default) || userFavoriteFolders[0];
+    let defaultFolder = userFavoriteFolders.find((f: FavoriteFolder) => f.is_default) ||
+      userFavoriteFolders.find((f: FavoriteFolder) => f.name.toLowerCase() === 'általános kedvencek') ||
+      userFavoriteFolders[0];
     let targetFolderId = folderId || defaultFolder?.id;
 
     if (!targetFolderId) {
-      const newDefaultFolder: FavoriteFolder = {
-        id: generateUUID(),
-        user_id: currentUser.user_id,
-        name: 'Általános kedvencek',
-        description: 'Bármikor mentett kedvenc programjaim egy helyen',
-        color: 'emerald',
-        icon: 'heart',
-        is_default: true,
-        created_at: new Date().toISOString()
-      };
-      setRawFavoriteFolders(prev => [newDefaultFolder, ...prev]);
-      if (isSupabaseConfigured) {
-        supabase.from('favorite_folders').insert([newDefaultFolder]).then(() => {}, () => {});
+      // Check if an existing folder already exists in rawFavoriteFolders for this user
+      const existingFolder = rawFavoriteFolders.find(f =>
+        f.user_id === currentUser.user_id &&
+        (f.is_default || f.name.toLowerCase() === 'általános kedvencek')
+      ) || rawFavoriteFolders.find(f => f.user_id === currentUser.user_id);
+
+      if (existingFolder) {
+        defaultFolder = existingFolder;
+        targetFolderId = existingFolder.id;
+      } else {
+        const newDefaultFolder: FavoriteFolder = {
+          id: generateUUID(),
+          user_id: currentUser.user_id,
+          name: 'Általános kedvencek',
+          description: 'Bármikor mentett kedvenc programjaim egy helyen',
+          color: 'emerald',
+          icon: 'heart',
+          is_default: true,
+          created_at: new Date().toISOString()
+        };
+        setRawFavoriteFolders(prev => [newDefaultFolder, ...prev]);
+        if (isSupabaseConfigured) {
+          supabase.from('favorite_folders').insert([newDefaultFolder]).then(() => {}, (err) => console.error(err));
+        }
+        defaultFolder = newDefaultFolder;
+        targetFolderId = newDefaultFolder.id;
       }
-      defaultFolder = newDefaultFolder;
-      targetFolderId = newDefaultFolder.id;
     }
 
     const targetFolder = userFavoriteFolders.find((f: FavoriteFolder) => f.id === targetFolderId) || defaultFolder;
@@ -2367,10 +2434,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       openLoginModal('Új mappa létrehozásához kérjük, jelentkezz be!');
       throw new Error('Not authenticated');
     }
+    const trimmedName = data.name.trim();
+    // Check if a folder with the same name already exists for this user
+    const existing = userFavoriteFolders.find(f => f.name.trim().toLowerCase() === trimmedName.toLowerCase());
+    if (existing) {
+      setFavoriteToast({ message: `Már létezik „${existing.name}” nevű listád.` });
+      return existing;
+    }
+
     const newFolder: FavoriteFolder = {
       id: generateUUID(),
       user_id: currentUser.user_id,
-      name: data.name.trim(),
+      name: trimmedName,
       description: data.description?.trim(),
       color: data.color || 'emerald',
       icon: data.icon || 'bookmark',
@@ -2379,7 +2454,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     setRawFavoriteFolders(prev => [...prev, newFolder]);
     if (isSupabaseConfigured) {
-      supabase.from('favorite_folders').insert([newFolder]).then(() => {}, () => {});
+      supabase.from('favorite_folders').insert([newFolder]).then(() => {}, (err) => console.error(err));
     }
     setFavoriteToast({ message: `Új lista létrehozva: „${newFolder.name}”` });
     return newFolder;

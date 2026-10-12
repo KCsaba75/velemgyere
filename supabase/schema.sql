@@ -1391,6 +1391,8 @@ create table if not exists public.reviews (
 
 -- Indexek
 create index if not exists idx_favorite_folders_user on public.favorite_folders(user_id);
+-- Megakadalyozza, hogy egy felhasznalonak tobb azonos nevu mappaja (pl. tobb "Altalanos kedvencek") jojjon letre
+create unique index if not exists idx_favorite_folders_user_name on public.favorite_folders(user_id, lower(trim(name)));
 create index if not exists idx_favorites_user on public.favorites(user_id);
 create index if not exists idx_favorites_folder on public.favorites(folder_id);
 create index if not exists idx_favorites_program on public.favorites(program_id);
