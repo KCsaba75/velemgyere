@@ -14,6 +14,13 @@ interface ProgramsPageProps {
  * selected category/region filter from the URL param on mount and whenever the slug
  * changes, so a direct link or an F5 refresh on a filtered URL shows the right list
  * immediately instead of resetting to the unfiltered catalog.
+ *
+ * Plain /programok (filterType undefined) has no slug to sync FROM, so it must leave
+ * the existing filter state alone (kanban 79568288) -- this route remounts every time
+ * the user navigates away and back (e.g. opening a program's detail view, or clicking
+ * another nav item), and forcing a reset here used to wipe out whatever the user had
+ * picked in the FilterBar. "Szűrők törlése" (resetFilters) is the only intended way to
+ * clear a filter now.
  */
 export const ProgramsPage: React.FC<ProgramsPageProps> = ({ filterType }) => {
   const { slug } = useParams<{ slug: string }>();
@@ -26,9 +33,6 @@ export const ProgramsPage: React.FC<ProgramsPageProps> = ({ filterType }) => {
     } else if (filterType === 'region') {
       setSelectedRegion(slug || null);
       setSelectedCategory(null);
-    } else {
-      setSelectedCategory(null);
-      setSelectedRegion(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterType, slug]);
