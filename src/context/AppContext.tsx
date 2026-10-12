@@ -952,7 +952,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     )) ||
     null;
 
-  // Joined programs with images, category, region, provider
+  // Joined programs with images, category, region, provider (featured programs first)
   const programs: Program[] = rawPrograms.map(p => {
     const cat = categories.find(c => c.id === p.category_id);
     const reg = regions.find(r => r.id === p.region_id);
@@ -965,6 +965,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       provider: prov,
       images: imgs,
     };
+  }).sort((a, b) => {
+    if (a.featured && !b.featured) return -1;
+    if (!a.featured && b.featured) return 1;
+    return 0;
   });
 
   // Credit ledger balance (point 5): simple sum, since every row (signup_bonus/refund/

@@ -129,6 +129,11 @@ export const ProgramList: React.FC<ProgramListProps> = ({ onOpenMobileFilters })
       }
 
       return true;
+    }).sort((a, b) => {
+      // Kiemelt (featured) programok legyenek mindig elől a programlistákon
+      if (a.featured && !b.featured) return -1;
+      if (!a.featured && b.featured) return 1;
+      return 0;
     });
   }, [
     programs,
