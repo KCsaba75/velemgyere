@@ -31,8 +31,10 @@ export const FilterBar: React.FC<FilterBarProps> = ({ mobileOpen, onCloseMobile 
     categories,
     selectedCategory,
     setSelectedCategory,
-    selectedDate,
-    setSelectedDate,
+    selectedDateFrom,
+    setSelectedDateFrom,
+    selectedDateTo,
+    setSelectedDateTo,
     selectedDurationType,
     setSelectedDurationType,
     maxPrice,
@@ -45,7 +47,8 @@ export const FilterBar: React.FC<FilterBarProps> = ({ mobileOpen, onCloseMobile 
   const hasActiveFilters = Boolean(
     selectedRegion ||
     selectedCategory ||
-    selectedDate ||
+    selectedDateFrom ||
+    selectedDateTo ||
     selectedDurationType !== 'all' ||
     maxPrice < 150 ||
     currencyFilter !== 'ALL'
@@ -54,9 +57,9 @@ export const FilterBar: React.FC<FilterBarProps> = ({ mobileOpen, onCloseMobile 
   // Same control set rendered both in the desktop inline card and in the
   // mobile drawer (kanban e0ee8b7e) -- one definition, two places it mounts.
   const filterControls = (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         {/* 1. Úticél / Régió */}
-        <div>
+        <div className="col-span-2 sm:col-span-1">
           <label className="block text-xs font-bold text-stone-700 mb-1.5 flex items-center gap-1">
             <Globe className="w-3.5 h-3.5 text-emerald-600" />
             <span>Úticél / Régió</span>
@@ -76,7 +79,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({ mobileOpen, onCloseMobile 
         </div>
 
         {/* 2. Szolgáltatás típusa */}
-        <div>
+        <div className="col-span-2 sm:col-span-1">
           <label className="block text-xs font-bold text-stone-700 mb-1.5 flex items-center gap-1">
             <Layers className="w-3.5 h-3.5 text-emerald-600" />
             <span>Szolgáltatás Típusa</span>
@@ -95,22 +98,43 @@ export const FilterBar: React.FC<FilterBarProps> = ({ mobileOpen, onCloseMobile 
           </select>
         </div>
 
-        {/* 3. Dátum */}
-        <div>
+        {/* 3. Dátumtól */}
+        <div className="col-span-1">
           <label className="block text-xs font-bold text-stone-700 mb-1.5 flex items-center gap-1">
             <Calendar className="w-3.5 h-3.5 text-emerald-600" />
             <span>Dátumtól</span>
           </label>
           <input
             type="date"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
+            value={selectedDateFrom}
+            onChange={(e) => {
+              const val = e.target.value;
+              setSelectedDateFrom(val);
+              if (selectedDateTo && val && val > selectedDateTo) {
+                setSelectedDateTo('');
+              }
+            }}
             className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
           />
         </div>
 
-        {/* 4. Időtartam jellege */}
-        <div>
+        {/* 4. Dátumig */}
+        <div className="col-span-1">
+          <label className="block text-xs font-bold text-stone-700 mb-1.5 flex items-center gap-1">
+            <Calendar className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Dátumig</span>
+          </label>
+          <input
+            type="date"
+            value={selectedDateTo}
+            min={selectedDateFrom || undefined}
+            onChange={(e) => setSelectedDateTo(e.target.value)}
+            className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+          />
+        </div>
+
+        {/* 5. Időtartam jellege */}
+        <div className="col-span-2 sm:col-span-2 lg:col-span-1">
           <label className="block text-xs font-bold text-stone-700 mb-1.5 flex items-center gap-1">
             <Clock className="w-3.5 h-3.5 text-emerald-600" />
             <span>Időtartam jellege</span>
@@ -149,8 +173,8 @@ export const FilterBar: React.FC<FilterBarProps> = ({ mobileOpen, onCloseMobile 
           </div>
         </div>
 
-        {/* 5. Ár & Pénznem szűrő */}
-        <div className="sm:col-span-2 lg:col-span-4 pt-3 border-t border-stone-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+        {/* 6. Ár & Pénznem szűrő */}
+        <div className="col-span-2 sm:col-span-2 lg:col-span-5 pt-3 border-t border-stone-100 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex-1 w-full max-w-sm">
             <div className="flex items-center justify-between text-xs text-stone-600 mb-1">
               <span className="font-bold">Maximális részvételi díj:</span>

@@ -128,6 +128,10 @@ interface AppContextType {
   setSelectedLocation: (loc: string) => void;
   selectedDate: string;
   setSelectedDate: (date: string) => void;
+  selectedDateFrom: string;
+  setSelectedDateFrom: (date: string) => void;
+  selectedDateTo: string;
+  setSelectedDateTo: (date: string) => void;
   selectedDurationType: 'all' | 'single' | 'multi';
   setSelectedDurationType: (type: 'all' | 'single' | 'multi') => void;
   maxPrice: number;
@@ -415,7 +419,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedLocation, setSelectedLocation] = useState<string>('');
-  const [selectedDate, setSelectedDate] = useState<string>('');
+  const [selectedDateFrom, setSelectedDateFrom] = useState<string>('');
+  const [selectedDateTo, setSelectedDateTo] = useState<string>('');
+  const selectedDate = selectedDateFrom;
+  const setSelectedDate = setSelectedDateFrom;
   const [selectedDurationType, setSelectedDurationType] = useState<'all' | 'single' | 'multi'>('all');
   const [maxPrice, setMaxPrice] = useState<number>(150); // Default for EUR abroad prices
   const [currencyFilter, setCurrencyFilter] = useState<'ALL' | 'EUR' | 'Ft'>('ALL');
@@ -997,7 +1004,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSelectedRegion(null);
     setSelectedCategory(null);
     setSelectedLocation('');
-    setSelectedDate('');
+    setSelectedDateFrom('');
+    setSelectedDateTo('');
     setSelectedDurationType('all');
     setMaxPrice(150);
     setCurrencyFilter('ALL');
@@ -2672,6 +2680,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setSelectedLocation,
         selectedDate,
         setSelectedDate,
+        selectedDateFrom,
+        setSelectedDateFrom,
+        selectedDateTo,
+        setSelectedDateTo,
         selectedDurationType,
         setSelectedDurationType,
         maxPrice,

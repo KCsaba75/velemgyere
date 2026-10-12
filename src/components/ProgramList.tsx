@@ -21,7 +21,8 @@ export const ProgramList: React.FC<ProgramListProps> = ({ onOpenMobileFilters })
     selectedRegion,
     selectedCategory,
     selectedLocation,
-    selectedDate,
+    selectedDateFrom,
+    selectedDateTo,
     selectedDurationType,
     maxPrice,
     currencyFilter,
@@ -35,7 +36,8 @@ export const ProgramList: React.FC<ProgramListProps> = ({ onOpenMobileFilters })
   const hasActiveFilters = Boolean(
     selectedRegion ||
     selectedCategory ||
-    selectedDate ||
+    selectedDateFrom ||
+    selectedDateTo ||
     selectedDurationType !== 'all' ||
     maxPrice < 150 ||
     currencyFilter !== 'ALL'
@@ -97,9 +99,14 @@ export const ProgramList: React.FC<ProgramListProps> = ({ onOpenMobileFilters })
         }
       }
 
-      // Date
-      if (selectedDate) {
-        if (p.event_date < selectedDate) {
+      // Date from & to
+      if (selectedDateFrom) {
+        if (p.event_date < selectedDateFrom) {
+          return false;
+        }
+      }
+      if (selectedDateTo) {
+        if (p.event_date > selectedDateTo) {
           return false;
         }
       }
@@ -127,7 +134,8 @@ export const ProgramList: React.FC<ProgramListProps> = ({ onOpenMobileFilters })
     selectedRegion,
     selectedCategory,
     selectedLocation,
-    selectedDate,
+    selectedDateFrom,
+    selectedDateTo,
     selectedDurationType,
     maxPrice
   ]);
