@@ -25,6 +25,20 @@
    print-route vagy szerver-oldali PDF-generalas, a bongeszo sajat Ctrl+P / Mentes
    PDF-kent funkciojat hasznaljuk. */
 @media print {
+  /* visibility:hidden (nem display:none) kell, mert display:none-nal a Tailwind
+     utility-classok (pl. .flex{display:flex}) magasabb specificitasa felulirna
+     egy sima "body * {display:none}" szabalyt -- visibility-nel ez nem gond,
+     mivel semelyik Tailwind-class nem allit visibility-t.
+     A html/body height:0+overflow:hidden KELL ahhoz, hogy a rejtett (de
+     visibility:hidden alatt is layout-teret foglalo) teljes app-fa ne
+     generaljon ures 2. PDF-oldalt a .print-voucher mogott -- enelkul a
+     dokumentum teljes (osszes rejtett elem osszegzett) magassaga szamit a
+     lapozasnal, nem csak a lathato tartalom (elesben Playwright page.pdf()
+     page-count ellenorzessel igazolva: enelkul 2 oldal, ezzel 1). */
+  html, body {
+    height: 0;
+    overflow: hidden;
+  }
   body * {
     visibility: hidden;
   }
@@ -37,5 +51,11 @@
     left: 0;
     top: 0;
     width: 100%;
+  }
+  /* Kanban 757c1720: Csaba kerese, hogy a teljes adattartalmu utalvany egy A4
+     lapon maradjon, ne torjon at. */
+  @page {
+    size: A4;
+    margin: 10mm;
   }
 }

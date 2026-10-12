@@ -1006,9 +1006,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Orders joined with their program (for display in MyAccountView) -- same
   // local-join style as `programs`/`inquiriesWithDetails` above, rather than a
   // PostgREST embed, to stay consistent with the rest of this file.
+  //
+  // Kanban 757c1720: this previously joined against `rawPrograms` (the un-joined
+  // rows) instead of the already-fully-joined `programs` above -- order.program
+  // ended up truthy but WITHOUT .provider/.category/.region/.images attached,
+  // and since BookingDetailModal does `order.program || programs.find(...)`,
+  // that truthy-but-half-joined value always won, silently dropping provider/
+  // category/region data everywhere order.program is read (not just the new
+  // voucher -- confirmed live, this fixes the gap for every consumer at once).
   const ordersWithProgram: Order[] = orders.map(o => ({
     ...o,
-    program: rawPrograms.find(p => p.id === o.program_id),
+    program: programs.find(p => p.id === o.program_id),
   }));
 
   const openProgramDetail = (id: string) => {

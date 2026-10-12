@@ -403,20 +403,37 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
         </div>
       </div>
 
-      {/* Nyomtathato utalvany (kanban f969f03f): kepernyon rejtve, csak nyomtataskor
-          (print:block + .print-voucher, lasd index.css @media print). */}
+      {/* Nyomtathato utalvany (kanban f969f03f -> 757c1720, egy lapon TELJES
+          adattartalommal): kepernyon rejtve, csak nyomtataskor (print:block +
+          .print-voucher, lasd index.css @media print). */}
       <div className="hidden print:block print-voucher">
         <BookingVoucher
           bookingReference={bookingCode}
-          programTitle={program?.title || 'Program'}
-          programLocation={program?.location}
-          dateFormatted={program?.event_date ? formatDate(program.event_date) : formatDate(order.created_at)}
-          participantsCount={order.participants_count}
           statusLabel={ORDER_STATUS_LABEL[order.status]}
-          providerName={contact?.contact_name}
+          bookerName={currentUser?.name}
+          bookerEmail={currentUser?.email}
+          bookerPhone={currentUser?.phone}
+          programTitle={program?.title || 'Program'}
+          programShortDescription={program?.short_description}
+          programLocation={program?.location}
+          programCountry={program?.country}
+          programRegionName={program?.region?.name}
+          programCategoryName={program?.category?.name}
+          dateFormatted={program?.event_date ? formatDate(program.event_date) : formatDate(order.created_at)}
+          startTime={program?.start_time}
+          endTime={program?.end_time}
+          duration={program?.duration}
+          departureLocation={program?.departure_location}
+          participantsCount={order.participants_count}
+          included={program?.included}
+          notIncluded={program?.not_included}
+          providerCompanyName={program?.provider?.company_name}
+          providerDescription={program?.provider?.description}
+          providerContactName={contact?.contact_name}
           providerPhone={contact?.phone}
           providerEmail={contact?.email}
           providerWebsite={contact?.website ?? undefined}
+          bookingFeeFormatted={order.booking_fee > 0 ? `${formatPrice(order.booking_fee)} ${order.currency === 'EUR' ? '€' : order.currency}` : undefined}
           onsiteAmountFormatted={`${formatPrice(order.onsite_amount || order.total_price)} ${order.currency === 'EUR' ? '€' : order.currency}`}
           onsitePaymentMethodLabel={order.onsite_payment_method ? PAYMENT_METHOD_LABEL[order.onsite_payment_method] : undefined}
         />

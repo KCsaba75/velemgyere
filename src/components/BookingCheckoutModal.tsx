@@ -616,16 +616,34 @@ export const BookingCheckoutModal: React.FC<BookingCheckoutModalProps> = ({
         </div>
       </div>
 
-      {/* Nyomtathato utalvany (kanban f969f03f): kepernyon rejtve, csak nyomtataskor. */}
+      {/* Nyomtathato utalvany (kanban f969f03f -> 757c1720, egy lapon TELJES
+          adattartalommal): kepernyon rejtve, csak nyomtataskor. Szolgaltato
+          kontakt (contact_name/phone/email) meg nem erheto el itt -- a rendeles
+          csak most jott letre, meg fuggoben van, a visszaigazolas-gatelt RPC
+          (getProviderContactForOrder) csak a BookingDetailModal-ban van meghivva.
+          A ceg nev+leiras viszont publikus teaser-mezo, mindig elerheto. */}
       {step === 'success' && (
         <div className="hidden print:block print-voucher">
           <BookingVoucher
             bookingReference={createdOrderId || bookingRef}
-            programTitle={program.title}
-            programLocation={program.location}
-            dateFormatted={dateFormatted}
-            participantsCount={participantsCount}
             statusLabel="Függőben (szolgáltatói visszaigazolásra vár)"
+            bookerName={currentUser?.name}
+            bookerEmail={currentUser?.email}
+            bookerPhone={currentUser?.phone}
+            programTitle={program.title}
+            programShortDescription={program.short_description}
+            programLocation={program.location}
+            programCountry={program.country}
+            dateFormatted={dateFormatted}
+            startTime={program.start_time}
+            endTime={program.end_time}
+            duration={program.duration}
+            departureLocation={program.departure_location}
+            participantsCount={participantsCount}
+            included={program.included}
+            notIncluded={program.not_included}
+            providerCompanyName={program.provider?.company_name}
+            providerDescription={program.provider?.description}
             onsiteAmountFormatted={`${formatPrice(netTotal)} ${curr}`}
             onsitePaymentMethodLabel={onsitePaymentMethod === 'revolut' ? 'Revolut' : 'Készpénz'}
           />
