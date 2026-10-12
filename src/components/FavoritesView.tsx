@@ -275,7 +275,7 @@ export const FavoritesView: React.FC = () => {
 
         {/* "Mappák" lista -- egymás alatt, fordított időrendben (legújabb felül) */}
         <div className="space-y-6">
-          <h2 className="font-display font-bold text-lg text-stone-900 flex items-center gap-2">
+          <h2 className="hidden md:flex font-display font-bold text-lg text-stone-900 items-center gap-2">
             <FolderHeart className="w-5 h-5 text-emerald-600" />
             <span>Mappák</span>
           </h2>
