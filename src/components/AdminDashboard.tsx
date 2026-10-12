@@ -31,6 +31,8 @@ import { CategoryIcon } from './CategoryIcon';
 import { Region, Category, OnsitePaymentMethod, ReviewStatus } from '../types/database';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import { RescheduleOrderModal } from './RescheduleOrderModal';
+import { FilterPillBar } from './FilterPillBar';
+import { MetricsRow } from './MetricsRow';
 import { Settings as SettingsIcon } from 'lucide-react';
 
 const PAYMENT_METHOD_LABEL: Record<OnsitePaymentMethod, string> = {
@@ -269,7 +271,14 @@ export const AdminDashboard: React.FC = () => {
           "Beállítások" scrolled off-screen with zero visual affordance to reach it.
           flex-wrap guarantees every tab is always visible, wrapping to a second row
           instead of clipping. */}
-      <div className="flex flex-wrap border-b border-stone-200 mb-6 gap-x-6 gap-y-2">
+      <div className="flex flex-wrap items-center border-b border-stone-200 mb-6 gap-x-5 gap-y-2">
+        {/* Temakor szerinti csoportositas (kanban 0f06b97f, 1. pont): Katalogus /
+            Mukodes / Rendszer -- csak vizualis tagolas (micro-label + spacer),
+            ugyanabban az egy flex-wrap sorban marad minden fül, igy a mar
+            bizonyitottan clipping-mentes viselkedes (51fadf1) nem valtozik. */}
+        <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 pb-3">
+          Katalógus
+        </span>
         <button
           onClick={() => setActiveTab('programs')}
           className={`pb-3 text-sm font-bold transition-colors cursor-pointer border-b-2 flex items-center gap-2 shrink-0 ${
@@ -311,6 +320,9 @@ export const AdminDashboard: React.FC = () => {
           <span>Szolgáltatás Típusok ({categories.length})</span>
         </button>
 
+        <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 pb-3 sm:ml-2">
+          Működés
+        </span>
         <button
           onClick={() => setActiveTab('providers')}
           className={`pb-3 text-sm font-bold transition-colors cursor-pointer border-b-2 flex items-center gap-2 shrink-0 ${
@@ -374,6 +386,9 @@ export const AdminDashboard: React.FC = () => {
           <span>Érdeklődések ({inquiries.length})</span>
         </button>
 
+        <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 pb-3 sm:ml-2">
+          Rendszer
+        </span>
         <button
           onClick={() => setActiveTab('settings')}
           className={`pb-3 text-sm font-bold transition-colors cursor-pointer border-b-2 flex items-center gap-2 shrink-0 ${
@@ -449,28 +464,18 @@ export const AdminDashboard: React.FC = () => {
       {/* TAB 1: PROGRAMKEZELÉS */}
       {activeTab === 'programs' && (
         <div className="space-y-4">
-          <div className="flex items-center gap-2 overflow-x-auto pb-2 no-scrollbar">
-            {[
+          <FilterPillBar
+            options={[
               { id: 'all', label: 'Összes külföldi program' },
               { id: 'pending_review', label: 'Jóváhagyásra vár (Pending)' },
               { id: 'published', label: 'Publikált (Aktív)' },
               { id: 'draft', label: 'Piszkozat (Draft)' },
               { id: 'rejected', label: 'Elutasított' },
               { id: 'archived', label: 'Archivált' },
-            ].map((btn) => (
-              <button
-                key={btn.id}
-                onClick={() => setProgramFilter(btn.id)}
-                className={`text-xs px-3.5 py-2 rounded-xl font-medium transition-colors shrink-0 cursor-pointer ${
-                  programFilter === btn.id
-                    ? 'bg-stone-900 text-white shadow-sm'
-                    : 'bg-white border border-stone-200 text-stone-600 hover:bg-stone-50'
-                }`}
-              >
-                {btn.label}
-              </button>
-            ))}
-          </div>
+            ]}
+            value={programFilter}
+            onChange={setProgramFilter}
+          />
 
           <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden shadow-sm">
             <div className="divide-y divide-stone-100">
@@ -762,27 +767,17 @@ export const AdminDashboard: React.FC = () => {
       {/* TAB 4: SZOLGÁLTATÓK KEZELÉSE */}
       {activeTab === 'providers' && (
         <div className="space-y-4">
-          <div className="flex items-center gap-2 overflow-x-auto pb-2 no-scrollbar">
-            {[
+          <FilterPillBar
+            options={[
               { id: 'all', label: 'Összes szolgáltató' },
               { id: 'pending', label: 'Új / Jóváhagyásra vár' },
               { id: 'approved', label: 'Jóváhagyott (Approved)' },
               { id: 'suspended', label: 'Felfüggesztett (Suspended)' },
               { id: 'banned', label: 'Véglegesen letiltott (Banned)' },
-            ].map((btn) => (
-              <button
-                key={btn.id}
-                onClick={() => setProviderFilter(btn.id)}
-                className={`text-xs px-3.5 py-2 rounded-xl font-medium transition-colors shrink-0 cursor-pointer ${
-                  providerFilter === btn.id
-                    ? 'bg-stone-900 text-white shadow-sm'
-                    : 'bg-white border border-stone-200 text-stone-600 hover:bg-stone-50'
-                }`}
-              >
-                {btn.label}
-              </button>
-            ))}
-          </div>
+            ]}
+            value={providerFilter}
+            onChange={setProviderFilter}
+          />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {filteredProviders.map((prov) => {
@@ -873,43 +868,18 @@ export const AdminDashboard: React.FC = () => {
       {activeTab === 'bookings' && (
         <div className="space-y-6">
           {/* Metrics summary cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-2xs">
-              <span className="text-stone-400 font-bold uppercase tracking-wider text-[10px] block">
-                Összes foglalás
-              </span>
-              <div className="text-2xl font-black text-stone-900 font-display mt-1">
-                {orders.length}
-              </div>
-            </div>
-
-            <div className="bg-white p-4 rounded-2xl border border-amber-200/80 bg-amber-50/30 shadow-2xs">
-              <span className="text-amber-800 font-bold uppercase tracking-wider text-[10px] block">
-                Szolgáltatóra vár
-              </span>
-              <div className="text-2xl font-black text-amber-700 font-display mt-1">
-                {orders.filter(o => o.status === 'pending').length}
-              </div>
-            </div>
-
-            <div className="bg-white p-4 rounded-2xl border border-emerald-200/80 bg-emerald-50/30 shadow-2xs">
-              <span className="text-emerald-800 font-bold uppercase tracking-wider text-[10px] block">
-                Megerősítve
-              </span>
-              <div className="text-2xl font-black text-emerald-700 font-display mt-1">
-                {orders.filter(o => o.status === 'confirmed').length}
-              </div>
-            </div>
-
-            <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-2xs">
-              <span className="text-stone-400 font-bold uppercase tracking-wider text-[10px] block">
-                Platform díjbevétel
-              </span>
-              <div className="text-2xl font-black text-indigo-700 font-display mt-1">
-                {formatPrice(orders.reduce((sum, o) => o.status !== 'cancelled' ? sum + (Number(o.booking_fee) || 0) : sum, 0))} €
-              </div>
-            </div>
-          </div>
+          <MetricsRow
+            metrics={[
+              { label: 'Összes foglalás', value: orders.length },
+              { label: 'Szolgáltatóra vár', value: orders.filter(o => o.status === 'pending').length, tone: 'amber' },
+              { label: 'Megerősítve', value: orders.filter(o => o.status === 'confirmed').length, tone: 'emerald' },
+              {
+                label: 'Platform díjbevétel',
+                value: `${formatPrice(orders.reduce((sum, o) => o.status !== 'cancelled' ? sum + (Number(o.booking_fee) || 0) : sum, 0))} €`,
+                tone: 'indigo',
+              },
+            ]}
+          />
 
           <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden shadow-sm">
             {/* Header with status filters and search */}
@@ -924,52 +894,16 @@ export const AdminDashboard: React.FC = () => {
               </div>
 
               {/* Status filter pills */}
-              <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                <button
-                  type="button"
-                  onClick={() => setBookingStatusFilter('all')}
-                  className={`px-3 py-1.5 rounded-xl font-semibold transition-colors cursor-pointer ${
-                    bookingStatusFilter === 'all'
-                      ? 'bg-stone-900 text-white'
-                      : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-100'
-                  }`}
-                >
-                  Mind ({orders.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setBookingStatusFilter('pending')}
-                  className={`px-3 py-1.5 rounded-xl font-semibold transition-colors cursor-pointer ${
-                    bookingStatusFilter === 'pending'
-                      ? 'bg-amber-600 text-white'
-                      : 'bg-white text-amber-800 border border-amber-200 hover:bg-amber-50'
-                  }`}
-                >
-                  Visszaigazolásra vár ({orders.filter(o => o.status === 'pending').length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setBookingStatusFilter('confirmed')}
-                  className={`px-3 py-1.5 rounded-xl font-semibold transition-colors cursor-pointer ${
-                    bookingStatusFilter === 'confirmed'
-                      ? 'bg-emerald-600 text-white'
-                      : 'bg-white text-emerald-800 border border-emerald-200 hover:bg-emerald-50'
-                  }`}
-                >
-                  Megerősítve ({orders.filter(o => o.status === 'confirmed').length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setBookingStatusFilter('cancelled')}
-                  className={`px-3 py-1.5 rounded-xl font-semibold transition-colors cursor-pointer ${
-                    bookingStatusFilter === 'cancelled'
-                      ? 'bg-stone-600 text-white'
-                      : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-100'
-                  }`}
-                >
-                  Lemondva ({orders.filter(o => o.status === 'cancelled').length})
-                </button>
-              </div>
+              <FilterPillBar
+                options={[
+                  { id: 'all', label: `Mind (${orders.length})` },
+                  { id: 'pending', label: `Visszaigazolásra vár (${orders.filter(o => o.status === 'pending').length})`, tone: 'amber' },
+                  { id: 'confirmed', label: `Megerősítve (${orders.filter(o => o.status === 'confirmed').length})`, tone: 'emerald' },
+                  { id: 'cancelled', label: `Lemondva (${orders.filter(o => o.status === 'cancelled').length})`, tone: 'stone' },
+                ]}
+                value={bookingStatusFilter}
+                onChange={(id) => setBookingStatusFilter(id as any)}
+              />
             </div>
 
             {/* Orders list */}
@@ -1080,26 +1014,16 @@ export const AdminDashboard: React.FC = () => {
           </div>
 
           {/* Filter Bar */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
-            {[
+          <FilterPillBar
+            options={[
               { id: 'all', label: `Összes (${reviews.length})` },
               { id: 'published', label: `Publikált (${reviews.filter(r => r.status === 'published').length})` },
               { id: 'flagged', label: `Ellenőrizendő (${reviews.filter(r => r.status === 'flagged').length})` },
               { id: 'hidden', label: `Rejtett (${reviews.filter(r => r.status === 'hidden').length})` },
-            ].map(btn => (
-              <button
-                key={btn.id}
-                onClick={() => setReviewFilter(btn.id as any)}
-                className={`text-xs px-3.5 py-2 rounded-xl font-bold transition-colors shrink-0 cursor-pointer ${
-                  reviewFilter === btn.id
-                    ? 'bg-stone-900 text-white shadow-xs'
-                    : 'bg-white border border-stone-200 text-stone-600 hover:bg-stone-50'
-                }`}
-              >
-                {btn.label}
-              </button>
-            ))}
-          </div>
+            ]}
+            value={reviewFilter}
+            onChange={(id) => setReviewFilter(id as any)}
+          />
 
           {/* Reviews List */}
           <div className="space-y-4">
