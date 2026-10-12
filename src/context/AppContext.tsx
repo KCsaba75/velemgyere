@@ -61,7 +61,13 @@ const VIEW_TO_PATH: Record<string, string> = {
 
 function pathToView(pathname: string): string {
   if (pathname.startsWith('/programok')) return 'programs';
-  if (pathname.startsWith('/kategoriak') || pathname.startsWith('/regiok')) return 'categories';
+  // /kategoriak/:slug and /regiok/:slug (kanban 4c966bc5) render ProgramsPage --
+  // the same filtered catalog view as /programok -- not CategoriesView, so the
+  // navbar should highlight "Programok" there. Only the bare /kategoriak index
+  // (the category/region tile browser, no slug) is the actual "categories" view;
+  // there is no bare /regiok route at all (always has a slug).
+  if (pathname.startsWith('/kategoriak/') || pathname.startsWith('/regiok/')) return 'programs';
+  if (pathname.startsWith('/kategoriak')) return 'categories';
   if (pathname.startsWith('/kedvencek')) return 'favorites';
   if (pathname.startsWith('/foglalasaim')) return 'bookings';
   if (pathname.startsWith('/szolgaltatoknak')) return 'provider-landing';
