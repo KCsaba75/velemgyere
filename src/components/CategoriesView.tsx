@@ -27,22 +27,22 @@ export const CategoriesView: React.FC = () => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12 animate-in fade-in duration-200">
-      <div className="text-center max-w-2xl mx-auto mb-8">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 text-xs font-bold mb-3">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-1.5 sm:pt-12 pb-8 sm:pb-12 animate-in fade-in duration-200">
+      <div className="text-center max-w-2xl mx-auto mb-5 sm:mb-8">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 text-xs font-bold mb-2 sm:mb-3">
           <Compass className="w-3.5 h-3.5 text-emerald-600" />
           <span>Böngéssz Úticél vagy Szolgáltatás Típusa szerint</span>
         </div>
-        <h1 className="text-3xl sm:text-4xl font-extrabold font-display text-stone-900 tracking-tight mb-3">
+        <h1 className="text-2xl sm:text-4xl font-extrabold font-display text-stone-900 tracking-tight mb-2 sm:mb-3">
           Külföldi Desztinációk & Élménytípusok
         </h1>
-        <p className="text-stone-500 text-sm sm:text-base">
+        <p className="text-stone-500 text-xs sm:text-base">
           Válaszd ki a tervezett utazásod célállomását vagy a keresett programformátumot!
         </p>
       </div>
 
       {/* Switcher Tab */}
-      <div className="flex items-center justify-center gap-2 mb-10">
+      <div className="flex items-center justify-center gap-2 mb-6 sm:mb-10">
         <button
           onClick={() => setTab('regions')}
           className={`px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
