@@ -177,8 +177,22 @@ export const ProgramPricingModal: React.FC<ProgramPricingModalProps> = ({ progra
           </div>
         )}
 
-        {pricingMode === 'tiered' && (
-          <>
+        {/* Kanban e452b779: ez a resz korabban {pricingMode === 'tiered' && (...)}
+            moge volt zarva -- de a 'tiered' modra valtas maga pontosan azert volt
+            tiltva (lasd handleModeChange fent) amig tiers.length === 0, tehat az
+            ELSO sav felvetele soha nem volt lehetseges: a sav-hozzaado urlap csak
+            tiered modban jelent volna meg, tiered modba pedig csak mar meglevo
+            savval lehetett valtani. Holtpont volt minden olyan programnal, ami
+            per_person modbol indult (azaz gyakorlatilag az osszesnel). Mostantol
+            a sav-kezeles mindig lathato, fuggetlenul a jelenleg AKTIV modtol --
+            a provider eloszor felveheti a savokat, utana valt at a fenti kapcsolon
+            (ami innentol mar nem ures-tiers miatt utasitja el). */}
+        <>
+            {pricingMode === 'per_person' && (
+              <div className="text-xs text-stone-500 bg-stone-50 border border-stone-200 rounded-xl px-3.5 py-2.5 mb-4">
+                A lent felvett sávok csak akkor lépnek életbe, ha fent átváltasz Sávos (csoportos) árra.
+              </div>
+            )}
             {/* Add new tier */}
             <form onSubmit={handleAddTier} className="bg-stone-50 rounded-2xl border border-stone-200 p-4 mb-6 space-y-3">
               <h4 className="text-xs font-bold text-stone-700 uppercase tracking-wider">
@@ -261,8 +275,7 @@ export const ProgramPricingModal: React.FC<ProgramPricingModalProps> = ({ progra
                 ))}
               </div>
             )}
-          </>
-        )}
+        </>
       </div>
     </div>
   );
