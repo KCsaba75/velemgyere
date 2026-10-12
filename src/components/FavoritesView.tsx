@@ -60,13 +60,17 @@ export const FavoritesView: React.FC = () => {
 
   useEffect(() => {
     if (!openMenuFolderId) return;
-    const handleClickOutside = (e: MouseEvent) => {
+    const handleClickOutside = (e: MouseEvent | TouchEvent) => {
       if (openMenuRef.current && !openMenuRef.current.contains(e.target as Node)) {
         setOpenMenuFolderId(null);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
   }, [openMenuFolderId]);
 
   if (!isAuthenticated) {
@@ -414,13 +418,13 @@ export const FavoritesView: React.FC = () => {
                 </div>
 
                 {/* MOBIL nézet: kompakt egysoros kártya, a ... (kebab) menü a jobb szélen marad */}
-                <div className="md:hidden bg-white rounded-xl sm:rounded-2xl border border-stone-200 shadow-xs overflow-hidden">
+                <div className={`md:hidden bg-white rounded-xl sm:rounded-2xl border border-stone-200 shadow-xs ${openMenuFolderId === folder.id ? 'relative z-30' : 'relative z-10'}`}>
                   <div
                     role="button"
                     tabIndex={0}
                     onClick={() => setViewingFolder(folder)}
                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setViewingFolder(folder); } }}
-                    className="p-3 sm:p-4 flex flex-row items-center justify-between gap-2.5 bg-stone-50/60 hover:bg-stone-100/60 transition-colors cursor-pointer"
+                    className="p-3 sm:p-4 flex flex-row items-center justify-between gap-2.5 bg-stone-50/60 hover:bg-stone-100/60 transition-colors cursor-pointer rounded-xl sm:rounded-2xl"
                   >
                     <div className="flex items-center gap-2.5 min-w-0 flex-1">
                       <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0 border border-emerald-100">
@@ -455,7 +459,10 @@ export const FavoritesView: React.FC = () => {
                     >
                       <button
                         type="button"
-                        onClick={() => setOpenMenuFolderId(openMenuFolderId === folder.id ? null : folder.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenMenuFolderId(prev => (prev === folder.id ? null : folder.id));
+                        }}
                         className="p-1.5 sm:p-2 rounded-lg text-stone-500 hover:text-stone-800 bg-white hover:bg-stone-100 border border-stone-200 transition-colors cursor-pointer"
                         title="Műveletek"
                         aria-haspopup="menu"
@@ -467,7 +474,7 @@ export const FavoritesView: React.FC = () => {
                       {openMenuFolderId === folder.id && (
                         <div
                           role="menu"
-                          className="absolute right-0 top-full mt-1.5 w-48 bg-white rounded-xl border border-stone-200 shadow-lg z-20 overflow-hidden py-1 animate-in fade-in zoom-in-95 duration-150"
+                          className="absolute right-0 top-full mt-1.5 w-48 bg-white rounded-xl border border-stone-200 shadow-xl z-50 overflow-hidden py-1 animate-in fade-in zoom-in-95 duration-150"
                         >
                           <button
                             type="button"
