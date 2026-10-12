@@ -183,18 +183,18 @@ export const FavoritesView: React.FC = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14 animate-in fade-in duration-200">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-2 sm:pt-10 pb-8 sm:pb-14 animate-in fade-in duration-200">
       {/* Header Banner */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 sm:gap-6 mb-4 sm:mb-10 pb-4 sm:pb-8 border-b border-stone-200">
         <div>
-          <div className="inline-flex items-center gap-2 text-xs font-bold text-rose-700 bg-rose-50 px-3 py-1.5 rounded-lg mb-3 border border-rose-200/60">
+          <div className="inline-flex items-center gap-2 text-xs font-bold text-rose-700 bg-rose-50 px-3 py-1.5 rounded-lg mb-2 sm:mb-3 border border-rose-200/60">
             <Heart className="w-3.5 h-3.5 fill-rose-500 text-rose-500" />
             <span>Saját Utazási Bakancslista</span>
             <span className="text-stone-400 font-normal">|</span>
             <span className="text-stone-700 font-semibold">{currentUser?.name || currentUser?.email || 'Saját fiók'}</span>
           </div>
 
-          <h1 className="font-display text-3xl sm:text-4xl font-extrabold text-stone-900 tracking-tight">
+          <h1 className="font-display text-2xl sm:text-4xl font-extrabold text-stone-900 tracking-tight">
             Kedvenceim
           </h1>
         </div>
