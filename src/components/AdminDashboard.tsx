@@ -248,8 +248,13 @@ export const AdminDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Tabs navigation */}
-      <div className="flex border-b border-stone-200 mb-6 gap-6 overflow-x-auto no-scrollbar">
+      {/* Tabs navigation. Was overflow-x-auto no-scrollbar (kanban 8138d45b): with 7
+          tabs the row's content (~1600px) always exceeds the max-w-7xl-constrained
+          container on every standard desktop width, and the hidden scrollbar left
+          "Beállítások" scrolled off-screen with zero visual affordance to reach it.
+          flex-wrap guarantees every tab is always visible, wrapping to a second row
+          instead of clipping. */}
+      <div className="flex flex-wrap border-b border-stone-200 mb-6 gap-x-6 gap-y-2">
         <button
           onClick={() => setActiveTab('programs')}
           className={`pb-3 text-sm font-bold transition-colors cursor-pointer border-b-2 flex items-center gap-2 shrink-0 ${
