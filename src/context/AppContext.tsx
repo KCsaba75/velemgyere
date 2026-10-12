@@ -827,22 +827,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
             folders = uniqueFolders;
 
-            // 2. Ensure an initial default "Általános kedvencek" folder exists ONLY IF user has NO folders at all
-            if (folders.length === 0) {
-              const defaultFolder: FavoriteFolder = {
-                id: generateUUID(),
-                user_id: userId,
-                name: 'Általános kedvencek',
-                description: 'Bármikor mentett kedvenc programjaim egy helyen',
-                color: 'emerald',
-                icon: 'heart',
-                is_default: true,
-                created_at: new Date().toISOString()
-              };
-              folders = [defaultFolder];
-              await supabase.from('favorite_folders').insert([defaultFolder]);
-            } else {
-              // Ensure at least one folder is marked is_default
+            // 2. If folders exist, ensure at least one folder is marked is_default
+            if (folders.length > 0) {
               const hasDefault = folders.some(f => f.is_default);
               if (!hasDefault) {
                 const preferred = folders.find(f => f.name.toLowerCase() === 'általános kedvencek') || folders[0];
@@ -2287,6 +2273,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const prog = programs.find(p => p.id === programId || p.slug === programId);
     const resolvedId = prog ? prog.id : programId;
+
+    // Ha nincs megadva specifikus mappa, és a program már szerepel a kedvencek között, akkor eltávolítjuk
+    const existingFav = !folderId
+      ? userFavorites.find((f: FavoriteItem) => f.program_id === resolvedId || (prog && f.program_id === prog.slug))
+      : null;
+
+    if (existingFav) {
+      const currentFolder = userFavoriteFolders.find(f => f.id === existingFav.folder_id) ||
+        rawFavoriteFolders.find(f => f.id === existingFav.folder_id);
+      setRawFavorites(prev => prev.filter(f => f.id !== existingFav.id));
+      if (isSupabaseConfigured) {
+        supabase.from('favorites').delete().eq('id', existingFav.id).then(() => {}, () => {});
+      }
+      setFavoriteToast({
+        message: `Eltávolítva a listából: ${currentFolder?.name || 'Kedvencek'}`,
+        program: prog || undefined,
+        folderName: currentFolder?.name
+      });
+      return { added: false, folderName: currentFolder?.name || 'Kedvencek' };
+    }
 
     let defaultFolder = userFavoriteFolders.find((f: FavoriteFolder) => f.is_default) ||
       userFavoriteFolders.find((f: FavoriteFolder) => f.name.toLowerCase() === 'általános kedvencek') ||

@@ -185,7 +185,7 @@ export const FavoritesView: React.FC = () => {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14 animate-in fade-in duration-200">
       {/* Header Banner */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10 pb-8 border-b border-stone-200">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 sm:gap-6 mb-4 sm:mb-10 pb-4 sm:pb-8 border-b border-stone-200">
         <div>
           <div className="inline-flex items-center gap-2 text-xs font-bold text-rose-700 bg-rose-50 px-3 py-1.5 rounded-lg mb-3 border border-rose-200/60">
             <Heart className="w-3.5 h-3.5 fill-rose-500 text-rose-500" />
@@ -213,7 +213,7 @@ export const FavoritesView: React.FC = () => {
       </div>
 
       {/* Main Content Layout */}
-      <div className="space-y-10">
+      <div className="space-y-4 sm:space-y-10">
         {/* "Mentett kedvencek" összesítő szekció -- CSAK ASZTALI nézeten (mobilon a kebab-menüs egyszerűsített nézet él) */}
         <div className="hidden md:flex bg-white rounded-2xl border border-stone-200 p-5 shadow-xs flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -274,7 +274,7 @@ export const FavoritesView: React.FC = () => {
         )}
 
         {/* "Mappák" lista -- egymás alatt, fordított időrendben (legújabb felül) */}
-        <div className="space-y-6">
+        <div className="space-y-3 sm:space-y-6">
           <h2 className="hidden md:flex font-display font-bold text-lg text-stone-900 items-center gap-2">
             <FolderHeart className="w-5 h-5 text-emerald-600" />
             <span>Mappák</span>
@@ -413,51 +413,50 @@ export const FavoritesView: React.FC = () => {
                   </div>
                 </div>
 
-                {/* MOBIL nézet: egyszerűsített -- csak név+darabszám, tartalom a kártyára VAGY a kebab "Megtekintés" opciójára kattintva nyílik */}
-                <div className="md:hidden bg-white rounded-2xl border border-stone-200 shadow-xs">
+                {/* MOBIL nézet: kompakt egysoros kártya, a ... (kebab) menü a jobb szélen marad */}
+                <div className="md:hidden bg-white rounded-xl sm:rounded-2xl border border-stone-200 shadow-xs overflow-hidden">
                   <div
                     role="button"
                     tabIndex={0}
                     onClick={() => setViewingFolder(folder)}
                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setViewingFolder(folder); } }}
-                    className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-3 rounded-2xl bg-stone-50/60 cursor-pointer"
+                    className="p-3 sm:p-4 flex flex-row items-center justify-between gap-2.5 bg-stone-50/60 hover:bg-stone-100/60 transition-colors cursor-pointer"
                   >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0 border border-emerald-100">
-                        <FolderHeart className="w-5 h-5" />
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0 border border-emerald-100">
+                        <FolderHeart className="w-4 h-4" />
                       </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="font-display font-bold text-lg text-stone-900 truncate">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <h3 className="font-display font-bold text-sm sm:text-base text-stone-900 truncate">
                             {folder.name}
                           </h3>
                           {folder.is_default && (
-                            <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-200 shrink-0">
+                            <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 shrink-0">
                               Alapértelmezett lista
                             </span>
                           )}
-                          <span className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-extrabold bg-rose-50 text-rose-700 shrink-0">
-                            <Heart className="w-3 h-3 fill-rose-500 text-rose-500" />
+                          <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-extrabold bg-rose-50 text-rose-700 shrink-0">
+                            <Heart className="w-2.5 h-2.5 fill-rose-500 text-rose-500" />
                             {folderPrograms.length}
                           </span>
                         </div>
                         {folder.description && (
-                          <p className="text-xs text-stone-500 mt-0.5 truncate">{folder.description}</p>
+                          <p className="text-[11px] text-stone-500 mt-0.5 truncate">{folder.description}</p>
                         )}
                       </div>
                     </div>
 
-                    {/* Folder actions -- egyetlen harom-pontos (kebab) menu mappankent. stopPropagation,
-                        hogy a kebab/menü-kattintás ne essen át a kártya sajat "nyisd meg" onClick-jén is. */}
+                    {/* Folder actions -- a ... (kebab) menü gomb mindig a jobb szélen marad, nem törik új sorba */}
                     <div
-                      className="relative shrink-0"
+                      className="relative shrink-0 self-center"
                       ref={openMenuFolderId === folder.id ? openMenuRef : undefined}
                       onClick={(e) => e.stopPropagation()}
                     >
                       <button
                         type="button"
                         onClick={() => setOpenMenuFolderId(openMenuFolderId === folder.id ? null : folder.id)}
-                        className="p-2 rounded-xl text-stone-500 hover:text-stone-800 bg-white hover:bg-stone-100 border border-stone-200 transition-colors cursor-pointer"
+                        className="p-1.5 sm:p-2 rounded-lg text-stone-500 hover:text-stone-800 bg-white hover:bg-stone-100 border border-stone-200 transition-colors cursor-pointer"
                         title="Műveletek"
                         aria-haspopup="menu"
                         aria-expanded={openMenuFolderId === folder.id}
