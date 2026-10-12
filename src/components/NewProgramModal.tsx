@@ -1,23 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { 
   PlusCircle, 
+  Edit3,
   Upload, 
   Check, 
   Trash2, 
   Sparkles, 
   Star,
-  Globe
+  Globe,
+  FileText
 } from 'lucide-react';
-import { ProgramStatus } from '../types/database';
+import { Program, ProgramStatus } from '../types/database';
 
 interface NewProgramModalProps {
   isOpen: boolean;
   onClose: () => void;
+  programToEdit?: Program | null;
 }
 
-export const NewProgramModal: React.FC<NewProgramModalProps> = ({ isOpen, onClose }) => {
-  const { categories, regions, createProgram, currentUser, currentProvider } = useApp();
+export const NewProgramModal: React.FC<NewProgramModalProps> = ({ isOpen, onClose, programToEdit }) => {
+  const { categories, regions, createProgram, updateProgram, currentUser, currentProvider } = useApp();
 
   // Basic info
   const [title, setTitle] = useState('');
@@ -64,9 +67,75 @@ export const NewProgramModal: React.FC<NewProgramModalProps> = ({ isOpen, onClos
   ]);
   const [customImageUrl, setCustomImageUrl] = useState('');
 
-  // Status choice
-  const [status, setStatus] = useState<ProgramStatus>('pending_review');
+  // Status choice: default to published (or match existing program)
+  const [status, setStatus] = useState<ProgramStatus>('published');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Synchronize state when opening or when programToEdit changes
+  useEffect(() => {
+    if (!isOpen) return;
+    if (programToEdit) {
+      setTitle(programToEdit.title || '');
+      setRegionId(programToEdit.region_id || regions[0]?.id || '');
+      setCategoryId(programToEdit.category_id || categories[0]?.id || '');
+      setShortDescription(programToEdit.short_description || '');
+      setDescription(programToEdit.description || '');
+      setEventDate(programToEdit.event_date || new Date().toISOString().split('T')[0]);
+      setStartTime(programToEdit.start_time || '09:00');
+      setEndTime(programToEdit.end_time || '16:00');
+      setDuration(programToEdit.duration || 'Egész napos (7 óra)');
+      setLocation(programToEdit.location || '');
+      setDepartureLocation(programToEdit.departure_location || '');
+      setPrice(Number(programToEdit.price) || 0);
+      setCurrency(programToEdit.currency || 'EUR');
+      setLanguage(programToEdit.language || 'Magyar nyelvű vezetés');
+      setMaxParticipants(programToEdit.max_participants ? String(programToEdit.max_participants) : '');
+      setIncludedList(programToEdit.included ? [...programToEdit.included] : []);
+      setNotIncludedList(programToEdit.not_included ? [...programToEdit.not_included] : []);
+      if (programToEdit.images && programToEdit.images.length > 0) {
+        setImages(programToEdit.images.map(img => ({ url: img.image_url, isCover: Boolean(img.is_cover) })));
+      } else {
+        setImages([
+          {
+            url: 'https://images.unsplash.com/photo-1590523741831-ab7e8b8f9c7f?auto=format&fit=crop&w=1200&q=80',
+            isCover: true
+          }
+        ]);
+      }
+      setStatus(programToEdit.status === 'draft' ? 'draft' : 'published');
+    } else {
+      setTitle('');
+      setRegionId(regions[0]?.id || '');
+      setCategoryId(categories[0]?.id || '');
+      setShortDescription('');
+      setDescription('');
+      setEventDate(new Date().toISOString().split('T')[0]);
+      setStartTime('09:00');
+      setEndTime('16:00');
+      setDuration('Egész napos (7 óra)');
+      setLocation('');
+      setDepartureLocation('');
+      setPrice(55);
+      setCurrency('EUR');
+      setLanguage('Magyar nyelvű vezetés');
+      setMaxParticipants('16');
+      setIncludedList([
+        'Helyi magyar nyelvű idegenvezetés / asszisztencia',
+        'Kényelmes, klímás járművel való transzfer'
+      ]);
+      setNotIncludedList([
+        'Egyéni meleg étkezés',
+        'Múzeumi belépőjegyek'
+      ]);
+      setImages([
+        {
+          url: 'https://images.unsplash.com/photo-1590523741831-ab7e8b8f9c7f?auto=format&fit=crop&w=1200&q=80',
+          isCover: true
+        }
+      ]);
+      setStatus('published');
+    }
+  }, [isOpen, programToEdit, regions, categories]);
 
   if (!isOpen) return null;
 
@@ -141,7 +210,7 @@ export const NewProgramModal: React.FC<NewProgramModalProps> = ({ isOpen, onClos
 
     setIsSubmitting(true);
     try {
-      await createProgram({
+      const payload = {
         title: title.trim(),
         region_id: regionId,
         country: selectedReg?.country || 'Külföld',
@@ -160,12 +229,19 @@ export const NewProgramModal: React.FC<NewProgramModalProps> = ({ isOpen, onClos
         max_participants: maxParticipants ? Number(maxParticipants) : undefined,
         included: includedList,
         not_included: notIncludedList,
-        status: status,
-      }, images);
+        status: status === 'draft' ? 'draft' as ProgramStatus : 'published' as ProgramStatus,
+      };
+
+      if (programToEdit) {
+        await updateProgram(programToEdit.id, payload, images);
+      } else {
+        await createProgram(payload, images);
+      }
 
       onClose();
     } catch (err) {
       console.error(err);
+      alert('Hiba történt a mentés során: ' + (err instanceof Error ? err.message : String(err)));
     } finally {
       setIsSubmitting(false);
     }
@@ -178,14 +254,22 @@ export const NewProgramModal: React.FC<NewProgramModalProps> = ({ isOpen, onClos
         <div className="flex items-center justify-between border-b border-stone-100 pb-4 mb-6">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
-              <PlusCircle className="w-6 h-6" />
+              {programToEdit ? <Edit3 className="w-5 h-5" /> : <PlusCircle className="w-6 h-6" />}
             </div>
             <div>
               <h3 className="font-display text-2xl font-extrabold text-stone-900">
-                Új Külföldi Program / Transzfer Létrehozása
+                {programToEdit ? 'Program Szerkesztése' : 'Új Külföldi Program / Transzfer Létrehozása'}
               </h3>
               <p className="text-xs text-stone-500">
-                Szolgáltató: <strong className="text-stone-700">{currentProvider?.company_name || currentUser.name}</strong>
+                {programToEdit ? (
+                  <span>
+                    Azonnali módosítás publikált és piszkozat állapotban is • <strong className="text-stone-700">{currentProvider?.company_name || currentUser.name}</strong>
+                  </span>
+                ) : (
+                  <span>
+                    Közvetlen publikálás vagy piszkozatként mentés • <strong className="text-stone-700">{currentProvider?.company_name || currentUser.name}</strong>
+                  </span>
+                )}
               </p>
             </div>
           </div>
@@ -612,16 +696,16 @@ export const NewProgramModal: React.FC<NewProgramModalProps> = ({ isOpen, onClos
             </div>
           </div>
 
-          {/* Section 6: Státusz */}
+          {/* Section 6: Státusz és közzététel */}
           <div className="space-y-4 pt-4 border-t border-stone-100">
             <h4 className="text-xs font-bold text-stone-400 uppercase tracking-wider">
-              6. Státusz
+              6. Státusz és közzététel
             </h4>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <label 
                 className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-start gap-3 ${
-                  status === 'pending_review' 
+                  status === 'published' 
                     ? 'border-emerald-600 bg-emerald-50/50 ring-2 ring-emerald-200' 
                     : 'border-stone-200 hover:border-stone-300'
                 }`}
@@ -629,14 +713,17 @@ export const NewProgramModal: React.FC<NewProgramModalProps> = ({ isOpen, onClos
                 <input
                   type="radio"
                   name="prog_status"
-                  checked={status === 'pending_review'}
-                  onChange={() => setStatus('pending_review')}
+                  checked={status === 'published'}
+                  onChange={() => setStatus('published')}
                   className="mt-1 accent-emerald-600"
                 />
                 <div>
-                  <div className="font-bold text-stone-900 text-sm">Beküldés jóváhagyásra (pending_review)</div>
-                  <div className="text-xs text-stone-500 mt-0.5">
-                    Az adminisztrátor ellenőrzi a programot a publikálás előtt.
+                  <div className="font-bold text-stone-900 text-sm flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-emerald-600" />
+                    <span>Publikálás (Azonnal aktív)</span>
+                  </div>
+                  <div className="text-xs text-stone-500 mt-1">
+                    A program azonnal aktívvá válik és megjelenik a katalógusban. Nincs szükség külön admin jóváhagyásra!
                   </div>
                 </div>
               </label>
@@ -656,9 +743,12 @@ export const NewProgramModal: React.FC<NewProgramModalProps> = ({ isOpen, onClos
                   className="mt-1 accent-emerald-600"
                 />
                 <div>
-                  <div className="font-bold text-stone-900 text-sm">Mentés piszkozatként (draft)</div>
-                  <div className="text-xs text-stone-500 mt-0.5">
-                    Később bármikor visszatérhetsz és folytathatod a szerkesztést.
+                  <div className="font-bold text-stone-900 text-sm flex items-center gap-1.5">
+                    <FileText className="w-4 h-4 text-stone-600" />
+                    <span>Mentés piszkozatként (draft)</span>
+                  </div>
+                  <div className="text-xs text-stone-500 mt-1">
+                    Csak te látod a szolgáltatói felületeden, a katalógusban rejtve marad. Később bármikor közzéteheted.
                   </div>
                 </div>
               </label>
@@ -680,7 +770,17 @@ export const NewProgramModal: React.FC<NewProgramModalProps> = ({ isOpen, onClos
               className="px-7 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold text-sm shadow-md transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
             >
               <Sparkles className="w-4 h-4" />
-              <span>{isSubmitting ? 'Mentés...' : status === 'pending_review' ? 'Beküldés Admin Jóváhagyásra' : 'Mentés Piszkozatként'}</span>
+              <span>
+                {isSubmitting
+                  ? 'Mentés...'
+                  : programToEdit
+                    ? status === 'published'
+                      ? 'Módosítások mentése (Publikált)'
+                      : 'Módosítások mentése (Piszkozat)'
+                    : status === 'published'
+                      ? 'Program publikálása'
+                      : 'Mentés piszkozatként'}
+              </span>
             </button>
           </div>
         </form>

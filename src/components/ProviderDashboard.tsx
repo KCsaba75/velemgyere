@@ -30,13 +30,16 @@ import {
   Send,
   CornerDownRight,
   BadgeEuro,
-  LogOut
+  LogOut,
+  Edit3,
+  FileEdit
 } from 'lucide-react';
 import { Program, ProgramStatus, OrderBuyerInfo, OnsitePaymentMethod } from '../types/database';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import { ProgramOccurrencesModal } from './ProgramOccurrencesModal';
 import { ProgramPricingModal } from './ProgramPricingModal';
 import { RescheduleOrderModal } from './RescheduleOrderModal';
+import { NewProgramModal } from './NewProgramModal';
 
 const PAYMENT_METHOD_LABEL: Record<OnsitePaymentMethod, string> = {
   cash: 'Készpénz',
@@ -70,6 +73,7 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
 
   const [activeTab, setActiveTab] = useState<'programs' | 'bookings' | 'inquiries' | 'reviews' | 'profile'>('programs');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [editingProgram, setEditingProgram] = useState<Program | null>(null);
   const [occurrencesModalProgram, setOccurrencesModalProgram] = useState<Program | null>(null);
   const [pricingModalProgram, setPricingModalProgram] = useState<Program | null>(null);
   const [rescheduleOrderId, setRescheduleOrderId] = useState<string | null>(null);
@@ -370,16 +374,16 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
           </div>
         </div>
 
-        {/* Piszkozatok & függőben */}
+        {/* Piszkozatok */}
         <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-sm">
           <span className="text-xs font-bold text-stone-500 uppercase tracking-wider block mb-1">
-            Piszkozatok / Függőben
+            Piszkozatok (Draft)
           </span>
           <div className="text-3xl font-extrabold font-display text-amber-600">
-            {draftProgramsCount + pendingProgramsCount}
+            {draftProgramsCount}
           </div>
           <div className="text-xs text-stone-400 mt-1">
-            {draftProgramsCount} piszkozat, {pendingProgramsCount} ellenőrzésre
+            {draftProgramsCount} szerkesztés alatt álló vázlat
           </div>
         </div>
 
@@ -466,9 +470,7 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
             {[
               { id: 'all', label: 'Összes' },
               { id: 'published', label: 'Aktív (Publikált)' },
-              { id: 'pending_review', label: 'Jóváhagyásra vár' },
-              { id: 'draft', label: 'Piszkozat' },
-              { id: 'rejected', label: 'Elutasítva' },
+              { id: 'draft', label: 'Piszkozat (Draft)' },
               { id: 'archived', label: 'Archivált' },
             ].map((btn) => (
               <button
@@ -548,6 +550,15 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
                         </button>
 
                         <button
+                          onClick={() => setEditingProgram(prog)}
+                          className="px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 hover:bg-emerald-100 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                          title="Összes adat szerkesztése (publikált és piszkozat állapotban is)"
+                        >
+                          <Edit3 className="w-3.5 h-3.5 text-emerald-700" />
+                          <span>Szerkesztés</span>
+                        </button>
+
+                        <button
                           onClick={() => setOccurrencesModalProgram(prog)}
                           className="px-3 py-1.5 rounded-xl border border-stone-200 text-stone-700 hover:bg-stone-100 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
                           title="Időpontok kezelése"
@@ -565,17 +576,26 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
                           <span>Árazás</span>
                         </button>
 
-                        {/* Kanban b73c3ee2: admin-jovahagyas kiesett, a piszkozat kozvetlenul
-                            publikalhato -- nincs tobbe kozbenso "pending_review" lepes. */}
-                        {prog.status === 'draft' && (
+                        {/* Gyors státuszváltás: közvetlen közzététel vagy piszkozatba visszavonás */}
+                        {prog.status === 'draft' ? (
                           <button
                             onClick={() => updateProgram(prog.id, { status: 'published' })}
-                            className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                            className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer shadow-xs"
+                            title="Azonnali közzététel a katalógusban"
                           >
                             <Sparkles className="w-3.5 h-3.5" />
                             <span>Közzététel</span>
                           </button>
-                        )}
+                        ) : prog.status === 'published' ? (
+                          <button
+                            onClick={() => updateProgram(prog.id, { status: 'draft' })}
+                            className="px-3 py-1.5 rounded-xl border border-stone-200 text-stone-600 hover:bg-stone-100 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                            title="Visszavonás piszkozatba (elrejtés a katalógusból)"
+                          >
+                            <FileEdit className="w-3.5 h-3.5" />
+                            <span>Piszkozatba</span>
+                          </button>
+                        ) : null}
 
                         <button
                           onClick={() => {
@@ -924,6 +944,11 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
       <RescheduleOrderModal
         orderId={rescheduleOrderId}
         onClose={() => setRescheduleOrderId(null)}
+      />
+      <NewProgramModal
+        isOpen={Boolean(editingProgram)}
+        programToEdit={editingProgram}
+        onClose={() => setEditingProgram(null)}
       />
     </div>
   );

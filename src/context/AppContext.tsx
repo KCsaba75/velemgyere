@@ -203,7 +203,7 @@ interface AppContextType {
 
   // Program Management
   createProgram: (data: Partial<Program>, images: { url: string; isCover: boolean }[]) => Promise<string>;
-  updateProgram: (id: string, updates: Partial<Program>) => Promise<void>;
+  updateProgram: (id: string, updates: Partial<Program>, updatedImages?: { url: string; isCover: boolean }[]) => Promise<void>;
   deleteProgram: (id: string) => Promise<void>;
   approveProgram: (id: string) => Promise<void>;
   rejectProgram: (id: string) => Promise<void>;
@@ -1526,21 +1526,64 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return newId;
   };
 
-  const updateProgram = async (id: string, updates: Partial<Program>): Promise<void> => {
-    if (isSupabaseConfigured) {
-      const { error } = await supabase.from('programs').update(updates).eq('id', id);
-      if (error) throw error;
+  const updateProgram = async (
+    id: string,
+    updates: Partial<Program>,
+    updatedImages?: { url: string; isCover: boolean }[]
+  ): Promise<void> => {
+    const finalUpdates: Partial<Program> = { ...updates };
+    if (updates.title && !updates.slug) {
+      finalUpdates.slug = updates.title
+        .toLowerCase()
+        .replace(/[áàäâ]/g, 'a')
+        .replace(/[éèëê]/g, 'e')
+        .replace(/[íìïî]/g, 'i')
+        .replace(/[óöőòô]/g, 'o')
+        .replace(/[úüűùû]/g, 'u')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
     }
+
+    if (isSupabaseConfigured) {
+      const { error } = await supabase.from('programs').update(finalUpdates).eq('id', id);
+      if (error) throw error;
+
+      if (updatedImages && updatedImages.length > 0) {
+        await supabase.from('program_images').delete().eq('program_id', id);
+        const imgRows = updatedImages.map((img, idx) => ({
+          program_id: id,
+          image_url: img.url,
+          is_cover: Boolean(img.isCover || idx === 0),
+          sort_order: idx,
+        }));
+        await supabase.from('program_images').insert(imgRows);
+      }
+    }
+
     setRawPrograms(prev => prev.map(p => {
       if (p.id === id) {
         return {
           ...p,
-          ...updates,
+          ...finalUpdates,
           updated_at: new Date().toISOString(),
         };
       }
       return p;
     }));
+
+    if (updatedImages && updatedImages.length > 0) {
+      setRawImages(prev => {
+        const withoutCurrent = prev.filter(img => img.program_id !== id);
+        const newImgs: ProgramImage[] = updatedImages.map((img, idx) => ({
+          id: `img-${id}-${Date.now()}-${idx}`,
+          program_id: id,
+          image_url: img.url,
+          is_cover: Boolean(img.isCover || idx === 0),
+          sort_order: idx,
+        }));
+        return [...newImgs, ...withoutCurrent];
+      });
+    }
   };
 
   const deleteProgram = async (id: string): Promise<void> => {

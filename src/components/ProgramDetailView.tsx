@@ -27,12 +27,14 @@ import {
   Star,
   Heart,
   Ticket,
-  User
+  User,
+  Edit3
 } from 'lucide-react';
 import { CategoryIcon } from './CategoryIcon';
 import { CountryFlag } from './CountryFlag';
 import { ProgramReviewsSection } from './ProgramReviewsSection';
 import { BookingCheckoutModal } from './BookingCheckoutModal';
+import { NewProgramModal } from './NewProgramModal';
 import { ProgramAvailability, OnsitePaymentMethod, OrderProviderContact, OccurrenceAvailability, ProgramPriceTier } from '../types/database';
 
 export const ProgramDetailView: React.FC = () => {
@@ -40,6 +42,7 @@ export const ProgramDetailView: React.FC = () => {
   const {
     programs,
     providers,
+    currentProvider,
     setCurrentView,
     currentUser,
     isAuthenticated,
@@ -59,6 +62,8 @@ export const ProgramDetailView: React.FC = () => {
     openFolderModal,
     isLoading
   } = useApp();
+
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   const program = programs.find((p) => p.slug === slug || p.id === slug);
   const isFav = program ? isProgramFavorite(program.id) : false;
@@ -330,11 +335,26 @@ export const ProgramDetailView: React.FC = () => {
             </span>
           )}
 
+          {/* Szolgáltató vagy admin szerkesztés gomb */}
+          {currentUser && (currentUser.role === 'admin' || (currentProvider && currentProvider.id === program.provider_id)) && (
+            <button
+              type="button"
+              onClick={() => setIsEditModalOpen(true)}
+              className="bg-emerald-50 border border-emerald-300 text-emerald-800 hover:bg-emerald-100 text-xs sm:text-sm font-bold px-3 py-1.5 rounded-xl shadow-sm flex items-center gap-1.5 transition-colors cursor-pointer sm:ml-auto"
+              title="Program adatainak szerkesztése"
+            >
+              <Edit3 className="w-4 h-4 text-emerald-700" />
+              <span>Program Szerkesztése</span>
+            </button>
+          )}
+
           {/* Megosztás gomb közvetlenül a kép felett a többi címkével egy sorban */}
           <button
             type="button"
             onClick={handleCopyLink}
-            className="bg-white border border-stone-200 text-stone-700 hover:text-stone-900 hover:border-stone-300 hover:bg-stone-50 text-xs sm:text-sm font-bold px-3 py-1.5 rounded-xl shadow-sm flex items-center gap-1.5 transition-colors cursor-pointer sm:ml-auto"
+            className={`bg-white border border-stone-200 text-stone-700 hover:text-stone-900 hover:border-stone-300 hover:bg-stone-50 text-xs sm:text-sm font-bold px-3 py-1.5 rounded-xl shadow-sm flex items-center gap-1.5 transition-colors cursor-pointer ${
+              currentUser && (currentUser.role === 'admin' || (currentProvider && currentProvider.id === program.provider_id)) ? '' : 'sm:ml-auto'
+            }`}
             title="Link másolása"
           >
             {copiedLink ? <Check className="w-4 h-4 text-emerald-600" /> : <Share2 className="w-4 h-4 text-stone-500" />}
@@ -1058,6 +1078,14 @@ export const ProgramDetailView: React.FC = () => {
               message: 'Sikeres foglalás és fizetés! A foglalást rögzítettük a saját fiókodban és továbbítottuk a szolgáltatónak visszaigazolásra.'
             });
           }}
+        />
+      )}
+
+      {program && (
+        <NewProgramModal
+          isOpen={isEditModalOpen}
+          programToEdit={program}
+          onClose={() => setIsEditModalOpen(false)}
         />
       )}
     </div>
