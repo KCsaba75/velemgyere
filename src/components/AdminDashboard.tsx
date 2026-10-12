@@ -24,7 +24,8 @@ import {
   Ticket,
   Banknote,
   Wallet,
-  Star
+  Star,
+  LogOut
 } from 'lucide-react';
 import { CategoryIcon } from './CategoryIcon';
 import { Region, Category, OnsitePaymentMethod, ReviewStatus } from '../types/database';
@@ -68,7 +69,8 @@ export const AdminDashboard: React.FC = () => {
     resetToDefaults,
     feePercentage,
     feeMinimumEur,
-    updateFeeSettings
+    updateFeeSettings,
+    logout
   } = useApp();
 
   useDocumentMeta('Adminisztrátori felület', 'Programok, szolgáltatók, foglalások és katalógus-adatok kezelése.');
@@ -189,18 +191,31 @@ export const AdminDashboard: React.FC = () => {
           </p>
         </div>
 
-        <button
-          onClick={() => {
-            if (window.confirm('Biztosan visszaállítod a katalógust az eredeti tesztadatokra?')) {
-              resetToDefaults();
-            }
-          }}
-          className="text-xs text-stone-600 hover:text-stone-900 bg-white border border-stone-300 hover:bg-stone-50 px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer self-start sm:self-auto"
-          title="Adatok visszaállítása alaphelyzetbe"
-        >
-          <RotateCcw className="w-3.5 h-3.5" />
-          <span>Tesztadatok visszaállítása</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+          <button
+            onClick={() => {
+              if (window.confirm('Biztosan visszaállítod a katalógust az eredeti tesztadatokra?')) {
+                resetToDefaults();
+              }
+            }}
+            className="text-xs text-stone-600 hover:text-stone-900 bg-white border border-stone-300 hover:bg-stone-50 px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
+            title="Adatok visszaállítása alaphelyzetbe"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>Tesztadatok visszaállítása</span>
+          </button>
+
+          {/* Admin szerepkorbol eddig hianyzott (kanban e49199b3) -- ugyanaz a
+              minta mint MyAccountView / ProviderDashboard sajat logout gombja. */}
+          <button
+            type="button"
+            onClick={logout}
+            className="text-xs font-bold text-stone-500 hover:text-rose-600 bg-white border border-stone-300 hover:border-rose-200 hover:bg-rose-50 px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span>Kijelentkezés</span>
+          </button>
+        </div>
       </div>
 
       {/* KPI Metrics */}
