@@ -55,6 +55,7 @@ export const ProgramDetailView: React.FC = () => {
     getProgramRatingStats,
     getProviderRatingStats,
     isProgramFavorite,
+    toggleFavorite,
     openFolderModal,
     isLoading
   } = useApp();
@@ -351,7 +352,15 @@ export const ProgramDetailView: React.FC = () => {
           {/* Floating Heart Button in the top right corner of the main photo */}
           <button
             type="button"
-            onClick={() => program && openFolderModal(program)}
+            onClick={() => {
+              if (!program) return;
+              // Same toggle-off-on-click fix as ProgramCard (kanban 12f43965).
+              if (isFav) {
+                toggleFavorite(program.id);
+              } else {
+                openFolderModal(program);
+              }
+            }}
             className={`absolute top-4 right-4 z-10 w-11 h-11 rounded-full backdrop-blur-md shadow-xl flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-90 cursor-pointer ${
               isFav
                 ? 'bg-white text-rose-500 ring-2 ring-rose-400/60 shadow-rose-500/30'

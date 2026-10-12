@@ -13,10 +13,11 @@ interface ProgramCardProps {
 export const ProgramCard: React.FC<ProgramCardProps> = ({ program, onSelect }) => {
   // program.price is the NET amount the provider receives -- the catalog shows
   // the buyer-facing TOTAL (net+fee), see kanban 71215856 penzugyi-mukodesi-modell.
-  const { 
-    computeTotalPrice, 
-    openProgramDetail, 
+  const {
+    computeTotalPrice,
+    openProgramDetail,
     isProgramFavorite,
+    toggleFavorite,
     openFolderModal,
     isAuthenticated,
     getProgramRatingStats
@@ -94,7 +95,14 @@ export const ProgramCard: React.FC<ProgramCardProps> = ({ program, onSelect }) =
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              openFolderModal(program);
+              // Already-saved -> single click removes it directly (toggle-off), matching
+              // the heart's own button semantics; not-yet-saved -> open the folder picker
+              // so the user can choose where to save it (kanban 12f43965).
+              if (isFav) {
+                toggleFavorite(program.id);
+              } else {
+                openFolderModal(program);
+              }
             }}
             className={`w-9 h-9 rounded-full backdrop-blur-md shadow-md flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-90 cursor-pointer ${
               isFav
