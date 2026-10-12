@@ -71,12 +71,21 @@ function pathToView(pathname: string): string {
   return 'home';
 }
 
+// Kanban 458dfabb: a #VG-<year>-XXXXXX formátum évszáma a generáláskor mindig a
+// FUTTATÁSKORI aktuális évet használja (nem a 2026-os bevezetési évet), egyetlen
+// helyen definiálva, hogy ne kelljen a 2026->2027 fordulón 4+ helyet külön javítani.
+// A már-formázott referenciát FELISMERŐ regexek (lásd lent) szándékosan NEM erre
+// épülnek -- egy korábbi évben generált #VG-2026-... azonosítót 2027-ben is fel
+// kell ismerni meglévőként, nem újragenerálni, ezért azok bármely 4 jegyű évet
+// elfogadnak (\d{4}), nem csak a mostanit.
+export const CURRENT_BOOKING_YEAR = new Date().getFullYear();
+
 export function getBookingReference(orderOrId?: { id?: string; booking_reference?: string; created_at?: string } | string | null): string {
-  if (!orderOrId) return 'VG-2026-100001';
+  if (!orderOrId) return `VG-${CURRENT_BOOKING_YEAR}-100001`;
 
   if (typeof orderOrId === 'string') {
     const raw = orderOrId.trim();
-    if (/^#?(VG|V6)-2026-\d+$/i.test(raw)) {
+    if (/^#?(VG|V6)-\d{4}-\d+$/i.test(raw)) {
       return raw.startsWith('#') ? raw.slice(1) : raw;
     }
     let hash = 0;
@@ -85,7 +94,7 @@ export function getBookingReference(orderOrId?: { id?: string; booking_reference
       hash |= 0;
     }
     const num = Math.abs(hash) % 900000 + 100000;
-    return `VG-2026-${num}`;
+    return `VG-${CURRENT_BOOKING_YEAR}-${num}`;
   }
 
   if (orderOrId.booking_reference) {
@@ -94,7 +103,7 @@ export function getBookingReference(orderOrId?: { id?: string; booking_reference
   }
 
   const rawId = (orderOrId.id || '').trim();
-  if (/^#?(VG|V6)-2026-\d+$/i.test(rawId)) {
+  if (/^#?(VG|V6)-\d{4}-\d+$/i.test(rawId)) {
     return rawId.startsWith('#') ? rawId.slice(1) : rawId;
   }
 
@@ -104,7 +113,7 @@ export function getBookingReference(orderOrId?: { id?: string; booking_reference
     hash |= 0;
   }
   const num = Math.abs(hash) % 900000 + 100000;
-  return `VG-2026-${num}`;
+  return `VG-${CURRENT_BOOKING_YEAR}-${num}`;
 }
 
 interface AppContextType {
@@ -1679,7 +1688,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     onsite_payment_method: OnsitePaymentMethod;
     booking_reference?: string;
   }): Promise<{ success: boolean; message: string; orderId?: string }> => {
-    const bookingRef = data.booking_reference || `VG-2026-${Math.floor(100000 + Math.random() * 900000)}`;
+    const bookingRef = data.booking_reference || `VG-${CURRENT_BOOKING_YEAR}-${Math.floor(100000 + Math.random() * 900000)}`;
     if (!isSupabaseConfigured) {
       const targetProg = programs.find(p => p.id === data.program_id || p.slug === data.program_id);
       const netAmount = (targetProg?.price || 0) * data.participants_count;

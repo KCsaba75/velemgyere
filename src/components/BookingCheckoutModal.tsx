@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Program, OnsitePaymentMethod, ProgramOccurrence, OccurrenceAvailability } from '../types/database';
-import { useApp } from '../context/AppContext';
+import { useApp, CURRENT_BOOKING_YEAR } from '../context/AppContext';
 import { formatPrice, formatPlatformFee } from '../lib/priceUtils';
 import { 
   X, 
@@ -69,7 +69,7 @@ export const BookingCheckoutModal: React.FC<BookingCheckoutModalProps> = ({
   // Generate a realistic stable booking reference ID for this session
   const [bookingRef] = useState(() => {
     const randomDigits = Math.floor(100000 + Math.random() * 900000);
-    return `VG-2026-${randomDigits}`;
+    return `VG-${CURRENT_BOOKING_YEAR}-${randomDigits}`;
   });
 
   // Simulated card form fields
