@@ -766,6 +766,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           loginRedirectRef.current = null;
           setCurrentView(target);
           window.scrollTo({ top: 0, behavior: 'smooth' });
+        } else if (window.location.pathname === '/' || window.location.pathname === '') {
+          // Ha bejelentkezve nyitjuk meg a weblapot, a programok lapra kerülünk
+          navigate('/programok', { replace: true });
+          window.scrollTo({ top: 0, behavior: 'smooth' });
         }
         loadProgramsAndProviders(true, role);
 

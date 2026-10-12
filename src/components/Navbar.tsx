@@ -82,7 +82,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <div className="flex items-center justify-between h-16 sm:h-20 gap-2 sm:gap-4">
             {/* Logo */}
             <button
-              onClick={() => navigateTo('home')}
+              onClick={() => navigateTo(isAuthenticated ? 'programs' : 'home')}
               className="flex items-center text-left group cursor-pointer shrink-0"
             >
               <img
