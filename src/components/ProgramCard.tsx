@@ -29,7 +29,7 @@ export const ProgramCard: React.FC<ProgramCardProps> = ({ program, onSelect }) =
     if (onSelect) {
       onSelect(program.id);
     } else {
-      openProgramDetail(program.slug || program.id);
+      openProgramDetail(program.id);
     }
   };
 

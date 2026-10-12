@@ -36,6 +36,7 @@ export const FavoritesView: React.FC = () => {
     clearAllFavorites,
     removeProgramFromFolder,
     openFolderModal,
+    openProgramDetail,
     setCurrentView,
     isAuthenticated,
     currentUser,
@@ -371,7 +372,7 @@ export const FavoritesView: React.FC = () => {
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
                         {folderPrograms.map((program) => (
                           <div key={program.id} className="relative group/favcard flex flex-col">
-                            <ProgramCard program={program} />
+                            <ProgramCard program={program} onSelect={openProgramDetail} />
 
                             <div className="mt-2 bg-white rounded-xl border border-stone-200/90 px-3 py-2 flex items-center justify-between text-xs text-stone-600">
                               <button
@@ -564,7 +565,7 @@ export const FavoritesView: React.FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
                   {folderPrograms.map((program) => (
                     <div key={program.id} className="relative group/favcard flex flex-col">
-                      <ProgramCard program={program} />
+                      <ProgramCard program={program} onSelect={openProgramDetail} />
 
                       {/* Extra management toolbar under card in folder view */}
                       <div className="mt-2 bg-white rounded-xl border border-stone-200/90 px-3 py-2 flex items-center justify-between text-xs text-stone-600">
