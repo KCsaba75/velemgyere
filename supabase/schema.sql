@@ -250,6 +250,50 @@ create policy "Anyone can view images for published programs"
     )
   );
 
+-- Added live 2026-10-12 (kanban 31e89b44): INSERT/UPDATE/DELETE were missing
+-- entirely (only the SELECT policy above existed) -- the provider-side image
+-- replace flow (AppContext.tsx updateProgram) silently failed in production,
+-- confirmed live (403 in the network log, program_images unchanged after a
+-- client-side save that reported success).
+create policy "Providers can insert own program images"
+  on public.program_images for insert
+  to authenticated
+  with check (
+    exists (
+      select 1 from public.programs
+      join public.providers on providers.id = programs.provider_id
+      where programs.id = program_images.program_id
+        and providers.user_id = auth.uid()
+    )
+    or public.is_admin()
+  );
+
+create policy "Providers can update own program images"
+  on public.program_images for update
+  to authenticated
+  using (
+    exists (
+      select 1 from public.programs
+      join public.providers on providers.id = programs.provider_id
+      where programs.id = program_images.program_id
+        and providers.user_id = auth.uid()
+    )
+    or public.is_admin()
+  );
+
+create policy "Providers can delete own program images"
+  on public.program_images for delete
+  to authenticated
+  using (
+    exists (
+      select 1 from public.programs
+      join public.providers on providers.id = programs.provider_id
+      where programs.id = program_images.program_id
+        and providers.user_id = auth.uid()
+    )
+    or public.is_admin()
+  );
+
 -- RLS: INQUIRIES
 create policy "Anyone can create inquiry"
   on public.inquiries for insert

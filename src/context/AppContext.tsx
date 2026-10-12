@@ -1549,14 +1549,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (error) throw error;
 
       if (updatedImages && updatedImages.length > 0) {
-        await supabase.from('program_images').delete().eq('program_id', id);
+        // Kanban 31e89b44: ezek a hivasok korabban hiba-ellenorzes nelkul futottak --
+        // mikor a program_images tablan meg hianyzott az INSERT/UPDATE/DELETE RLS
+        // policy, mindketto csendben elbukott (403 a halozati logban), a kliens
+        // mégis sikerkent kezelte a mentest. A policy mar potolva, de a hivasok
+        // MOST MAR dobnak is hibat, ha legkozelebb barmi hasonlo torik.
+        const { error: delErr } = await supabase.from('program_images').delete().eq('program_id', id);
+        if (delErr) throw delErr;
         const imgRows = updatedImages.map((img, idx) => ({
           program_id: id,
           image_url: img.url,
           is_cover: Boolean(img.isCover || idx === 0),
           sort_order: idx,
         }));
-        await supabase.from('program_images').insert(imgRows);
+        const { error: insErr } = await supabase.from('program_images').insert(imgRows);
+        if (insErr) throw insErr;
       }
     }
 
