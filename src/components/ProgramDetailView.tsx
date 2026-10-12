@@ -921,7 +921,7 @@ export const ProgramDetailView: React.FC = () => {
                         </p>
                       )}
                       <p className="text-[11px] text-stone-400 leading-relaxed">
-                        A gombra kattintva áttekintheted a foglalás összes adatát, majd a <strong>platform használati kényelmi díjat</strong> bankkártyával (Stripe Demo) rendezheted. A <strong>helyszínen fizetendő díj</strong> ({acceptedPaymentMethods.map(m => m === 'cash' ? 'készpénzben' : 'Revoluton').join(' vagy ')}) a program napján közvetlenül a szolgáltatónak fizetendő.
+                        A gombra kattintva áttekintheted a foglalás összes adatát, majd véglegesítheted a foglalást. A <strong>helyszínen fizetendő díj</strong> ({acceptedPaymentMethods.map(m => m === 'cash' ? 'készpénzben' : 'Revoluton').join(' vagy ')}) a program napján közvetlenül a szolgáltatónak fizetendő.
                       </p>
                     </form>
                   )}

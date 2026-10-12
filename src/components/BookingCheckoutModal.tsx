@@ -92,14 +92,15 @@ export const BookingCheckoutModal: React.FC<BookingCheckoutModalProps> = ({
     ? `${participantsCount} fő (sávos ár)`
     : `${participantsCount} × ${formatPrice(program.price)} ${curr}`;
 
-  const handleSimulatePayment = async () => {
+  // Tenyleges foglalas-letrehozas (kanban 2ee2425b: bevezetes alatt egyelore
+  // nem kerunk penzt, ezert ez most kozvetlenul a review lepesrol fut, nem a
+  // Stripe demo fizetes utan). Megosztott a payment-lepes sajat gombjaval is,
+  // hogy ha a fizetes visszateresz, ne kelljen ujrairni.
+  const handleCreateBooking = async () => {
     setIsProcessing(true);
     setErrorMessage(null);
 
     try {
-      // Simulate Stripe API network request latency
-      await new Promise((resolve) => setTimeout(resolve, 1400));
-
       const result = await createOrder({
         program_id: program.id,
         occurrence_id: selectedOccurrenceId || null,
@@ -120,15 +121,26 @@ export const BookingCheckoutModal: React.FC<BookingCheckoutModalProps> = ({
       setStep('success');
       onSuccess(bookingRef);
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Váratlan hiba történt a fizetés során.');
+      setErrorMessage(err instanceof Error ? err.message : 'Váratlan hiba történt a foglalás során.');
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const handleGoToMyAccount = () => {
+  // Stripe demo fizetesi lepes -- jelenleg a UI-bol nem erheto el (lasd lent,
+  // a review lepes gombja mar kozvetlenul handleCreateBooking-ot hivja), de a
+  // kod szandekosan megmaradt a konnyu visszakapcsolashoz. A szimulalt Stripe
+  // halozati kesleltetes utan ugyanazt a foglalas-letrehozast futtatja.
+  const handleSimulatePayment = async () => {
+    setIsProcessing(true);
+    setErrorMessage(null);
+    await new Promise((resolve) => setTimeout(resolve, 1400));
+    await handleCreateBooking();
+  };
+
+  const handleGoToBookings = () => {
     onClose();
-    setCurrentView('my-account');
+    setCurrentView('bookings');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -289,7 +301,7 @@ export const BookingCheckoutModal: React.FC<BookingCheckoutModalProps> = ({
                   <div className="flex items-center justify-between text-emerald-800 bg-emerald-50/70 p-2 rounded-xl border border-emerald-100">
                     <span className="flex items-center gap-1.5 font-bold">
                       <CreditCard className="w-3.5 h-3.5 text-emerald-600" />
-                      Platform használati kényelmi díj (online fizetendő most):
+                      Platform használati kényelmi díj:
                     </span>
                     <strong className="text-emerald-700 font-extrabold text-sm whitespace-nowrap">
                       {formatPlatformFee(fee)} {curr}
@@ -313,9 +325,12 @@ export const BookingCheckoutModal: React.FC<BookingCheckoutModalProps> = ({
                 </div>
               </div>
 
-              <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-2xl text-[11px] text-amber-900 leading-relaxed">
-                ℹ️ A <strong>Tovább a fizetéshez</strong> gombra kattintva a Stripe demo felületen rendezheted a <strong>{formatPlatformFee(fee)} {curr}</strong> platform használati kényelmi díjat, a helyszínen fizetendő díjat ({formatPrice(netTotal)} {curr}) pedig a túra napján adod át a szolgáltatónak.
-              </div>
+              {errorMessage && (
+                <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl flex items-center gap-2.5 text-xs text-rose-700">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                  <span>{errorMessage}</span>
+                </div>
+              )}
             </div>
           )}
 
@@ -447,13 +462,13 @@ export const BookingCheckoutModal: React.FC<BookingCheckoutModalProps> = ({
 
               <div>
                 <span className="inline-block text-xs font-bold text-emerald-800 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200 mb-2">
-                  Sikeres tranzakció
+                  Sikeres foglalás
                 </span>
                 <h3 className="text-xl sm:text-2xl font-black font-display text-stone-900">
-                  Fizetés és foglalás sikeres!
+                  Foglalás sikeres!
                 </h3>
                 <p className="text-xs sm:text-sm text-stone-500 mt-1 max-w-md mx-auto">
-                  A platform használati kényelmi díjat ({formatPlatformFee(fee)} {curr}) sikeresen rendezted a Stripe rendszerén keresztül.
+                  A foglalásod rögzítve, a szolgáltató hamarosan visszaigazolja.
                 </p>
               </div>
 
@@ -496,7 +511,7 @@ export const BookingCheckoutModal: React.FC<BookingCheckoutModalProps> = ({
                   </li>
                   <li className="flex items-start gap-1.5">
                     <span className="text-emerald-600 font-bold">3.</span>
-                    <span>Amint a szolgáltató megerősíti a foglalást, azonnal láthatod a közvetlen elérhetőségeit a program lebonyolításához.</span>
+                    <span>A foglalásaid között láthatod a szolgáltató közvetlen elérhetőségeit.</span>
                   </li>
                 </ul>
               </div>
@@ -511,17 +526,28 @@ export const BookingCheckoutModal: React.FC<BookingCheckoutModalProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2.5 rounded-xl border border-stone-300 text-stone-700 hover:bg-stone-100 text-xs sm:text-sm font-semibold transition-colors cursor-pointer"
+                disabled={isProcessing}
+                className="px-4 py-2.5 rounded-xl border border-stone-300 text-stone-700 hover:bg-stone-100 text-xs sm:text-sm font-semibold transition-colors cursor-pointer disabled:opacity-50"
               >
                 Mégsem
               </button>
               <button
                 type="button"
-                onClick={() => setStep('payment')}
-                className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold shadow-sm transition-all flex items-center gap-2 cursor-pointer"
+                onClick={handleCreateBooking}
+                disabled={isProcessing}
+                className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold shadow-sm transition-all flex items-center gap-2 cursor-pointer disabled:opacity-60"
               >
-                <span>Tovább a fizetéshez</span>
-                <ArrowRight className="w-4 h-4" />
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Foglalás rögzítése...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Tovább a megerősítéshez</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
               </button>
             </>
           )}
@@ -569,11 +595,11 @@ export const BookingCheckoutModal: React.FC<BookingCheckoutModalProps> = ({
               </button>
               <button
                 type="button"
-                onClick={handleGoToMyAccount}
+                onClick={handleGoToBookings}
                 className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold shadow-sm transition-all flex items-center gap-2 cursor-pointer"
               >
                 <Ticket className="w-4 h-4" />
-                <span>Megtekintés a Saját fiókomban</span>
+                <span>Megtekintés a foglalásaim között</span>
               </button>
             </>
           )}
