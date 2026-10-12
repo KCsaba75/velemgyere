@@ -278,6 +278,7 @@ create policy "Visitors can view own inquiries"
 -- 8. ORDERS (lefoglalas-szeru statusz-bejegyzes, meg NEM valodi fizetes/payment-integracio)
 create table if not exists public.orders (
   id uuid primary key default uuid_generate_v4(),
+  booking_reference text,
   program_id uuid not null references public.programs(id) on delete cascade,
   user_id uuid not null references auth.users(id) on delete cascade,
   participants_count integer not null default 1 check (participants_count > 0),
@@ -287,6 +288,8 @@ create table if not exists public.orders (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
+
+alter table public.orders add column if not exists booking_reference text;
 
 alter table public.orders enable row level security;
 

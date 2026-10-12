@@ -1655,6 +1655,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         currency: data.currency || 'EUR',
         status: 'pending',
         onsite_payment_method: data.onsite_payment_method,
+        booking_reference: bookingRef,
       })
       .select()
       .single();
