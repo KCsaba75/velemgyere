@@ -451,7 +451,7 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
 
         <button
           onClick={() => setActiveTab('profile')}
-          className={`pb-3 text-sm font-bold transition-colors cursor-pointer border-b-2 flex items-center gap-2 ${
+          className={`pb-3 text-sm font-bold transition-colors cursor-pointer border-b-2 flex items-center gap-2 shrink-0 ${
             activeTab === 'profile'
               ? 'border-emerald-600 text-emerald-700'
               : 'border-transparent text-stone-500 hover:text-stone-800'
@@ -538,78 +538,85 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
                         </div>
                       </div>
 
-                      {/* Action buttons */}
-                      <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                        <button
-                          onClick={() => openProgramDetail(prog.id)}
-                          className="px-3 py-1.5 rounded-xl border border-stone-200 text-stone-700 hover:bg-stone-100 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-                          title="Megtekintés"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                          <span>Előnézet</span>
-                        </button>
-
-                        <button
-                          onClick={() => setEditingProgram(prog)}
-                          className="px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 hover:bg-emerald-100 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-                          title="Összes adat szerkesztése (publikált és piszkozat állapotban is)"
-                        >
-                          <Edit3 className="w-3.5 h-3.5 text-emerald-700" />
-                          <span>Szerkesztés</span>
-                        </button>
-
-                        <button
-                          onClick={() => setOccurrencesModalProgram(prog)}
-                          className="px-3 py-1.5 rounded-xl border border-stone-200 text-stone-700 hover:bg-stone-100 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-                          title="Időpontok kezelése"
-                        >
-                          <Calendar className="w-3.5 h-3.5" />
-                          <span>Időpontok</span>
-                        </button>
-
-                        <button
-                          onClick={() => setPricingModalProgram(prog)}
-                          className="px-3 py-1.5 rounded-xl border border-stone-200 text-stone-700 hover:bg-stone-100 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-                          title="Árazás kezelése"
-                        >
-                          <BadgeEuro className="w-3.5 h-3.5" />
-                          <span>Árazás</span>
-                        </button>
-
-                        {/* Gyors státuszváltás: közvetlen közzététel vagy piszkozatba visszavonás */}
-                        {prog.status === 'draft' ? (
+                      {/* Action buttons - mobilon átlátható 2 oszlopos grid és teljes szélességű gombok, asztalin egysoros flex */}
+                      <div className="w-full sm:w-auto pt-3 sm:pt-0 border-t sm:border-0 border-stone-100 flex flex-col sm:flex-row sm:items-center sm:flex-wrap lg:flex-nowrap gap-2">
+                        {/* 4 fő gomb: mobilon kényelmes 2x2 grid, sm felett rugalmas sor */}
+                        <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 w-full sm:w-auto">
                           <button
-                            onClick={() => updateProgram(prog.id, { status: 'published' })}
-                            className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer shadow-xs"
-                            title="Azonnali közzététel a katalógusban"
+                            onClick={() => openProgramDetail(prog.id)}
+                            className="px-3 py-2 sm:py-1.5 rounded-xl border border-stone-200 text-stone-700 hover:bg-stone-100 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                            title="Megtekintés"
                           >
-                            <Sparkles className="w-3.5 h-3.5" />
-                            <span>Közzététel</span>
+                            <Eye className="w-3.5 h-3.5 text-stone-500" />
+                            <span>Előnézet</span>
                           </button>
-                        ) : prog.status === 'published' ? (
-                          <button
-                            onClick={() => updateProgram(prog.id, { status: 'draft' })}
-                            className="px-3 py-1.5 rounded-xl border border-stone-200 text-stone-600 hover:bg-stone-100 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-                            title="Visszavonás piszkozatba (elrejtés a katalógusból)"
-                          >
-                            <FileEdit className="w-3.5 h-3.5" />
-                            <span>Piszkozatba</span>
-                          </button>
-                        ) : null}
 
-                        <button
-                          onClick={() => {
-                            if (window.confirm('Biztosan törölni szeretnéd ezt a programot?')) {
-                              deleteProgram(prog.id).catch((err) => {
-                                alert(err instanceof Error ? err.message : 'Ismeretlen hiba történt a törlés során.');
-                              });
-                            }
-                          }}
-                          className="p-2 rounded-xl text-stone-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
-                          title="Törlés"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                          <button
+                            onClick={() => setEditingProgram(prog)}
+                            className="px-3 py-2 sm:py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 hover:bg-emerald-100 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                            title="Összes adat szerkesztése (publikált és piszkozat állapotban is)"
+                          >
+                            <Edit3 className="w-3.5 h-3.5 text-emerald-700" />
+                            <span>Szerkesztés</span>
+                          </button>
+
+                          <button
+                            onClick={() => setOccurrencesModalProgram(prog)}
+                            className="px-3 py-2 sm:py-1.5 rounded-xl border border-stone-200 text-stone-700 hover:bg-stone-100 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                            title="Időpontok kezelése"
+                          >
+                            <Calendar className="w-3.5 h-3.5 text-stone-500" />
+                            <span>Időpontok</span>
+                          </button>
+
+                          <button
+                            onClick={() => setPricingModalProgram(prog)}
+                            className="px-3 py-2 sm:py-1.5 rounded-xl border border-stone-200 text-stone-700 hover:bg-stone-100 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                            title="Árazás kezelése"
+                          >
+                            <BadgeEuro className="w-3.5 h-3.5 text-stone-500" />
+                            <span>Árazás</span>
+                          </button>
+                        </div>
+
+                        {/* Státuszváltás és Törlés: mobilon a sor hátralévő részét kitöltve */}
+                        <div className="flex items-center gap-2 w-full sm:w-auto">
+                          {/* Gyors státuszváltás: közvetlen közzététel vagy piszkozatba visszavonás */}
+                          {prog.status === 'draft' ? (
+                            <button
+                              onClick={() => updateProgram(prog.id, { status: 'published' })}
+                              className="flex-1 sm:flex-none px-3.5 py-2 sm:py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+                              title="Azonnali közzététel a katalógusban"
+                            >
+                              <Sparkles className="w-3.5 h-3.5" />
+                              <span>Közzététel</span>
+                            </button>
+                          ) : prog.status === 'published' ? (
+                            <button
+                              onClick={() => updateProgram(prog.id, { status: 'draft' })}
+                              className="flex-1 sm:flex-none px-3.5 py-2 sm:py-1.5 rounded-xl border border-stone-200 text-stone-600 hover:bg-stone-100 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                              title="Visszavonás piszkozatba (elrejtés a katalógusból)"
+                            >
+                              <FileEdit className="w-3.5 h-3.5" />
+                              <span>Piszkozatba</span>
+                            </button>
+                          ) : null}
+
+                          <button
+                            onClick={() => {
+                              if (window.confirm('Biztosan törölni szeretnéd ezt a programot?')) {
+                                deleteProgram(prog.id).catch((err) => {
+                                  alert(err instanceof Error ? err.message : 'Ismeretlen hiba történt a törlés során.');
+                                });
+                              }
+                            }}
+                            className="p-2 sm:p-2 rounded-xl text-stone-400 hover:text-rose-600 hover:bg-rose-50 border border-stone-200 sm:border-transparent transition-colors cursor-pointer shrink-0 flex items-center justify-center"
+                            title="Törlés"
+                            aria-label="Program törlése"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );

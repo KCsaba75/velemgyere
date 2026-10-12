@@ -529,7 +529,7 @@ export const AdminDashboard: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2 shrink-0 self-end lg:self-center">
+                    <div className="w-full lg:w-auto pt-3 lg:pt-0 border-t lg:border-0 border-stone-100 flex flex-wrap items-center gap-2">
                       <button
                         onClick={() => openProgramDetail(prog.id)}
                         className="px-3 py-1.5 rounded-xl border border-stone-200 text-stone-700 hover:bg-stone-100 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
