@@ -26,6 +26,8 @@ import {
 } from 'lucide-react';
 import { Order, OrderStatus, OrderProviderContact, OnsitePaymentMethod } from '../types/database';
 import { ReviewModal } from './ReviewModal';
+import { BookingVoucher } from './BookingVoucher';
+import { Printer } from 'lucide-react';
 
 const PAYMENT_METHOD_LABEL: Record<OnsitePaymentMethod, string> = {
   cash: 'Készpénz',
@@ -382,7 +384,15 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
         </div>
 
         {/* Footer */}
-        <div className="p-4 sm:p-5 border-t border-stone-100 bg-stone-50/60 flex items-center justify-end shrink-0">
+        <div className="p-4 sm:p-5 border-t border-stone-100 bg-stone-50/60 flex items-center justify-end gap-3 shrink-0">
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="px-4 py-2.5 border border-stone-300 text-stone-700 hover:bg-stone-100 font-bold rounded-xl text-xs sm:text-sm shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
+          >
+            <Printer className="w-4 h-4 text-stone-500" />
+            <span>Nyomtatás / Mentés PDF-ként</span>
+          </button>
           <button
             type="button"
             onClick={onClose}
@@ -391,6 +401,25 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
             Bezárás
           </button>
         </div>
+      </div>
+
+      {/* Nyomtathato utalvany (kanban f969f03f): kepernyon rejtve, csak nyomtataskor
+          (print:block + .print-voucher, lasd index.css @media print). */}
+      <div className="hidden print:block print-voucher">
+        <BookingVoucher
+          bookingReference={bookingCode}
+          programTitle={program?.title || 'Program'}
+          programLocation={program?.location}
+          dateFormatted={program?.event_date ? formatDate(program.event_date) : formatDate(order.created_at)}
+          participantsCount={order.participants_count}
+          statusLabel={ORDER_STATUS_LABEL[order.status]}
+          providerName={contact?.contact_name}
+          providerPhone={contact?.phone}
+          providerEmail={contact?.email}
+          providerWebsite={contact?.website ?? undefined}
+          onsiteAmountFormatted={`${formatPrice(order.onsite_amount || order.total_price)} ${order.currency === 'EUR' ? '€' : order.currency}`}
+          onsitePaymentMethodLabel={order.onsite_payment_method ? PAYMENT_METHOD_LABEL[order.onsite_payment_method] : undefined}
+        />
       </div>
     </div>
 

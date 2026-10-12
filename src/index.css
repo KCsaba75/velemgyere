@@ -18,3 +18,24 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Nyomtathato/menthetco foglalasi utalvany (kanban f969f03f): a BookingVoucher
+   komponenst korulvevo .print-voucher wrapper az EGYETLEN dolog ami nyomtataskor
+   lathato marad -- a modal hattere, gombjai, minden mas eltunik. Nincs kulon
+   print-route vagy szerver-oldali PDF-generalas, a bongeszo sajat Ctrl+P / Mentes
+   PDF-kent funkciojat hasznaljuk. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .print-voucher,
+  .print-voucher * {
+    visibility: visible;
+  }
+  .print-voucher {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+}

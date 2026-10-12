@@ -21,8 +21,10 @@ import {
   Ticket,
   Loader2,
   Sparkles,
-  AlertCircle
+  AlertCircle,
+  Printer
 } from 'lucide-react';
+import { BookingVoucher } from './BookingVoucher';
 
 interface BookingCheckoutModalProps {
   isOpen: boolean;
@@ -595,6 +597,14 @@ export const BookingCheckoutModal: React.FC<BookingCheckoutModalProps> = ({
               </button>
               <button
                 type="button"
+                onClick={() => window.print()}
+                className="px-4 py-2.5 rounded-xl border border-stone-300 text-stone-700 hover:bg-stone-100 text-xs sm:text-sm font-semibold transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <Printer className="w-4 h-4 text-stone-500" />
+                <span>Nyomtatás / Mentés PDF-ként</span>
+              </button>
+              <button
+                type="button"
                 onClick={handleGoToBookings}
                 className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold shadow-sm transition-all flex items-center gap-2 cursor-pointer"
               >
@@ -605,6 +615,22 @@ export const BookingCheckoutModal: React.FC<BookingCheckoutModalProps> = ({
           )}
         </div>
       </div>
+
+      {/* Nyomtathato utalvany (kanban f969f03f): kepernyon rejtve, csak nyomtataskor. */}
+      {step === 'success' && (
+        <div className="hidden print:block print-voucher">
+          <BookingVoucher
+            bookingReference={createdOrderId || bookingRef}
+            programTitle={program.title}
+            programLocation={program.location}
+            dateFormatted={dateFormatted}
+            participantsCount={participantsCount}
+            statusLabel="Függőben (szolgáltatói visszaigazolásra vár)"
+            onsiteAmountFormatted={`${formatPrice(netTotal)} ${curr}`}
+            onsitePaymentMethodLabel={onsitePaymentMethod === 'revolut' ? 'Revolut' : 'Készpénz'}
+          />
+        </div>
+      )}
     </div>
   );
 };
