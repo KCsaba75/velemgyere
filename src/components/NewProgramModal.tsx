@@ -410,6 +410,7 @@ export const NewProgramModal: React.FC<NewProgramModalProps> = ({ isOpen, onClos
                   required
                   value={price}
                   onChange={(e) => setPrice(Number(e.target.value))}
+                  onFocus={(e) => e.target.select()}
                   placeholder="55"
                   className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3.5 py-2.5 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
@@ -438,6 +439,7 @@ export const NewProgramModal: React.FC<NewProgramModalProps> = ({ isOpen, onClos
                   min="1"
                   value={maxParticipants}
                   onChange={(e) => setMaxParticipants(e.target.value)}
+                  onFocus={(e) => e.target.select()}
                   placeholder="16"
                   className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3.5 py-2.5 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />

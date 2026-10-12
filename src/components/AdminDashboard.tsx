@@ -387,6 +387,7 @@ export const AdminDashboard: React.FC = () => {
                 step="0.01"
                 value={feePercentageDraft}
                 onChange={(e) => setFeePercentageDraft(e.target.value)}
+                onFocus={(e) => e.target.select()}
                 className="w-32 text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
               <span className="text-sm text-stone-500">%</span>
@@ -399,6 +400,7 @@ export const AdminDashboard: React.FC = () => {
                 step="0.01"
                 value={feeMinimumEurDraft}
                 onChange={(e) => setFeeMinimumEurDraft(e.target.value)}
+                onFocus={(e) => e.target.select()}
                 className="w-32 text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
               <span className="text-sm text-stone-500">€</span>

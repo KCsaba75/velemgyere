@@ -192,6 +192,7 @@ export const ProgramPricingModal: React.FC<ProgramPricingModalProps> = ({ progra
                     min={1}
                     value={minParticipants}
                     onChange={(e) => setMinParticipants(e.target.value)}
+                    onFocus={(e) => e.target.select()}
                     className="w-full text-sm bg-white border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
@@ -202,6 +203,7 @@ export const ProgramPricingModal: React.FC<ProgramPricingModalProps> = ({ progra
                     min={1}
                     value={maxParticipants}
                     onChange={(e) => setMaxParticipants(e.target.value)}
+                    onFocus={(e) => e.target.select()}
                     placeholder="∞"
                     className="w-full text-sm bg-white border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
@@ -214,6 +216,7 @@ export const ProgramPricingModal: React.FC<ProgramPricingModalProps> = ({ progra
                     step="0.01"
                     value={totalPrice}
                     onChange={(e) => setTotalPrice(e.target.value)}
+                    onFocus={(e) => e.target.select()}
                     className="w-full text-sm bg-white border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
