@@ -811,6 +811,7 @@ export const ProgramDetailView: React.FC = () => {
                           min={1}
                           value={participantsCount}
                           onChange={(e) => setParticipantsCount(Math.max(1, Number(e.target.value) || 1))}
+                          onFocus={(e) => e.target.select()}
                           className="w-24 text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                         />
                       </div>
