@@ -73,7 +73,7 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
   useDocumentMeta('Szolgáltatói Dashboard', 'Saját programok, foglalások és érdeklődések kezelése.');
 
   const [activeTab, setActiveTab] = useState<'programs' | 'bookings' | 'inquiries' | 'reviews' | 'profile'>('programs');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('published');
   const [editingProgram, setEditingProgram] = useState<Program | null>(null);
   const [occurrencesModalProgram, setOccurrencesModalProgram] = useState<Program | null>(null);
   const [pricingModalProgram, setPricingModalProgram] = useState<Program | null>(null);
@@ -184,7 +184,8 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
   // Status counts (Section 11)
   const totalProgramsCount = ownPrograms.length;
   const activeProgramsCount = ownPrograms.filter((p) => p.status === 'published').length;
-  const draftProgramsCount = ownPrograms.filter((p) => p.status === 'draft').length;
+  const draftProgramsCount = ownPrograms.filter((p) => p.status === 'draft' || p.status === 'pending_review' || p.status === 'rejected').length;
+  const archivedProgramsCount = ownPrograms.filter((p) => p.status === 'archived').length;
   const pendingProgramsCount = ownPrograms.filter((p) => p.status === 'pending_review').length;
 
   // Filter inquiries for this provider
@@ -218,9 +219,11 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
     }
   };
 
-  // Filtered program list for display
+  // Filtered program list for display (Aktív, Piszkozat, Archivált)
   const displayedPrograms = ownPrograms.filter((p) => {
-    if (statusFilter === 'all') return true;
+    if (statusFilter === 'published') return p.status === 'published';
+    if (statusFilter === 'archived') return p.status === 'archived';
+    if (statusFilter === 'draft') return p.status === 'draft' || p.status === 'pending_review' || p.status === 'rejected';
     return p.status === statusFilter;
   });
 
@@ -353,7 +356,16 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
       {/* Metric Stat Cards - Pontosan 3 blokk 1 sorban: Aktív, Piszkozat, Értékelés (fele olyan mély, kompakt magasság) */}
       <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4 sm:mb-6">
         {/* 1. Aktív programok */}
-        <div className="bg-white py-1.5 sm:py-2.5 px-2 sm:px-4 rounded-xl sm:rounded-2xl border border-emerald-100 shadow-xs sm:shadow-sm bg-gradient-to-br from-white to-emerald-50/40 text-center sm:text-left min-w-0">
+        <button
+          type="button"
+          onClick={() => { setActiveTab('programs'); setStatusFilter('published'); }}
+          className={`bg-white py-1.5 sm:py-2.5 px-2 sm:px-4 rounded-xl sm:rounded-2xl border transition-all text-center sm:text-left min-w-0 cursor-pointer ${
+            activeTab === 'programs' && statusFilter === 'published'
+              ? 'border-emerald-500 ring-2 ring-emerald-500/20 bg-gradient-to-br from-emerald-50/50 to-white shadow-xs'
+              : 'border-emerald-100 shadow-xs sm:shadow-sm bg-gradient-to-br from-white to-emerald-50/40 hover:border-emerald-300'
+          }`}
+          title="Aktív (publikált) programok megtekintése"
+        >
           <span className="text-[10px] sm:text-xs font-bold text-emerald-800 uppercase tracking-wider block truncate leading-tight">
             Aktív
           </span>
@@ -363,10 +375,19 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
           <div className="text-[9px] sm:text-[11px] text-emerald-700/80 truncate leading-tight">
             Publikált
           </div>
-        </div>
+        </button>
 
         {/* 2. Piszkozatok */}
-        <div className="bg-white py-1.5 sm:py-2.5 px-2 sm:px-4 rounded-xl sm:rounded-2xl border border-stone-200 shadow-xs sm:shadow-sm text-center sm:text-left min-w-0">
+        <button
+          type="button"
+          onClick={() => { setActiveTab('programs'); setStatusFilter('draft'); }}
+          className={`bg-white py-1.5 sm:py-2.5 px-2 sm:px-4 rounded-xl sm:rounded-2xl border transition-all text-center sm:text-left min-w-0 cursor-pointer ${
+            activeTab === 'programs' && statusFilter === 'draft'
+              ? 'border-amber-500 ring-2 ring-amber-500/20 bg-gradient-to-br from-amber-50/50 to-white shadow-xs'
+              : 'border-stone-200 shadow-xs sm:shadow-sm hover:border-amber-300'
+          }`}
+          title="Piszkozat programok megtekintése"
+        >
           <span className="text-[10px] sm:text-xs font-bold text-stone-500 uppercase tracking-wider block truncate leading-tight">
             Piszkozat
           </span>
@@ -376,10 +397,19 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
           <div className="text-[9px] sm:text-[11px] text-stone-400 truncate leading-tight">
             Vázlat
           </div>
-        </div>
+        </button>
 
         {/* 3. Értékelések */}
-        <div className="bg-white py-1.5 sm:py-2.5 px-2 sm:px-4 rounded-xl sm:rounded-2xl border border-amber-100 shadow-xs sm:shadow-sm bg-gradient-to-br from-white to-amber-50/30 text-center sm:text-left min-w-0">
+        <button
+          type="button"
+          onClick={() => setActiveTab('reviews')}
+          className={`bg-white py-1.5 sm:py-2.5 px-2 sm:px-4 rounded-xl sm:rounded-2xl border transition-all text-center sm:text-left min-w-0 cursor-pointer ${
+            activeTab === 'reviews'
+              ? 'border-amber-500 ring-2 ring-amber-500/20 bg-gradient-to-br from-amber-50/50 to-white shadow-xs'
+              : 'border-amber-100 shadow-xs sm:shadow-sm bg-gradient-to-br from-white to-amber-50/30 hover:border-amber-300'
+          }`}
+          title="Értékelések megtekintése"
+        >
           <span className="text-[10px] sm:text-xs font-bold text-amber-800 uppercase tracking-wider block truncate leading-tight">
             Értékelés
           </span>
@@ -390,7 +420,7 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
           <div className="text-[9px] sm:text-[11px] text-amber-700/80 truncate leading-tight">
             {providerReviews.length} vélemény
           </div>
-        </div>
+        </button>
       </div>
 
       {/* Tabs navigation - 4 fül (Programok, Foglalások, Értékelések, Érdeklődések) egymás mellett mobilon is */}
@@ -459,18 +489,17 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
       {/* Tab 1: Programs list */}
       {activeTab === 'programs' && (
         <div className="space-y-4">
-          {/* Status filter bar */}
+          {/* Status filter bar - csak Aktív, Piszkozat és Archivált */}
           <div className="flex items-center gap-2 overflow-x-auto pb-2 no-scrollbar">
             {[
-              { id: 'all', label: 'Összes' },
-              { id: 'published', label: 'Aktív (Publikált)' },
-              { id: 'draft', label: 'Piszkozat (Draft)' },
-              { id: 'archived', label: 'Archivált' },
+              { id: 'published', label: `Aktív (${activeProgramsCount})` },
+              { id: 'draft', label: `Piszkozat (${draftProgramsCount})` },
+              { id: 'archived', label: `Archivált (${archivedProgramsCount})` },
             ].map((btn) => (
               <button
                 key={btn.id}
                 onClick={() => setStatusFilter(btn.id)}
-                className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors shrink-0 cursor-pointer ${
+                className={`text-xs px-3.5 py-1.5 rounded-lg font-bold transition-colors shrink-0 cursor-pointer ${
                   statusFilter === btn.id
                     ? 'bg-stone-900 text-white shadow-sm'
                     : 'bg-white border border-stone-200 text-stone-600 hover:bg-stone-50'
@@ -646,7 +675,9 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
             <div className="bg-white rounded-2xl border border-stone-200 p-12 text-center">
               <FileText className="w-12 h-12 text-stone-300 mx-auto mb-3" />
               <h4 className="text-base font-bold text-stone-800 font-display mb-1">
-                Ebben a kategóriában jelenleg nincs programod
+                {statusFilter === 'published' && 'Jelenleg nincs aktív (publikált) programod'}
+                {statusFilter === 'draft' && 'Jelenleg nincs piszkozat programod'}
+                {statusFilter === 'archived' && 'Jelenleg nincs archivált programod'}
               </h4>
               <p className="text-xs text-stone-500 mb-4">
                 Kattints az Új program gombra és hozd létre a következő túrádat!
