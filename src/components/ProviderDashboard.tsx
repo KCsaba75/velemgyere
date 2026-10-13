@@ -64,6 +64,7 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
     openProgramDetail,
     deleteProgram,
     updateProgram,
+    archiveProgram,
     updateProviderProfile,
     confirmOrder,
     logout
@@ -265,28 +266,29 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-in fade-in duration-200">
-      {/* Welcome Header (Section 11) */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+      {/* Welcome Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-6 sm:mb-8">
         <div>
-          <div className="inline-flex items-center gap-2 text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-lg mb-2">
+          <div className="hidden sm:inline-flex items-center gap-2 text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-lg mb-2">
             <Building2 className="w-3.5 h-3.5" />
             <span>Szolgáltatói Fiók: {currentProvider?.company_name || currentUser.name}</span>
           </div>
-          <h1 className="text-2xl sm:text-4xl font-extrabold font-display text-stone-900 tracking-tight">
-            Üdvözlünk a Velem Gyere szolgáltatói felületén!
+          <h1 className="text-xl sm:text-3xl lg:text-4xl font-extrabold font-display text-stone-900 tracking-tight">
+            <span className="sm:hidden">Üdvozöllek a partner felületen!</span>
+            <span className="hidden sm:inline">Üdvozöllek a partner felületen!</span>
           </h1>
-          <p className="text-sm text-stone-500 mt-1">
-            Kezeld egyszerűen saját túráidat, kövesd figyelemmel a jóváhagyásokat és válaszolj a beérkező érdeklődésekre.
+          <p className="hidden sm:block text-sm text-stone-500 mt-1">
+            Kezeld egyszerűen saját túráidat, kövesd figyelemmel a jóváhagyásokat és a foglalásokat.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0 w-full sm:w-auto">
           <button
             type="button"
             onClick={logout}
-            className="flex items-center gap-2 text-sm font-bold text-stone-500 hover:text-rose-600 bg-white px-4 py-3 rounded-2xl border border-stone-200 hover:border-rose-200 hover:bg-rose-50 transition-colors cursor-pointer"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-bold text-stone-500 hover:text-rose-600 bg-white px-3 sm:px-4 py-2 sm:py-3 rounded-xl sm:rounded-2xl border border-stone-200 hover:border-rose-200 hover:bg-rose-50 transition-colors cursor-pointer"
           >
-            <LogOut className="w-4 h-4" />
+            <LogOut className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             <span>Kijelentkezés</span>
           </button>
 
@@ -298,19 +300,17 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
                 ? 'Felfüggesztett/letiltott fiókkal nem hozható létre új program'
                 : undefined
             }
-            className="bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold px-5 py-3 rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer text-sm shrink-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-emerald-600"
+            className="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold px-3.5 sm:px-5 py-2 sm:py-3 rounded-xl sm:rounded-2xl shadow-sm sm:shadow-md transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer text-xs sm:text-sm shrink-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-emerald-600"
           >
-            <PlusCircle className="w-4 h-4" />
+            <PlusCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             <span>+ Új program</span>
           </button>
         </div>
       </div>
 
-      {/* Provider Status Alert -- pending (legacy/ritka), suspended (visszavonhato) vagy
-          banned (vegleges) eseten, kanban b73c3ee2: a suspended/banned sav PIROS legyen,
-          jol lathato. */}
+      {/* Provider Status Alert -- pending, suspended vagy banned */}
       {currentProvider?.status === 'pending' && (
-        <div className="mb-8 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 flex items-start gap-3">
+        <div className="mb-6 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 flex items-start gap-3">
           <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
           <div>
             <h4 className="font-bold text-sm">Fiókod adminisztrátori jóváhagyásra vár</h4>
@@ -321,7 +321,7 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
         </div>
       )}
       {(currentProvider?.status === 'suspended' || currentProvider?.status === 'banned') && (
-        <div className="mb-8 p-4 rounded-2xl bg-rose-50 border border-rose-300 text-rose-900 flex items-start gap-3">
+        <div className="mb-6 p-4 rounded-2xl bg-rose-50 border border-rose-300 text-rose-900 flex items-start gap-3">
           <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
           <div>
             <h4 className="font-bold text-sm">
@@ -336,66 +336,46 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
         </div>
       )}
 
-      {/* Metric Stat Cards (Section 11) */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
-        {/* Saját programok */}
-        <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-sm">
-          <span className="text-xs font-bold text-stone-500 uppercase tracking-wider block mb-1">
-            Saját programok
+      {/* Metric Stat Cards - Pontosan 3 blokk 1 sorban: Aktív, Piszkozat, Értékelés */}
+      <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-6 sm:mb-8">
+        {/* 1. Aktív programok */}
+        <div className="bg-white p-2.5 sm:p-5 rounded-xl sm:rounded-2xl border border-emerald-100 shadow-xs sm:shadow-sm bg-gradient-to-br from-white to-emerald-50/40 text-center sm:text-left min-w-0">
+          <span className="text-[10px] sm:text-xs font-bold text-emerald-800 uppercase tracking-wider block mb-0.5 sm:mb-1 truncate">
+            Aktív
           </span>
-          <div className="text-3xl font-extrabold font-display text-stone-900">
-            {totalProgramsCount}
-          </div>
-          <div className="text-xs text-stone-400 mt-1">Összes rögzített tétel</div>
-        </div>
-
-        {/* Aktív programok */}
-        <div className="bg-white p-5 rounded-2xl border border-emerald-100 shadow-sm bg-gradient-to-br from-white to-emerald-50/40">
-          <span className="text-xs font-bold text-emerald-800 uppercase tracking-wider block mb-1">
-            Aktív programok
-          </span>
-          <div className="text-3xl font-extrabold font-display text-emerald-600">
+          <div className="text-xl sm:text-3xl font-extrabold font-display text-emerald-600">
             {activeProgramsCount}
           </div>
-          <div className="text-xs text-emerald-700/80 mt-1">Publikusan böngészhető</div>
-        </div>
-
-        {/* Értékelések */}
-        <div className="bg-white p-5 rounded-2xl border border-amber-100 shadow-sm bg-gradient-to-br from-white to-amber-50/30">
-          <span className="text-xs font-bold text-amber-800 uppercase tracking-wider block mb-1">
-            Értékelési átlag
-          </span>
-          <div className="text-3xl font-extrabold font-display text-amber-600 flex items-center gap-1">
-            <span>{providerStats.count > 0 ? providerStats.average.toFixed(1) : '5.0'}</span>
-            <Star className="w-5 h-5 fill-amber-400 text-amber-400 inline" />
-          </div>
-          <div className="text-xs text-amber-700/80 mt-1">
-            {providerReviews.length} igazolt utazói vélemény
+          <div className="text-[10px] sm:text-xs text-emerald-700/80 mt-0.5 sm:mt-1 truncate">
+            Publikált
           </div>
         </div>
 
-        {/* Piszkozatok */}
-        <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-sm">
-          <span className="text-xs font-bold text-stone-500 uppercase tracking-wider block mb-1">
-            Piszkozatok (Draft)
+        {/* 2. Piszkozatok */}
+        <div className="bg-white p-2.5 sm:p-5 rounded-xl sm:rounded-2xl border border-stone-200 shadow-xs sm:shadow-sm text-center sm:text-left min-w-0">
+          <span className="text-[10px] sm:text-xs font-bold text-stone-500 uppercase tracking-wider block mb-0.5 sm:mb-1 truncate">
+            Piszkozat
           </span>
-          <div className="text-3xl font-extrabold font-display text-amber-600">
+          <div className="text-xl sm:text-3xl font-extrabold font-display text-amber-600">
             {draftProgramsCount}
           </div>
-          <div className="text-xs text-stone-400 mt-1">
-            {draftProgramsCount} szerkesztés alatt álló vázlat
+          <div className="text-[10px] sm:text-xs text-stone-400 mt-0.5 sm:mt-1 truncate">
+            Vázlat
           </div>
         </div>
 
-        {/* Érdeklődések */}
-        <div className="bg-white p-5 rounded-2xl border border-teal-100 shadow-sm bg-gradient-to-br from-white to-teal-50/40 col-span-2 sm:col-span-1">
-          <span className="text-xs font-bold text-teal-800 uppercase tracking-wider block mb-1">
-            Érdeklődések
+        {/* 3. Értékelések */}
+        <div className="bg-white p-2.5 sm:p-5 rounded-xl sm:rounded-2xl border border-amber-100 shadow-xs sm:shadow-sm bg-gradient-to-br from-white to-amber-50/30 text-center sm:text-left min-w-0">
+          <span className="text-[10px] sm:text-xs font-bold text-amber-800 uppercase tracking-wider block mb-0.5 sm:mb-1 truncate">
+            Értékelés
           </span>
-          <div className="text-3xl font-extrabold font-display text-teal-600">
-            {ownInquiries.length}
+          <div className="text-xl sm:text-3xl font-extrabold font-display text-amber-600 flex items-center justify-center sm:justify-start gap-1">
+            <span>{providerStats.count > 0 ? providerStats.average.toFixed(1) : '5.0'}</span>
+            <Star className="w-3.5 h-3.5 sm:w-4.5 sm:h-4.5 fill-amber-400 text-amber-400 shrink-0" />
           </div>
-          <div className="text-xs text-teal-700/80 mt-1">Beérkezett megkeresés</div>
+          <div className="text-[10px] sm:text-xs text-amber-700/80 mt-0.5 sm:mt-1 truncate">
+            {providerReviews.length} vélemény
+          </div>
         </div>
       </div>
 
@@ -579,8 +559,8 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
                           </button>
                         </div>
 
-                        {/* Státuszváltás és Törlés: mobilon a sor hátralévő részét kitöltve */}
-                        <div className="flex items-center gap-2 w-full sm:w-auto">
+                        {/* Státuszváltás, Archiválás és Törlés */}
+                        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                           {/* Gyors státuszváltás: közvetlen közzététel vagy piszkozatba visszavonás */}
                           {prog.status === 'draft' ? (
                             <button
@@ -600,7 +580,32 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
                               <FileEdit className="w-3.5 h-3.5" />
                               <span>Piszkozatba</span>
                             </button>
+                          ) : prog.status === 'archived' ? (
+                            <button
+                              onClick={() => updateProgram(prog.id, { status: 'draft' })}
+                              className="flex-1 sm:flex-none px-3.5 py-2 sm:py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 hover:bg-amber-100 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                              title="Visszaállítás a piszkozatok közé"
+                            >
+                              <FileEdit className="w-3.5 h-3.5 text-amber-700" />
+                              <span>Visszaállítás</span>
+                            </button>
                           ) : null}
+
+                          {/* Archiválás opció a kártyán */}
+                          {prog.status !== 'archived' && (
+                            <button
+                              onClick={async () => {
+                                if (window.confirm('Biztosan archiválni szeretnéd ezt a programot? Elrejtődik a katalógusból, de az adatai és korábbi foglalásai megmaradnak.')) {
+                                  await archiveProgram(prog.id);
+                                }
+                              }}
+                              className="flex-1 sm:flex-none px-3 py-2 sm:py-1.5 rounded-xl border border-stone-200 text-stone-600 hover:bg-stone-100 hover:text-stone-900 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                              title="Archiválás (program leállítása és elrejtése)"
+                            >
+                              <Archive className="w-3.5 h-3.5 text-stone-500" />
+                              <span>Archiválás</span>
+                            </button>
+                          )}
 
                           <button
                             onClick={() => {
