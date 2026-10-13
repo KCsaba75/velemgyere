@@ -94,6 +94,12 @@ export const AdminDashboard: React.FC = () => {
   const [feeSettingsSaved, setFeeSettingsSaved] = useState(false);
 
   const handleSaveFeeSettings = async () => {
+    // Kanban 84b90320 2. kor (Zora talalata): a mezok most focus-kor ureskent-tartasra
+    // valtottak (lasd lejjebb onFocus) -- Number('') === 0, ami ATMENNE ezen a guardon
+    // ha csak NaN-ra/negativra szurnenk, es egy koppints-majd-elvesz-gepeles-nelkul
+    // interakcio csendben 0-ra irna at egy eles, minden jovobeli foglalast erinto
+    // penzugyi beallitast. Explicit ures-string elutasitas kell a Number.isNaN mellett.
+    if (feePercentageDraft.trim() === '' || feeMinimumEurDraft.trim() === '') return;
     const pct = Number(feePercentageDraft);
     const min = Number(feeMinimumEurDraft);
     if (Number.isNaN(pct) || pct < 0 || Number.isNaN(min) || min < 0) return;
@@ -423,6 +429,7 @@ export const AdminDashboard: React.FC = () => {
                 value={feePercentageDraft}
                 onChange={(e) => setFeePercentageDraft(e.target.value)}
                 onFocus={() => setFeePercentageDraft('')}
+                onBlur={() => { if (feePercentageDraft.trim() === '') setFeePercentageDraft(String(feePercentage)); }}
                 className="w-32 text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
               <span className="text-sm text-stone-500">%</span>
@@ -436,6 +443,7 @@ export const AdminDashboard: React.FC = () => {
                 value={feeMinimumEurDraft}
                 onChange={(e) => setFeeMinimumEurDraft(e.target.value)}
                 onFocus={() => setFeeMinimumEurDraft('')}
+                onBlur={() => { if (feeMinimumEurDraft.trim() === '') setFeeMinimumEurDraft(String(feeMinimumEur)); }}
                 className="w-32 text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
               <span className="text-sm text-stone-500">€</span>
