@@ -427,8 +427,29 @@ export const AdminDashboard: React.FC = () => {
                 min={0}
                 step="0.01"
                 value={feePercentageDraft}
-                onChange={(e) => setFeePercentageDraft(e.target.value)}
-                onFocus={() => setFeePercentageDraft('')}
+                onChange={(e) => {
+                  let val = e.target.value;
+                  if (val.length > 1 && val.startsWith('0') && !val.startsWith('0.')) {
+                    val = val.replace(/^0+/, '');
+                  }
+                  setFeePercentageDraft(val);
+                }}
+                onFocus={(e) => {
+                  const val = e.target.value;
+                  if (val === '0' || val === '0.00' || val === '0.0') {
+                    setFeePercentageDraft('');
+                  } else {
+                    e.target.select();
+                  }
+                }}
+                onClick={(e) => {
+                  const val = (e.target as HTMLInputElement).value;
+                  if (val === '0' || val === '0.00' || val === '0.0') {
+                    setFeePercentageDraft('');
+                  } else {
+                    (e.target as HTMLInputElement).select();
+                  }
+                }}
                 onBlur={() => { if (feePercentageDraft.trim() === '') setFeePercentageDraft(String(feePercentage)); }}
                 className="w-32 text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
@@ -441,8 +462,29 @@ export const AdminDashboard: React.FC = () => {
                 min={0}
                 step="0.01"
                 value={feeMinimumEurDraft}
-                onChange={(e) => setFeeMinimumEurDraft(e.target.value)}
-                onFocus={() => setFeeMinimumEurDraft('')}
+                onChange={(e) => {
+                  let val = e.target.value;
+                  if (val.length > 1 && val.startsWith('0') && !val.startsWith('0.')) {
+                    val = val.replace(/^0+/, '');
+                  }
+                  setFeeMinimumEurDraft(val);
+                }}
+                onFocus={(e) => {
+                  const val = e.target.value;
+                  if (val === '0' || val === '0.00' || val === '0.0') {
+                    setFeeMinimumEurDraft('');
+                  } else {
+                    e.target.select();
+                  }
+                }}
+                onClick={(e) => {
+                  const val = (e.target as HTMLInputElement).value;
+                  if (val === '0' || val === '0.00' || val === '0.0') {
+                    setFeeMinimumEurDraft('');
+                  } else {
+                    (e.target as HTMLInputElement).select();
+                  }
+                }}
                 onBlur={() => { if (feeMinimumEurDraft.trim() === '') setFeeMinimumEurDraft(String(feeMinimumEur)); }}
                 className="w-32 text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />

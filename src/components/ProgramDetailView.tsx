@@ -841,13 +841,35 @@ export const ProgramDetailView: React.FC = () => {
                           min={1}
                           value={participantsInput}
                           onChange={(e) => {
-                            const raw = e.target.value;
+                            let raw = e.target.value;
+                            if (raw.length > 1 && raw.startsWith('0')) {
+                              raw = raw.replace(/^0+/, '');
+                            }
                             setParticipantsInput(raw);
                             const n = parseInt(raw, 10);
                             if (Number.isFinite(n) && n >= 1) setParticipantsCount(n);
                           }}
-                          onFocus={() => setParticipantsInput('')}
-                          onBlur={() => setParticipantsInput(String(participantsCount))}
+                          onFocus={(e) => {
+                            const val = e.target.value;
+                            if (val === '0') {
+                              setParticipantsInput('');
+                            } else {
+                              e.target.select();
+                            }
+                          }}
+                          onClick={(e) => {
+                            const val = (e.target as HTMLInputElement).value;
+                            if (val === '0') {
+                              setParticipantsInput('');
+                            } else {
+                              (e.target as HTMLInputElement).select();
+                            }
+                          }}
+                          onBlur={() => {
+                            if (!participantsInput.trim() || parseInt(participantsInput, 10) < 1) {
+                              setParticipantsInput(String(participantsCount));
+                            }
+                          }}
                           className="w-24 text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                         />
                       </div>

@@ -205,8 +205,29 @@ export const ProgramPricingModal: React.FC<ProgramPricingModalProps> = ({ progra
                     type="number"
                     min={1}
                     value={minParticipants}
-                    onChange={(e) => setMinParticipants(e.target.value)}
-                    onFocus={() => setMinParticipants('')}
+                    onChange={(e) => {
+                      let val = e.target.value;
+                      if (val.length > 1 && val.startsWith('0')) {
+                        val = val.replace(/^0+/, '');
+                      }
+                      setMinParticipants(val);
+                    }}
+                    onFocus={(e) => {
+                      const val = e.target.value;
+                      if (val === '0') {
+                        setMinParticipants('');
+                      } else {
+                        e.target.select();
+                      }
+                    }}
+                    onClick={(e) => {
+                      const val = (e.target as HTMLInputElement).value;
+                      if (val === '0') {
+                        setMinParticipants('');
+                      } else {
+                        (e.target as HTMLInputElement).select();
+                      }
+                    }}
                     className="w-full text-sm bg-white border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
@@ -216,8 +237,29 @@ export const ProgramPricingModal: React.FC<ProgramPricingModalProps> = ({ progra
                     type="number"
                     min={1}
                     value={maxParticipants}
-                    onChange={(e) => setMaxParticipants(e.target.value)}
-                    onFocus={() => setMaxParticipants('')}
+                    onChange={(e) => {
+                      let val = e.target.value;
+                      if (val.length > 1 && val.startsWith('0')) {
+                        val = val.replace(/^0+/, '');
+                      }
+                      setMaxParticipants(val);
+                    }}
+                    onFocus={(e) => {
+                      const val = e.target.value;
+                      if (val === '0') {
+                        setMaxParticipants('');
+                      } else {
+                        e.target.select();
+                      }
+                    }}
+                    onClick={(e) => {
+                      const val = (e.target as HTMLInputElement).value;
+                      if (val === '0') {
+                        setMaxParticipants('');
+                      } else {
+                        (e.target as HTMLInputElement).select();
+                      }
+                    }}
                     placeholder="∞"
                     className="w-full text-sm bg-white border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
@@ -229,8 +271,30 @@ export const ProgramPricingModal: React.FC<ProgramPricingModalProps> = ({ progra
                     min={0}
                     step="0.01"
                     value={totalPrice}
-                    onChange={(e) => setTotalPrice(e.target.value)}
-                    onFocus={() => setTotalPrice('')}
+                    onChange={(e) => {
+                      let val = e.target.value;
+                      if (val.length > 1 && val.startsWith('0') && !val.startsWith('0.')) {
+                        val = val.replace(/^0+/, '');
+                      }
+                      setTotalPrice(val);
+                    }}
+                    onFocus={(e) => {
+                      const val = e.target.value;
+                      if (val === '0' || val === '0.00' || val === '0.0') {
+                        setTotalPrice('');
+                      } else {
+                        e.target.select();
+                      }
+                    }}
+                    onClick={(e) => {
+                      const val = (e.target as HTMLInputElement).value;
+                      if (val === '0' || val === '0.00' || val === '0.0') {
+                        setTotalPrice('');
+                      } else {
+                        (e.target as HTMLInputElement).select();
+                      }
+                    }}
+                    placeholder="Pl. 150"
                     className="w-full text-sm bg-white border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>

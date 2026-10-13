@@ -493,11 +493,32 @@ export const NewProgramModal: React.FC<NewProgramModalProps> = ({ isOpen, onClos
                 <input
                   type="number"
                   min="0"
-                  step="1"
+                  step="any"
                   required
                   value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  onFocus={() => setPrice('')}
+                  onChange={(e) => {
+                    let val = e.target.value;
+                    if (val.length > 1 && val.startsWith('0') && !val.startsWith('0.')) {
+                      val = val.replace(/^0+/, '');
+                    }
+                    setPrice(val);
+                  }}
+                  onFocus={(e) => {
+                    const val = e.target.value;
+                    if (val === '0' || val === '0.00' || val === '0.0') {
+                      setPrice('');
+                    } else {
+                      e.target.select();
+                    }
+                  }}
+                  onClick={(e) => {
+                    const val = (e.target as HTMLInputElement).value;
+                    if (val === '0' || val === '0.00' || val === '0.0') {
+                      setPrice('');
+                    } else {
+                      (e.target as HTMLInputElement).select();
+                    }
+                  }}
                   placeholder="55"
                   className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3.5 py-2.5 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
@@ -525,8 +546,29 @@ export const NewProgramModal: React.FC<NewProgramModalProps> = ({ isOpen, onClos
                   type="number"
                   min="1"
                   value={maxParticipants}
-                  onChange={(e) => setMaxParticipants(e.target.value)}
-                  onFocus={() => setMaxParticipants('')}
+                  onChange={(e) => {
+                    let val = e.target.value;
+                    if (val.length > 1 && val.startsWith('0')) {
+                      val = val.replace(/^0+/, '');
+                    }
+                    setMaxParticipants(val);
+                  }}
+                  onFocus={(e) => {
+                    const val = e.target.value;
+                    if (val === '0') {
+                      setMaxParticipants('');
+                    } else {
+                      e.target.select();
+                    }
+                  }}
+                  onClick={(e) => {
+                    const val = (e.target as HTMLInputElement).value;
+                    if (val === '0') {
+                      setMaxParticipants('');
+                    } else {
+                      (e.target as HTMLInputElement).select();
+                    }
+                  }}
                   placeholder="16"
                   className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3.5 py-2.5 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
