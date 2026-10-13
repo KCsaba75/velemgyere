@@ -282,14 +282,28 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
           </p>
         </div>
 
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0 w-full sm:w-auto">
+        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0 w-full sm:w-auto">
+          <button
+            type="button"
+            onClick={() => setActiveTab('profile')}
+            className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-bold px-2.5 sm:px-4 py-2 sm:py-3 rounded-xl sm:rounded-2xl border transition-colors cursor-pointer ${
+              activeTab === 'profile'
+                ? 'bg-emerald-50 text-emerald-800 border-emerald-300 shadow-xs'
+                : 'bg-white text-stone-700 hover:text-stone-900 border-stone-200 hover:bg-stone-50'
+            }`}
+            title="Szolgáltatói fiókadatok szerkesztése"
+          >
+            <UserCog className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-stone-500" />
+            <span className="truncate">Fiókadatok</span>
+          </button>
+
           <button
             type="button"
             onClick={logout}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-bold text-stone-500 hover:text-rose-600 bg-white px-3 sm:px-4 py-2 sm:py-3 rounded-xl sm:rounded-2xl border border-stone-200 hover:border-rose-200 hover:bg-rose-50 transition-colors cursor-pointer"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-bold text-stone-500 hover:text-rose-600 bg-white px-2.5 sm:px-4 py-2 sm:py-3 rounded-xl sm:rounded-2xl border border-stone-200 hover:border-rose-200 hover:bg-rose-50 transition-colors cursor-pointer"
           >
             <LogOut className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            <span>Kijelentkezés</span>
+            <span className="truncate">Kijelentkezés</span>
           </button>
 
           <button
@@ -300,10 +314,10 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
                 ? 'Felfüggesztett/letiltott fiókkal nem hozható létre új program'
                 : undefined
             }
-            className="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold px-3.5 sm:px-5 py-2 sm:py-3 rounded-xl sm:rounded-2xl shadow-sm sm:shadow-md transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer text-xs sm:text-sm shrink-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-emerald-600"
+            className="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold px-3 sm:px-5 py-2 sm:py-3 rounded-xl sm:rounded-2xl shadow-sm sm:shadow-md transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer text-xs sm:text-sm shrink-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-emerald-600"
           >
             <PlusCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            <span>+ Új program</span>
+            <span className="whitespace-nowrap">+ Új program</span>
           </button>
         </div>
       </div>
@@ -379,66 +393,66 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
         </div>
       </div>
 
-      {/* Tabs navigation */}
-      <div className="flex border-b border-stone-200 mb-6 gap-6 overflow-x-auto no-scrollbar">
+      {/* Tabs navigation - 4 fül (Programok, Foglalások, Értékelések, Érdeklődések) egymás mellett mobilon is */}
+      <div className="grid grid-cols-4 sm:flex border-b border-stone-200 mb-6 gap-0.5 sm:gap-6">
         <button
           onClick={() => setActiveTab('programs')}
-          className={`pb-3 text-sm font-bold transition-colors cursor-pointer border-b-2 flex items-center gap-2 shrink-0 ${
+          className={`pb-2.5 sm:pb-3 text-xs sm:text-sm font-bold transition-colors cursor-pointer border-b-2 flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-1 sm:gap-2 px-0.5 sm:px-0 text-center sm:text-left min-w-0 ${
             activeTab === 'programs'
-              ? 'border-emerald-600 text-emerald-700'
+              ? 'border-emerald-600 text-emerald-700 font-extrabold'
               : 'border-transparent text-stone-500 hover:text-stone-800'
           }`}
         >
-          <FileText className="w-4 h-4" />
-          <span>Saját Programok ({ownPrograms.length})</span>
+          <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+          <span className="text-[11px] sm:text-sm leading-tight flex flex-col sm:flex-row items-center sm:items-baseline gap-0.5 sm:gap-1 min-w-0">
+            <span className="truncate">Programok</span>
+            <span className="text-[10px] sm:text-xs font-normal opacity-75">({ownPrograms.length})</span>
+          </span>
         </button>
 
         <button
           onClick={() => setActiveTab('bookings')}
-          className={`pb-3 text-sm font-bold transition-colors cursor-pointer border-b-2 flex items-center gap-2 shrink-0 ${
+          className={`pb-2.5 sm:pb-3 text-xs sm:text-sm font-bold transition-colors cursor-pointer border-b-2 flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-1 sm:gap-2 px-0.5 sm:px-0 text-center sm:text-left min-w-0 ${
             activeTab === 'bookings'
-              ? 'border-emerald-600 text-emerald-700'
+              ? 'border-emerald-600 text-emerald-700 font-extrabold'
               : 'border-transparent text-stone-500 hover:text-stone-800'
           }`}
         >
-          <Ticket className="w-4 h-4" />
-          <span>Foglalások ({ownOrders.length})</span>
+          <Ticket className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+          <span className="text-[11px] sm:text-sm leading-tight flex flex-col sm:flex-row items-center sm:items-baseline gap-0.5 sm:gap-1 min-w-0">
+            <span className="truncate">Foglalások</span>
+            <span className="text-[10px] sm:text-xs font-normal opacity-75">({ownOrders.length})</span>
+          </span>
         </button>
 
         <button
           onClick={() => setActiveTab('reviews')}
-          className={`pb-3 text-sm font-bold transition-colors cursor-pointer border-b-2 flex items-center gap-2 shrink-0 ${
+          className={`pb-2.5 sm:pb-3 text-xs sm:text-sm font-bold transition-colors cursor-pointer border-b-2 flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-1 sm:gap-2 px-0.5 sm:px-0 text-center sm:text-left min-w-0 ${
             activeTab === 'reviews'
-              ? 'border-emerald-600 text-emerald-700'
+              ? 'border-emerald-600 text-emerald-700 font-extrabold'
               : 'border-transparent text-stone-500 hover:text-stone-800'
           }`}
         >
-          <Star className="w-4 h-4" />
-          <span>Értékelések ({providerReviews.length})</span>
+          <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+          <span className="text-[11px] sm:text-sm leading-tight flex flex-col sm:flex-row items-center sm:items-baseline gap-0.5 sm:gap-1 min-w-0">
+            <span className="truncate">Értékelések</span>
+            <span className="text-[10px] sm:text-xs font-normal opacity-75">({providerReviews.length})</span>
+          </span>
         </button>
 
         <button
           onClick={() => setActiveTab('inquiries')}
-          className={`pb-3 text-sm font-bold transition-colors cursor-pointer border-b-2 flex items-center gap-2 shrink-0 ${
+          className={`pb-2.5 sm:pb-3 text-xs sm:text-sm font-bold transition-colors cursor-pointer border-b-2 flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-1 sm:gap-2 px-0.5 sm:px-0 text-center sm:text-left min-w-0 ${
             activeTab === 'inquiries'
-              ? 'border-emerald-600 text-emerald-700'
+              ? 'border-emerald-600 text-emerald-700 font-extrabold'
               : 'border-transparent text-stone-500 hover:text-stone-800'
           }`}
         >
-          <MessageSquare className="w-4 h-4" />
-          <span>Érdeklődések ({ownInquiries.length})</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('profile')}
-          className={`pb-3 text-sm font-bold transition-colors cursor-pointer border-b-2 flex items-center gap-2 shrink-0 ${
-            activeTab === 'profile'
-              ? 'border-emerald-600 text-emerald-700'
-              : 'border-transparent text-stone-500 hover:text-stone-800'
-          }`}
-        >
-          <UserCog className="w-4 h-4" />
-          <span>Fiók adatok</span>
+          <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+          <span className="text-[11px] sm:text-sm leading-tight flex flex-col sm:flex-row items-center sm:items-baseline gap-0.5 sm:gap-1 min-w-0">
+            <span className="truncate">Érdeklődések</span>
+            <span className="text-[10px] sm:text-xs font-normal opacity-75">({ownInquiries.length})</span>
+          </span>
         </button>
       </div>
 
@@ -823,7 +837,19 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
           editable here, see providers_self_profile_update migration. */}
       {activeTab === 'profile' && (
         <div className="bg-white rounded-2xl border border-stone-200 shadow-sm p-6 max-w-2xl">
-          <h3 className="text-base font-bold text-stone-800 font-display mb-1">Fiók adatok</h3>
+          <div className="flex items-center justify-between gap-3 mb-1">
+            <h3 className="text-base font-bold text-stone-800 font-display flex items-center gap-2">
+              <UserCog className="w-5 h-5 text-emerald-600" />
+              <span>Fiókadatok</span>
+            </h3>
+            <button
+              type="button"
+              onClick={() => setActiveTab('programs')}
+              className="text-xs text-emerald-700 hover:text-emerald-800 font-bold hover:underline cursor-pointer"
+            >
+              ← Vissza a programokhoz
+            </button>
+          </div>
           <p className="text-xs text-stone-500 mb-5">
             Ezek az adatok jelennek meg a programjaidon, és ezeken ér el téged az admin és a vásárlók.
           </p>
