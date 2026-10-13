@@ -265,9 +265,9 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-in fade-in duration-200">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-2.5 sm:pt-8 pb-6 sm:pb-8 animate-in fade-in duration-200">
       {/* Welcome Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-6 sm:mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4 mb-4 sm:mb-8">
         <div>
           <div className="hidden sm:inline-flex items-center gap-2 text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-lg mb-2">
             <Building2 className="w-3.5 h-3.5" />
