@@ -40,7 +40,10 @@ export const NewProgramModal: React.FC<NewProgramModalProps> = ({ isOpen, onClos
   const [departureLocation, setDepartureLocation] = useState('');
 
   // Pricing & Language
-  const [price, setPrice] = useState<number>(55);
+  // Kanban 84b90320: string-buffer (maxParticipants mintajat kovetve), nem number --
+  // igy a focus-kori ureskent-tartas (lasd lejjebb onFocus) nem tipushibas, es az
+  // uresen-hagyott mezo nem esik vissza csendben 0-ra minden billentyuleutes kozben.
+  const [price, setPrice] = useState<string>('55');
   const [currency, setCurrency] = useState('EUR');
   const [language, setLanguage] = useState('Magyar nyelvű vezetés');
   const [maxParticipants, setMaxParticipants] = useState<string>('16');
@@ -86,7 +89,7 @@ export const NewProgramModal: React.FC<NewProgramModalProps> = ({ isOpen, onClos
       setDuration(programToEdit.duration || 'Egész napos (7 óra)');
       setLocation(programToEdit.location || '');
       setDepartureLocation(programToEdit.departure_location || '');
-      setPrice(Number(programToEdit.price) || 0);
+      setPrice(programToEdit.price != null ? String(programToEdit.price) : '0');
       setCurrency(programToEdit.currency || 'EUR');
       setLanguage(programToEdit.language || 'Magyar nyelvű vezetés');
       setMaxParticipants(programToEdit.max_participants ? String(programToEdit.max_participants) : '');
@@ -115,7 +118,7 @@ export const NewProgramModal: React.FC<NewProgramModalProps> = ({ isOpen, onClos
       setDuration('Egész napos (7 óra)');
       setLocation('');
       setDepartureLocation('');
-      setPrice(55);
+      setPrice('55');
       setCurrency('EUR');
       setLanguage('Magyar nyelvű vezetés');
       setMaxParticipants('16');
@@ -493,8 +496,8 @@ export const NewProgramModal: React.FC<NewProgramModalProps> = ({ isOpen, onClos
                   step="1"
                   required
                   value={price}
-                  onChange={(e) => setPrice(Number(e.target.value))}
-                  onFocus={(e) => e.target.select()}
+                  onChange={(e) => setPrice(e.target.value)}
+                  onFocus={() => setPrice('')}
                   placeholder="55"
                   className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3.5 py-2.5 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
@@ -523,7 +526,7 @@ export const NewProgramModal: React.FC<NewProgramModalProps> = ({ isOpen, onClos
                   min="1"
                   value={maxParticipants}
                   onChange={(e) => setMaxParticipants(e.target.value)}
-                  onFocus={(e) => e.target.select()}
+                  onFocus={() => setMaxParticipants('')}
                   placeholder="16"
                   className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3.5 py-2.5 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />

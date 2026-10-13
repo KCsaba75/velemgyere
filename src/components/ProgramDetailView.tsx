@@ -94,7 +94,17 @@ export const ProgramDetailView: React.FC = () => {
   // not a real payment yet. This is now the ONLY primary CTA on the page -- it replaces
   // the old "Érdekel a program!" inquiry modal, which let a buyer message the provider
   // directly (and the provider reply directly) completely outside the order/fee model.
+  // Kanban 84b90320: participantsCount a COMMITTED, mindig ervenyes szam (ezt
+  // hasznalja minden ar-szamitas/kijelzes es a BookingCheckoutModal prop), kulon
+  // participantsInput a mezo nyers megjelenitett szovege. A ketto szet van valva,
+  // mert focus-kor a mezot KIURITJUK (lasd lejjebb onFocus) a natív text-selection
+  // helyett -- mobilon a select() a masolas/beillesztes bubble-t valtotta ki, ures
+  // mezonel viszont nincs mit kijelolni. MUTACIOS TESZT-CSAPDA amit ez a szetvalas
+  // kerul el: ha participantsCount kozvetlenul parseInt(participantsInput)-bol szarmazna,
+  // minden ures-focus pillanatban visszaesne 1-re, es blur-kor (ha a felhasznalo nem
+  // irt semmit) a korabban beallitott erteket (pl. 5 fo) csendben 1-re irna at.
   const [participantsCount, setParticipantsCount] = useState(1);
+  const [participantsInput, setParticipantsInput] = useState('1');
   const [onsitePaymentMethod, setOnsitePaymentMethod] = useState<OnsitePaymentMethod>('cash');
   const [reservationSubmitting, setReservationSubmitting] = useState(false);
   const [reservationResult, setReservationResult] = useState<{ success: boolean; message: string } | null>(null);
@@ -829,9 +839,15 @@ export const ProgramDetailView: React.FC = () => {
                         <input
                           type="number"
                           min={1}
-                          value={participantsCount}
-                          onChange={(e) => setParticipantsCount(Math.max(1, Number(e.target.value) || 1))}
-                          onFocus={(e) => e.target.select()}
+                          value={participantsInput}
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            setParticipantsInput(raw);
+                            const n = parseInt(raw, 10);
+                            if (Number.isFinite(n) && n >= 1) setParticipantsCount(n);
+                          }}
+                          onFocus={() => setParticipantsInput('')}
+                          onBlur={() => setParticipantsInput(String(participantsCount))}
                           className="w-24 text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                         />
                       </div>
