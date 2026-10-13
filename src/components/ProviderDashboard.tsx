@@ -350,44 +350,44 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
         </div>
       )}
 
-      {/* Metric Stat Cards - Pontosan 3 blokk 1 sorban: Aktív, Piszkozat, Értékelés */}
-      <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-6 sm:mb-8">
+      {/* Metric Stat Cards - Pontosan 3 blokk 1 sorban: Aktív, Piszkozat, Értékelés (fele olyan mély, kompakt magasság) */}
+      <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4 sm:mb-6">
         {/* 1. Aktív programok */}
-        <div className="bg-white p-2.5 sm:p-5 rounded-xl sm:rounded-2xl border border-emerald-100 shadow-xs sm:shadow-sm bg-gradient-to-br from-white to-emerald-50/40 text-center sm:text-left min-w-0">
-          <span className="text-[10px] sm:text-xs font-bold text-emerald-800 uppercase tracking-wider block mb-0.5 sm:mb-1 truncate">
+        <div className="bg-white py-1.5 sm:py-2.5 px-2 sm:px-4 rounded-xl sm:rounded-2xl border border-emerald-100 shadow-xs sm:shadow-sm bg-gradient-to-br from-white to-emerald-50/40 text-center sm:text-left min-w-0">
+          <span className="text-[10px] sm:text-xs font-bold text-emerald-800 uppercase tracking-wider block truncate leading-tight">
             Aktív
           </span>
-          <div className="text-xl sm:text-3xl font-extrabold font-display text-emerald-600">
+          <div className="text-base sm:text-2xl font-extrabold font-display text-emerald-600 leading-tight my-0.5">
             {activeProgramsCount}
           </div>
-          <div className="text-[10px] sm:text-xs text-emerald-700/80 mt-0.5 sm:mt-1 truncate">
+          <div className="text-[9px] sm:text-[11px] text-emerald-700/80 truncate leading-tight">
             Publikált
           </div>
         </div>
 
         {/* 2. Piszkozatok */}
-        <div className="bg-white p-2.5 sm:p-5 rounded-xl sm:rounded-2xl border border-stone-200 shadow-xs sm:shadow-sm text-center sm:text-left min-w-0">
-          <span className="text-[10px] sm:text-xs font-bold text-stone-500 uppercase tracking-wider block mb-0.5 sm:mb-1 truncate">
+        <div className="bg-white py-1.5 sm:py-2.5 px-2 sm:px-4 rounded-xl sm:rounded-2xl border border-stone-200 shadow-xs sm:shadow-sm text-center sm:text-left min-w-0">
+          <span className="text-[10px] sm:text-xs font-bold text-stone-500 uppercase tracking-wider block truncate leading-tight">
             Piszkozat
           </span>
-          <div className="text-xl sm:text-3xl font-extrabold font-display text-amber-600">
+          <div className="text-base sm:text-2xl font-extrabold font-display text-amber-600 leading-tight my-0.5">
             {draftProgramsCount}
           </div>
-          <div className="text-[10px] sm:text-xs text-stone-400 mt-0.5 sm:mt-1 truncate">
+          <div className="text-[9px] sm:text-[11px] text-stone-400 truncate leading-tight">
             Vázlat
           </div>
         </div>
 
         {/* 3. Értékelések */}
-        <div className="bg-white p-2.5 sm:p-5 rounded-xl sm:rounded-2xl border border-amber-100 shadow-xs sm:shadow-sm bg-gradient-to-br from-white to-amber-50/30 text-center sm:text-left min-w-0">
-          <span className="text-[10px] sm:text-xs font-bold text-amber-800 uppercase tracking-wider block mb-0.5 sm:mb-1 truncate">
+        <div className="bg-white py-1.5 sm:py-2.5 px-2 sm:px-4 rounded-xl sm:rounded-2xl border border-amber-100 shadow-xs sm:shadow-sm bg-gradient-to-br from-white to-amber-50/30 text-center sm:text-left min-w-0">
+          <span className="text-[10px] sm:text-xs font-bold text-amber-800 uppercase tracking-wider block truncate leading-tight">
             Értékelés
           </span>
-          <div className="text-xl sm:text-3xl font-extrabold font-display text-amber-600 flex items-center justify-center sm:justify-start gap-1">
+          <div className="text-base sm:text-2xl font-extrabold font-display text-amber-600 flex items-center justify-center sm:justify-start gap-1 leading-tight my-0.5">
             <span>{providerStats.count > 0 ? providerStats.average.toFixed(1) : '5.0'}</span>
-            <Star className="w-3.5 h-3.5 sm:w-4.5 sm:h-4.5 fill-amber-400 text-amber-400 shrink-0" />
+            <Star className="w-3 h-3 sm:w-4 sm:h-4 fill-amber-400 text-amber-400 shrink-0" />
           </div>
-          <div className="text-[10px] sm:text-xs text-amber-700/80 mt-0.5 sm:mt-1 truncate">
+          <div className="text-[9px] sm:text-[11px] text-amber-700/80 truncate leading-tight">
             {providerReviews.length} vélemény
           </div>
         </div>
