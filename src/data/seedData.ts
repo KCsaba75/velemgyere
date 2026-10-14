@@ -925,6 +925,27 @@ export const INITIAL_ORDERS: Order[] = [
     created_at: '2026-10-02T11:00:00Z',
     updated_at: '2026-10-02T11:00:00Z',
   },
+  {
+    id: 'ord-seed-phone-1',
+    booking_reference: 'VG-2026-918234',
+    program_id: 'prog-cyp-1',
+    user_id: 'user-sample-traveler-external',
+    participants_count: 3,
+    total_price: 195.00,
+    booking_fee: 0,
+    onsite_amount: 195.00,
+    currency: 'EUR',
+    status: 'confirmed',
+    onsite_payment_method: 'cash',
+    source: 'phone',
+    source_notes: 'Telefonos egyeztetés alapján; szállodai transzfert kértek a Sunrise Beach Hotel elől',
+    is_manual: true,
+    manual_customer_name: 'Fekete László',
+    manual_customer_phone: '+36 20 445 6789',
+    manual_customer_email: 'fekete.laszlo@gmail.com',
+    created_at: '2026-10-10T14:30:00Z',
+    updated_at: '2026-10-10T14:30:00Z',
+  },
 ];
 
 export const INITIAL_REVIEWS: Review[] = [

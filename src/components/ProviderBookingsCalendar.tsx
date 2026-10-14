@@ -16,10 +16,13 @@ import {
   Sparkles,
   ArrowRight,
   Filter,
-  Eye
+  Eye,
+  Phone,
+  ExternalLink
 } from 'lucide-react';
 import { Order, Program, ProgramOccurrence, OrderBuyerInfo, OnsitePaymentMethod } from '../types/database';
 import { formatPrice, getBookingReference } from '../context/AppContext';
+import { buildCalendarEventPayload, openGoogleCalendar } from '../services/googleCalendarService';
 
 interface ProviderBookingsCalendarProps {
   orders: Order[];
@@ -31,6 +34,7 @@ interface ProviderBookingsCalendarProps {
   onRescheduleOrder: (orderId: string) => void;
   onOpenProgramDetail?: (slug: string) => void;
   onSelectOrder?: (order: Order) => void;
+  onOpenManualBooking?: (programId?: string) => void;
 }
 
 const PAYMENT_METHOD_LABEL: Record<OnsitePaymentMethod, string> = {
@@ -73,6 +77,7 @@ export const ProviderBookingsCalendar: React.FC<ProviderBookingsCalendarProps> =
   onRescheduleOrder,
   onOpenProgramDetail,
   onSelectOrder,
+  onOpenManualBooking,
 }) => {
   // Programs map
   const programMap = useMemo(() => {
@@ -441,6 +446,19 @@ export const ProviderBookingsCalendar: React.FC<ProviderBookingsCalendarProps> =
               </button>
             </div>
 
+            {/* Külső foglalás rögzítése gomb a naptár fejlécében */}
+            {onOpenManualBooking && (
+              <button
+                type="button"
+                onClick={() => onOpenManualBooking(selectedProgramId !== 'all' ? selectedProgramId : undefined)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer shrink-0"
+                title="Telefonos vagy egyéb külső foglalás felvétele erre a programra vagy általánosan"
+              >
+                <Phone className="w-3.5 h-3.5" />
+                <span>+ Új külső foglalás</span>
+              </button>
+            )}
+
           </div>
         </div>
 
@@ -705,6 +723,17 @@ export const ProviderBookingsCalendar: React.FC<ProviderBookingsCalendarProps> =
                                   ? 'Visszaigazolásra vár'
                                   : 'Lemondva'}
                               </span>
+
+                              {/* Külső foglalás forrás jelző */}
+                              {order.source && order.source !== 'platform' && (
+                                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-800 border border-blue-200 inline-flex items-center gap-1">
+                                  {order.source === 'phone' && '📞 Telefon'}
+                                  {order.source === 'whatsapp' && '💬 WhatsApp'}
+                                  {order.source === 'onsite' && '🤝 Személyes'}
+                                  {order.source === 'email' && '✉️ Email'}
+                                  {order.source === 'external' && '📝 Külső'}
+                                </span>
+                              )}
                             </div>
                             <h5
                               onClick={(e) => {
@@ -742,13 +771,23 @@ export const ProviderBookingsCalendar: React.FC<ProviderBookingsCalendarProps> =
 
                         {/* Buyer Info */}
                         <div className="bg-white rounded-xl p-3 border border-stone-200/90 text-xs text-stone-700 space-y-1">
-                          <div className="flex items-center gap-1.5 font-semibold text-stone-900">
+                          <div className="flex flex-wrap items-center gap-1.5 font-semibold text-stone-900">
                             <User className="w-3.5 h-3.5 text-stone-400 shrink-0" />
-                            <span>{buyer ? buyer.name : 'Programvadász'}</span>
-                            {buyer?.email && (
-                              <span className="text-stone-400 font-normal">({buyer.email})</span>
+                            <span>{order.manual_customer_name || (buyer ? buyer.name : 'Programvadász')}</span>
+                            {order.manual_customer_phone && (
+                              <span className="text-emerald-700 font-bold ml-1.5 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
+                                📞 {order.manual_customer_phone}
+                              </span>
+                            )}
+                            {(order.manual_customer_email || buyer?.email) && (
+                              <span className="text-stone-400 font-normal">({order.manual_customer_email || buyer?.email})</span>
                             )}
                           </div>
+                          {order.source_notes && (
+                            <p className="text-[11px] text-amber-900 bg-amber-50/80 px-2.5 py-1 rounded-lg border border-amber-200/70 mt-1">
+                              <strong>Megjegyzés:</strong> {order.source_notes}
+                            </p>
+                          )}
                         </div>
 
                         {/* Onsite Financial Details */}
@@ -811,6 +850,29 @@ export const ProviderBookingsCalendar: React.FC<ProviderBookingsCalendarProps> =
                               <span>Áthelyezés</span>
                             </button>
                           )}
+
+                          {/* Google Naptár gomb */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const payload = buildCalendarEventPayload(
+                                order,
+                                program,
+                                occ,
+                                null,
+                                buyer ? { name: buyer.name, email: buyer.email } : null,
+                                { isProvider: true }
+                              );
+                              openGoogleCalendar(payload);
+                            }}
+                            className="px-3 py-1.5 rounded-xl border border-blue-200 bg-blue-50/80 hover:bg-blue-100 text-blue-700 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
+                            title="Foglalás megnyitása Google Naptárban"
+                          >
+                            <CalendarDays className="w-3.5 h-3.5 text-blue-600" />
+                            <span className="hidden sm:inline">Google Naptár</span>
+                            <ExternalLink className="w-3 h-3 text-blue-400" />
+                          </button>
 
                           <button
                             type="button"

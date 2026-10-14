@@ -178,8 +178,11 @@ create policy "Users can insert own profile"
 -- (privilege escalation) from the client -- same pattern as the providers
 -- table's own-update guard further below (revoke broad update, grant only the
 -- editable columns).
+alter table public.profiles add column if not exists google_calendar_sync_enabled boolean default false;
+alter table public.profiles add column if not exists google_calendar_id text default 'primary';
+
 revoke update on public.profiles from authenticated;
-grant update (name, email, phone, notify_booking_reminders, notify_newsletter, notify_promo)
+grant update (name, email, phone, notify_booking_reminders, notify_newsletter, notify_promo, google_calendar_sync_enabled, google_calendar_id)
   on public.profiles to authenticated;
 
 -- RLS: PROVIDERS
@@ -334,6 +337,15 @@ create table if not exists public.orders (
 );
 
 alter table public.orders add column if not exists booking_reference text;
+alter table public.orders add column if not exists source text default 'platform';
+alter table public.orders add column if not exists source_notes text;
+alter table public.orders add column if not exists is_manual boolean default false;
+alter table public.orders add column if not exists manual_customer_name text;
+alter table public.orders add column if not exists manual_customer_phone text;
+alter table public.orders add column if not exists manual_customer_email text;
+alter table public.orders add column if not exists google_calendar_event_id text;
+alter table public.orders add column if not exists google_calendar_synced boolean default false;
+alter table public.orders add column if not exists google_calendar_event_url text;
 
 alter table public.orders enable row level security;
 
@@ -344,6 +356,16 @@ create policy "Visitors can view own orders"
 create policy "Visitors can create own orders"
   on public.orders for insert
   with check (auth.uid() = user_id);
+
+create policy "Providers can insert manual orders for their programs"
+  on public.orders for insert
+  with check (
+    exists (
+      select 1 from public.programs
+      join public.providers on providers.id = programs.provider_id
+      where programs.id = orders.program_id and providers.user_id = auth.uid()
+    )
+  );
 
 create policy "Visitors can cancel own orders"
   on public.orders for update
@@ -1043,6 +1065,12 @@ alter table public.providers
 grant select (accepted_payment_methods) on public.providers to anon, authenticated;
 grant update (accepted_payment_methods) on public.providers to authenticated;
 grant insert (accepted_payment_methods) on public.providers to authenticated;
+
+alter table public.providers
+  add column if not exists google_calendar_sync_enabled boolean default false,
+  add column if not exists google_calendar_id text default 'primary';
+
+grant update (google_calendar_sync_enabled, google_calendar_id) on public.providers to authenticated;
 
 -- A publikus (nem-admin) providers-listazas a providers_public view-n megy, nem a
 -- nyers tablan -- ennek is bovitve kell lennie, kulonben a vevo-oldali checkout nem

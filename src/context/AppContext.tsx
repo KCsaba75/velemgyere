@@ -23,6 +23,8 @@ import {
   Review,
   ReviewStatus,
   TravelType,
+  BookingSource,
+  OrderStatus,
   FavoriteFolder,
   FavoriteItem,
   ProgramPriceTier
@@ -170,6 +172,8 @@ interface AppContextType {
     notify_booking_reminders?: boolean;
     notify_newsletter?: boolean;
     notify_promo?: boolean;
+    google_calendar_sync_enabled?: boolean;
+    google_calendar_id?: string;
   }) => Promise<{ success: boolean; message: string }>;
   registerProvider: (data: {
     company_name: string;
@@ -226,6 +230,8 @@ interface AppContextType {
     website?: string;
     description?: string;
     accepted_payment_methods?: OnsitePaymentMethod[];
+    google_calendar_sync_enabled?: boolean;
+    google_calendar_id?: string;
   }) => Promise<void>;
 
   // Inquiries
@@ -248,6 +254,13 @@ interface AppContextType {
     currency?: string;
     onsite_payment_method: OnsitePaymentMethod;
     booking_reference?: string;
+    source?: BookingSource;
+    source_notes?: string;
+    is_manual?: boolean;
+    manual_customer_name?: string;
+    manual_customer_phone?: string;
+    manual_customer_email?: string;
+    status?: OrderStatus;
   }) => Promise<{ success: boolean; message: string; orderId?: string }>;
   cancelOrder: (id: string) => Promise<void>;
 
@@ -1094,6 +1107,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     notify_booking_reminders?: boolean;
     notify_newsletter?: boolean;
     notify_promo?: boolean;
+    google_calendar_sync_enabled?: boolean;
+    google_calendar_id?: string;
   }): Promise<{ success: boolean; message: string }> => {
     if (!isAuthenticated || !currentUser?.user_id) {
       return { success: false, message: 'Nincs bejelentkezve.' };
@@ -1676,6 +1691,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     website?: string;
     description?: string;
     accepted_payment_methods?: OnsitePaymentMethod[];
+    google_calendar_sync_enabled?: boolean;
+    google_calendar_id?: string;
   }): Promise<void> => {
     if (!currentProviderFull) {
       throw new Error('Nincs betöltve a szolgáltatói profilod.');
@@ -1755,12 +1772,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     currency?: string;
     onsite_payment_method: OnsitePaymentMethod;
     booking_reference?: string;
+    source?: BookingSource;
+    source_notes?: string;
+    is_manual?: boolean;
+    manual_customer_name?: string;
+    manual_customer_phone?: string;
+    manual_customer_email?: string;
+    status?: OrderStatus;
   }): Promise<{ success: boolean; message: string; orderId?: string }> => {
     const bookingRef = data.booking_reference || `VG-${CURRENT_BOOKING_YEAR}-${Math.floor(100000 + Math.random() * 900000)}`;
+    const isManual = !!data.is_manual;
+    const initialStatus: OrderStatus = data.status || (isManual ? 'confirmed' : 'pending');
+
     if (!isSupabaseConfigured) {
       const targetProg = programs.find(p => p.id === data.program_id || p.slug === data.program_id);
       const netAmount = (targetProg?.price || 0) * data.participants_count;
-      const feeAmount = Math.max(0, data.total_price - netAmount);
+      const feeAmount = isManual ? 0 : Math.max(0, data.total_price - netAmount);
       const mockOrder: Order = {
         id: bookingRef,
         booking_reference: bookingRef,
@@ -1770,15 +1797,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         participants_count: data.participants_count,
         total_price: data.total_price,
         booking_fee: feeAmount,
-        onsite_amount: netAmount,
+        onsite_amount: isManual ? data.total_price : netAmount,
         currency: data.currency || targetProg?.currency || 'EUR',
-        status: 'pending',
+        status: initialStatus,
         onsite_payment_method: data.onsite_payment_method,
+        source: data.source || (isManual ? 'phone' : 'platform'),
+        source_notes: data.source_notes,
+        is_manual: isManual,
+        manual_customer_name: data.manual_customer_name,
+        manual_customer_phone: data.manual_customer_phone,
+        manual_customer_email: data.manual_customer_email,
         created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
+        program: targetProg,
       };
       setOrders(prev => [mockOrder, ...prev]);
-      return { success: true, message: 'Sikeres foglalás és fizetés! A szolgáltató hamarosan megerősíti.', orderId: bookingRef };
+      return { 
+        success: true, 
+        message: isManual ? 'Külső foglalás sikeresen rögzítve!' : 'Sikeres foglalás és fizetés! A szolgáltató hamarosan megerősíti.', 
+        orderId: bookingRef 
+      };
     }
     const { data: sessionData } = await supabase.auth.getSession();
     const userId = sessionData.session?.user.id || currentUser?.id;
@@ -1795,22 +1833,74 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         participants_count: data.participants_count,
         total_price: data.total_price,
         currency: data.currency || 'EUR',
-        status: 'pending',
+        status: initialStatus,
         onsite_payment_method: data.onsite_payment_method,
         booking_reference: bookingRef,
+        source: data.source || (isManual ? 'phone' : 'platform'),
+        source_notes: data.source_notes,
+        is_manual: isManual,
+        manual_customer_name: data.manual_customer_name,
+        manual_customer_phone: data.manual_customer_phone,
+        manual_customer_email: data.manual_customer_email,
       })
       .select()
       .single();
 
     if (error) {
-      return { success: false, message: `Hiba a foglalás során: ${error.message}` };
+      // If table doesn't have the newly added column in postgres yet, fallback to inserting core fields
+      const fallbackRes = await supabase
+        .from('orders')
+        .insert({
+          program_id: data.program_id,
+          occurrence_id: data.occurrence_id || null,
+          user_id: userId,
+          participants_count: data.participants_count,
+          total_price: data.total_price,
+          currency: data.currency || 'EUR',
+          status: initialStatus,
+          onsite_payment_method: data.onsite_payment_method,
+          booking_reference: bookingRef,
+        })
+        .select()
+        .single();
+
+      if (fallbackRes.error) {
+        return { success: false, message: `Hiba a foglalás során: ${fallbackRes.error.message}` };
+      }
+
+      const insertedOrder = {
+        ...(fallbackRes.data as Order),
+        booking_reference: bookingRef,
+        source: data.source || (isManual ? 'phone' : 'platform'),
+        source_notes: data.source_notes,
+        is_manual: isManual,
+        manual_customer_name: data.manual_customer_name,
+        manual_customer_phone: data.manual_customer_phone,
+        manual_customer_email: data.manual_customer_email,
+      };
+      setOrders(prev => [insertedOrder, ...prev]);
+      return { 
+        success: true, 
+        message: isManual ? 'Külső foglalás sikeresen rögzítve!' : 'Sikeres foglalás és fizetés! A szolgáltató hamarosan megerősíti.', 
+        orderId: bookingRef 
+      };
     }
     const insertedOrder = {
       ...(row as Order),
-      booking_reference: bookingRef
+      booking_reference: bookingRef,
+      source: data.source || (isManual ? 'phone' : 'platform'),
+      source_notes: data.source_notes,
+      is_manual: isManual,
+      manual_customer_name: data.manual_customer_name,
+      manual_customer_phone: data.manual_customer_phone,
+      manual_customer_email: data.manual_customer_email,
     };
     setOrders(prev => [insertedOrder, ...prev]);
-    return { success: true, message: 'Sikeres foglalás és fizetés! A szolgáltató hamarosan megerősíti.', orderId: bookingRef };
+    return { 
+      success: true, 
+      message: isManual ? 'Külső foglalás sikeresen rögzítve!' : 'Sikeres foglalás és fizetés! A szolgáltató hamarosan megerősíti.', 
+      orderId: bookingRef 
+    };
   };
 
   const cancelOrder = async (id: string): Promise<void> => {

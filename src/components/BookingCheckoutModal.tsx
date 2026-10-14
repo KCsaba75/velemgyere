@@ -22,9 +22,12 @@ import {
   Loader2,
   Sparkles,
   AlertCircle,
-  Printer
+  Printer,
+  CalendarDays,
+  Download
 } from 'lucide-react';
 import { BookingVoucher } from './BookingVoucher';
+import { buildCalendarEventPayload, openGoogleCalendar, downloadIcsFile, getCalendarSyncPreference } from '../services/googleCalendarService';
 
 interface BookingCheckoutModalProps {
   isOpen: boolean;
@@ -493,6 +496,89 @@ export const BookingCheckoutModal: React.FC<BookingCheckoutModalProps> = ({
                 <div className="flex items-center justify-between text-stone-700">
                   <span>Helyszínen fizetendő ({onsitePaymentMethod === 'revolut' ? 'Revolut' : 'Készpénz'}):</span>
                   <strong className="text-stone-900">{formatPrice(netTotal)} {curr}</strong>
+                </div>
+              </div>
+
+              {/* Google Naptár szinkronizáció / export */}
+              <div className="p-3.5 rounded-2xl bg-gradient-to-r from-blue-50/90 to-indigo-50/70 border border-blue-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-left">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-white border border-blue-200 flex items-center justify-center text-blue-600 shadow-2xs shrink-0">
+                    <CalendarDays className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h5 className="font-bold text-xs sm:text-sm text-stone-900">Google Naptár hozzáadás</h5>
+                    <p className="text-[11px] text-stone-500">
+                      {currentUser?.google_calendar_sync_enabled || getCalendarSyncPreference(currentUser?.id || 'visitor')
+                        ? '✓ Automatikus naptárszinkron aktív a fiókodban'
+                        : 'Mentsd el közvetlenül a személyes naptáradba'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const payload = buildCalendarEventPayload(
+                        {
+                          id: createdOrderId || bookingRef,
+                          program_id: program.id,
+                          user_id: currentUser?.id || 'guest',
+                          participants_count: participantsCount,
+                          total_price: total,
+                          booking_fee: fee,
+                          onsite_amount: netTotal,
+                          currency: curr,
+                          status: 'pending',
+                          created_at: new Date().toISOString(),
+                          updated_at: new Date().toISOString()
+                        },
+                        program,
+                        selectedOccurrence as ProgramOccurrence,
+                        null,
+                        null,
+                        { isProvider: false }
+                      );
+                      openGoogleCalendar(payload);
+                    }}
+                    className="flex-1 sm:flex-none px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+                    title="Megnyitás Google Naptárban"
+                  >
+                    <CalendarDays className="w-3.5 h-3.5" />
+                    <span>Google Naptár</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const payload = buildCalendarEventPayload(
+                        {
+                          id: createdOrderId || bookingRef,
+                          program_id: program.id,
+                          user_id: currentUser?.id || 'guest',
+                          participants_count: participantsCount,
+                          total_price: total,
+                          booking_fee: fee,
+                          onsite_amount: netTotal,
+                          currency: curr,
+                          status: 'pending',
+                          created_at: new Date().toISOString(),
+                          updated_at: new Date().toISOString()
+                        },
+                        program,
+                        selectedOccurrence as ProgramOccurrence,
+                        null,
+                        null,
+                        { isProvider: false }
+                      );
+                      downloadIcsFile(payload);
+                    }}
+                    className="flex-1 sm:flex-none px-3 py-1.5 bg-white hover:bg-stone-100 text-stone-700 border border-stone-300 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                    title=".ICS naptárfájl letöltése"
+                  >
+                    <Download className="w-3.5 h-3.5 text-stone-500" />
+                    <span>.ICS fájl</span>
+                  </button>
                 </div>
               </div>
 

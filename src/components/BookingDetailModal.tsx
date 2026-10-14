@@ -22,12 +22,15 @@ import {
   XCircle,
   Navigation,
   Copy,
-  Hash
+  Hash,
+  CalendarDays,
+  Download,
+  Printer
 } from 'lucide-react';
 import { Order, OrderStatus, OrderProviderContact, OnsitePaymentMethod } from '../types/database';
 import { ReviewModal } from './ReviewModal';
 import { BookingVoucher } from './BookingVoucher';
-import { Printer } from 'lucide-react';
+import { buildCalendarEventPayload, openGoogleCalendar, downloadIcsFile } from '../services/googleCalendarService';
 
 const PAYMENT_METHOD_LABEL: Record<OnsitePaymentMethod, string> = {
   cash: 'Készpénz',
@@ -155,9 +158,21 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
         <div className="p-5 sm:p-6 overflow-y-auto flex-1 space-y-5">
           {/* Status & Booking ID */}
           <div className="flex flex-wrap items-center justify-between gap-2.5">
-            <span className={`inline-block text-xs font-bold px-3 py-1.5 rounded-lg border ${ORDER_STATUS_CLASS[order.status]}`}>
-              {ORDER_STATUS_LABEL[order.status]}
-            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className={`inline-block text-xs font-bold px-3 py-1.5 rounded-lg border ${ORDER_STATUS_CLASS[order.status]}`}>
+                {ORDER_STATUS_LABEL[order.status]}
+              </span>
+
+              {order.source && order.source !== 'platform' && (
+                <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border bg-blue-50 text-blue-800 border-blue-200">
+                  {order.source === 'phone' && '📞 Telefonos foglalás'}
+                  {order.source === 'whatsapp' && '💬 WhatsApp foglalás'}
+                  {order.source === 'onsite' && '🤝 Személyes / Helyszíni'}
+                  {order.source === 'email' && '✉️ E-mail foglalás'}
+                  {order.source === 'external' && '📝 Külső partner'}
+                </span>
+              )}
+            </div>
 
             <button
               type="button"
@@ -178,6 +193,59 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
                 <span className="text-[10px] font-bold text-emerald-700 ml-0.5">Másolva!</span>
               )}
             </button>
+          </div>
+
+          {/* Google Naptár és .ICS mentés kártya */}
+          <div className="p-3.5 rounded-2xl bg-gradient-to-r from-blue-50/90 to-indigo-50/70 border border-blue-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-white border border-blue-200 flex items-center justify-center text-blue-600 shadow-2xs shrink-0">
+                <CalendarDays className="w-5 h-5" />
+              </div>
+              <div>
+                <h5 className="font-bold text-xs sm:text-sm text-stone-900">Naptár szinkronizáció</h5>
+                <p className="text-[11px] text-stone-500">Mentsd el egy kattintással az emlékeztetőket és időpontot</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  const payload = buildCalendarEventPayload(
+                    order,
+                    program,
+                    undefined,
+                    contact,
+                    order.manual_customer_name ? { name: order.manual_customer_name, email: order.manual_customer_email || '' } : null,
+                    { isProvider: currentUser?.role === 'provider' }
+                  );
+                  openGoogleCalendar(payload);
+                }}
+                className="flex-1 sm:flex-none px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+                title="Hozzáadás Google Naptárhoz"
+              >
+                <CalendarDays className="w-3.5 h-3.5" />
+                <span>Google Naptár</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const payload = buildCalendarEventPayload(
+                    order,
+                    program,
+                    undefined,
+                    contact,
+                    order.manual_customer_name ? { name: order.manual_customer_name, email: order.manual_customer_email || '' } : null,
+                    { isProvider: currentUser?.role === 'provider' }
+                  );
+                  downloadIcsFile(payload);
+                }}
+                className="flex-1 sm:flex-none px-3 py-1.5 bg-white hover:bg-stone-100 text-stone-700 border border-stone-300 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                title=".ICS naptárfájl letöltése (Apple Naptár, Outlook, mobil)"
+              >
+                <Download className="w-3.5 h-3.5 text-stone-500" />
+                <span>.ICS fájl</span>
+              </button>
+            </div>
           </div>
 
           {/* Booking data */}
@@ -224,15 +292,42 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
           {(order.status === 'pending' || order.status === 'confirmed') && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="bg-stone-50 border border-stone-200 rounded-2xl p-4 space-y-1.5">
-                <h4 className="text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
-                  Igénybe vevő
+                <h4 className="text-xs font-bold text-stone-700 uppercase tracking-wider mb-1 flex items-center justify-between">
+                  <span>Igénybe vevő</span>
+                  {order.is_manual && (
+                    <span className="text-[10px] font-bold text-blue-700 bg-blue-100/70 px-1.5 py-0.5 rounded">
+                      Külső vendég
+                    </span>
+                  )}
                 </h4>
                 <div className="text-xs text-stone-600 space-y-1.5">
-                  <div className="flex items-center gap-1.5"><User className="w-3.5 h-3.5" /> <strong className="text-stone-800">{currentUser.name}</strong></div>
-                  {currentUser.phone && (
-                    <div className="flex items-center gap-1.5"><Phone className="w-3.5 h-3.5" /> <strong className="text-stone-800">{currentUser.phone}</strong></div>
+                  <div className="flex items-center gap-1.5">
+                    <User className="w-3.5 h-3.5 text-stone-400" />
+                    <strong className="text-stone-800">
+                      {order.manual_customer_name || currentUser.name}
+                    </strong>
+                  </div>
+                  {(order.manual_customer_phone || currentUser.phone) && (
+                    <div className="flex items-center gap-1.5">
+                      <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                      <strong className="text-stone-800">
+                        {order.manual_customer_phone || currentUser.phone}
+                      </strong>
+                    </div>
                   )}
-                  <div className="flex items-center gap-1.5"><Mail className="w-3.5 h-3.5" /> <strong className="text-stone-800">{currentUser.email}</strong></div>
+                  {(order.manual_customer_email || currentUser.email) && (
+                    <div className="flex items-center gap-1.5">
+                      <Mail className="w-3.5 h-3.5 text-blue-600" />
+                      <strong className="text-stone-800">
+                        {order.manual_customer_email || currentUser.email}
+                      </strong>
+                    </div>
+                  )}
+                  {order.source_notes && (
+                    <div className="mt-2 pt-1.5 border-t border-stone-200/80 text-[11px] text-amber-900 bg-amber-50/60 p-2 rounded-lg">
+                      <strong>Belső megjegyzés:</strong> {order.source_notes}
+                    </div>
+                  )}
                 </div>
               </div>
 

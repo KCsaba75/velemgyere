@@ -16,6 +16,9 @@ export interface Profile {
   notify_booking_reminders?: boolean;
   notify_newsletter?: boolean;
   notify_promo?: boolean;
+  // Google Calendar szinkronizáció beállítás (kanban naptár integráció)
+  google_calendar_sync_enabled?: boolean;
+  google_calendar_id?: string;
 }
 
 export interface Provider {
@@ -46,6 +49,9 @@ export interface Provider {
   // this existed. Restricts which OnsitePaymentMethod a buyer can pick at checkout,
   // enforced server-side too via the orders_payment_method_check trigger.
   accepted_payment_methods: OnsitePaymentMethod[];
+  // Google Calendar szinkronizáció beállítás a szolgáltató számára
+  google_calendar_sync_enabled?: boolean;
+  google_calendar_id?: string;
 }
 
 export interface Region {
@@ -157,6 +163,9 @@ export type OrderStatus = 'pending' | 'confirmed' | 'cancelled';
 
 export type OnsitePaymentMethod = 'cash' | 'revolut';
 
+// Forrás: a foglalás származási helye (platform, vagy szolgáltató által rögzített külső)
+export type BookingSource = 'platform' | 'phone' | 'onsite' | 'whatsapp' | 'email' | 'external';
+
 export interface Order {
   id: string;
   booking_reference?: string;
@@ -185,6 +194,19 @@ export interface Order {
   updated_at: string;
   // Joined field for display convenience
   program?: Program;
+
+  // Külső / Szolgáltatói manuális foglalás mezők (kanban külső foglaláskezelés)
+  source?: BookingSource;
+  source_notes?: string;
+  is_manual?: boolean;
+  manual_customer_name?: string;
+  manual_customer_phone?: string;
+  manual_customer_email?: string;
+
+  // Google Calendar integráció mezők
+  google_calendar_event_id?: string;
+  google_calendar_synced?: boolean;
+  google_calendar_event_url?: string;
 }
 
 // Returned by the get_provider_contact_for_order RPC (kanban fbf552b2 point 3): the

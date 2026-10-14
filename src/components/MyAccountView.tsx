@@ -28,6 +28,7 @@ import {
   Clock,
   LogOut
 } from 'lucide-react';
+import { GoogleCalendarSyncCard } from './GoogleCalendarSyncCard';
 
 export const MyAccountView: React.FC = () => {
   const {
@@ -357,6 +358,18 @@ export const MyAccountView: React.FC = () => {
               A fenti lista a foglalásaidhoz tartozó, online rendezett kényelmi díjakat mutatja. Letölthető számla egyelőre nem generálódik -- ez is egyeztetés alatt.
             </p>
           </div>
+        </section>
+
+        {/* BLOCK: Google Naptár Szinkronizáció (Programvadász / Utazó számára) */}
+        <section>
+          <GoogleCalendarSyncCard
+            userId={currentUser.id || currentUser.user_id || 'visitor'}
+            userType="traveler"
+            initialEnabled={currentUser.google_calendar_sync_enabled}
+            onSavePreference={async (enabled) => {
+              await updateMyProfile({ google_calendar_sync_enabled: enabled });
+            }}
+          />
         </section>
 
         {/* BLOCK 3: Kommunikáció */}
