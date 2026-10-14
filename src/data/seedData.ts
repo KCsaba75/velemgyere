@@ -75,12 +75,14 @@ export const INITIAL_REGIONS: Region[] = [
 
 export const INITIAL_CATEGORIES: Category[] = [
   { id: 'cat-kirandulas', name: 'Kirándulás & Természet', slug: 'kirandulas', icon: 'Compass', active: true },
-  { id: 'cat-varosnezes', name: 'Városnézés & Séta', slug: 'varosnezes', icon: 'Landmark', active: true },
+  { id: 'cat-varosnezes', name: 'Városnézés & Séta', slug: 'varosnezes', icon: 'Walking', active: true },
   { id: 'cat-transzfer', name: 'Reptéri & Helyi Transzfer', slug: 'transzfer', icon: 'Car', active: true },
   { id: 'cat-hajos', name: 'Hajókirándulás', slug: 'hajos', icon: 'Ship', active: true },
   { id: 'cat-gasztro', name: 'Gasztrotúra & Kóstoló', slug: 'gasztro', icon: 'Utensils', active: true },
   { id: 'cat-privat', name: 'Privát túra & Sofőrszolgálat', slug: 'privat', icon: 'Shield', active: true },
   { id: 'cat-csaladi', name: 'Családi program', slug: 'csaladi', icon: 'Users', active: true },
+  { id: 'cat-borond', name: 'Csomag & Bőrönd Szolgálat', slug: 'csomag-borond', icon: 'Luggage', active: true },
+  { id: 'cat-busz', name: 'Buszos Kirándulás & Transzfer', slug: 'buszos-utak', icon: 'Bus', active: true },
 ];
 
 export const INITIAL_PROVIDERS: Provider[] = [

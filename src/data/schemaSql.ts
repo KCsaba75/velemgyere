@@ -237,12 +237,14 @@ create policy "Public write reviews" on public.reviews for all using (true);
 -- 1. Kategóriák
 insert into public.categories (id, name, slug, icon, active) values
   ('ca000000-0000-4000-8000-000000000001', 'Kirándulás & Természet', 'kirandulas', 'Compass', true),
-  ('ca000000-0000-4000-8000-000000000002', 'Városnézés & Séta', 'varosnezes', 'Landmark', true),
+  ('ca000000-0000-4000-8000-000000000002', 'Városnézés & Séta', 'varosnezes', 'Walking', true),
   ('ca000000-0000-4000-8000-000000000003', 'Reptéri & Helyi Transzfer', 'transzfer', 'Car', true),
   ('ca000000-0000-4000-8000-000000000004', 'Hajókirándulás', 'hajos', 'Ship', true),
   ('ca000000-0000-4000-8000-000000000005', 'Gasztrotúra & Kóstoló', 'gasztro', 'Utensils', true),
   ('ca000000-0000-4000-8000-000000000006', 'Privát túra & Sofőrszolgálat', 'privat', 'Shield', true),
-  ('ca000000-0000-4000-8000-000000000007', 'Családi program', 'csaladi', 'Users', true)
+  ('ca000000-0000-4000-8000-000000000007', 'Családi program', 'csaladi', 'Users', true),
+  ('ca000000-0000-4000-8000-000000000008', 'Csomag & Bőrönd Szolgálat', 'csomag-borond', 'Luggage', true),
+  ('ca000000-0000-4000-8000-000000000009', 'Buszos Kirándulás & Transzfer', 'buszos-utak', 'Bus', true)
 on conflict (id) do nothing;
 
 -- 2. Régiók

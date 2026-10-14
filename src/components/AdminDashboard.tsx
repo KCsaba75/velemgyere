@@ -27,7 +27,7 @@ import {
   Star,
   LogOut
 } from 'lucide-react';
-import { CategoryIcon } from './CategoryIcon';
+import { CategoryIcon, AVAILABLE_SERVICE_ICONS } from './CategoryIcon';
 import { Region, Category, OnsitePaymentMethod, ReviewStatus } from '../types/database';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import { RescheduleOrderModal } from './RescheduleOrderModal';
@@ -126,7 +126,12 @@ export const AdminDashboard: React.FC = () => {
   // Modal state for adding a new Service Type (Category)
   const [addCategoryModalOpen, setAddCategoryModalOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
-  const [newCategoryIcon, setNewCategoryIcon] = useState('Compass');
+  const [newCategoryIcon, setNewCategoryIcon] = useState('Luggage');
+
+  // Modal state for editing a Service Type (Category)
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [editCategoryName, setEditCategoryName] = useState('');
+  const [editCategoryIcon, setEditCategoryIcon] = useState('Luggage');
 
   // Metrics
   const totalPrograms = programs.length;
@@ -178,8 +183,26 @@ export const AdminDashboard: React.FC = () => {
     });
 
     setNewCategoryName('');
-    setNewCategoryIcon('Compass');
+    setNewCategoryIcon('Luggage');
     setAddCategoryModalOpen(false);
+  };
+
+  const handleOpenEditCategory = (cat: Category) => {
+    setEditingCategory(cat);
+    setEditCategoryName(cat.name);
+    setEditCategoryIcon(cat.icon || 'Luggage');
+  };
+
+  const handleUpdateCategorySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCategory || !editCategoryName.trim()) return;
+
+    await updateCategory(editingCategory.id, {
+      name: editCategoryName.trim(),
+      icon: editCategoryIcon,
+    });
+
+    setEditingCategory(null);
   };
 
   return (
@@ -786,6 +809,14 @@ export const AdminDashboard: React.FC = () => {
                   </div>
 
                   <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleOpenEditCategory(cat)}
+                      className="text-stone-400 hover:text-emerald-700 p-1.5 rounded-lg hover:bg-emerald-50 transition-colors cursor-pointer"
+                      title="Szerkesztés & Ikon módosítása"
+                    >
+                      <Edit className="w-4 h-4" />
+                    </button>
+
                     <button
                       onClick={() => toggleCategoryActive(cat.id)}
                       className={`text-xs px-2 py-1 rounded-lg font-bold transition-colors cursor-pointer ${
@@ -1437,22 +1468,44 @@ export const AdminDashboard: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
-                  Ikon
+                <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                  <span>Ikon</span>
+                  <span className="text-[11px] font-normal text-stone-400">Kattints a kívánt ikonra vagy válassz alább</span>
                 </label>
+
+                {/* Visual Icon Grid with Luggage, Bus, Walking Person and more */}
+                <div className="grid grid-cols-4 sm:grid-cols-8 gap-1.5 mb-2.5 p-2 bg-stone-100/80 rounded-xl border border-stone-200">
+                  {AVAILABLE_SERVICE_ICONS.map((opt) => {
+                    const isSelected = newCategoryIcon === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setNewCategoryIcon(opt.value)}
+                        className={`p-2 rounded-lg flex flex-col items-center justify-center gap-1 transition-all text-xs cursor-pointer ${
+                          isSelected
+                            ? 'bg-emerald-600 text-white font-bold shadow-sm scale-105'
+                            : 'bg-white text-stone-700 hover:bg-stone-50 border border-stone-200/80'
+                        }`}
+                        title={`${opt.label} - ${opt.description}`}
+                      >
+                        <CategoryIcon icon={opt.value} className="w-4 h-4" />
+                        <span className="text-[10px] truncate max-w-full leading-none">{opt.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
                 <select
                   value={newCategoryIcon}
                   onChange={(e) => setNewCategoryIcon(e.target.value)}
                   className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3.5 py-2.5 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
                 >
-                  <option value="Compass">🧭 Compass (Iránytű / Kirándulás)</option>
-                  <option value="Landmark">🏛️ Landmark (Műemlék / Városnézés)</option>
-                  <option value="Car">🚗 Car (Autó / Transzfer)</option>
-                  <option value="Ship">🚢 Ship (Hajó / Vízitúra)</option>
-                  <option value="Utensils">🍴 Utensils (Gasztro / Étkezés)</option>
-                  <option value="Shield">🛡️ Shield (Privát kíséret)</option>
-                  <option value="Users">👥 Users (Családi program)</option>
-                  <option value="Trees">🌲 Trees (Természet)</option>
+                  {AVAILABLE_SERVICE_ICONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.emoji} {opt.value} ({opt.label} / {opt.description})
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -1469,6 +1522,101 @@ export const AdminDashboard: React.FC = () => {
                   className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer"
                 >
                   Típus Mentése
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: SZOLGÁLTATÁS TÍPUS SZERKESZTÉSE & IKON MÓDOSÍTÁSA */}
+      {editingCategory && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl border border-stone-200 p-6 sm:p-8 max-w-lg w-full shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+                <CategoryIcon icon={editCategoryIcon} className="w-6 h-6" />
+              </div>
+              <div>
+                <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider block">
+                  Szolgáltatás Típus Szerkesztése
+                </span>
+                <h3 className="font-display text-2xl font-extrabold text-stone-900">
+                  {editingCategory.name}
+                </h3>
+              </div>
+            </div>
+
+            <form onSubmit={handleUpdateCategorySubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
+                  Típus megnevezése <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editCategoryName}
+                  onChange={(e) => setEditCategoryName(e.target.value)}
+                  placeholder="Pl. Városnézés & Séta"
+                  className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3.5 py-2.5 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                  <span>Ikon kiválasztása</span>
+                  <span className="text-[11px] font-normal text-stone-400">Kattints a kívánt ikonra vagy válassz alább</span>
+                </label>
+
+                {/* Visual Icon Grid with Luggage, Bus, Walking Person and more */}
+                <div className="grid grid-cols-4 sm:grid-cols-8 gap-1.5 mb-2.5 p-2 bg-stone-100/80 rounded-xl border border-stone-200">
+                  {AVAILABLE_SERVICE_ICONS.map((opt) => {
+                    const isSelected = editCategoryIcon === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setEditCategoryIcon(opt.value)}
+                        className={`p-2 rounded-lg flex flex-col items-center justify-center gap-1 transition-all text-xs cursor-pointer ${
+                          isSelected
+                            ? 'bg-emerald-600 text-white font-bold shadow-sm scale-105'
+                            : 'bg-white text-stone-700 hover:bg-stone-50 border border-stone-200/80'
+                        }`}
+                        title={`${opt.label} - ${opt.description}`}
+                      >
+                        <CategoryIcon icon={opt.value} className="w-4 h-4" />
+                        <span className="text-[10px] truncate max-w-full leading-none">{opt.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <select
+                  value={editCategoryIcon}
+                  onChange={(e) => setEditCategoryIcon(e.target.value)}
+                  className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3.5 py-2.5 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+                >
+                  {AVAILABLE_SERVICE_ICONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.emoji} {opt.value} ({opt.label} / {opt.description})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="pt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingCategory(null)}
+                  className="px-4 py-2.5 rounded-xl border border-stone-300 text-stone-700 text-xs font-semibold cursor-pointer"
+                >
+                  Mégse
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer"
+                >
+                  Módosítások Mentése
                 </button>
               </div>
             </form>
