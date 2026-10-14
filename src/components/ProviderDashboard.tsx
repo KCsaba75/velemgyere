@@ -36,13 +36,14 @@ import {
   CalendarDays,
   List
 } from 'lucide-react';
-import { Program, ProgramStatus, OrderBuyerInfo, OnsitePaymentMethod, ProgramOccurrence } from '../types/database';
+import { Program, ProgramStatus, OrderBuyerInfo, OnsitePaymentMethod, ProgramOccurrence, Order } from '../types/database';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import { ProgramOccurrencesModal } from './ProgramOccurrencesModal';
 import { ProgramPricingModal } from './ProgramPricingModal';
 import { RescheduleOrderModal } from './RescheduleOrderModal';
 import { NewProgramModal } from './NewProgramModal';
 import { ProviderBookingsCalendar } from './ProviderBookingsCalendar';
+import { BookingDetailModal } from './BookingDetailModal';
 
 const PAYMENT_METHOD_LABEL: Record<OnsitePaymentMethod, string> = {
   cash: 'Készpénz',
@@ -78,8 +79,11 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
 
   const [activeTab, setActiveTab] = useState<'programs' | 'bookings' | 'inquiries' | 'reviews' | 'profile'>('programs');
   const [bookingsViewMode, setBookingsViewMode] = useState<'calendar' | 'list'>('calendar');
+  const [selectedOrderDetail, setSelectedOrderDetail] = useState<Order | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('published');
   const [editingProgram, setEditingProgram] = useState<Program | null>(null);
+
+  const isMobileCompactTab = activeTab === 'bookings' || activeTab === 'reviews' || activeTab === 'inquiries';
   const [occurrencesModalProgram, setOccurrencesModalProgram] = useState<Program | null>(null);
   const [pricingModalProgram, setPricingModalProgram] = useState<Program | null>(null);
   const [rescheduleOrderId, setRescheduleOrderId] = useState<string | null>(null);
@@ -330,9 +334,9 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-2.5 sm:pt-8 pb-6 sm:pb-8 animate-in fade-in duration-200">
+    <div className={`max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 ${isMobileCompactTab ? 'pt-1 sm:pt-8' : 'pt-2.5 sm:pt-8'} pb-6 sm:pb-8 animate-in fade-in duration-200`}>
       {/* Welcome Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4 mb-4 sm:mb-8">
+      <div className={`${isMobileCompactTab ? 'hidden sm:flex' : 'flex'} flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4 mb-4 sm:mb-8`}>
         <div>
           <div className="hidden sm:inline-flex items-center gap-2 text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-lg mb-2">
             <Building2 className="w-3.5 h-3.5" />
@@ -389,7 +393,7 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
 
       {/* Provider Status Alert -- pending, suspended vagy banned */}
       {currentProvider?.status === 'pending' && (
-        <div className="mb-6 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 flex items-start gap-3">
+        <div className={`${isMobileCompactTab ? 'hidden sm:block' : 'block'} mb-6 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 flex items-start gap-3`}>
           <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
           <div>
             <h4 className="font-bold text-sm">Fiókod adminisztrátori jóváhagyásra vár</h4>
@@ -400,7 +404,7 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
         </div>
       )}
       {(currentProvider?.status === 'suspended' || currentProvider?.status === 'banned') && (
-        <div className="mb-6 p-4 rounded-2xl bg-rose-50 border border-rose-300 text-rose-900 flex items-start gap-3">
+        <div className={`${isMobileCompactTab ? 'hidden sm:block' : 'block'} mb-6 p-4 rounded-2xl bg-rose-50 border border-rose-300 text-rose-900 flex items-start gap-3`}>
           <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
           <div>
             <h4 className="font-bold text-sm">
@@ -416,7 +420,7 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
       )}
 
       {/* Metric Stat Cards - Pontosan 3 blokk 1 sorban: Aktív, Piszkozat, Értékelés (fele olyan mély, kompakt magasság) */}
-      <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4 sm:mb-6">
+      <div className={`${isMobileCompactTab ? 'hidden sm:grid' : 'grid'} grid-cols-3 gap-2 sm:gap-4 mb-4 sm:mb-6`}>
         {/* 1. Aktív programok */}
         <button
           type="button"
@@ -486,7 +490,7 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
       </div>
 
       {/* Tabs navigation - 4 fül (Programok, Foglalások, Értékelések, Érdeklődések) egymás mellett mobilon is */}
-      <div className="grid grid-cols-4 sm:flex border-b border-stone-200 mb-6 gap-0.5 sm:gap-6">
+      <div className={`grid grid-cols-4 sm:flex border-b border-stone-200 ${isMobileCompactTab ? 'mt-1 mb-4' : 'mb-6'} gap-0.5 sm:gap-6`}>
         <button
           onClick={() => setActiveTab('programs')}
           className={`pb-2.5 sm:pb-3 text-xs sm:text-sm font-bold transition-colors cursor-pointer border-b-2 flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-1 sm:gap-2 px-0.5 sm:px-0 text-center sm:text-left min-w-0 ${
@@ -808,12 +812,13 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
               confirmingOrderId={confirmingOrderId}
               onRescheduleOrder={(orderId) => setRescheduleOrderId(orderId)}
               onOpenProgramDetail={openProgramDetail}
+              onSelectOrder={(order) => setSelectedOrderDetail(order)}
             />
           ) : ownOrders.length > 0 ? (
             <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden shadow-sm">
               <div className="p-4 bg-stone-50 border-b border-stone-100 text-xs font-bold text-stone-500 uppercase tracking-wider flex items-center justify-between">
                 <span>Foglalások listája ({ownOrders.length})</span>
-                <span className="text-[11px] font-normal text-stone-400">Időrendi sorrendben</span>
+                <span className="text-[11px] font-normal text-stone-400">Kattints a kártyára a részletekért</span>
               </div>
               <div className="divide-y divide-stone-100">
                 {ownOrders.map((order) => {
@@ -825,13 +830,17 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
                   const bookedTime = occ?.start_time || program?.start_time;
 
                   return (
-                    <div key={order.id} className="p-5 hover:bg-stone-50/50 transition-colors space-y-3">
+                    <div
+                      key={order.id}
+                      onClick={() => setSelectedOrderDetail(order)}
+                      className="p-5 hover:bg-stone-50/80 transition-all space-y-3 cursor-pointer group"
+                    >
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="font-mono text-xs font-bold text-stone-600 bg-stone-100 px-2.5 py-0.5 rounded-md border border-stone-200">
                             #{getBookingReference(order)}
                           </span>
-                          <h4 className="font-bold text-stone-900 text-sm sm:text-base">{program?.title || 'Program'}</h4>
+                          <h4 className="font-bold text-stone-900 text-sm sm:text-base group-hover:text-emerald-700 transition-colors">{program?.title || 'Program'}</h4>
                         </div>
                         <span className={`self-start sm:self-auto text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
                           order.status === 'confirmed' ? 'bg-emerald-100 text-emerald-800' :
@@ -885,10 +894,13 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
                           )}
                         </div>
 
-                        <div className="flex items-center gap-2 shrink-0">
+                        <div className="flex flex-wrap items-center gap-2 shrink-0">
                           {order.status === 'pending' && (
                             <button
-                              onClick={() => handleConfirmOrder(order.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleConfirmOrder(order.id);
+                              }}
                               disabled={confirmingOrderId === order.id}
                               className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-sm transition-all disabled:opacity-60"
                             >
@@ -898,12 +910,26 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
                           )}
                           {order.status !== 'cancelled' && (
                             <button
-                              onClick={() => setRescheduleOrderId(order.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setRescheduleOrderId(order.id);
+                              }}
                               className="text-xs font-semibold text-stone-600 hover:text-stone-900 hover:underline flex items-center gap-1 cursor-pointer"
                             >
                               <Calendar className="w-3.5 h-3.5" /> Áthelyezés
                             </button>
                           )}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedOrderDetail(order);
+                            }}
+                            className="px-3 py-1.5 rounded-xl bg-stone-900 hover:bg-emerald-600 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors shrink-0"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>Megtekintés</span>
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -1158,6 +1184,12 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
         programToEdit={editingProgram}
         onClose={() => setEditingProgram(null)}
       />
+      {selectedOrderDetail && (
+        <BookingDetailModal
+          order={selectedOrderDetail}
+          onClose={() => setSelectedOrderDetail(null)}
+        />
+      )}
     </div>
   );
 };

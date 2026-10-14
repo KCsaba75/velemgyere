@@ -15,7 +15,8 @@ import {
   MapPin,
   Sparkles,
   ArrowRight,
-  Filter
+  Filter,
+  Eye
 } from 'lucide-react';
 import { Order, Program, ProgramOccurrence, OrderBuyerInfo, OnsitePaymentMethod } from '../types/database';
 import { formatPrice, getBookingReference } from '../context/AppContext';
@@ -29,6 +30,7 @@ interface ProviderBookingsCalendarProps {
   confirmingOrderId: string | null;
   onRescheduleOrder: (orderId: string) => void;
   onOpenProgramDetail?: (slug: string) => void;
+  onSelectOrder?: (order: Order) => void;
 }
 
 const PAYMENT_METHOD_LABEL: Record<OnsitePaymentMethod, string> = {
@@ -70,6 +72,7 @@ export const ProviderBookingsCalendar: React.FC<ProviderBookingsCalendarProps> =
   confirmingOrderId,
   onRescheduleOrder,
   onOpenProgramDetail,
+  onSelectOrder,
 }) => {
   // Programs map
   const programMap = useMemo(() => {
@@ -438,49 +441,48 @@ export const ProviderBookingsCalendar: React.FC<ProviderBookingsCalendarProps> =
               </button>
             </div>
 
-            {/* Jump to nearest booking button */}
-            {enrichedOrders.length > 0 && (
-              <button
-                type="button"
-                onClick={handleJumpToNearestBooking}
-                className="text-xs font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100/80 border border-emerald-200/80 px-3 py-1.5 rounded-xl transition-colors cursor-pointer flex items-center gap-1"
-                title="Ugrás a legközelebbi foglalás időpontjához"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Ugrás foglaláshoz</span>
-              </button>
-            )}
           </div>
         </div>
 
-        {/* Monthly Summary Bar */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-stone-100">
-          <div className="bg-stone-50 rounded-xl p-2.5 border border-stone-100">
-            <span className="text-[11px] font-medium text-stone-500 block">Havi foglalások</span>
-            <span className="text-base sm:text-lg font-bold text-stone-900">
-              {monthStats.totalCount} <span className="text-xs font-normal text-stone-500">db</span>
+        {/* Monthly Summary Bar - 4 doboz pontosan 1 sorban */}
+        <div className="grid grid-cols-4 gap-1.5 sm:gap-2 pt-2 border-t border-stone-100">
+          <div className="bg-stone-50 rounded-lg sm:rounded-xl p-1.5 sm:p-2.5 border border-stone-100 text-center sm:text-left min-w-0">
+            <span className="text-[9px] sm:text-[11px] font-medium text-stone-500 block truncate leading-tight">
+              Havi foglalások
+            </span>
+            <span className="text-xs sm:text-lg font-bold text-stone-900 leading-tight block mt-0.5">
+              {monthStats.totalCount} <span className="text-[9px] sm:text-xs font-normal text-stone-500">db</span>
             </span>
           </div>
-          <div className="bg-emerald-50/70 rounded-xl p-2.5 border border-emerald-100">
-            <span className="text-[11px] font-medium text-emerald-800 block">Megerősítve</span>
-            <span className="text-base sm:text-lg font-bold text-emerald-900">
-              {monthStats.confirmedCount} <span className="text-xs font-normal text-emerald-700">db</span>
+
+          <div className="bg-emerald-50/70 rounded-lg sm:rounded-xl p-1.5 sm:p-2.5 border border-emerald-100 text-center sm:text-left min-w-0">
+            <span className="text-[9px] sm:text-[11px] font-medium text-emerald-800 block truncate leading-tight">
+              Megerősítve
+            </span>
+            <span className="text-xs sm:text-lg font-bold text-emerald-900 leading-tight block mt-0.5">
+              {monthStats.confirmedCount} <span className="text-[9px] sm:text-xs font-normal text-emerald-700">db</span>
             </span>
           </div>
-          <div className={`rounded-xl p-2.5 border ${
+
+          <div className={`rounded-lg sm:rounded-xl p-1.5 sm:p-2.5 border text-center sm:text-left min-w-0 ${
             monthStats.pendingCount > 0
               ? 'bg-amber-50 border-amber-200 text-amber-900'
               : 'bg-stone-50 border-stone-100 text-stone-600'
           }`}>
-            <span className="text-[11px] font-medium block">Visszaigazolásra vár</span>
-            <span className="text-base sm:text-lg font-bold">
-              {monthStats.pendingCount} <span className="text-xs font-normal opacity-75">db</span>
+            <span className="text-[9px] sm:text-[11px] font-medium block truncate leading-tight">
+              Visszaigazolásra vár
+            </span>
+            <span className="text-xs sm:text-lg font-bold leading-tight block mt-0.5">
+              {monthStats.pendingCount} <span className="text-[9px] sm:text-xs font-normal opacity-75">db</span>
             </span>
           </div>
-          <div className="bg-stone-50 rounded-xl p-2.5 border border-stone-100">
-            <span className="text-[11px] font-medium text-stone-500 block">Helyszínen várható</span>
-            <span className="text-base sm:text-lg font-bold text-stone-900">
-              {formatPrice(monthStats.totalOnsiteRevenue)} <span className="text-xs font-normal text-stone-500">EUR</span>
+
+          <div className="bg-stone-50 rounded-lg sm:rounded-xl p-1.5 sm:p-2.5 border border-stone-100 text-center sm:text-left min-w-0">
+            <span className="text-[9px] sm:text-[11px] font-medium text-stone-500 block truncate leading-tight">
+              Helyszínen várható
+            </span>
+            <span className="text-xs sm:text-lg font-bold text-stone-900 leading-tight block mt-0.5 truncate">
+              {formatPrice(monthStats.totalOnsiteRevenue)} <span className="text-[9px] sm:text-xs font-normal text-stone-500">EUR</span>
             </span>
           </div>
         </div>
@@ -583,14 +585,19 @@ export const ProviderBookingsCalendar: React.FC<ProviderBookingsCalendarProps> =
                         return (
                           <div
                             key={bIdx}
-                            className={`text-[10px] font-semibold px-1.5 py-0.5 rounded truncate border leading-tight ${
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedDateStr(dayItem.dateStr);
+                              onSelectOrder?.(item.order);
+                            }}
+                            className={`text-[10px] font-semibold px-1.5 py-0.5 rounded truncate border leading-tight cursor-pointer hover:opacity-80 transition-opacity ${
                               isPending
                                 ? 'bg-amber-50 border-amber-200 text-amber-900'
                                 : item.order.status === 'confirmed'
                                 ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
                                 : 'bg-stone-100 border-stone-200 text-stone-500'
                             }`}
-                            title={`${item.program?.title || 'Program'} - ${item.order.participants_count} fő`}
+                            title={`${item.program?.title || 'Program'} - ${item.order.participants_count} fő (Kattints a részletekért)`}
                           >
                             <span className="font-bold mr-1">
                               {item.timeStr || `${item.order.participants_count} fő`}
@@ -667,7 +674,8 @@ export const ProviderBookingsCalendar: React.FC<ProviderBookingsCalendarProps> =
                     return (
                       <div
                         key={order.id}
-                        className={`rounded-2xl border p-4 space-y-3 transition-all ${
+                        onClick={() => onSelectOrder?.(order)}
+                        className={`rounded-2xl border p-4 space-y-3 transition-all cursor-pointer hover:border-emerald-400 hover:shadow-xs group ${
                           isPending
                             ? 'bg-amber-50/40 border-amber-200 shadow-xs'
                             : order.status === 'confirmed'
@@ -699,12 +707,13 @@ export const ProviderBookingsCalendar: React.FC<ProviderBookingsCalendarProps> =
                               </span>
                             </div>
                             <h5
-                              onClick={() => {
+                              onClick={(e) => {
                                 if (program?.slug && onOpenProgramDetail) {
+                                  e.stopPropagation();
                                   onOpenProgramDetail(program.slug);
                                 }
                               }}
-                              className="font-bold text-stone-900 text-sm sm:text-base hover:text-emerald-700 transition-colors cursor-pointer"
+                              className="font-bold text-stone-900 text-sm sm:text-base group-hover:text-emerald-700 transition-colors cursor-pointer"
                             >
                               {program?.title || 'Program'}
                             </h5>
@@ -773,7 +782,10 @@ export const ProviderBookingsCalendar: React.FC<ProviderBookingsCalendarProps> =
                           {isPending && (
                             <button
                               type="button"
-                              onClick={() => onConfirmOrder(order.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onConfirmOrder(order.id);
+                              }}
                               disabled={confirmingOrderId === order.id}
                               className="w-full sm:w-auto px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-all disabled:opacity-60"
                             >
@@ -789,13 +801,28 @@ export const ProviderBookingsCalendar: React.FC<ProviderBookingsCalendarProps> =
                           {order.status !== 'cancelled' && (
                             <button
                               type="button"
-                              onClick={() => onRescheduleOrder(order.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onRescheduleOrder(order.id);
+                              }}
                               className="px-3 py-1.5 rounded-xl border border-stone-300 hover:bg-stone-100 text-stone-700 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
                             >
                               <CalendarIcon className="w-3.5 h-3.5 text-stone-500" />
                               <span>Áthelyezés</span>
                             </button>
                           )}
+
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onSelectOrder?.(order);
+                            }}
+                            className="px-3.5 py-1.5 rounded-xl bg-stone-900 hover:bg-emerald-600 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors ml-auto"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>Megtekintés</span>
+                          </button>
                         </div>
                       </div>
                     );
