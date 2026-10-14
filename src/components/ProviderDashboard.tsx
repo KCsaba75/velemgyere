@@ -32,14 +32,17 @@ import {
   BadgeEuro,
   LogOut,
   Edit3,
-  FileEdit
+  FileEdit,
+  CalendarDays,
+  List
 } from 'lucide-react';
-import { Program, ProgramStatus, OrderBuyerInfo, OnsitePaymentMethod } from '../types/database';
+import { Program, ProgramStatus, OrderBuyerInfo, OnsitePaymentMethod, ProgramOccurrence } from '../types/database';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import { ProgramOccurrencesModal } from './ProgramOccurrencesModal';
 import { ProgramPricingModal } from './ProgramPricingModal';
 import { RescheduleOrderModal } from './RescheduleOrderModal';
 import { NewProgramModal } from './NewProgramModal';
+import { ProviderBookingsCalendar } from './ProviderBookingsCalendar';
 
 const PAYMENT_METHOD_LABEL: Record<OnsitePaymentMethod, string> = {
   cash: 'Készpénz',
@@ -67,12 +70,14 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
     archiveProgram,
     updateProviderProfile,
     confirmOrder,
+    getProgramOccurrences,
     logout
   } = useApp();
 
   useDocumentMeta('Szolgáltatói Dashboard', 'Saját programok, foglalások és érdeklődések kezelése.');
 
   const [activeTab, setActiveTab] = useState<'programs' | 'bookings' | 'inquiries' | 'reviews' | 'profile'>('programs');
+  const [bookingsViewMode, setBookingsViewMode] = useState<'calendar' | 'list'>('calendar');
   const [statusFilter, setStatusFilter] = useState<string>('published');
   const [editingProgram, setEditingProgram] = useState<Program | null>(null);
   const [occurrencesModalProgram, setOccurrencesModalProgram] = useState<Program | null>(null);
@@ -180,6 +185,63 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ownOrderIds]);
+
+  // Booked program occurrence dates
+  const [occurrencesMap, setOccurrencesMap] = useState<Record<string, ProgramOccurrence>>({});
+
+  useEffect(() => {
+    const ordersWithOcc = ownOrders.filter(o => o.occurrence_id);
+    if (ordersWithOcc.length === 0) return;
+
+    const programIds = Array.from(new Set(ordersWithOcc.map(o => o.program_id)));
+    let cancelled = false;
+
+    Promise.all(programIds.map(pid => getProgramOccurrences(pid)))
+      .then(results => {
+        if (cancelled) return;
+        const map: Record<string, ProgramOccurrence> = {};
+        results.flat().forEach(occ => {
+          map[occ.id] = occ;
+        });
+        setOccurrencesMap(prev => ({ ...prev, ...map }));
+      })
+      .catch(err => {
+        console.warn('Occurrences load notice:', err);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [ownOrderIds, getProgramOccurrences]);
+
+  const formatProgramDate = (dateStr?: string) => {
+    if (!dateStr) return null;
+    try {
+      const raw = dateStr.includes('T') ? dateStr : `${dateStr}T00:00:00`;
+      const d = new Date(raw);
+      if (isNaN(d.getTime())) return dateStr;
+      return d.toLocaleDateString('hu-HU', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const formatOrderCreatedDate = (iso?: string) => {
+    if (!iso) return '';
+    try {
+      return new Date(iso).toLocaleDateString('hu-HU', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      });
+    } catch {
+      return iso;
+    }
+  };
 
   // Status counts (Section 11)
   const totalProgramsCount = ownPrograms.length;
@@ -693,28 +755,85 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
         </div>
       )}
 
-      {/* Tab: Bookings (kanban fbf552b2 point 5b, NEW) */}
+      {/* Tab: Bookings */}
       {activeTab === 'bookings' && (
         <div className="space-y-4">
-          {ownOrders.length > 0 ? (
+          {/* View mode toggle header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-stone-200 shadow-xs">
+            <div>
+              <h3 className="text-base sm:text-lg font-bold font-display text-stone-900 flex items-center gap-2">
+                <Ticket className="w-5 h-5 text-emerald-600" />
+                <span>Foglalások ({ownOrders.length})</span>
+              </h3>
+              <p className="text-xs text-stone-500">
+                A programjaidra érkezett foglalások dátumai, létszámai és visszaigazolása.
+              </p>
+            </div>
+
+            <div className="inline-flex items-center p-1 bg-stone-100 rounded-xl text-xs font-semibold text-stone-600 border border-stone-200/80 shrink-0 self-start sm:self-auto">
+              <button
+                type="button"
+                onClick={() => setBookingsViewMode('calendar')}
+                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                  bookingsViewMode === 'calendar'
+                    ? 'bg-white text-stone-900 font-bold shadow-xs'
+                    : 'text-stone-600 hover:text-stone-900'
+                }`}
+              >
+                <CalendarDays className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Naptár nézet</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setBookingsViewMode('list')}
+                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                  bookingsViewMode === 'list'
+                    ? 'bg-white text-stone-900 font-bold shadow-xs'
+                    : 'text-stone-600 hover:text-stone-900'
+                }`}
+              >
+                <List className="w-3.5 h-3.5 text-stone-600" />
+                <span>Lista nézet</span>
+              </button>
+            </div>
+          </div>
+
+          {bookingsViewMode === 'calendar' ? (
+            <ProviderBookingsCalendar
+              orders={ownOrders}
+              programs={ownPrograms}
+              occurrencesMap={occurrencesMap}
+              buyerInfos={buyerInfos}
+              onConfirmOrder={handleConfirmOrder}
+              confirmingOrderId={confirmingOrderId}
+              onRescheduleOrder={(orderId) => setRescheduleOrderId(orderId)}
+              onOpenProgramDetail={openProgramDetail}
+            />
+          ) : ownOrders.length > 0 ? (
             <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden shadow-sm">
-              <div className="p-4 bg-stone-50 border-b border-stone-100 text-xs font-bold text-stone-500 uppercase tracking-wider">
-                Foglalások ({ownOrders.length})
+              <div className="p-4 bg-stone-50 border-b border-stone-100 text-xs font-bold text-stone-500 uppercase tracking-wider flex items-center justify-between">
+                <span>Foglalások listája ({ownOrders.length})</span>
+                <span className="text-[11px] font-normal text-stone-400">Időrendi sorrendben</span>
               </div>
               <div className="divide-y divide-stone-100">
                 {ownOrders.map((order) => {
                   const program = programs.find(p => p.id === order.program_id);
                   const buyer = buyerInfos[order.id];
+                  const occ = order.occurrence_id ? occurrencesMap[order.occurrence_id] : null;
+                  const rawProgramDate = occ?.event_date || program?.event_date;
+                  const bookedDateFormatted = formatProgramDate(rawProgramDate);
+                  const bookedTime = occ?.start_time || program?.start_time;
+
                   return (
                     <div key={order.id} className="p-5 hover:bg-stone-50/50 transition-colors space-y-3">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="font-mono text-xs font-bold text-stone-600 bg-stone-100 px-2.5 py-0.5 rounded-md border border-stone-200">
                             #{getBookingReference(order)}
                           </span>
-                          <h4 className="font-bold text-stone-900 text-sm">{program?.title || 'Program'}</h4>
+                          <h4 className="font-bold text-stone-900 text-sm sm:text-base">{program?.title || 'Program'}</h4>
                         </div>
-                        <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
+                        <span className={`self-start sm:self-auto text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
                           order.status === 'confirmed' ? 'bg-emerald-100 text-emerald-800' :
                           order.status === 'pending' ? 'bg-amber-100 text-amber-900' :
                           'bg-stone-100 text-stone-500'
@@ -722,6 +841,26 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
                           {order.status === 'confirmed' ? 'Megerősítve (visszaigazolva)' : order.status === 'pending' ? 'Visszaigazolásra vár' : 'Lemondva'}
                         </span>
                       </div>
+
+                      {/* Lefoglalt program dátuma */}
+                      <div className="flex flex-wrap items-center gap-2 text-xs">
+                        <div className="inline-flex items-center gap-1.5 font-semibold text-emerald-900 bg-emerald-50 border border-emerald-200/80 px-2.5 py-1 rounded-lg">
+                          <Calendar className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <span>Program dátuma: <strong className="font-bold text-emerald-950">{bookedDateFormatted || 'Egyeztetés alatt'}</strong></span>
+                          {bookedTime && (
+                            <span className="inline-flex items-center gap-1 text-emerald-800 font-normal ml-0.5">
+                              <Clock className="w-3 h-3 text-emerald-600 inline" />
+                              {bookedTime}
+                            </span>
+                          )}
+                        </div>
+                        {order.created_at && (
+                          <span className="text-[11px] text-stone-400">
+                            (Foglalás leadva: {formatOrderCreatedDate(order.created_at)})
+                          </span>
+                        )}
+                      </div>
+
                       <div className="flex flex-wrap items-center gap-3 text-xs text-stone-500">
                         <span>{order.participants_count} fő · helyszínen fizetendő: <strong className="text-stone-800">{formatPrice(order.onsite_amount)} {order.currency === 'EUR' ? '€' : order.currency}</strong></span>
                         {order.onsite_payment_method && (
