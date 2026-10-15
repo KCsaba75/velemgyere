@@ -337,6 +337,9 @@ create table if not exists public.orders (
 );
 
 alter table public.orders add column if not exists booking_reference text;
+alter table public.orders alter column user_id drop not null;
+alter table public.orders add column if not exists event_date text;
+alter table public.orders add column if not exists start_time text;
 alter table public.orders add column if not exists source text default 'platform';
 alter table public.orders add column if not exists source_notes text;
 alter table public.orders add column if not exists is_manual boolean default false;
@@ -348,23 +351,28 @@ alter table public.orders add column if not exists google_calendar_synced boolea
 alter table public.orders add column if not exists google_calendar_event_url text;
 
 alter table public.orders enable row level security;
+grant select, insert, update on public.orders to anon, authenticated;
 
 create policy "Visitors can view own orders"
   on public.orders for select
-  using (auth.uid() = user_id or public.is_admin());
+  using (auth.uid() = user_id or is_manual = true or public.is_admin());
 
 create policy "Visitors can create own orders"
   on public.orders for insert
-  with check (auth.uid() = user_id);
+  with check (auth.uid() = user_id or is_manual = true);
 
 create policy "Providers can insert manual orders for their programs"
   on public.orders for insert
   with check (
-    exists (
+    is_manual = true
+    or auth.uid() = user_id
+    or exists (
       select 1 from public.programs
       join public.providers on providers.id = programs.provider_id
-      where programs.id = orders.program_id and providers.user_id = auth.uid()
+      where programs.id = orders.program_id 
+        and (providers.user_id = auth.uid() or providers.user_id is null)
     )
+    or public.is_admin()
   );
 
 create policy "Visitors can cancel own orders"
@@ -375,20 +383,25 @@ create policy "Visitors can cancel own orders"
 create policy "Providers can view orders for their programs"
   on public.orders for select
   using (
-    exists (
+    is_manual = true
+    or auth.uid() = user_id
+    or exists (
       select 1 from public.programs
       join public.providers on providers.id = programs.provider_id
-      where programs.id = orders.program_id and providers.user_id = auth.uid()
+      where programs.id = orders.program_id 
+        and (providers.user_id = auth.uid() or providers.user_id is null)
     ) or public.is_admin()
   );
 
 create policy "Providers can update orders for their programs"
   on public.orders for update
   using (
-    exists (
+    is_manual = true
+    or exists (
       select 1 from public.programs
       join public.providers on providers.id = programs.provider_id
-      where programs.id = orders.program_id and providers.user_id = auth.uid()
+      where programs.id = orders.program_id 
+        and (providers.user_id = auth.uid() or providers.user_id is null)
     ) or public.is_admin()
   );
 

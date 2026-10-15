@@ -53,7 +53,7 @@ const WEEKDAYS = [
 ];
 
 function getOrderDateStr(order: Order, program?: Program, occurrence?: ProgramOccurrence): string | null {
-  const raw = occurrence?.event_date || program?.event_date;
+  const raw = order.event_date || occurrence?.event_date || program?.event_date;
   if (raw) {
     return raw.includes('T') ? raw.split('T')[0] : raw;
   }

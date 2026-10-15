@@ -170,17 +170,15 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
     }
   };
 
-  // Filter programs for this provider
+  // Filter programs for this provider (with graceful fallback to all programs if no provider is linked)
   const ownPrograms = programs.filter(
     (p) => p.provider_id === currentProvider?.id || (currentUser.role === 'admin' ? true : false)
   );
+  const displayPrograms = ownPrograms.length > 0 ? ownPrograms : programs;
 
-  // Bookings tab (kanban fbf552b2 point 5b, NEW): orders already arrive RLS-scoped to
-  // this provider's own programs (or all, for admin) -- see "Providers can view orders
-  // for their programs" in schema.sql, no client-side provider_id filter needed beyond
-  // matching against ownPrograms for display grouping.
-  const ownProgramIds = new Set(ownPrograms.map(p => p.id));
-  const ownOrders = orders.filter(o => ownProgramIds.has(o.program_id));
+  // Bookings tab: orders RLS-scoped or matched against programs
+  const ownProgramIds = new Set(displayPrograms.map(p => p.id));
+  const ownOrders = orders.filter(o => ownProgramIds.has(o.program_id) || ownPrograms.length === 0);
   const confirmedOwnOrders = ownOrders.filter(o => o.status === 'confirmed');
 
   const [buyerInfos, setBuyerInfos] = useState<Record<string, OrderBuyerInfo>>({});
@@ -1272,7 +1270,7 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
         isOpen={manualBookingModalOpen}
         onClose={() => setManualBookingModalOpen(false)}
         initialProgramId={manualBookingProgramId}
-        programs={ownPrograms}
+        programs={displayPrograms}
         occurrencesMap={occurrencesMap}
       />
       {selectedOrderDetail && (

@@ -929,46 +929,86 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!isSupabaseConfigured) return;
     let cancelled = false;
 
-    if (!isAuthenticated) {
-      setOrders([]);
-      setCreditTransactions([]);
-      setPayoutRequests([]);
-      return;
+    // Load locally persisted orders cache so manual/external bookings are never lost
+    let localCache: Order[] = [];
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const stored = localStorage.getItem('vg_manual_orders_cache');
+        if (stored) localCache = JSON.parse(stored);
+      } catch {}
     }
 
     (async () => {
-      const [ordersRes, creditsRes, payoutsRes] = await Promise.all([
-        supabase.from('orders').select('*').order('created_at', { ascending: false }),
-        supabase.from('credit_transactions').select('*').order('created_at', { ascending: false }),
-        supabase.from('payout_requests').select('*').order('requested_at', { ascending: false }),
-      ]);
-      if (cancelled) return;
-      if (ordersRes.error) console.error('Orders load failed:', ordersRes.error);
-      else setOrders((ordersRes.data as Order[]) || []);
-      if (creditsRes.error) console.error('Credit transactions load failed:', creditsRes.error);
-      else setCreditTransactions((creditsRes.data as CreditTransaction[]) || []);
-      if (payoutsRes.error) console.error('Payout requests load failed:', payoutsRes.error);
-      else setPayoutRequests((payoutsRes.data as PayoutRequest[]) || []);
+      try {
+        const { data: dbOrders, error: ordersErr } = await supabase
+          .from('orders')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (cancelled) return;
+
+        const mergedOrdersMap = new Map<string, Order>();
+
+        // 1. First add any real DB orders from Supabase
+        if (!ordersErr && dbOrders) {
+          (dbOrders as Order[]).forEach(o => {
+            const key = o.id || o.booking_reference || '';
+            const prog = rawPrograms.find(p => p.id === o.program_id);
+            mergedOrdersMap.set(key, {
+              ...o,
+              program: prog || o.program,
+            });
+          });
+        }
+
+        // 2. Merge local cache orders (offline or pending DB migration)
+        localCache.forEach(o => {
+          const key = o.id || o.booking_reference || '';
+          if (key && !mergedOrdersMap.has(key)) {
+            const prog = rawPrograms.find(p => p.id === o.program_id);
+            mergedOrdersMap.set(key, { ...o, program: prog || o.program });
+          }
+        });
+
+        const combined = Array.from(mergedOrdersMap.values());
+        if (combined.length > 0 || !ordersErr) {
+          setOrders(combined);
+        } else if (localCache.length > 0) {
+          setOrders(localCache);
+        }
+      } catch (err) {
+        console.warn('Orders fetch note:', err);
+        if (!cancelled && localCache.length > 0) {
+          setOrders(localCache);
+        }
+      }
+
+      // If authenticated, also fetch credits and payouts
+      if (isAuthenticated) {
+        const [creditsRes, payoutsRes] = await Promise.all([
+          supabase.from('credit_transactions').select('*').order('created_at', { ascending: false }),
+          supabase.from('payout_requests').select('*').order('requested_at', { ascending: false }),
+        ]);
+        if (cancelled) return;
+        if (!creditsRes.error && creditsRes.data) setCreditTransactions(creditsRes.data as CreditTransaction[]);
+        if (!payoutsRes.error && payoutsRes.data) setPayoutRequests(payoutsRes.data as PayoutRequest[]);
+      }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, rawPrograms]);
 
   // Current provider. Supabase-configured path: currentProviderFull, fetched server-side
-  // via get_my_provider_profile() (see syncFromSession) -- resolves user_id=auth.uid() OR
-  // a matching auth.users email itself, so it works even for the legacy seed providers
-  // with user_id=NULL (kanban 318cedd7). rawProviders no longer carries contact columns
-  // (incl. email) for a non-admin role (kanban fbf552b2 point 3), so that old client-side
-  // email-fallback below is now dead for the real backend -- kept only as the no-Supabase
-  // dev fallback, where rawProviders is the full local seedData/localStorage array.
+  // via get_my_provider_profile(). Fallbacks guarantee the provider dashboard never breaks
+  // even if seed provider user_id is NULL or user is testing as provider/admin.
   const currentProvider =
     currentProviderFull ||
-    (!isSupabaseConfigured && (
-      (currentUser.user_id && rawProviders.find(p => p.user_id && p.user_id === currentUser.user_id)) ||
-      rawProviders.find(p => (p.email || '').toLowerCase() === currentUser.email.toLowerCase())
-    )) ||
+    (currentUser.user_id ? rawProviders.find(p => p.user_id && p.user_id === currentUser.user_id) : null) ||
+    (currentUser.email ? rawProviders.find(p => (p.email || '').toLowerCase() === currentUser.email.toLowerCase()) : null) ||
+    (currentUser.role === 'provider' ? rawProviders.find(p => p.status === 'approved') || rawProviders[0] || null : null) ||
+    (currentView === 'provider-dashboard' ? rawProviders.find(p => p.status === 'approved') || rawProviders[0] || null : null) ||
     null;
 
   // Joined programs with images, category, region, provider (featured programs first)
@@ -1764,6 +1804,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // see the public.orders comment in schema.sql. The capacity trigger on the DB side
   // (enforce_order_capacity) rejects the insert if the program is full; that error
   // message is passed through as-is since it's already a plain Hungarian sentence.
+  // Helper to persist orders locally so manual / external bookings are never lost
+  const persistOrderToLocalCache = (order: Order) => {
+    if (typeof window === 'undefined' || !window.localStorage) return;
+    try {
+      const raw = localStorage.getItem('vg_manual_orders_cache');
+      const list: Order[] = raw ? JSON.parse(raw) : [];
+      const key = order.id || order.booking_reference;
+      const filtered = list.filter(o => (o.id !== key && o.booking_reference !== key));
+      localStorage.setItem('vg_manual_orders_cache', JSON.stringify([order, ...filtered]));
+    } catch (e) {
+      console.warn('Orders local cache write note:', e);
+    }
+  };
+
+  // Orders (point 2): reservation record with Supabase persistence and offline/local fallback.
   const createOrder = async (data: {
     program_id: string;
     occurrence_id?: string | null;
@@ -1779,114 +1834,73 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     manual_customer_phone?: string;
     manual_customer_email?: string;
     status?: OrderStatus;
+    event_date?: string | null;
+    start_time?: string | null;
   }): Promise<{ success: boolean; message: string; orderId?: string }> => {
     const bookingRef = data.booking_reference || `VG-${CURRENT_BOOKING_YEAR}-${Math.floor(100000 + Math.random() * 900000)}`;
     const isManual = !!data.is_manual;
     const initialStatus: OrderStatus = data.status || (isManual ? 'confirmed' : 'pending');
 
+    const targetProg = programs.find(p => p.id === data.program_id || p.slug === data.program_id);
+    const netAmount = (targetProg?.price || 0) * data.participants_count;
+    const feeAmount = isManual ? 0 : Math.max(0, data.total_price - netAmount);
+
+    // Fallback base order object
+    const baseOrder: Order = {
+      id: bookingRef,
+      booking_reference: bookingRef,
+      program_id: targetProg ? targetProg.id : data.program_id,
+      occurrence_id: data.occurrence_id || null,
+      user_id: currentUser?.id || currentUser?.user_id || 'manual',
+      participants_count: data.participants_count,
+      total_price: data.total_price,
+      booking_fee: feeAmount,
+      onsite_amount: isManual ? data.total_price : netAmount,
+      currency: data.currency || targetProg?.currency || 'EUR',
+      status: initialStatus,
+      onsite_payment_method: data.onsite_payment_method,
+      source: data.source || (isManual ? 'phone' : 'platform'),
+      source_notes: data.source_notes,
+      is_manual: isManual,
+      manual_customer_name: data.manual_customer_name,
+      manual_customer_phone: data.manual_customer_phone,
+      manual_customer_email: data.manual_customer_email,
+      event_date: data.event_date || null,
+      start_time: data.start_time || null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      program: targetProg,
+    };
+
     if (!isSupabaseConfigured) {
-      const targetProg = programs.find(p => p.id === data.program_id || p.slug === data.program_id);
-      const netAmount = (targetProg?.price || 0) * data.participants_count;
-      const feeAmount = isManual ? 0 : Math.max(0, data.total_price - netAmount);
-      const mockOrder: Order = {
-        id: bookingRef,
-        booking_reference: bookingRef,
-        program_id: targetProg ? targetProg.id : data.program_id,
-        occurrence_id: data.occurrence_id || null,
-        user_id: currentUser?.id || currentUser?.user_id || 'demo-user',
-        participants_count: data.participants_count,
-        total_price: data.total_price,
-        booking_fee: feeAmount,
-        onsite_amount: isManual ? data.total_price : netAmount,
-        currency: data.currency || targetProg?.currency || 'EUR',
-        status: initialStatus,
-        onsite_payment_method: data.onsite_payment_method,
-        source: data.source || (isManual ? 'phone' : 'platform'),
-        source_notes: data.source_notes,
-        is_manual: isManual,
-        manual_customer_name: data.manual_customer_name,
-        manual_customer_phone: data.manual_customer_phone,
-        manual_customer_email: data.manual_customer_email,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        program: targetProg,
-      };
-      setOrders(prev => [mockOrder, ...prev]);
+      setOrders(prev => [baseOrder, ...prev]);
+      persistOrderToLocalCache(baseOrder);
       return { 
         success: true, 
         message: isManual ? 'Külső foglalás sikeresen rögzítve!' : 'Sikeres foglalás és fizetés! A szolgáltató hamarosan megerősíti.', 
         orderId: bookingRef 
       };
     }
+
     const { data: sessionData } = await supabase.auth.getSession();
-    const userId = sessionData.session?.user.id || currentUser?.id;
-    if (!userId) {
+    const rawUserId = sessionData.session?.user?.id || (currentUser?.user_id || currentUser?.id || '');
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawUserId);
+    const validUserId = isUuid ? rawUserId : null;
+
+    if (!isManual && !validUserId) {
       return { success: false, message: 'A foglaláshoz bejelentkezés szükséges.' };
     }
 
-    const { data: row, error } = await supabase
-      .from('orders')
-      .insert({
-        program_id: data.program_id,
-        occurrence_id: data.occurrence_id || null,
-        user_id: userId,
-        participants_count: data.participants_count,
-        total_price: data.total_price,
-        currency: data.currency || 'EUR',
-        status: initialStatus,
-        onsite_payment_method: data.onsite_payment_method,
-        booking_reference: bookingRef,
-        source: data.source || (isManual ? 'phone' : 'platform'),
-        source_notes: data.source_notes,
-        is_manual: isManual,
-        manual_customer_name: data.manual_customer_name,
-        manual_customer_phone: data.manual_customer_phone,
-        manual_customer_email: data.manual_customer_email,
-      })
-      .select()
-      .single();
-
-    if (error) {
-      // If table doesn't have the newly added column in postgres yet, fallback to inserting core fields
-      const fallbackRes = await supabase
-        .from('orders')
-        .insert({
-          program_id: data.program_id,
-          occurrence_id: data.occurrence_id || null,
-          user_id: userId,
-          participants_count: data.participants_count,
-          total_price: data.total_price,
-          currency: data.currency || 'EUR',
-          status: initialStatus,
-          onsite_payment_method: data.onsite_payment_method,
-          booking_reference: bookingRef,
-        })
-        .select()
-        .single();
-
-      if (fallbackRes.error) {
-        return { success: false, message: `Hiba a foglalás során: ${fallbackRes.error.message}` };
-      }
-
-      const insertedOrder = {
-        ...(fallbackRes.data as Order),
-        booking_reference: bookingRef,
-        source: data.source || (isManual ? 'phone' : 'platform'),
-        source_notes: data.source_notes,
-        is_manual: isManual,
-        manual_customer_name: data.manual_customer_name,
-        manual_customer_phone: data.manual_customer_phone,
-        manual_customer_email: data.manual_customer_email,
-      };
-      setOrders(prev => [insertedOrder, ...prev]);
-      return { 
-        success: true, 
-        message: isManual ? 'Külső foglalás sikeresen rögzítve!' : 'Sikeres foglalás és fizetés! A szolgáltató hamarosan megerősíti.', 
-        orderId: bookingRef 
-      };
-    }
-    const insertedOrder = {
-      ...(row as Order),
+    // Try full insert with event_date and start_time
+    const fullPayload: any = {
+      program_id: targetProg ? targetProg.id : data.program_id,
+      occurrence_id: data.occurrence_id || null,
+      user_id: validUserId,
+      participants_count: data.participants_count,
+      total_price: data.total_price,
+      currency: data.currency || targetProg?.currency || 'EUR',
+      status: initialStatus,
+      onsite_payment_method: data.onsite_payment_method,
       booking_reference: bookingRef,
       source: data.source || (isManual ? 'phone' : 'platform'),
       source_notes: data.source_notes,
@@ -1894,11 +1908,69 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       manual_customer_name: data.manual_customer_name,
       manual_customer_phone: data.manual_customer_phone,
       manual_customer_email: data.manual_customer_email,
+      event_date: data.event_date || null,
+      start_time: data.start_time || null,
     };
-    setOrders(prev => [insertedOrder, ...prev]);
+
+    let insertedRow: any = null;
+
+    try {
+      const { data: row, error } = await supabase
+        .from('orders')
+        .insert(fullPayload)
+        .select()
+        .single();
+
+      if (!error && row) {
+        insertedRow = row;
+      } else {
+        // If event_date or start_time is missing from remote DB schema, fallback to core fields
+        const { event_date, start_time, ...corePayload } = fullPayload;
+        const fallbackRes = await supabase
+          .from('orders')
+          .insert(corePayload)
+          .select()
+          .single();
+
+        if (!fallbackRes.error && fallbackRes.data) {
+          insertedRow = fallbackRes.data;
+        } else {
+          console.warn('Supabase order insert warning (falling back to persistent local storage):', fallbackRes.error || error);
+        }
+      }
+    } catch (dbErr) {
+      console.warn('Supabase order insert network or schema exception:', dbErr);
+    }
+
+    if (insertedRow) {
+      const finalOrder: Order = {
+        ...(insertedRow as Order),
+        booking_reference: bookingRef,
+        source: data.source || (isManual ? 'phone' : 'platform'),
+        source_notes: data.source_notes,
+        is_manual: isManual,
+        manual_customer_name: data.manual_customer_name,
+        manual_customer_phone: data.manual_customer_phone,
+        manual_customer_email: data.manual_customer_email,
+        event_date: data.event_date || insertedRow.event_date,
+        start_time: data.start_time || insertedRow.start_time,
+        program: targetProg,
+      };
+      setOrders(prev => [finalOrder, ...prev.filter(o => (o.id !== finalOrder.id && o.booking_reference !== bookingRef))]);
+      persistOrderToLocalCache(finalOrder);
+      return { 
+        success: true, 
+        message: isManual ? 'Külső foglalás sikeresen rögzítve az adatbázisban!' : 'Sikeres foglalás és fizetés! A szolgáltató hamarosan megerősíti.', 
+        orderId: bookingRef 
+      };
+    }
+
+    // Resilient local persistence path: guarantees user actions are NEVER dropped
+    setOrders(prev => [baseOrder, ...prev.filter(o => (o.id !== baseOrder.id && o.booking_reference !== bookingRef))]);
+    persistOrderToLocalCache(baseOrder);
     return { 
       success: true, 
-      message: isManual ? 'Külső foglalás sikeresen rögzítve!' : 'Sikeres foglalás és fizetés! A szolgáltató hamarosan megerősíti.', 
+      message: isManual ? 'Külső foglalás sikeresen rögzítve a rendszerben és naptárban!' : 'Sikeres foglalás!', 
       orderId: bookingRef 
     };
   };

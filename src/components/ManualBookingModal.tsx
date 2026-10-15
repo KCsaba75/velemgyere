@@ -118,6 +118,9 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
     try {
       const isCustomSlot = selectedOccurrenceId === 'custom';
       const occurrenceId = isCustomSlot ? null : selectedOccurrenceId;
+      const selectedOcc = occurrenceId ? occurrencesMap[occurrenceId] : null;
+      const targetDate = isCustomSlot ? customDate : (selectedOcc?.event_date || currentProgram.event_date);
+      const targetTime = isCustomSlot ? customTime : (selectedOcc?.start_time || currentProgram.start_time);
 
       const orderData = {
         program_id: currentProgram.id,
@@ -134,6 +137,8 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
         manual_customer_phone: customerPhone.trim(),
         manual_customer_email: customerEmail.trim(),
         status: 'confirmed' as const,
+        event_date: targetDate,
+        start_time: targetTime,
       };
 
       const res = await createOrder(orderData as any);

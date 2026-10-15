@@ -207,6 +207,10 @@ export interface Order {
   google_calendar_event_id?: string;
   google_calendar_synced?: boolean;
   google_calendar_event_url?: string;
+
+  // Közvetlen dátum és időpont (pl. egyedi/külső foglalásokhoz)
+  event_date?: string | null;
+  start_time?: string | null;
 }
 
 // Returned by the get_provider_contact_for_order RPC (kanban fbf552b2 point 3): the
