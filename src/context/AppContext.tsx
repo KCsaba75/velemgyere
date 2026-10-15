@@ -162,6 +162,7 @@ interface AppContextType {
   currentProvider: Provider | null;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; message: string }>;
+  loginWithGoogle: () => Promise<{ success: boolean; message: string }>;
   logout: () => void;
   registerVisitor: (data: { name: string; email: string; password: string }) => Promise<{ success: boolean; message: string }>;
   deleteMyAccount: () => Promise<{ success: boolean; message: string }>;
@@ -774,12 +775,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!prof && !cancelled) {
         // No pending provider registration and no profile yet -> a plain visitor signup
         // (registerVisitor below), getting its real session for the first time.
-        const displayName = (session.user.user_metadata as Record<string, unknown> | undefined)?.name as string | undefined;
+        const meta = session.user.user_metadata as Record<string, unknown> | undefined;
+        const displayName = (meta?.full_name as string) || (meta?.name as string) || (session.user.email ? session.user.email.split('@')[0] : 'Látogató');
         const { data: newProf, error: profErr } = await supabase
           .from('profiles')
           .insert({
             user_id: session.user.id,
-            name: displayName || session.user.email || 'Látogató',
+            name: displayName,
             email: session.user.email,
             role: 'visitor',
           })
@@ -1132,6 +1134,137 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: true, message: `Sikeres bejelentkezés mint ${prov.company_name}!` };
     }
     return { success: false, message: 'Nincs fiók ezzel az e-mail címmel. Kérjük regisztráljon!' };
+  };
+
+  const loginWithGoogle = async (): Promise<{ success: boolean; message: string }> => {
+    if (!isSupabaseConfigured) {
+      return { success: false, message: 'A Supabase nincs konfigurálva a Google bejelentkezéshez.' };
+    }
+
+    try {
+      const redirectUri = `${window.location.origin}/auth/callback`;
+      const inIframe = typeof window !== 'undefined' && window.self !== window.top;
+
+      // In an iframe context (like AI Studio preview), opening a top-level redirect can be blocked.
+      // We use popup mode with skipBrowserRedirect: true.
+      if (inIframe) {
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: redirectUri,
+            skipBrowserRedirect: true,
+            queryParams: {
+              access_type: 'offline',
+              prompt: 'select_account',
+            },
+          },
+        });
+
+        if (error || !data?.url) {
+          return { success: false, message: error?.message || 'Nem sikerült létrehozni a Google bejelentkezési kapcsolatot.' };
+        }
+
+        const width = 520;
+        const height = 650;
+        const left = Math.max(0, Math.round(window.screenX + (window.outerWidth - width) / 2));
+        const top = Math.max(0, Math.round(window.screenY + (window.outerHeight - height) / 2));
+
+        const popup = window.open(
+          data.url,
+          'google_login_popup',
+          `width=${width},height=${height},left=${left},top=${top},status=no,resizable=yes,scrollbars=yes`
+        );
+
+        if (!popup) {
+          return {
+            success: false,
+            message: 'A böngésző megakadályozta a felugró ablak megnyitását. Kérjük engedélyezze a pop-up ablakokat a Google bejelentkezéshez!'
+          };
+        }
+
+        return new Promise<{ success: boolean; message: string }>((resolve) => {
+          let resolved = false;
+
+          const cleanup = () => {
+            window.removeEventListener('message', handleMessage);
+            clearInterval(pollTimer);
+          };
+
+          const handleMessage = (event: MessageEvent) => {
+            if (event.data?.type === 'SUPABASE_AUTH_SUCCESS' || event.data?.type === 'OAUTH_AUTH_SUCCESS') {
+              if (!resolved) {
+                resolved = true;
+                cleanup();
+                try { popup?.close(); } catch {}
+                supabase.auth.getSession().then(({ data: sessData }) => {
+                  resolve({
+                    success: true,
+                    message: sessData.session?.user?.email
+                      ? `Sikeres Google bejelentkezés: ${sessData.session.user.email}!`
+                      : 'Sikeres Google bejelentkezés!'
+                  });
+                });
+              }
+            }
+          };
+
+          window.addEventListener('message', handleMessage);
+
+          const pollTimer = setInterval(async () => {
+            try {
+              const { data: currentSess } = await supabase.auth.getSession();
+              if (currentSess?.session) {
+                if (!resolved) {
+                  resolved = true;
+                  cleanup();
+                  try { popup?.close(); } catch {}
+                  resolve({
+                    success: true,
+                    message: currentSess.session.user.email
+                      ? `Sikeres Google bejelentkezés: ${currentSess.session.user.email}!`
+                      : 'Sikeres Google bejelentkezés!'
+                  });
+                  return;
+                }
+              }
+
+              if (popup.closed) {
+                if (!resolved) {
+                  resolved = true;
+                  cleanup();
+                  const { data: finalSess } = await supabase.auth.getSession();
+                  if (finalSess?.session) {
+                    resolve({ success: true, message: 'Sikeres Google bejelentkezés!' });
+                  } else {
+                    resolve({ success: false, message: 'A Google bejelentkezési ablak be lett zárva.' });
+                  }
+                }
+              }
+            } catch {
+              // Ignore cross-origin frame access errors while user navigates Google login
+            }
+          }, 600);
+        });
+      } else {
+        // Direct redirect for top-level navigation outside iframe
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: redirectUri,
+            queryParams: {
+              access_type: 'offline',
+              prompt: 'select_account',
+            },
+          },
+        });
+        if (error) {
+          return { success: false, message: error.message };
+        }
+        return { success: true, message: 'Átirányítás a Google bejelentkezéshez...' };
+      }
+    } catch (err: any) {
+      return { success: false, message: err?.message || 'Hiba történt a Google bejelentkezés során.' };
+    }
   };
 
   // Kanban e3d1d669 point 1 (szemelyes adatok szerkesztese) + point 5 (kommunikacios
@@ -2935,6 +3068,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         currentProvider,
         isAuthenticated,
         login,
+        loginWithGoogle,
         logout,
         registerVisitor,
         deleteMyAccount,

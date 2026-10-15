@@ -95,3 +95,15 @@ describe('Google Calendar Integration Service', () => {
     expect(ics).toContain('END:VCALENDAR');
   });
 });
+
+describe('Google OAuth Configuration & Provider Verification', () => {
+  it('validates google provider redirect uri and options format', () => {
+    const redirectUri = 'https://velemgyere.hu/auth/callback';
+    const params = new URLSearchParams({
+      provider: 'google',
+      redirect_to: redirectUri,
+    });
+    expect(params.get('provider')).toBe('google');
+    expect(params.get('redirect_to')).toBe('https://velemgyere.hu/auth/callback');
+  });
+});

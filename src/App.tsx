@@ -18,6 +18,7 @@ import { FavoritesView } from './components/FavoritesView';
 import { BookingsView } from './components/BookingsView';
 import { FavoriteFolderModal } from './components/FavoriteFolderModal';
 import { FavoriteToast } from './components/FavoriteToast';
+import { AuthCallback } from './components/AuthCallback';
 import { UserRole } from './types/database';
 
 // 16241c32: gates a route behind auth/role, redirecting home instead of rendering a
@@ -88,6 +89,7 @@ const AppContent: React.FC = () => {
           />
           <Route path="/kedvencek" element={<FavoritesView />} />
           <Route path="/foglalasaim" element={<BookingsView />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

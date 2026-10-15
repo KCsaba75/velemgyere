@@ -110,6 +110,28 @@ async function runDatabaseTests() {
   } catch (err: any) {
     recordTest('Storage', 'Storage API válaszképes', false, err.message, tStart);
   }
+
+  // Test 1.6: Supabase Google OAuth szolgáltató konfiguráció és URL generálás
+  tStart = Date.now();
+  try {
+    const { data: oAuthData, error: oAuthErr } = await anonClient.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: 'https://velemgyere.hu/auth/callback',
+        skipBrowserRedirect: true,
+      },
+    });
+    const hasValidUrl = !oAuthErr && !!oAuthData?.url && oAuthData.url.includes('provider=google');
+    recordTest(
+      'OAuth',
+      'Supabase Google OAuth felhőszolgáltató aktív és érvényes authorize URL-t generál',
+      hasValidUrl,
+      oAuthErr?.message,
+      tStart
+    );
+  } catch (err: any) {
+    recordTest('OAuth', 'Supabase Google OAuth szolgáltató elérhetősége', false, err.message, tStart);
+  }
 }
 
 async function runFrontendUnitTests() {
