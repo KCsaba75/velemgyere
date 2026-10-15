@@ -74,7 +74,41 @@ export const ProgramDetailView: React.FC = () => {
   const acceptedPaymentMethods: OnsitePaymentMethod[] =
     programProvider?.accepted_payment_methods?.length ? programProvider.accepted_payment_methods : ['cash'];
 
-  useDocumentMeta(program?.title, program?.short_description);
+  useDocumentMeta(
+    program?.title,
+    program?.short_description || program?.description?.substring(0, 160),
+    program ? {
+      image: program.cover_image_url || program.images?.[0],
+      type: 'product',
+      canonicalUrl: `https://velemgyere.hu/programok/${program.slug || program.id}`,
+      jsonLd: {
+        '@context': 'https://schema.org',
+        '@type': 'TouristTrip',
+        name: program.title,
+        description: program.short_description || program.description?.substring(0, 200),
+        image: program.cover_image_url || program.images?.[0],
+        touristType: 'Leisure',
+        offers: {
+          '@type': 'Offer',
+          price: program.price,
+          priceCurrency: program.currency || 'EUR',
+          availability: 'https://schema.org/InStock',
+          url: `https://velemgyere.hu/programok/${program.slug || program.id}`,
+        },
+        provider: {
+          '@type': 'Organization',
+          name: programProvider?.company_name || 'Velem Gyere Partner',
+        },
+        ...(programStats?.totalCount ? {
+          aggregateRating: {
+            '@type': 'AggregateRating',
+            ratingValue: programStats.averageRating,
+            reviewCount: programStats.totalCount,
+          }
+        } : {})
+      }
+    } : undefined
+  );
 
   const programStats = program ? getProgramRatingStats(program.id) : null;
   const providerStats = (programProvider?.id || program?.provider_id || program?.provider?.id) 

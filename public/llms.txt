@@ -1,0 +1,37 @@
+# Velem Gyere – Külföldi Magyar Nyelvű Programok és Élmények
+
+> A Velem Gyere (https://velemgyere.hu) egy dedikált utazási és programközvetítő platform, amely megbízható külföldi magyar idegenvezetőket, túraszervezőket és transzferszolgáltatókat kapcsol össze utazókkal.
+
+## Fő Információk és Tények (Key Facts)
+
+- **Szolgáltatás célja**: Külföldi magyar nyelvű élménytúrák, privát és kiscsoportos városnézések, hajókirándulások, gasztrotúrák és reptéri transzferek közvetítése.
+- **Kiemelt desztinációk**:
+  - Ciprus (Ayia Napa, Paphos, Limassol, Larnaca, Troodos-hegység)
+  - Olaszország (Róma, Vatikán, Tivoli, Nápoly)
+  - Málta & Gozo (Valletta, Kék Lagúna, Mdina, Comino)
+  - Spanyolország (Barcelona, Andalúzia, Madrid)
+  - Görögország (Athén, Kréta, Rhodos)
+- **Fizetési és foglalási modell**:
+  - Alacsony online foglalási díj (platform fenntartási díj) bankkártyás fizetéssel.
+  - A program fennmaradó része közvetlenül a helyszínen fizetendő a szolgáltatónak (készpénz, kártya vagy Revolut a szolgáltató beállításaitól függően).
+  - Nincs rejtett költség, nincs túlárazás.
+- **Minőség és megbízhatóság**:
+  - Helyi, magyarul beszélő, hivatalosan regisztrált idegenvezetők és programszervezők.
+  - Valós utazói értékelések és csillagos minősítési rendszer.
+  - Automatikus Google Naptár (.ics) szinkronizáció a foglalást követően.
+
+## Fő Oldalak és Navigáció
+
+- [Kezdőlap](https://velemgyere.hu/): Kiemelt programok, szezonális ajánlatok, népszerű úti célok keresője.
+- [Programkatalógus](https://velemgyere.hu/programok): Teljes kereshető adatbázis többdimenziós szűréssel (kategória, ország, régió, árkategória, nehézség, időtartam).
+- [Szolgáltatói Partnerprogram](https://velemgyere.hu/szolgaltato/partnerprogram): Csatlakozás helyi idegenvezetőknek és szolgáltatóknak.
+- [Mappa és Kedvencek](https://velemgyere.hu/kedvencek): Utazási tervek és elmentett programok rendszerezése egyéni mappákba.
+
+## Kategóriák
+
+- Kirándulások & Természet (dzsip szafarik, hegyi túrák, nemzeti parkok)
+- Városnézés & Kultúra (történelmi séták, múzeumi tárlatvezetések)
+- Reptéri & Helyi Transzferek (megbízható reptér-hotel transzfer rögzített áron)
+- Hajós & Tengeri Élmények (katamarán túrák, búvárkodás, naplemente hajózás)
+- Gasztro & Borkóstolók (helyi ízek, borászatok, autentikus piacok)
+- Családi & Gyerekbarát Programok (aquaparkok, interaktív élményparkok)

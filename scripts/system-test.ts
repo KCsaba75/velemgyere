@@ -326,6 +326,19 @@ async function main() {
   await runE2EWorkflowTests();
   await runSecurityAndPerformanceTests();
 
+  // 5. Sebesség, SEO és AI Keresés (LLMO / GEO) modul
+  const { runSeoAiSpeedTests } = await import('./seo-ai-speed-test');
+  const seoSpeedPassed = await runSeoAiSpeedTests();
+  if (!seoSpeedPassed) {
+    results.push({
+      suite: 'SEO_AI_SPEED',
+      name: 'Sebesség, SEO és AI keresés modul ellenőrzése',
+      passed: false,
+      message: 'Egy vagy több SEO, Sebesség vagy AI keresés teszt megbukott',
+      durationMs: 0
+    });
+  }
+
   const totalDuration = Date.now() - overallStart;
   const passedCount = results.filter(r => r.passed).length;
   const failedCount = results.filter(r => !r.passed).length;

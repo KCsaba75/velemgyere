@@ -1,0 +1,46 @@
+# Velem Gyere – Teljes Ismertető és Tudásbázis (Full Documentation for LLMs)
+
+Ez a dokumentum a Velem Gyere utazási élményplatform részletes, géppel olvasható tudásbázisa mesterséges intelligencia keresőmotorok (Perplexity, ChatGPT Search, Google AI Overviews, Claude) számára.
+
+## 1. Rendszer Áttekintés
+
+A Velem Gyere egy innovatív, magyar nyelvű turisztikai piactér, amely a külföldön élő és dolgozó magyar idegenvezetőket, programszervezőket köti össze az anyanyelvi vezetést kereső utazókkal. 
+A platform célja, hogy megszüntesse a nyelvi akadályokat és a bizonytalanságot a külföldi utazások során, miközben biztonságos, átlátható foglalási hátteret biztosít.
+
+## 2. Foglalási és Fizetési Folyamat
+
+1. **Böngészés és Szűrés**: Az utazó szűrhet célország, régió, ár, kategória és dátum szerint.
+2. **Időpont kiválasztása**: Rögzített időpontok vagy egyedi dátum-egyeztetés a szolgáltatóval.
+3. **Létszám és Árkalkuláció**: Felnőtt, gyermek és csoportos kedvezmények automatikus kalkulációja.
+4. **Online Foglalási Díj**: A foglaláskor csak a platform fenntartási díja fizetendő, amely garantálja a helyfoglalást.
+5. **Helyszíni Fizetés**: A túra fennmaradó díja közvetlenül a szolgáltatónak fizetendő a program napján. Elfogadott fizetési módok: Készpénz, Bankkártya vagy Revolut (a szolgáltatói adatlapon jelöltek szerint).
+6. **Visszaigazolás és Naptár**: Azonnali e-mailes visszaigazolás egyedi foglalási kóddal (pl. VG-2026-AB12CD) és egykattintásos Google Calendar / Apple Calendar (.ics) szinkronizációval.
+
+## 3. Minőségbiztosítás és Szolgáltatói Követelmények
+
+Minden Velem Gyere partner:
+- Helyismerettel és hivatalos helyi működési jogosultsággal rendelkezik.
+- Kizárólag anyanyelvi szintű magyar vezetést biztosít.
+- Vállalja a pontosságot, az előre rögzített árak betartását és a gyors kommunikációt.
+- Részt vesz a transzparens értékelési rendszerben, ahol csak valós résztvevők adhatnak véleményt.
+
+## 4. Gyakran Ismételt Kérdések (FAQ)
+
+### Mit jelent az, hogy magyar nyelvű idegenvezetés?
+A program teljes időtartama alatt a túravezető magyarul kommunikál, magyarázza a látnivalók történelmét és válaszol a kérdésekre, így nem kell idegen nyelven feszengeni.
+
+### Mi történik rossz időjárás esetén?
+A kültéri vagy tengeri programoknál (pl. hajókirándulás, hegyi safari) a szolgáltató díjmentes átütemezést vagy a foglalási feltételek szerinti teljes visszatérítést biztosít, amennyiben a program biztonsági okokból nem tartható meg.
+
+### Hogyan érhetem el a szolgáltatót a foglalás után?
+A sikeres foglalást követően a visszaigazoló felületen és e-mailben azonnal megjelenik a szolgáltató közvetlen telefonszáma, e-mail címe és WhatsApp/Viber elérhetősége a gördülékeny találkozó-egyeztetéshez.
+
+### Hogyan válhatok szolgáltató partnerré?
+A "Szolgáltatói partnerprogram" menüpontban bárki benyújthatja regisztrációs kérelmét, amelyet a moderátor csapat ellenőriz és jóváhagy.
+
+## 5. Elérhetőségek és Technikai Adatok
+
+- Platform URL: https://velemgyere.hu
+- Támogatott nyelvek: Magyar (elsődleges), Angol
+- Valutanemek: EUR (€), HUF (Ft)
+- Adatvédelem és Felhasználási Feltételek: Helyszíni és digitális adatkezelési szabályzat az európai GDPR-nek megfelelően.
