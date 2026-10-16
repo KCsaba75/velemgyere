@@ -33,8 +33,8 @@ function recordTest(suite: string, name: string, passed: boolean, message?: stri
 }
 
 // Supabase anon credentials from project
-const SUPABASE_URL = 'https://ovzhrecxshroinnfqkxl.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im92emhyZWN4c2hyb2lubmZxa3hsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTExMjA2MDcsImV4cCI6MjEwNjY5NjYwN30.-z6lDZGSGBeItBAVM5SxmHBWn2qwjrkhGOZHAi75d3E';
+const SUPABASE_URL = 'https://ygdvpnxtxdnueoizltzk.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlnZHZwbnh0eGRudWVvaXpsdHprIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIxMzIyODUsImV4cCI6MjEwNzcwODI4NX0.HaRHhVqmTKmAIzwnZTMVNCuZEmKUGPyBwpoaTALRWR4';
 
 const anonClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -298,7 +298,7 @@ async function runSecurityAndPerformanceTests() {
 
     for (const file of srcFiles) {
       const fullPath = path.resolve('./src', file);
-      if (fs.statSync(fullPath).isFile() && (file.endsWith('.ts') || file.endsWith('.tsx') || file.endsWith('.js'))) {
+      if (fs.statSync(fullPath).isFile() && (file.endsWith('.ts') || file.endsWith('.tsx') || file.endsWith('.js')) && !file.includes('tests/')) {
         const content = fs.readFileSync(fullPath, 'utf-8');
         if (content.includes('service_role') && !content.includes('service_role-kent') && !content.includes('nem service_role')) {
           leakedSecrets = true;

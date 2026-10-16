@@ -84,7 +84,7 @@ export async function runSeoAiSpeedTests() {
 
   const hasGFontsPreconnect = indexHtml.includes('https://fonts.googleapis.com') && indexHtml.includes('rel="preconnect"');
   const hasGStaticPreconnect = indexHtml.includes('https://fonts.gstatic.com') && indexHtml.includes('crossorigin');
-  const hasSupabasePreconnect = indexHtml.includes('https://ovzhrecxshroinnfqkxl.supabase.co') && indexHtml.includes('rel="preconnect"');
+  const hasSupabasePreconnect = indexHtml.includes('https://ygdvpnxtxdnueoizltzk.supabase.co') && indexHtml.includes('rel="preconnect"');
   const hasSupabaseDnsPrefetch = indexHtml.includes('rel="dns-prefetch"');
 
   recordTest(
