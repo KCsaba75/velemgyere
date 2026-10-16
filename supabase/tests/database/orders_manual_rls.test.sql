@@ -84,8 +84,11 @@ select lives_ok(
 reset role;
 
 -- 6) ADMIN tovabbra is lat mindent (regresszio-guard a masik, admin-fuggo aggagra)
+-- ON CONFLICT: a b9f12422-es signup-trigger mar letrehozta ezt a profiles sort
+-- (visitor default szereppel) a fenti auth.users INSERT-kor.
 insert into public.profiles (user_id, name, email, role)
-values ('22222222-2222-2222-2222-222222222222', 'Admin Teszt', 'admin_test@test.local', 'admin');
+values ('22222222-2222-2222-2222-222222222222', 'Admin Teszt', 'admin_test@test.local', 'admin')
+on conflict (user_id) do update set role = excluded.role;
 set local role authenticated;
 set local "request.jwt.claims" = '{"sub":"22222222-2222-2222-2222-222222222222","role":"authenticated"}';
 select isnt_empty(

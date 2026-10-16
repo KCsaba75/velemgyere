@@ -17,11 +17,16 @@ values
   ('55555555-5555-5555-5555-555555555555', 'admin@test.local', 'x', now(), '{}', '{}', 'authenticated', 'authenticated'),
   ('66666666-6666-6666-6666-666666666666', 'approved_provider@test.local', 'x', now(), '{}', '{}', 'authenticated', 'authenticated');
 
+-- ON CONFLICT: a b9f12422-es signup-trigger (trg_handle_new_auth_user) a fenti
+-- auth.users INSERT-ekre mar automatikusan letrehozta a profiles sorokat
+-- (visitor default szereppel) -- itt a tenyleges teszt-szereplo (admin stb.)
+-- szerepkort allitjuk be felette.
 insert into public.profiles (user_id, name, email, role)
 values
   ('33333333-3333-3333-3333-333333333333', 'Sajat Felhasznalo', 'self@test.local', 'visitor'),
   ('44444444-4444-4444-4444-444444444444', 'Masik Felhasznalo', 'other@test.local', 'visitor'),
-  ('55555555-5555-5555-5555-555555555555', 'Admin Teszt', 'admin@test.local', 'admin');
+  ('55555555-5555-5555-5555-555555555555', 'Admin Teszt', 'admin@test.local', 'admin')
+on conflict (user_id) do update set name = excluded.name, email = excluded.email, role = excluded.role;
 
 insert into public.providers (id, user_id, company_name, contact_name, email, phone, description, status)
 values ('77777777-7777-7777-7777-777777777777', '66666666-6666-6666-6666-666666666666',
