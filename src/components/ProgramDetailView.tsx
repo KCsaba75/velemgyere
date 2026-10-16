@@ -421,6 +421,8 @@ export const ProgramDetailView: React.FC = () => {
             src={currentImage}
             alt={program.title}
             className="w-full h-full object-cover transition-opacity duration-300"
+            loading="eager"
+            fetchPriority="high"
           />
 
           {/* Floating Heart Button in the top right corner of the main photo */}
@@ -467,7 +469,7 @@ export const ProgramDetailView: React.FC = () => {
                   }`}
                   aria-label={`Kép ${idx + 1}`}
                 >
-                  <img src={img.image_url} alt="" className="w-full h-full object-cover" />
+                  <img src={img.thumb_url || img.image_url} alt="" loading="lazy" className="w-full h-full object-cover" />
                 </button>
               ))}
             </div>

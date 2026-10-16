@@ -207,8 +207,8 @@ interface AppContextType {
   toggleCategoryActive: (id: string) => Promise<void>;
 
   // Program Management
-  createProgram: (data: Partial<Program>, images: { url: string; isCover: boolean }[]) => Promise<string>;
-  updateProgram: (id: string, updates: Partial<Program>, updatedImages?: { url: string; isCover: boolean }[]) => Promise<void>;
+  createProgram: (data: Partial<Program>, images: { url: string; isCover: boolean; thumbUrl?: string }[]) => Promise<string>;
+  updateProgram: (id: string, updates: Partial<Program>, updatedImages?: { url: string; isCover: boolean; thumbUrl?: string }[]) => Promise<void>;
   deleteProgram: (id: string) => Promise<void>;
   approveProgram: (id: string) => Promise<void>;
   rejectProgram: (id: string) => Promise<void>;
@@ -1640,7 +1640,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Program operations
   const createProgram = async (
     data: Partial<Program>,
-    images: { url: string; isCover: boolean }[]
+    images: { url: string; isCover: boolean; thumbUrl?: string }[]
   ): Promise<string> => {
     const provId = currentProvider?.id || (currentUser.role === 'admin' ? rawProviders[0]?.id : undefined);
     if (!provId) {
@@ -1686,7 +1686,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     const pendingImages = images && images.length > 0
-      ? images.map((img, idx) => ({ image_url: img.url, is_cover: img.isCover || idx === 0, sort_order: idx }))
+      ? images.map((img, idx) => ({ image_url: img.url, thumb_url: img.thumbUrl || null, is_cover: img.isCover || idx === 0, sort_order: idx }))
       : [{ image_url: 'https://images.unsplash.com/photo-1590523741831-ab7e8b8f9c7f?auto=format&fit=crop&w=1200&q=80', is_cover: true, sort_order: 0 }];
 
     if (isSupabaseConfigured) {
@@ -1725,7 +1725,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const updateProgram = async (
     id: string,
     updates: Partial<Program>,
-    updatedImages?: { url: string; isCover: boolean }[]
+    updatedImages?: { url: string; isCover: boolean; thumbUrl?: string }[]
   ): Promise<void> => {
     const finalUpdates: Partial<Program> = { ...updates };
     if (updates.title && !updates.slug) {
@@ -1755,6 +1755,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const imgRows = updatedImages.map((img, idx) => ({
           program_id: id,
           image_url: img.url,
+          thumb_url: img.thumbUrl || null,
           is_cover: Boolean(img.isCover || idx === 0),
           sort_order: idx,
         }));

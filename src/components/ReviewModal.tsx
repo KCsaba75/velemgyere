@@ -395,7 +395,7 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
                 <div className="flex flex-wrap gap-2 pt-2">
                   {photos.map((url, idx) => (
                     <div key={idx} className="relative w-16 h-16 rounded-xl overflow-hidden border border-stone-200 group">
-                      <img src={url} alt="" className="w-full h-full object-cover" />
+                      <img src={url} alt="" loading="lazy" className="w-full h-full object-cover" />
                       <button
                         type="button"
                         onClick={() => handleRemovePhoto(idx)}

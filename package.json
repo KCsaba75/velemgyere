@@ -14,7 +14,8 @@
     "test:seo-speed": "tsx scripts/seo-ai-speed-test.ts",
     "test:db": "supabase db reset --local && supabase test db --local",
     "test:e2e": "playwright test",
-    "test:lighthouse": "tsx scripts/lighthouse-audit.ts"
+    "test:lighthouse": "tsx scripts/lighthouse-audit.ts",
+    "migrate:images": "tsx scripts/migrate-base64-images-to-storage.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

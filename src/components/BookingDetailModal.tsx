@@ -391,6 +391,7 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
                 <img
                   src={coverImage}
                   alt=""
+                  loading="lazy"
                   className="w-16 h-16 rounded-xl object-cover shrink-0 border border-stone-200"
                 />
                 <div className="min-w-0 flex-1">

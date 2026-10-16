@@ -1,17 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
-import { 
-  PlusCircle, 
+import {
+  PlusCircle,
   Edit3,
-  Upload, 
-  Check, 
-  Trash2, 
-  Sparkles, 
+  Upload,
+  Check,
+  Trash2,
+  Sparkles,
   Star,
   Globe,
-  FileText
+  FileText,
+  Loader2
 } from 'lucide-react';
 import { Program, ProgramStatus } from '../types/database';
+import { supabase } from '../lib/supabase';
+import { uploadProgramImage } from '../lib/imageUpload';
 
 interface NewProgramModalProps {
   isOpen: boolean;
@@ -62,13 +65,15 @@ export const NewProgramModal: React.FC<NewProgramModalProps> = ({ isOpen, onClos
   const [newNotIncludedItem, setNewNotIncludedItem] = useState('');
 
   // Images state
-  const [images, setImages] = useState<{ url: string; isCover: boolean }[]>([
+  const [images, setImages] = useState<{ url: string; isCover: boolean; thumbUrl?: string }[]>([
     {
       url: 'https://images.unsplash.com/photo-1590523741831-ab7e8b8f9c7f?auto=format&fit=crop&w=1200&q=80',
       isCover: true
     }
   ]);
   const [customImageUrl, setCustomImageUrl] = useState('');
+  const [uploadingCount, setUploadingCount] = useState(0);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   // Status choice: default to published (or match existing program)
   const [status, setStatus] = useState<ProgramStatus>('published');
@@ -96,7 +101,7 @@ export const NewProgramModal: React.FC<NewProgramModalProps> = ({ isOpen, onClos
       setIncludedList(programToEdit.included ? [...programToEdit.included] : []);
       setNotIncludedList(programToEdit.not_included ? [...programToEdit.not_included] : []);
       if (programToEdit.images && programToEdit.images.length > 0) {
-        setImages(programToEdit.images.map(img => ({ url: img.image_url, isCover: Boolean(img.is_cover) })));
+        setImages(programToEdit.images.map(img => ({ url: img.image_url, thumbUrl: img.thumb_url || undefined, isCover: Boolean(img.is_cover) })));
       } else {
         setImages([
           {
@@ -171,20 +176,37 @@ export const NewProgramModal: React.FC<NewProgramModalProps> = ({ isOpen, onClos
     }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Kanban f2d93218: a korabbi FileReader.readAsDataURL (nyers base64 a DB
+  // sorban) helyett valodi Supabase Storage-ba toltunk, kliens-oldali
+  // atmeretezes + WebP-konverzio utan (lasd lib/imageUpload.ts) -- ez adja a
+  // legnagyobb betoltesi-sebesseg nyereseget, mert egy nyers telefonos foto
+  // tobb MB-os lehet, a WebP-re konvertalt, 1600px-re skalazott verzio pedig
+  // tobbszor kisebb, plusz egy kulon 480px-es thumbnail is kepszul a
+  // lista-nezethez.
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
+    const providerId = currentProvider?.id;
+    if (!providerId) {
+      setUploadError('Kép feltöltéséhez szolgáltatói fiók szükséges.');
+      return;
+    }
 
-    Array.from(files).forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          const dataUrl = event.target.result as string;
-          setImages(prev => [...prev, { url: dataUrl, isCover: prev.length === 0 }]);
-        }
-      };
-      reader.readAsDataURL(file);
-    });
+    setUploadError(null);
+    const fileList = Array.from(files);
+    setUploadingCount(prev => prev + fileList.length);
+
+    for (const file of fileList) {
+      try {
+        const { url, thumbUrl } = await uploadProgramImage(supabase, providerId, file);
+        setImages(prev => [...prev, { url, thumbUrl, isCover: prev.length === 0 }]);
+      } catch (err) {
+        console.error('Kép feltöltése sikertelen:', err);
+        setUploadError(err instanceof Error ? err.message : 'Kép feltöltése sikertelen, próbáld újra.');
+      } finally {
+        setUploadingCount(prev => Math.max(0, prev - 1));
+      }
+    }
   };
 
   const handleSetCover = (index: number) => {
@@ -656,6 +678,15 @@ export const NewProgramModal: React.FC<NewProgramModalProps> = ({ isOpen, onClos
               </label>
 
               <div className="flex-1 flex flex-col justify-center gap-1.5">
+                {uploadingCount > 0 && (
+                  <p className="text-xs text-emerald-700 font-semibold flex items-center gap-1.5">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    Kép feltöltése és optimalizálása ({uploadingCount})...
+                  </p>
+                )}
+                {uploadError && (
+                  <p className="text-xs text-rose-600 font-semibold">{uploadError}</p>
+                )}
                 <span className="text-xs font-medium text-stone-600">Vagy kép URL megadása:</span>
                 <div className="flex gap-2">
                   <input
@@ -680,7 +711,7 @@ export const NewProgramModal: React.FC<NewProgramModalProps> = ({ isOpen, onClos
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
               {images.map((img, idx) => (
                 <div key={idx} className="relative aspect-video rounded-xl overflow-hidden border border-stone-200 group bg-stone-100">
-                  <img src={img.url} alt="" className="w-full h-full object-cover" />
+                  <img src={img.thumbUrl || img.url} alt="" loading="lazy" className="w-full h-full object-cover" />
                   {img.isCover && (
                     <div className="absolute top-1 left-1 bg-amber-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow flex items-center gap-0.5">
                       <Star className="w-2.5 h-2.5 fill-white" />
@@ -781,7 +812,7 @@ export const NewProgramModal: React.FC<NewProgramModalProps> = ({ isOpen, onClos
             </button>
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || uploadingCount > 0}
               className="px-7 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold text-sm shadow-md transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
             >
               <Sparkles className="w-4 h-4" />

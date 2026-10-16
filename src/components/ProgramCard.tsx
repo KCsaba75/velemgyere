@@ -34,8 +34,12 @@ export const ProgramCard: React.FC<ProgramCardProps> = ({ program, onSelect }) =
     }
   };
 
-  const coverImage = program.images?.find(img => img.is_cover)?.image_url
-    || program.images?.[0]?.image_url 
+  // Kanban f2d93218: lista-nezetben a kis thumb_url-t hasznaljuk ha van
+  // (480px WebP), ne a reszletezo oldalnak szant 1600px-es teljes kepet --
+  // ez a reszponziv meretezes resze, kulon a lazy loading-tol.
+  const coverImageEntry = program.images?.find(img => img.is_cover) || program.images?.[0];
+  const coverImage = coverImageEntry?.thumb_url
+    || coverImageEntry?.image_url
     || 'https://images.unsplash.com/photo-1590523741831-ab7e8b8f9c7f?auto=format&fit=crop&w=800&q=80';
 
   // Format Hungarian date

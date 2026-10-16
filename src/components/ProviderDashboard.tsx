@@ -606,7 +606,7 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
                       <div className="flex items-start gap-4 min-w-0">
                         <div className="w-20 h-16 rounded-xl overflow-hidden bg-stone-100 shrink-0 border border-stone-200">
                           {cover ? (
-                            <img src={cover} alt="" className="w-full h-full object-cover" />
+                            <img src={cover} alt="" loading="lazy" className="w-full h-full object-cover" />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-stone-400">🖼️</div>
                           )}

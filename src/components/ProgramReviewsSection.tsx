@@ -194,7 +194,7 @@ export const ProgramReviewsSection: React.FC<ProgramReviewsSectionProps> = ({ pr
                 onClick={() => setSelectedPhoto(url)}
                 className="relative w-28 sm:w-32 aspect-square rounded-2xl overflow-hidden shrink-0 border border-stone-200 hover:scale-105 transition-transform duration-300 shadow-xs cursor-pointer group"
               >
-                <img src={url} alt="" className="w-full h-full object-cover" />
+                <img src={url} alt="" loading="lazy" className="w-full h-full object-cover" />
                 <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold">
                   🔍 Nagyítás
                 </div>
@@ -390,7 +390,7 @@ export const ProgramReviewsSection: React.FC<ProgramReviewsSectionProps> = ({ pr
                         onClick={() => setSelectedPhoto(url)}
                         className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden border border-stone-200 shadow-2xs hover:scale-105 transition-transform cursor-pointer"
                       >
-                        <img src={url} alt="" className="w-full h-full object-cover" />
+                        <img src={url} alt="" loading="lazy" className="w-full h-full object-cover" />
                       </button>
                     ))}
                   </div>

@@ -105,10 +105,11 @@ export const FavoriteFolderModal: React.FC = () => {
 
         {/* Program Preview */}
         <div className="p-4 mx-5 my-4 bg-stone-50 rounded-2xl border border-stone-200/80 flex items-center gap-3">
-          <img 
-            src={coverImage} 
-            alt="" 
-            className="w-16 h-16 rounded-xl object-cover shrink-0 border border-stone-200" 
+          <img
+            src={coverImage}
+            alt=""
+            loading="lazy"
+            className="w-16 h-16 rounded-xl object-cover shrink-0 border border-stone-200"
           />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 mb-1">

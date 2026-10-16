@@ -268,6 +268,10 @@ export interface ProgramImage {
   id: string;
   program_id: string;
   image_url: string;
+  // Kanban f2d93218: reszponziv lista-nezet thumbnail (480px WebP) -- NULL a
+  // migracio elotti/externalis-URL-es (pl. Unsplash) kepeknel, ilyenkor a
+  // kliens image_url-re esik vissza.
+  thumb_url?: string | null;
   is_cover: boolean;
   sort_order: number;
 }

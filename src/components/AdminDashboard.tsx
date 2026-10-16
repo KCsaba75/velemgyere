@@ -528,7 +528,7 @@ export const AdminDashboard: React.FC = () => {
                   <div key={prog.id} className="p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 hover:bg-stone-50/50 transition-colors">
                     <div className="flex items-start gap-4 min-w-0">
                       <div className="w-20 h-16 sm:w-24 sm:h-18 rounded-xl overflow-hidden bg-stone-900 shrink-0 border border-stone-200">
-                        {cover && <img src={cover} alt="" className="w-full h-full object-cover" />}
+                        {cover && <img src={cover} alt="" loading="lazy" className="w-full h-full object-cover" />}
                       </div>
 
                       <div className="min-w-0">
@@ -1159,7 +1159,7 @@ export const AdminDashboard: React.FC = () => {
                       <div className="flex gap-2 pt-1">
                         {rev.photos.map((pUrl, pIdx) => (
                           <a key={pIdx} href={pUrl} target="_blank" rel="noreferrer" className="w-14 h-14 rounded-xl overflow-hidden border border-stone-200 hover:opacity-80 transition-opacity">
-                            <img src={pUrl} alt="" className="w-full h-full object-cover" />
+                            <img src={pUrl} alt="" loading="lazy" className="w-full h-full object-cover" />
                           </a>
                         ))}
                       </div>

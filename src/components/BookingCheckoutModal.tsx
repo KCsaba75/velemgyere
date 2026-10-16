@@ -206,8 +206,9 @@ export const BookingCheckoutModal: React.FC<BookingCheckoutModalProps> = ({
               <div className="flex gap-4 p-3.5 rounded-2xl bg-stone-50 border border-stone-200/80 items-center">
                 <div className="w-20 h-20 rounded-xl overflow-hidden shrink-0 bg-stone-200 border border-stone-300">
                   <img
-                    src={program.images?.[0]?.image_url || 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=400&q=80'}
+                    src={program.images?.[0]?.thumb_url || program.images?.[0]?.image_url || 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=400&q=80'}
                     alt={program.title}
+                    loading="lazy"
                     className="w-full h-full object-cover"
                   />
                 </div>
