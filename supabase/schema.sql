@@ -159,9 +159,21 @@ create policy "Users can read own profile"
   on public.profiles for select
   using (auth.uid() = user_id or public.is_admin());
 
+-- Eleni #244 audit [MEDIUM, defense-in-depth], applied 2026-10-16: no WITH CHECK meant
+-- role was only unreachable via the column-GRANT (authenticated has no UPDATE grant on
+-- role), not via RLS itself. This closes it at the RLS layer too -- role may only stay
+-- the same on a self-update, admin bypasses via is_admin().
 create policy "Users can update own profile"
-  on public.profiles for update
-  using (auth.uid() = user_id or public.is_admin());
+  on public.profiles
+  for update
+  using (auth.uid() = user_id or public.is_admin())
+  with check (
+    (
+      auth.uid() = user_id
+      and role = (select p.role from public.profiles p where p.user_id = auth.uid())
+    )
+    or public.is_admin()
+  );
 
 -- Added live 2026-10-06: the table had no INSERT policy at all, which silently
 -- blocked the deferred profile-creation step for both visitor self-registration
@@ -223,12 +235,33 @@ create policy "Providers can insert programs"
     or public.is_admin()
   );
 
+-- Eleni #244 audit [HIGH], applied 2026-10-16: no WITH CHECK meant a provider could
+-- self-publish past an admin rejection via direct REST (status not part of the
+-- ownership check). draft<->published<->archived self-service stays intact (kanban
+-- b73c3ee2: new programs go live without admin approval) -- only rejected/pending_review
+-- becomes admin-only to touch, both to read away from (USING) and to write into
+-- (WITH CHECK). Mutation-tested live (rollback-wrapped): rejected->published blocked,
+-- draft->published still succeeds.
 create policy "Providers can update own programs"
-  on public.programs for update
+  on public.programs
+  for update
   using (
-    exists (
-      select 1 from public.providers
-      where providers.id = programs.provider_id and providers.user_id = auth.uid()
+    (
+      exists (
+        select 1 from public.providers
+        where providers.id = programs.provider_id and providers.user_id = auth.uid()
+      )
+      and status not in ('rejected', 'pending_review')
+    )
+    or public.is_admin()
+  )
+  with check (
+    (
+      exists (
+        select 1 from public.providers
+        where providers.id = programs.provider_id and providers.user_id = auth.uid()
+      )
+      and status in ('draft', 'published', 'archived')
     )
     or public.is_admin()
   );
