@@ -1,5 +1,6 @@
 // Setup testing environment
 import { vi } from 'vitest';
+import '@testing-library/jest-dom/vitest';
 
 // Provide basic localStorage mock if missing
 if (typeof window !== 'undefined' && !window.localStorage) {
