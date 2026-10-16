@@ -1161,6 +1161,14 @@ create table public.program_occurrences (
 
 alter table public.program_occurrences enable row level security;
 
+-- orders.occurrence_id -- NULLABLE a regi (occurrence nelkuli) programok miatt.
+-- ON DELETE RESTRICT: ne tamaszkodjunk kizarolag az RLS-re, a service_role/kozvetlen
+-- DB-hozzaferes eseten is tiltott legyen egy rendelessel rendelkezo occurrence torlese.
+-- (Ennek ITT kell lennie, a program_occurrences letrehozasa utan de az occurrence_has_orders()
+-- fuggveny ELOTT, mert az a oszlopra hivatkozik -- lasd kanban 866cb61a teszt-strategia audit.)
+alter table public.orders
+  add column occurrence_id uuid references public.program_occurrences(id) on delete restrict;
+
 grant select, insert, update, delete, references, trigger, truncate
   on public.program_occurrences to authenticated;
 grant insert, update, delete, references, trigger, truncate
@@ -1244,12 +1252,6 @@ create policy "Providers and admins can delete orders-free occurrences"
     )
     and not occurrence_has_orders(program_occurrences.id)
   );
-
--- orders.occurrence_id -- NULLABLE a regi (occurrence nelkuli) programok miatt.
--- ON DELETE RESTRICT: ne tamaszkodjunk kizarolag az RLS-re, a service_role/kozvetlen
--- DB-hozzaferes eseten is tiltott legyen egy rendelessel rendelkezo occurrence torlese.
-alter table public.orders
-  add column occurrence_id uuid references public.program_occurrences(id) on delete restrict;
 
 -- Vevo-oldali elerhetoseg-lista: occurrence-szintu kapacitassal, csak NYITOTT,
 -- JOVOBELI datumok, csak PUBLIKALT program eseten. Kulon RPC a check_program_availability
@@ -1824,13 +1826,22 @@ create policy "Visitors can view published programs"
 -- programjait -- redundans a fenti bazis-RLS-szel (security_invoker=true miatt ugyanis
 -- amugy is orokolne), de a Csaba-kerte "WHERE-feltetelbe bele kell venni" szo szerint
 -- itt is latszodjon, ne csak kovetkeztetve a RLS-bol.
+-- FIX (kanban 866cb61a teszt-strategia audit): ez a blokk korabban a view EGY REGEBBI,
+-- 18-oszlopos verziojat masolta be (description/departure_location/pricing_mode nelkul),
+-- ami -- ha lefutna -- csendben visszadobta volna ezt a harom, a frontend altal
+-- hasznalt oszlopot egy MAR eles view-rol (lasd 771/1592 sorokat ahol felkerultek).
+-- Elesben ez a blokk soha nem futott le (a live programs_public meg 21 oszlopos,
+-- anon REST-lekerdezessel igazolva), de a schema.sql-nek magaban KELL replay-kepesnek
+-- lennie (ez volt a pgTAP lokal-teszt-env elokeszites blokkolo oka), ezert itt az
+-- OSSZES jelenleg eles oszlop megtartva.
 create or replace view public.programs_public with (security_invoker = true) as
   select
     id, provider_id, category_id, region_id,
     title, slug, short_description,
     country, price, currency, event_date,
     featured, status, created_at, updated_at,
-    location, duration, language
+    location, duration, language,
+    description, departure_location, pricing_mode
   from public.programs
   where status = 'published'
     and exists (
