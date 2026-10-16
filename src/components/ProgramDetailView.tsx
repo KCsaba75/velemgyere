@@ -74,11 +74,26 @@ export const ProgramDetailView: React.FC = () => {
   const acceptedPaymentMethods: OnsitePaymentMethod[] =
     programProvider?.accepted_payment_methods?.length ? programProvider.accepted_payment_methods : ['cash'];
 
+  // Kanban 866cb61a (E2E teszteles kozben talalt kritikus regresszio): ennek
+  // KORABBAN a useDocumentMeta hivas UTAN kellett volna lennie forraskod-sorrendben,
+  // de a useDocumentMeta also a jsonLd objektumaban MAR hivatkozott ra -- mivel
+  // const/let nem hoistolhato hasznalhato modon, ez minden egyes program-reszletező
+  // oldal-megnyitast ReferenceError-ral eldobott (lasd a lejjebbi kommentet es a
+  // kanban-kartyat). Ez a komponens 1. renderje volt, tehat BARMELYIK program
+  // megnyitasa azonnal crashelt.
+  const programStats = program ? getProgramRatingStats(program.id) : null;
+  const providerStats = (programProvider?.id || program?.provider_id || program?.provider?.id)
+    ? getProviderRatingStats(programProvider?.id || program?.provider_id || program?.provider?.id)
+    : null;
+
+  const coverImageUrl = program?.images?.find((img) => img.is_cover)?.image_url
+    || program?.images?.[0]?.image_url;
+
   useDocumentMeta(
     program?.title,
     program?.short_description || program?.description?.substring(0, 160),
     program ? {
-      image: program.cover_image_url || program.images?.[0],
+      image: coverImageUrl,
       type: 'product',
       canonicalUrl: `https://velemgyere.hu/programok/${program.slug || program.id}`,
       jsonLd: {
@@ -86,7 +101,7 @@ export const ProgramDetailView: React.FC = () => {
         '@type': 'TouristTrip',
         name: program.title,
         description: program.short_description || program.description?.substring(0, 200),
-        image: program.cover_image_url || program.images?.[0],
+        image: coverImageUrl,
         touristType: 'Leisure',
         offers: {
           '@type': 'Offer',
@@ -99,21 +114,16 @@ export const ProgramDetailView: React.FC = () => {
           '@type': 'Organization',
           name: programProvider?.company_name || 'Velem Gyere Partner',
         },
-        ...(programStats?.totalCount ? {
+        ...(programStats?.count ? {
           aggregateRating: {
             '@type': 'AggregateRating',
-            ratingValue: programStats.averageRating,
-            reviewCount: programStats.totalCount,
+            ratingValue: programStats.average,
+            reviewCount: programStats.count,
           }
         } : {})
       }
     } : undefined
   );
-
-  const programStats = program ? getProgramRatingStats(program.id) : null;
-  const providerStats = (programProvider?.id || program?.provider_id || program?.provider?.id) 
-    ? getProviderRatingStats(programProvider?.id || program?.provider_id || program?.provider?.id) 
-    : null;
 
   // Gallery state
   const [activeImageIndex, setActiveImageIndex] = useState(0);
