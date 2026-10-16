@@ -883,22 +883,7 @@ export const ProgramDetailView: React.FC = () => {
                             const n = parseInt(raw, 10);
                             if (Number.isFinite(n) && n >= 1) setParticipantsCount(n);
                           }}
-                          onFocus={(e) => {
-                            const val = e.target.value;
-                            if (val === '0') {
-                              setParticipantsInput('');
-                            } else {
-                              e.target.select();
-                            }
-                          }}
-                          onClick={(e) => {
-                            const val = (e.target as HTMLInputElement).value;
-                            if (val === '0') {
-                              setParticipantsInput('');
-                            } else {
-                              (e.target as HTMLInputElement).select();
-                            }
-                          }}
+                          onFocus={() => setParticipantsInput('')}
                           onBlur={() => {
                             if (!participantsInput.trim() || parseInt(participantsInput, 10) < 1) {
                               setParticipantsInput(String(participantsCount));

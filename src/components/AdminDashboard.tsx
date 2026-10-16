@@ -457,22 +457,7 @@ export const AdminDashboard: React.FC = () => {
                   }
                   setFeePercentageDraft(val);
                 }}
-                onFocus={(e) => {
-                  const val = e.target.value;
-                  if (val === '0' || val === '0.00' || val === '0.0') {
-                    setFeePercentageDraft('');
-                  } else {
-                    e.target.select();
-                  }
-                }}
-                onClick={(e) => {
-                  const val = (e.target as HTMLInputElement).value;
-                  if (val === '0' || val === '0.00' || val === '0.0') {
-                    setFeePercentageDraft('');
-                  } else {
-                    (e.target as HTMLInputElement).select();
-                  }
-                }}
+                onFocus={() => setFeePercentageDraft('')}
                 onBlur={() => { if (feePercentageDraft.trim() === '') setFeePercentageDraft(String(feePercentage)); }}
                 className="w-32 text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
@@ -492,22 +477,7 @@ export const AdminDashboard: React.FC = () => {
                   }
                   setFeeMinimumEurDraft(val);
                 }}
-                onFocus={(e) => {
-                  const val = e.target.value;
-                  if (val === '0' || val === '0.00' || val === '0.0') {
-                    setFeeMinimumEurDraft('');
-                  } else {
-                    e.target.select();
-                  }
-                }}
-                onClick={(e) => {
-                  const val = (e.target as HTMLInputElement).value;
-                  if (val === '0' || val === '0.00' || val === '0.0') {
-                    setFeeMinimumEurDraft('');
-                  } else {
-                    (e.target as HTMLInputElement).select();
-                  }
-                }}
+                onFocus={() => setFeeMinimumEurDraft('')}
                 onBlur={() => { if (feeMinimumEurDraft.trim() === '') setFeeMinimumEurDraft(String(feeMinimumEur)); }}
                 className="w-32 text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />

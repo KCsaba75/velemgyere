@@ -503,22 +503,7 @@ export const NewProgramModal: React.FC<NewProgramModalProps> = ({ isOpen, onClos
                     }
                     setPrice(val);
                   }}
-                  onFocus={(e) => {
-                    const val = e.target.value;
-                    if (val === '0' || val === '0.00' || val === '0.0') {
-                      setPrice('');
-                    } else {
-                      e.target.select();
-                    }
-                  }}
-                  onClick={(e) => {
-                    const val = (e.target as HTMLInputElement).value;
-                    if (val === '0' || val === '0.00' || val === '0.0') {
-                      setPrice('');
-                    } else {
-                      (e.target as HTMLInputElement).select();
-                    }
-                  }}
+                  onFocus={() => setPrice('')}
                   placeholder="55"
                   className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3.5 py-2.5 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
@@ -553,22 +538,7 @@ export const NewProgramModal: React.FC<NewProgramModalProps> = ({ isOpen, onClos
                     }
                     setMaxParticipants(val);
                   }}
-                  onFocus={(e) => {
-                    const val = e.target.value;
-                    if (val === '0') {
-                      setMaxParticipants('');
-                    } else {
-                      e.target.select();
-                    }
-                  }}
-                  onClick={(e) => {
-                    const val = (e.target as HTMLInputElement).value;
-                    if (val === '0') {
-                      setMaxParticipants('');
-                    } else {
-                      (e.target as HTMLInputElement).select();
-                    }
-                  }}
+                  onFocus={() => setMaxParticipants('')}
                   placeholder="16"
                   className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3.5 py-2.5 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
