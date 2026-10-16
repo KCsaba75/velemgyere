@@ -28,9 +28,9 @@ export const Footer: React.FC = () => {
 
           {/* Quick links */}
           <div className="space-y-3">
-            <h5 className="font-bold text-white text-xs uppercase tracking-wider">
+            <h2 className="font-bold text-white text-xs uppercase tracking-wider">
               Katalógus
-            </h5>
+            </h2>
             <ul className="space-y-2 text-xs text-stone-400">
               <li>
                 <button onClick={() => { setCurrentView('home'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="hover:text-emerald-400 cursor-pointer">

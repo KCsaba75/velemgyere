@@ -111,7 +111,7 @@ export const ProgramReviewsSection: React.FC<ProgramReviewsSectionProps> = ({ pr
                 <Compass className="w-5 h-5" />
               </div>
               <div className="min-w-0">
-                <h4 className="text-xs sm:text-sm font-bold text-stone-900 truncate">Idegenvezető / Sofőr</h4>
+                <h3 className="text-xs sm:text-sm font-bold text-stone-900 truncate">Idegenvezető / Sofőr</h3>
               </div>
             </div>
             <div className="text-right shrink-0">
@@ -129,7 +129,7 @@ export const ProgramReviewsSection: React.FC<ProgramReviewsSectionProps> = ({ pr
                 <BadgePercent className="w-5 h-5" />
               </div>
               <div className="min-w-0">
-                <h4 className="text-xs sm:text-sm font-bold text-stone-900 truncate">Ár-érték arány</h4>
+                <h3 className="text-xs sm:text-sm font-bold text-stone-900 truncate">Ár-érték arány</h3>
               </div>
             </div>
             <div className="text-right shrink-0">
@@ -147,7 +147,7 @@ export const ProgramReviewsSection: React.FC<ProgramReviewsSectionProps> = ({ pr
                 <Clock className="w-5 h-5" />
               </div>
               <div className="min-w-0">
-                <h4 className="text-xs sm:text-sm font-bold text-stone-900 truncate">Szervezés & Menetrend</h4>
+                <h3 className="text-xs sm:text-sm font-bold text-stone-900 truncate">Szervezés & Menetrend</h3>
               </div>
             </div>
             <div className="text-right shrink-0">
@@ -165,7 +165,7 @@ export const ProgramReviewsSection: React.FC<ProgramReviewsSectionProps> = ({ pr
                 <Shield className="w-5 h-5" />
               </div>
               <div className="min-w-0">
-                <h4 className="text-xs sm:text-sm font-bold text-stone-900 truncate">Biztonság & Minőség</h4>
+                <h3 className="text-xs sm:text-sm font-bold text-stone-900 truncate">Biztonság & Minőség</h3>
               </div>
             </div>
             <div className="text-right shrink-0">

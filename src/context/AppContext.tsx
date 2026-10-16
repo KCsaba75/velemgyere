@@ -343,6 +343,10 @@ interface AppContextType {
   resetToDefaults: () => void;
   isSupabaseLive: boolean;
   isLoading: boolean;
+  // Eleni #244 audit [D]: egy Supabase-hiba korabban csendben nyelve lett, a szuro UI
+  // 0 talalatnak tunt ("nincs talalat"-nak nezett ki, pedig a betoltes bukott el).
+  // Ez a flag kulonbozteti meg a "ures eredmeny" es a "hiba volt" allapotot a UI-ban.
+  catalogLoadError: boolean;
 
   // Reviews system
   reviews: Review[];
@@ -473,6 +477,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // a duplicate "Általános kedvencek" folder on every fresh page load.
   const [foldersFetchedForUser, setFoldersFetchedForUser] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [catalogLoadError, setCatalogLoadError] = useState<boolean>(false);
 
   // Global Login Modal state
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
@@ -601,8 +606,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     ]);
     if (programsRes.error || providersRes.error) {
       console.error('Programs/providers load failed, keeping previous data:', programsRes.error || providersRes.error);
+      setCatalogLoadError(true);
       return;
     }
+    setCatalogLoadError(false);
     setRawPrograms((programsRes.data as Program[]) || []);
     setRawProviders((providersRes.data as Provider[]) || []);
   };
@@ -663,8 +670,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (pct) setFeePercentage(Number(pct.value) || 0);
           if (min) setFeeMinimumEur(Number(min.value) || 0);
         }
+
+        if (regionsRes.error || categoriesRes.error) {
+          console.error('Regions/categories load failed:', regionsRes.error || categoriesRes.error);
+          setCatalogLoadError(true);
+        }
       } catch (err) {
         console.error('Supabase load collections error:', err);
+        if (!cancelled) setCatalogLoadError(true);
       } finally {
         if (!cancelled) {
           setIsLoading(false);
@@ -3184,6 +3197,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         resetToDefaults,
         isSupabaseLive: isSupabaseConfigured,
         isLoading,
+        catalogLoadError,
       }}
     >
       {children}

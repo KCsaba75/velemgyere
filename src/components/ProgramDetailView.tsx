@@ -293,7 +293,7 @@ export const ProgramDetailView: React.FC = () => {
   if (!program) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-16 text-center">
-        <h2 className="text-2xl font-bold text-stone-900 mb-4 font-display">A keresett program nem található</h2>
+        <h1 className="text-2xl font-bold text-stone-900 mb-4 font-display">A keresett program nem található</h1>
         <button
           onClick={() => setCurrentView('programs')}
           className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white rounded-xl font-medium cursor-pointer"
@@ -600,10 +600,10 @@ export const ProgramDetailView: React.FC = () => {
 
           {/* Locations & Meeting point */}
           <div className="bg-white rounded-2xl border border-stone-200 p-5 space-y-3">
-            <h3 className="font-display font-bold text-stone-900 text-lg flex items-center gap-2">
+            <h2 className="font-display font-bold text-stone-900 text-lg flex items-center gap-2">
               <MapPin className="w-5 h-5 text-emerald-600" />
               <span>Helyszín és Találkozási Pont</span>
-            </h3>
+            </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
               <div className="bg-stone-50 p-3.5 rounded-xl border border-stone-100">
                 <span className="text-xs font-bold text-stone-500 block mb-1">📍 Program helyszíne:</span>
@@ -619,9 +619,9 @@ export const ProgramDetailView: React.FC = () => {
           {/* Detailed Description (kanban fbf552b2 point 1): public since 2026-10-07,
               no login required -- see schema.sql programs_public/anon grant. */}
           <div className="prose prose-stone max-w-none">
-            <h3 className="font-display font-bold text-stone-900 text-xl mb-3">
+            <h2 className="font-display font-bold text-stone-900 text-xl mb-3">
               Részletes leírás
-            </h3>
+            </h2>
             <div className="text-stone-700 whitespace-pre-line leading-relaxed text-base space-y-4">
               {program.description}
             </div>
@@ -633,10 +633,10 @@ export const ProgramDetailView: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-4 border-t border-stone-200">
               {/* Mit tartalmaz */}
               <div className="bg-emerald-50/60 rounded-2xl p-5 border border-emerald-100">
-                <h4 className="font-display font-bold text-emerald-950 text-base mb-3 flex items-center gap-2">
+                <h3 className="font-display font-bold text-emerald-950 text-base mb-3 flex items-center gap-2">
                   <CheckCircle2 className="w-5 h-5 text-emerald-600" />
                   <span>Mit tartalmaz az ár?</span>
-                </h4>
+                </h3>
                 <ul className="space-y-2 text-sm text-stone-700">
                   {program.included && program.included.length > 0 ? (
                     program.included.map((item, idx) => (
@@ -653,10 +653,10 @@ export const ProgramDetailView: React.FC = () => {
 
               {/* Mit nem tartalmaz */}
               <div className="bg-rose-50/60 rounded-2xl p-5 border border-rose-100">
-                <h4 className="font-display font-bold text-rose-950 text-base mb-3 flex items-center gap-2">
+                <h3 className="font-display font-bold text-rose-950 text-base mb-3 flex items-center gap-2">
                   <XCircle className="w-5 h-5 text-rose-500" />
                   <span>Mit nem tartalmaz?</span>
-                </h4>
+                </h3>
                 <ul className="space-y-2 text-sm text-stone-700">
                   {program.not_included && program.not_included.length > 0 ? (
                     program.not_included.map((item, idx) => (
@@ -762,10 +762,10 @@ export const ProgramDetailView: React.FC = () => {
 
             {/* Availability + Reservation ("Helyfoglalás") */}
             <div>
-              <h3 className="font-display font-bold text-stone-900 text-base flex items-center gap-2 mb-3">
+              <h2 className="font-display font-bold text-stone-900 text-base flex items-center gap-2 mb-3">
                 <BadgeEuro className="w-5 h-5 text-emerald-600" />
                 <span>Helyfoglalás</span>
-              </h3>
+              </h2>
 
               {!isAuthenticated ? (
                 <div className="space-y-2">
@@ -1029,9 +1029,9 @@ export const ProgramDetailView: React.FC = () => {
                     <span className="text-[11px] font-bold text-stone-400 uppercase tracking-wider block">
                       Helyi Szolgáltató
                     </span>
-                    <h5 className="font-bold text-stone-900 text-sm">
+                    <h2 className="font-bold text-stone-900 text-sm">
                       {program.provider.company_name}
-                    </h5>
+                    </h2>
                     {providerStats && (
                       <div className="flex items-center gap-1.5 mt-1 text-xs">
                         <div className="flex text-amber-400">
