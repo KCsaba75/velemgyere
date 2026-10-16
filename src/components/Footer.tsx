@@ -57,9 +57,9 @@ export const Footer: React.FC = () => {
 
         </div>
 
-        <div className="pt-8 border-t border-stone-800 text-xs text-stone-500 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="pt-8 border-t border-stone-800 text-xs text-stone-300 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p>© {new Date().getFullYear()} VELEM GYERE – Minden jog fenntartva. Magyarországi Élménykatalógus MVP.</p>
-          <p className="text-[11px] text-stone-600">
+          <p className="text-[11px] text-stone-400">
             Tervezve és felépítve későbbi foglalási és fizetési rendszerrel való bővíthetőségre.
           </p>
         </div>

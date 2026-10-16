@@ -377,13 +377,13 @@ export const ProgramDetailView: React.FC = () => {
           )}
 
           {/* Guaranteed Hungarian badge */}
-          <span className="bg-emerald-600 text-white text-xs sm:text-sm font-bold px-3 py-1.5 rounded-xl shadow-sm flex items-center gap-1.5">
+          <span className="bg-emerald-700 text-white text-xs sm:text-sm font-bold px-3 py-1.5 rounded-xl shadow-sm flex items-center gap-1.5">
             <CountryFlag emoji="🇭🇺" country="Magyarország" size="sm" />
             <span>{program.language || 'Magyar nyelvű vezetés'}</span>
           </span>
 
           {program.featured && (
-            <span className="bg-amber-500 text-white text-xs sm:text-sm font-bold px-3 py-1.5 rounded-xl shadow-sm flex items-center gap-1">
+            <span className="bg-amber-700 text-white text-xs sm:text-sm font-bold px-3 py-1.5 rounded-xl shadow-sm flex items-center gap-1">
               <Sparkles className="w-3.5 h-3.5 fill-white" />
               Kiemelt élmény
             </span>
@@ -480,7 +480,7 @@ export const ProgramDetailView: React.FC = () => {
           {/* Price badge (összegcímke) -- savos (tiered) programnal a legalacsonyabb sav
               "-tol, csoportonkent" arat mutatja, mert nincs egyetlen fix fejenkenti ar. */}
           <div className="shrink-0 ml-auto">
-            <div className="inline-block bg-emerald-600 text-white font-extrabold text-lg sm:text-2xl px-5 py-2.5 rounded-2xl shadow-xl whitespace-nowrap">
+            <div className="inline-block bg-emerald-700 text-white font-extrabold text-lg sm:text-2xl px-5 py-2.5 rounded-2xl shadow-xl whitespace-nowrap">
               {program.pricing_mode === 'tiered' ? (
                 lowestTier ? (
                   <>
@@ -580,7 +580,7 @@ export const ProgramDetailView: React.FC = () => {
               </span>
               <div className="font-bold text-stone-900 text-sm">
                 {isAuthenticated ? `${program.start_time} - ${program.end_time}` : (
-                  <span className="inline-flex items-center gap-1 text-stone-400 font-normal text-xs">
+                  <span className="inline-flex items-center gap-1 text-stone-500 font-normal text-xs">
                     <Lock className="w-3 h-3" /> bejelentkezve látható
                   </span>
                 )}
@@ -676,7 +676,7 @@ export const ProgramDetailView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => openLoginModal('A részletes információk (mit tartalmaz és mit nem tartalmaz az ár) megtekintéséhez kérjük jelentkezz be!')}
-                className="inline-flex items-center justify-center gap-2 text-sm font-bold bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-3 rounded-2xl transition-all cursor-pointer shadow-xs hover:shadow-sm"
+                className="inline-flex items-center justify-center gap-2 text-sm font-bold bg-emerald-700 hover:bg-emerald-800 text-white px-5 py-3 rounded-2xl transition-all cursor-pointer shadow-xs hover:shadow-sm"
               >
                 <LogIn className="w-4 h-4" />
                 <span>További információkhoz bejelentkezés szükséges</span>
@@ -772,12 +772,12 @@ export const ProgramDetailView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => openLoginModal('A helyfoglaláshoz és a foglalás véglegesítéséhez kérjük jelentkezz be!')}
-                    className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3.5 px-5 rounded-xl text-sm cursor-pointer shadow-md transition-all hover:shadow-lg flex items-center justify-center gap-2"
+                    className="w-full bg-emerald-700 hover:bg-emerald-600 text-white font-bold py-3.5 px-5 rounded-xl text-sm cursor-pointer shadow-md transition-all hover:shadow-lg flex items-center justify-center gap-2"
                   >
                     <Ticket className="w-4 h-4" />
                     <span>Érdekel a Program!</span>
                   </button>
-                  <p className="text-[11px] text-stone-400 text-center">
+                  <p className="text-[11px] text-stone-500 text-center">
                     A helyfoglaláshoz bejelentkezés szükséges
                   </p>
                 </div>
@@ -979,7 +979,7 @@ export const ProgramDetailView: React.FC = () => {
                       <button
                         type="submit"
                         disabled={reservationSubmitting || netTotalForCount === null}
-                        className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3.5 px-5 rounded-xl text-sm cursor-pointer shadow-md transition-all hover:shadow-lg flex items-center justify-center gap-2 disabled:opacity-60"
+                        className="w-full bg-emerald-700 hover:bg-emerald-600 text-white font-bold py-3.5 px-5 rounded-xl text-sm cursor-pointer shadow-md transition-all hover:shadow-lg flex items-center justify-center gap-2 disabled:opacity-60"
                       >
                         <Ticket className="w-4 h-4" />
                         <span>Érdekel a Program!</span>
@@ -1026,7 +1026,7 @@ export const ProgramDetailView: React.FC = () => {
                     <Building2 className="w-5 h-5" />
                   </div>
                   <div>
-                    <span className="text-[11px] font-bold text-stone-400 uppercase tracking-wider block">
+                    <span className="text-[11px] font-bold text-stone-500 uppercase tracking-wider block">
                       Helyi Szolgáltató
                     </span>
                     <h2 className="font-bold text-stone-900 text-sm">
@@ -1095,7 +1095,7 @@ export const ProgramDetailView: React.FC = () => {
 
                 {activeOrderForProgram && (
                   <div className="space-y-2 text-xs text-stone-600 pt-2 border-t border-stone-100">
-                    <span className="text-[11px] font-bold text-stone-400 uppercase tracking-wider block">
+                    <span className="text-[11px] font-bold text-stone-500 uppercase tracking-wider block">
                       Igénybe vevő (a te adataid)
                     </span>
                     <div className="flex items-center gap-2">

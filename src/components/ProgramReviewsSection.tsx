@@ -118,7 +118,7 @@ export const ProgramReviewsSection: React.FC<ProgramReviewsSectionProps> = ({ pr
               <span className="text-sm font-extrabold text-stone-900 font-display">
                 {stats.breakdown.guide.toFixed(1)}
               </span>
-              <span className="text-[10px] text-stone-400 block">/ 5.0</span>
+              <span className="text-[10px] text-stone-500 block">/ 5.0</span>
             </div>
           </div>
 
@@ -136,7 +136,7 @@ export const ProgramReviewsSection: React.FC<ProgramReviewsSectionProps> = ({ pr
               <span className="text-sm font-extrabold text-stone-900 font-display">
                 {stats.breakdown.value.toFixed(1)}
               </span>
-              <span className="text-[10px] text-stone-400 block">/ 5.0</span>
+              <span className="text-[10px] text-stone-500 block">/ 5.0</span>
             </div>
           </div>
 
@@ -154,7 +154,7 @@ export const ProgramReviewsSection: React.FC<ProgramReviewsSectionProps> = ({ pr
               <span className="text-sm font-extrabold text-stone-900 font-display">
                 {stats.breakdown.organization.toFixed(1)}
               </span>
-              <span className="text-[10px] text-stone-400 block">/ 5.0</span>
+              <span className="text-[10px] text-stone-500 block">/ 5.0</span>
             </div>
           </div>
 
@@ -172,7 +172,7 @@ export const ProgramReviewsSection: React.FC<ProgramReviewsSectionProps> = ({ pr
               <span className="text-sm font-extrabold text-stone-900 font-display">
                 {stats.breakdown.safety.toFixed(1)}
               </span>
-              <span className="text-[10px] text-stone-400 block">/ 5.0</span>
+              <span className="text-[10px] text-stone-500 block">/ 5.0</span>
             </div>
           </div>
         </div>
