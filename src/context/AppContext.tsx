@@ -57,6 +57,11 @@ const VIEW_TO_PATH: Record<string, string> = {
   bookings: '/foglalasaim',
   'provider-landing': '/szolgaltatoknak',
   'provider-dashboard': '/szolgaltato/dashboard',
+  // Kanban 5a3a8dd8 (Csaba, 10-17 pontositas): a szolgaltato sajat programjai
+  // es a beerkezett foglalasai onallo top-level menupontok, nem a Partner
+  // fiok alatti belso fulek tovabb.
+  'provider-programs': '/szolgaltato/programjaim',
+  'provider-bookings': '/szolgaltato/foglalasaim',
   'admin-dashboard': '/admin',
   'my-account': '/sajat-fiokom',
 };
@@ -73,6 +78,8 @@ function pathToView(pathname: string): string {
   if (pathname.startsWith('/kedvencek')) return 'favorites';
   if (pathname.startsWith('/foglalasaim')) return 'bookings';
   if (pathname.startsWith('/szolgaltatoknak')) return 'provider-landing';
+  if (pathname.startsWith('/szolgaltato/programjaim')) return 'provider-programs';
+  if (pathname.startsWith('/szolgaltato/foglalasaim')) return 'provider-bookings';
   if (pathname.startsWith('/szolgaltato/dashboard')) return 'provider-dashboard';
   if (pathname.startsWith('/admin')) return 'admin-dashboard';
   if (pathname.startsWith('/sajat-fiokom')) return 'my-account';

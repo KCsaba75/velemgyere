@@ -26,26 +26,52 @@ export const Navbar: React.FC<NavbarProps> = ({
     currentView,
     setCurrentView,
     currentUser,
+    currentProvider,
     isAuthenticated,
     totalFavoritesCount,
     orders,
+    programs,
     openLoginModal,
     searchQuery,
     setSearchQuery
   } = useApp();
+
+  const isProvider = currentUser.role === 'provider';
 
   const navigateTo = (view: string) => {
     setCurrentView(view);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // Kanban 5a3a8dd8 (Csaba, 10-17 pontositas): providerkent a globalis
+  // "Programok"/"Foglalások" nav-elemek a sajat program-kezelesre / beerkezett
+  // foglalasokra mutatnak, nem a publikus katalogusra / a sajat (vasarloi)
+  // foglalasaimra.
+  const handleProgramsNavClick = () => {
+    navigateTo(isProvider ? 'provider-programs' : 'programs');
+  };
+
   const handleBookingsClick = () => {
-    if (!isAuthenticated) {
+    if (isProvider) {
+      navigateTo('provider-bookings');
+    } else if (!isAuthenticated) {
       openLoginModal('A foglalásaid megtekintéséhez kérjük jelentkezz be a saját fiókodba!');
     } else {
       navigateTo('bookings');
     }
   };
+
+  // Provider szamara a beerkezett foglalasok darabszama (nem a vasarloi orders.length).
+  const providerOwnProgramIds = isProvider
+    ? new Set(
+        programs
+          .filter(p => p.provider_id === currentProvider?.id || currentUser.role === 'admin')
+          .map(p => p.id)
+      )
+    : null;
+  const providerOwnOrdersCount = isProvider
+    ? orders.filter(o => providerOwnProgramIds!.has(o.program_id) || providerOwnProgramIds!.size === 0).length
+    : orders.length;
 
   const handleAccountClick = () => {
     if (!isAuthenticated) {
@@ -66,7 +92,8 @@ export const Navbar: React.FC<NavbarProps> = ({
     }
   };
 
-  const isBookingsActive = currentView === 'bookings';
+  const isProgramsNavActive = isProvider ? currentView === 'provider-programs' : currentView === 'programs';
+  const isBookingsActive = isProvider ? currentView === 'provider-bookings' : currentView === 'bookings';
   const isAccountActive =
     currentUser.role === 'admin'
       ? currentView === 'admin-dashboard'
@@ -119,9 +146,9 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* Desktop Navigation Links */}
             <nav className="hidden md:flex items-center gap-1 lg:gap-2 shrink-0">
               <button
-                onClick={() => navigateTo('programs')}
+                onClick={handleProgramsNavClick}
                 className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
-                  currentView === 'programs' ? 'text-emerald-700 bg-emerald-50/80 font-bold' : 'text-stone-700 hover:text-stone-900 hover:bg-stone-100'
+                  isProgramsNavActive ? 'text-emerald-700 bg-emerald-50/80 font-bold' : 'text-stone-700 hover:text-stone-900 hover:bg-stone-100'
                 }`}
               >
                 Programok
@@ -154,11 +181,11 @@ export const Navbar: React.FC<NavbarProps> = ({
                   isBookingsActive ? 'text-emerald-700 bg-emerald-50/80 font-bold' : 'text-stone-700 hover:text-stone-900 hover:bg-stone-100'
                 }`}
               >
-                <Ticket className={`w-4 h-4 ${isAuthenticated && orders.length > 0 ? 'text-emerald-600' : 'text-stone-400'}`} />
+                <Ticket className={`w-4 h-4 ${isAuthenticated && providerOwnOrdersCount > 0 ? 'text-emerald-600' : 'text-stone-400'}`} />
                 <span>Foglalásaim</span>
-                {isAuthenticated && orders.length > 0 && (
+                {isAuthenticated && providerOwnOrdersCount > 0 && (
                   <span className="bg-emerald-600 text-white text-[11px] font-extrabold px-1.5 py-0.5 rounded-full leading-none">
-                    {orders.length}
+                    {providerOwnOrdersCount}
                   </span>
                 )}
               </button>
@@ -186,9 +213,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <button
                     onClick={() => navigateTo('provider-dashboard')}
                     className="px-3.5 py-2 rounded-xl border border-stone-300 hover:bg-stone-100 text-stone-800 font-medium text-sm flex items-center gap-1.5 transition-colors cursor-pointer"
+                    title="Fiókadatok, értékelések, érdeklődések"
                   >
                     <Briefcase className="w-4 h-4 text-emerald-700" />
-                    Dashboard
+                    Partner fiók
                   </button>
                 </div>
               ) : isAuthenticated ? (
@@ -238,14 +266,14 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* 1. Programok */}
           <button
             type="button"
-            onClick={() => navigateTo('programs')}
+            onClick={handleProgramsNavClick}
             className={`flex flex-col items-center justify-center py-1.5 px-0.5 transition-colors cursor-pointer min-w-0 ${
-              currentView === 'programs'
+              isProgramsNavActive
                 ? 'text-emerald-700 font-bold'
                 : 'text-stone-500 hover:text-stone-800 font-medium'
             }`}
           >
-            <Compass className={`w-5 h-5 transition-transform ${currentView === 'programs' ? 'scale-110 stroke-[2.4]' : 'stroke-[1.8]'}`} />
+            <Compass className={`w-5 h-5 transition-transform ${isProgramsNavActive ? 'scale-110 stroke-[2.4]' : 'stroke-[1.8]'}`} />
             <span className="text-[11px] leading-tight mt-1 truncate">Programok</span>
           </button>
 
@@ -302,9 +330,9 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             <div className="relative flex items-center justify-center">
               <Ticket className={`w-5 h-5 transition-transform ${isBookingsActive ? 'scale-110 stroke-[2.4] text-emerald-700' : 'stroke-[1.8]'}`} />
-              {isAuthenticated && orders.length > 0 && (
+              {isAuthenticated && providerOwnOrdersCount > 0 && (
                 <span className="absolute -top-1.5 -right-2.5 bg-emerald-600 text-white text-[9px] font-extrabold px-1.5 min-w-[15px] h-3.5 rounded-full flex items-center justify-center leading-none shadow-xs">
-                  {orders.length > 99 ? '99+' : orders.length}
+                  {providerOwnOrdersCount > 99 ? '99+' : providerOwnOrdersCount}
                 </span>
               )}
             </div>

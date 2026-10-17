@@ -7,6 +7,8 @@ import { ProgramsPage } from './components/ProgramsPage';
 import { ProgramDetailView } from './components/ProgramDetailView';
 import { ProviderLanding } from './components/ProviderLanding';
 import { ProviderDashboard } from './components/ProviderDashboard';
+import { ProviderProgramsPage } from './components/ProviderProgramsPage';
+import { ProviderBookingsPage } from './components/ProviderBookingsPage';
 import { AdminDashboard } from './components/AdminDashboard';
 import { CategoriesView } from './components/CategoriesView';
 import { LoginModal } from './components/LoginModal';
@@ -67,7 +69,23 @@ const AppContent: React.FC = () => {
             path="/szolgaltato/dashboard"
             element={
               <ProtectedRoute allow={['provider', 'admin']}>
-                <ProviderDashboard onOpenNewProgram={() => setNewProgramModalOpen(true)} />
+                <ProviderDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/szolgaltato/programjaim"
+            element={
+              <ProtectedRoute allow={['provider', 'admin']}>
+                <ProviderProgramsPage onOpenNewProgram={() => setNewProgramModalOpen(true)} />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/szolgaltato/foglalasaim"
+            element={
+              <ProtectedRoute allow={['provider', 'admin']}>
+                <ProviderBookingsPage />
               </ProtectedRoute>
             }
           />
