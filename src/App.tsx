@@ -9,6 +9,8 @@ import { ProviderLanding } from './components/ProviderLanding';
 import { ProviderDashboard } from './components/ProviderDashboard';
 import { ProviderProgramsPage } from './components/ProviderProgramsPage';
 import { ProviderBookingsPage } from './components/ProviderBookingsPage';
+import { ProviderReviewsPage } from './components/ProviderReviewsPage';
+import { ProviderInquiriesPage } from './components/ProviderInquiriesPage';
 import { AdminDashboard } from './components/AdminDashboard';
 import { CategoriesView } from './components/CategoriesView';
 import { LoginModal } from './components/LoginModal';
@@ -86,6 +88,22 @@ const AppContent: React.FC = () => {
             element={
               <ProtectedRoute allow={['provider', 'admin']}>
                 <ProviderBookingsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/szolgaltato/ertekeleseim"
+            element={
+              <ProtectedRoute allow={['provider', 'admin']}>
+                <ProviderReviewsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/szolgaltato/erdeklodeseim"
+            element={
+              <ProtectedRoute allow={['provider', 'admin']}>
+                <ProviderInquiriesPage />
               </ProtectedRoute>
             }
           />

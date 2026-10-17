@@ -62,6 +62,11 @@ const VIEW_TO_PATH: Record<string, string> = {
   // fiok alatti belso fulek tovabb.
   'provider-programs': '/szolgaltato/programjaim',
   'provider-bookings': '/szolgaltato/foglalasaim',
+  // Kanban 5a3a8dd8 (Csaba, 10-17 masodik pontositas): az Ertekelesek es az
+  // Erdeklodesek fulek is onallo top-level oldalak lettek, ugyanugy mint a
+  // Programok/Foglalasok -- elerheto a Partner fiok oldal gyorslinkjeiből.
+  'provider-reviews': '/szolgaltato/ertekeleseim',
+  'provider-inquiries': '/szolgaltato/erdeklodeseim',
   'admin-dashboard': '/admin',
   'my-account': '/sajat-fiokom',
 };
@@ -80,6 +85,8 @@ function pathToView(pathname: string): string {
   if (pathname.startsWith('/szolgaltatoknak')) return 'provider-landing';
   if (pathname.startsWith('/szolgaltato/programjaim')) return 'provider-programs';
   if (pathname.startsWith('/szolgaltato/foglalasaim')) return 'provider-bookings';
+  if (pathname.startsWith('/szolgaltato/ertekeleseim')) return 'provider-reviews';
+  if (pathname.startsWith('/szolgaltato/erdeklodeseim')) return 'provider-inquiries';
   if (pathname.startsWith('/szolgaltato/dashboard')) return 'provider-dashboard';
   if (pathname.startsWith('/admin')) return 'admin-dashboard';
   if (pathname.startsWith('/sajat-fiokom')) return 'my-account';
