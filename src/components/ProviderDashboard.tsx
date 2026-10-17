@@ -7,7 +7,6 @@ import {
   Calendar,
   Clock,
   Users,
-  Mail,
   Phone,
   Eye,
   Edit,
@@ -61,7 +60,6 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
     currentUser,
     currentProvider,
     programs,
-    inquiries,
     orders,
     reviews,
     respondToReview,
@@ -262,11 +260,6 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
   const draftProgramsCount = ownPrograms.filter((p) => p.status === 'draft' || p.status === 'pending_review' || p.status === 'rejected').length;
   const archivedProgramsCount = ownPrograms.filter((p) => p.status === 'archived').length;
   const pendingProgramsCount = ownPrograms.filter((p) => p.status === 'pending_review').length;
-
-  // Filter inquiries for this provider
-  const ownInquiries = inquiries.filter(
-    (inq) => inq.provider_id === currentProvider?.id || (currentUser.role === 'admin' ? true : false)
-  );
 
   // Reviews for this provider's programs
   const ownProgramSlugs = new Set(ownPrograms.map(p => p.slug));
@@ -566,7 +559,6 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
           <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
           <span className="text-[11px] sm:text-sm leading-tight flex flex-col sm:flex-row items-center sm:items-baseline gap-0.5 sm:gap-1 min-w-0">
             <span className="truncate">Érdeklődések</span>
-            <span className="text-[10px] sm:text-xs font-normal opacity-75">({ownInquiries.length})</span>
           </span>
         </button>
       </div>
@@ -1021,80 +1013,20 @@ export const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ onOpenNewP
         </div>
       )}
 
-      {/* Tab 2: Inquiries list */}
+      {/* Tab 2: Inquiries -- placeholder only (kanban 5a3a8dd8): a jövőbeli
+          üzenőfelület helye, a funkció maga még nincs megépítve. */}
       {activeTab === 'inquiries' && (
         <div className="space-y-4">
-          {ownInquiries.length > 0 ? (
-            <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden shadow-sm">
-              <div className="p-4 bg-stone-50 border-b border-stone-100 text-xs font-bold text-stone-500 uppercase tracking-wider">
-                Beérkezett Érdeklődések ({ownInquiries.length})
-              </div>
-              <div className="divide-y divide-stone-100">
-                {ownInquiries.map((inq) => {
-                  const formattedInqDate = new Date(inq.created_at).toLocaleString('hu-HU', {
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  });
-                  return (
-                    <div key={inq.id} className="p-5 hover:bg-stone-50/50 transition-colors space-y-3">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                        <div>
-                          <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-lg mr-2">
-                            {inq.program_title}
-                          </span>
-                          <span className="text-xs text-stone-400">
-                            {formattedInqDate}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-3 text-xs">
-                          <a
-                            href={`mailto:${inq.email}?subject=Velem Gyere – Válasz a(z) ${encodeURIComponent(inq.program_title || 'program')} érdeklődésre`}
-                            className="text-emerald-700 hover:underline font-semibold flex items-center gap-1"
-                          >
-                            <Mail className="w-3.5 h-3.5" />
-                            <span>Válasz e-mailben</span>
-                          </a>
-
-                          {inq.phone && (
-                            <a
-                              href={`tel:${inq.phone}`}
-                              className="text-stone-700 hover:underline font-semibold flex items-center gap-1"
-                            >
-                              <Phone className="w-3.5 h-3.5" />
-                              <span>{inq.phone}</span>
-                            </a>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="bg-stone-50 p-3.5 rounded-xl border border-stone-100">
-                        <div className="text-xs text-stone-500 mb-1">
-                          Érdeklődő neve: <strong className="text-stone-900">{inq.name}</strong> ({inq.email})
-                        </div>
-                        <p className="text-sm text-stone-800 italic">
-                          "{inq.message || 'Nem adott meg egyedi üzenetet, általános érdeklődés.'}"
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ) : (
-            <div className="bg-white rounded-2xl border border-stone-200 p-12 text-center">
-              <MessageSquare className="w-12 h-12 text-stone-300 mx-auto mb-3" />
-              <h4 className="text-base font-bold text-stone-800 font-display mb-1">
-                Még nem érkezett érdeklődés
-              </h4>
-              <p className="text-xs text-stone-500">
-                Amint egy látogató megnyomja az "Érdekel a program" gombot a publikus oldalon, itt azonnal megjelennek az adatai.
-              </p>
-            </div>
-          )}
+          <div className="bg-white rounded-2xl border border-stone-200 p-12 text-center">
+            <MessageSquare className="w-12 h-12 text-stone-300 mx-auto mb-3" />
+            <h4 className="text-base font-bold text-stone-800 font-display mb-1">
+              Hamarosan: közvetlen üzenetküldés
+            </h4>
+            <p className="text-xs text-stone-500 max-w-md mx-auto">
+              Ezen a fülön fog megjelenni a leendő üzenőfelület, ahol közvetlenül tudsz
+              kommunikálni az érdeklődőkkel. Jelenleg fejlesztés alatt.
+            </p>
+          </div>
         </div>
       )}
 
