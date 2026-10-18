@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Send, MessageSquare, Loader2 } from 'lucide-react';
 import { useBookingMessages } from '../hooks/useBookingMessages';
+import { useApp } from '../context/AppContext';
 import { BookingMessageSenderRole } from '../types/database';
 
 interface BookingMessageThreadProps {
@@ -27,6 +28,7 @@ export const BookingMessageThread: React.FC<BookingMessageThreadProps> = ({
   canSend = true,
 }) => {
   const { messages, loading, error, sending, sendMessage } = useBookingMessages(orderId, senderRole, senderId);
+  const { markBookingThreadRead, registerActiveMessageThread, unregisterActiveMessageThread } = useApp();
   const [draft, setDraft] = useState('');
   const [sendError, setSendError] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -36,6 +38,21 @@ export const BookingMessageThread: React.FC<BookingMessageThreadProps> = ({
       listRef.current.scrollTop = listRef.current.scrollHeight;
     }
   }, [messages.length]);
+
+  // Kanban 4fe242f2: amig ez a szal nyitva van, az olvasatlan-szamlalo globalis
+  // realtime-feliratkozasa nem szamolja fel erre a szalra erkezo uzenetet --
+  // helyette itt, kozvetlenul markeljuk olvasottra (megnyitaskor ES minden uj
+  // uzenetnel, amig a szal nyitva marad).
+  useEffect(() => {
+    registerActiveMessageThread(orderId);
+    return () => unregisterActiveMessageThread(orderId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderId]);
+
+  useEffect(() => {
+    markBookingThreadRead(orderId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderId, messages.length]);
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();

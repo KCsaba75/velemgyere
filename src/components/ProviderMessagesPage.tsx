@@ -12,7 +12,7 @@ import { isBookingMessageWriteWindowOpen } from '../hooks/useBookingMessages';
 // regisztralt vevoje (user_id letezik, is_manual=false) -- manualis/telefonos
 // foglalasnak nincs fiokja, nincs kinek uzenni.
 export const ProviderMessagesPage: React.FC = () => {
-  const { setCurrentView, currentUser, currentProvider, programs, orders, getOrderBuyerInfo } = useApp();
+  const { setCurrentView, currentUser, currentProvider, programs, orders, getOrderBuyerInfo, unreadBookingMessageCounts } = useApp();
 
   useDocumentMeta('Üzenetek -- Szolgáltatói Dashboard', 'Közvetlen kommunikáció a foglalásaid igénybevevőivel.');
 
@@ -88,6 +88,7 @@ export const ProviderMessagesPage: React.FC = () => {
             {messagableOrders.map((order) => {
               const program = programs.find(p => p.id === order.program_id);
               const buyer = buyerInfos[order.id];
+              const unreadCount = unreadBookingMessageCounts[order.id] || 0;
               return (
                 <button
                   key={order.id}
@@ -100,11 +101,19 @@ export const ProviderMessagesPage: React.FC = () => {
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-bold text-sm text-stone-900 truncate">
-                      {buyer?.name || 'Igénybevevő'}
+                    <span className="font-bold text-sm text-stone-900 truncate flex items-center gap-1.5 min-w-0">
+                      {unreadCount > 0 && <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />}
+                      <span className="truncate">{buyer?.name || 'Igénybevevő'}</span>
                     </span>
-                    <span className="font-mono text-[10px] font-bold text-stone-500 bg-stone-100 px-1.5 py-0.5 rounded shrink-0">
-                      #{getBookingReference(order)}
+                    <span className="flex items-center gap-1.5 shrink-0">
+                      {unreadCount > 0 && (
+                        <span className="bg-rose-500 text-white text-[10px] font-extrabold px-1.5 py-0.5 rounded-full leading-none">
+                          {unreadCount > 9 ? '9+' : unreadCount}
+                        </span>
+                      )}
+                      <span className="font-mono text-[10px] font-bold text-stone-500 bg-stone-100 px-1.5 py-0.5 rounded">
+                        #{getBookingReference(order)}
+                      </span>
                     </span>
                   </div>
                   <p className="text-xs text-stone-500 truncate mt-0.5">{program?.title || 'Program'}</p>

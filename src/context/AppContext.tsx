@@ -421,6 +421,14 @@ interface AppContextType {
   favoriteToast: { message: string; program?: Program; folderName?: string } | null;
   dismissFavoriteToast: () => void;
 
+  // Kanban 4fe242f2: olvasatlan booking-uzenet szamlalo (szolgaltatoi badge-hez)
+  // -- order_id -> olvasatlan uzenetek szama, csak a sajat szalaimra.
+  unreadBookingMessageCounts: Record<string, number>;
+  totalUnreadBookingMessageCount: number;
+  markBookingThreadRead: (orderId: string) => void;
+  registerActiveMessageThread: (orderId: string) => void;
+  unregisterActiveMessageThread: (orderId: string) => void;
+
   // Global Login Modal state
   isLoginModalOpen: boolean;
   loginModalMessage: string | null;
@@ -2994,6 +3002,98 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const totalFavoritesCount = allFavoritePrograms.length;
 
+  // Kanban 4fe242f2: olvasatlan booking-uzenet badge a szolgaltatoi navban +
+  // az Uzenetek lista kartyain. A booking_messages tablanak szandekosan nincs
+  // update/delete grantja (v1, lasd schema.sql), ezert az "olvasva" allapotot
+  // KULON booking_message_reads kurzor-tablaban tartjuk, nem a sor-szinten.
+  //
+  // activeMessageThreadOrderIdsRef: a jelenleg MEGNYITOTT szal(ak) order_id-je
+  // -- amig egy szal nyitva van (BookingMessageThread mount-olva ra), az aktiv
+  // realtime-channel NEM szamolja fel ujra olvasatlanra az erkezo uzenetet,
+  // mert a BookingMessageThread sajat hookja mar amugy is read-markeli.
+  const activeMessageThreadOrderIdsRef = React.useRef<Set<string>>(new Set());
+  const [unreadBookingMessageCounts, setUnreadBookingMessageCounts] = useState<Record<string, number>>({});
+
+  const registerActiveMessageThread = (orderId: string) => {
+    activeMessageThreadOrderIdsRef.current.add(orderId);
+  };
+
+  const unregisterActiveMessageThread = (orderId: string) => {
+    activeMessageThreadOrderIdsRef.current.delete(orderId);
+  };
+
+  const markBookingThreadRead = (orderId: string) => {
+    if (!isSupabaseConfigured || !currentUser?.user_id) return;
+    setUnreadBookingMessageCounts(prev => {
+      if (!prev[orderId]) return prev;
+      const next = { ...prev };
+      delete next[orderId];
+      return next;
+    });
+    supabase
+      .from('booking_message_reads')
+      .upsert(
+        { order_id: orderId, user_id: currentUser.user_id, last_read_at: new Date().toISOString() },
+        { onConflict: 'order_id,user_id' }
+      )
+      .then(({ error }) => {
+        if (error) console.error('markBookingThreadRead error:', error);
+      });
+  };
+
+  const totalUnreadBookingMessageCount = Object.values(unreadBookingMessageCounts).reduce(
+    (sum, n) => sum + n,
+    0
+  );
+
+  // Csak providerkent toltjuk/figyeljuk -- a badge-kerest is csak a
+  // szolgaltatoi feluletre kerte Csaba. Betoltesnel az RPC adja a kezdeti
+  // allapotot, utana egy global (szures nelkuli) Realtime INSERT-feliratkozas
+  // tartja frissen -- a kliens a RLS miatt amugy is csak a sajat szalainak
+  // sorait latja a booking_messages tablabol.
+  useEffect(() => {
+    if (!isSupabaseConfigured || currentUser.role !== 'provider' || !currentUser.user_id) {
+      setUnreadBookingMessageCounts({});
+      return;
+    }
+    let cancelled = false;
+
+    supabase.rpc('get_unread_booking_message_counts').then(({ data, error }) => {
+      if (cancelled) return;
+      if (error) {
+        console.error('get_unread_booking_message_counts error:', error);
+        return;
+      }
+      const counts: Record<string, number> = {};
+      (data as { order_id: string; unread_count: number }[] | null || []).forEach(row => {
+        counts[row.order_id] = Number(row.unread_count);
+      });
+      setUnreadBookingMessageCounts(counts);
+    });
+
+    const channel = supabase
+      .channel('booking_messages_unread_badge')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'booking_messages' },
+        (payload) => {
+          const incoming = payload.new as { order_id: string; sender_id: string };
+          if (incoming.sender_id === currentUser.user_id) return;
+          if (activeMessageThreadOrderIdsRef.current.has(incoming.order_id)) return;
+          setUnreadBookingMessageCounts(prev => ({
+            ...prev,
+            [incoming.order_id]: (prev[incoming.order_id] || 0) + 1
+          }));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(channel);
+    };
+  }, [currentUser.role, currentUser.user_id]);
+
   const getFolderPrograms = (folderId: string): Program[] => {
     if (!isAuthenticated || !currentUser?.user_id) return [];
     if (folderId === 'all') {
@@ -3204,6 +3304,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         closeFolderModal,
         favoriteToast,
         dismissFavoriteToast,
+
+        unreadBookingMessageCounts,
+        totalUnreadBookingMessageCount,
+        markBookingThreadRead,
+        registerActiveMessageThread,
+        unregisterActiveMessageThread,
 
         // Global Login Modal state
         isLoginModalOpen,

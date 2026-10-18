@@ -31,6 +31,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     currentProvider,
     isAuthenticated,
     totalFavoritesCount,
+    totalUnreadBookingMessageCount,
     orders,
     programs,
     openLoginModal,
@@ -137,11 +138,16 @@ export const Navbar: React.FC<NavbarProps> = ({
       }`}
     >
       {isProvider ? (
-        <MessageSquare className="w-4 h-4 text-stone-400" />
+        <MessageSquare className={`w-4 h-4 ${totalUnreadBookingMessageCount > 0 ? 'text-rose-500' : 'text-stone-400'}`} />
       ) : (
         <Heart className={`w-4 h-4 ${totalFavoritesCount > 0 ? 'fill-rose-500 text-rose-500' : 'text-stone-400'}`} />
       )}
       <span>{isProvider ? 'Üzenet' : 'Kedvencek'}</span>
+      {isProvider && totalUnreadBookingMessageCount > 0 && (
+        <span className="bg-rose-500 text-white text-[11px] font-extrabold px-1.5 py-0.5 rounded-full leading-none">
+          {totalUnreadBookingMessageCount > 99 ? '99+' : totalUnreadBookingMessageCount}
+        </span>
+      )}
       {!isProvider && totalFavoritesCount > 0 && (
         <span className="bg-rose-500 text-white text-[11px] font-extrabold px-1.5 py-0.5 rounded-full leading-none">
           {totalFavoritesCount}
@@ -188,7 +194,11 @@ export const Navbar: React.FC<NavbarProps> = ({
     >
       <div className="relative flex items-center justify-center">
         {isProvider ? (
-          <MessageSquare className={`w-5 h-5 transition-transform ${isFavoritesOrMessagesActive ? 'scale-110 stroke-[2.4]' : 'stroke-[1.8]'}`} />
+          <MessageSquare
+            className={`w-5 h-5 transition-transform ${
+              isFavoritesOrMessagesActive ? 'scale-110 stroke-[2.4]' : 'stroke-[1.8]'
+            } ${totalUnreadBookingMessageCount > 0 ? 'text-rose-500' : ''}`}
+          />
         ) : (
           <Heart
             className={`w-5 h-5 transition-transform ${
@@ -197,6 +207,11 @@ export const Navbar: React.FC<NavbarProps> = ({
                 : 'stroke-[1.8]'
             }`}
           />
+        )}
+        {isProvider && totalUnreadBookingMessageCount > 0 && (
+          <span className="absolute -top-1.5 -right-2.5 bg-rose-500 text-white text-[9px] font-extrabold px-1.5 min-w-[15px] h-3.5 rounded-full flex items-center justify-center leading-none shadow-xs">
+            {totalUnreadBookingMessageCount > 99 ? '99+' : totalUnreadBookingMessageCount}
+          </span>
         )}
         {!isProvider && totalFavoritesCount > 0 && (
           <span className="absolute -top-1.5 -right-2.5 bg-rose-500 text-white text-[9px] font-extrabold px-1.5 min-w-[15px] h-3.5 rounded-full flex items-center justify-center leading-none shadow-xs">
