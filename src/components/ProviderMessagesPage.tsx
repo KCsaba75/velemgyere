@@ -4,6 +4,7 @@ import { MessageSquare, Briefcase, ChevronLeft } from 'lucide-react';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import { OrderBuyerInfo } from '../types/database';
 import { BookingMessageThread } from './BookingMessageThread';
+import { isBookingMessageWriteWindowOpen } from '../hooks/useBookingMessages';
 
 // Kanban 2ffb61fa: a korabbi placeholder (5d6bb3d4) mogotti valodi funkcio --
 // foglalasonkenti uzenetszal a szolgaltato es az adott booking igenybevevoje
@@ -137,6 +138,7 @@ export const ProviderMessagesPage: React.FC = () => {
                   senderRole="provider"
                   senderId={currentUser.user_id}
                   otherPartyLabel="az igénybevevő"
+                  canSend={isBookingMessageWriteWindowOpen(selectedOrder.event_date || selectedProgram?.event_date)}
                 />
               </div>
             ) : (

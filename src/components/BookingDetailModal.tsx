@@ -33,6 +33,7 @@ import { Order, OrderStatus, OrderProviderContact, OnsitePaymentMethod } from '.
 import { ReviewModal } from './ReviewModal';
 import { BookingVoucher } from './BookingVoucher';
 import { BookingMessageThread } from './BookingMessageThread';
+import { isBookingMessageWriteWindowOpen } from '../hooks/useBookingMessages';
 import { buildCalendarEventPayload, openGoogleCalendar, downloadIcsFile } from '../services/googleCalendarService';
 
 const PAYMENT_METHOD_LABEL: Record<OnsitePaymentMethod, string> = {
@@ -291,6 +292,7 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
                     senderRole={isProviderViewer ? 'provider' : 'customer'}
                     senderId={currentUser.user_id}
                     otherPartyLabel={isProviderViewer ? 'az igénybevevőnek' : 'a szolgáltatónak'}
+                    canSend={isBookingMessageWriteWindowOpen(order.event_date || program?.event_date)}
                     compact
                   />
                 </div>

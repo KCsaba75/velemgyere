@@ -12,6 +12,10 @@ interface BookingMessageThreadProps {
   // beagyazott, korlatozott-magassagu szekcio -- ugyanaz a komponens, csak a
   // listaresz max-height-je ter el.
   compact?: boolean;
+  // Kanban 2ffb61fa kiegeszites: a program/foglalas utolso napja + 1 nap vege
+  // utan a szal UX-szinten is read-only (a tenyleges kikenyszerites a szerver-
+  // oldali RLS-ben van, lasd isBookingMessageWriteWindowOpen).
+  canSend?: boolean;
 }
 
 export const BookingMessageThread: React.FC<BookingMessageThreadProps> = ({
@@ -20,6 +24,7 @@ export const BookingMessageThread: React.FC<BookingMessageThreadProps> = ({
   senderId,
   otherPartyLabel,
   compact = false,
+  canSend = true,
 }) => {
   const { messages, loading, error, sending, sendMessage } = useBookingMessages(orderId, senderRole, senderId);
   const [draft, setDraft] = useState('');
@@ -34,7 +39,7 @@ export const BookingMessageThread: React.FC<BookingMessageThreadProps> = ({
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!draft.trim() || sending) return;
+    if (!draft.trim() || sending || !canSend) return;
     const res = await sendMessage(draft);
     if (res.success) {
       setDraft('');
@@ -95,30 +100,36 @@ export const BookingMessageThread: React.FC<BookingMessageThreadProps> = ({
         )}
       </div>
 
-      <form onSubmit={handleSend} className="flex items-end gap-2 p-2.5 border-t border-stone-200 bg-white">
-        <textarea
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              handleSend(e);
-            }
-          }}
-          placeholder={`Írj üzenetet ${otherPartyLabel.toLowerCase()}nak...`}
-          rows={1}
-          maxLength={4000}
-          className="flex-1 resize-none text-sm bg-stone-50 border border-stone-300 rounded-xl px-3.5 py-2.5 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 max-h-28"
-        />
-        <button
-          type="submit"
-          disabled={sending || !draft.trim()}
-          className="shrink-0 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white p-2.5 rounded-xl shadow-sm transition-colors cursor-pointer"
-          title="Küldés"
-        >
-          {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-        </button>
-      </form>
+      {canSend ? (
+        <form onSubmit={handleSend} className="flex items-end gap-2 p-2.5 border-t border-stone-200 bg-white">
+          <textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSend(e);
+              }
+            }}
+            placeholder={`Írj üzenetet ${otherPartyLabel.toLowerCase()}nak...`}
+            rows={1}
+            maxLength={4000}
+            className="flex-1 resize-none text-sm bg-stone-50 border border-stone-300 rounded-xl px-3.5 py-2.5 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 max-h-28"
+          />
+          <button
+            type="submit"
+            disabled={sending || !draft.trim()}
+            className="shrink-0 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white p-2.5 rounded-xl shadow-sm transition-colors cursor-pointer"
+            title="Küldés"
+          >
+            {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+          </button>
+        </form>
+      ) : (
+        <div className="p-3 border-t border-stone-200 bg-stone-100 text-xs text-stone-500 text-center">
+          Ez a szál lezárult -- a program napja után csak egy napig lehet üzenetet küldeni, de a korábbi üzenetek továbbra is olvashatók.
+        </div>
+      )}
       {sendError && (
         <div className="px-3 pb-2.5 -mt-1 text-xs text-rose-600">{sendError}</div>
       )}

@@ -2,6 +2,23 @@ import { useCallback, useEffect, useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { BookingMessage, BookingMessageSenderRole } from '../types/database';
 
+// Kanban 2ffb61fa kiegeszites: ugyanaz a hatarido-logika mint a DB-oldali
+// booking_message_write_window_open() (schema.sql) -- csak UX-cel (a composer
+// korai letiltasa/magyarazata), a VALODI kikenyszerites a szerveren (RLS INSERT
+// policy) tortenik, ez a fuggveny semmit nem biztosit onmagaban. Szandekosan a
+// BONGESZO lokalis idejet hasznalja (nem Europe/Budapest-et, mint a DB) -- ez
+// csak egy UX-kozelites, egy eltero idozonaju user legrosszabb esetben a hatar
+// korul 1-2 oraval elterő (korabban/kesobb letiltott) composer-t lathat, a
+// szerver dont a tenyleges iras-jogrol.
+export function isBookingMessageWriteWindowOpen(effectiveEventDate?: string | null): boolean {
+  if (!effectiveEventDate) return true;
+  const eventDate = new Date(`${effectiveEventDate}T00:00:00`);
+  if (Number.isNaN(eventDate.getTime())) return true;
+  const cutoff = new Date(eventDate);
+  cutoff.setDate(cutoff.getDate() + 2);
+  return new Date() < cutoff;
+}
+
 // Kanban 2ffb61fa: egy foglalas (order_id) uzenetszalanak betoltese + Realtime
 // kovetese + uj uzenet kuldese. A jogosultsagot a Supabase RLS donti el
 // (can_access_booking_messages / INSERT policy, lasd schema.sql) -- ez a hook
