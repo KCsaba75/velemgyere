@@ -11,6 +11,7 @@ import { ProviderProgramsPage } from './components/ProviderProgramsPage';
 import { ProviderBookingsPage } from './components/ProviderBookingsPage';
 import { ProviderReviewsPage } from './components/ProviderReviewsPage';
 import { ProviderInquiriesPage } from './components/ProviderInquiriesPage';
+import { ProviderMessagesPage } from './components/ProviderMessagesPage';
 import { AdminDashboard } from './components/AdminDashboard';
 import { CategoriesView } from './components/CategoriesView';
 import { LoginModal } from './components/LoginModal';
@@ -104,6 +105,14 @@ const AppContent: React.FC = () => {
             element={
               <ProtectedRoute allow={['provider', 'admin']}>
                 <ProviderInquiriesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/szolgaltato/uzeneteim"
+            element={
+              <ProtectedRoute allow={['provider', 'admin']}>
+                <ProviderMessagesPage />
               </ProtectedRoute>
             }
           />

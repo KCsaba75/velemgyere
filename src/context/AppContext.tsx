@@ -67,6 +67,9 @@ const VIEW_TO_PATH: Record<string, string> = {
   // Programok/Foglalasok -- elerheto a Partner fiok oldal gyorslinkjeiből.
   'provider-reviews': '/szolgaltato/ertekeleseim',
   'provider-inquiries': '/szolgaltato/erdeklodeseim',
+  // Kanban 5d6bb3d4 (Csaba, via Zora): a szolgaltatoi navbar "Kedvencek"
+  // helyere kerulo uj "Uzenet" placeholder menupont, onallo top-level oldal.
+  'provider-messages': '/szolgaltato/uzeneteim',
   'admin-dashboard': '/admin',
   'my-account': '/sajat-fiokom',
 };
@@ -87,6 +90,7 @@ function pathToView(pathname: string): string {
   if (pathname.startsWith('/szolgaltato/foglalasaim')) return 'provider-bookings';
   if (pathname.startsWith('/szolgaltato/ertekeleseim')) return 'provider-reviews';
   if (pathname.startsWith('/szolgaltato/erdeklodeseim')) return 'provider-inquiries';
+  if (pathname.startsWith('/szolgaltato/uzeneteim')) return 'provider-messages';
   if (pathname.startsWith('/szolgaltato/dashboard')) return 'provider-dashboard';
   if (pathname.startsWith('/admin')) return 'admin-dashboard';
   if (pathname.startsWith('/sajat-fiokom')) return 'my-account';
