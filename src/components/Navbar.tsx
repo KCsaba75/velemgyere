@@ -60,9 +60,10 @@ export const Navbar: React.FC<NavbarProps> = ({
     if (isProvider) {
       navigateTo('provider-bookings');
     } else if (isAdmin) {
-      // Kanban a8676c22 (Csaba, via Zora): adminnak nincs ertelme a sajat
-      // (vasarloi) foglalasainak -- ugyanez a nav-slot a szolgaltato-kezelesre
-      // (AdminDashboard activeTab=providers) nyilik.
+      // Kanban a8676c22 (Csaba, via Zora), fb32ec4b-ben onallo lapra kiszervezve:
+      // adminnak nincs ertelme a sajat (vasarloi) foglalasainak -- ugyanez a
+      // nav-slot az onallo szolgaltato-kezelo oldalra (AdminProvidersPage,
+      // /admin/szolgaltatok) nyilik.
       navigateTo('admin-providers');
     } else if (!isAuthenticated) {
       openLoginModal('A foglalásaid megtekintéséhez kérjük jelentkezz be a saját fiókodba!');
@@ -111,10 +112,11 @@ export const Navbar: React.FC<NavbarProps> = ({
   // Kanban 5d6bb3d4 (Csaba, via Zora): szolgaltatokent a globalis
   // "Kategoriak"/"Kedvencek" nav-elemek az ertekeleseim / a (meg placeholder)
   // uzenet-fulre mutatnak, nem a publikus kategoria-bongezore / kedvenc-listara.
-  // Kanban daa1ed70 (Csaba, via Zora): admin-kent ugyanez a nav-slot a
-  // kategoria-kezelo admin-dashboard fulre (admin-categories, /admin/kategoriak)
-  // deep-linkel, nem a publikus CategoriesView-ra -- a Fiok gomb valtozatlanul
-  // a teljes admin-dashboard-ra (admin-dashboard) megy.
+  // Kanban daa1ed70, fb32ec4b-ben onallo lapra kiszervezve (Csaba, via Zora):
+  // admin-kent ugyanez a nav-slot az onallo kategoria-kezelo oldalra
+  // (AdminCategoriesPage, admin-categories, /admin/kategoriak) navigal, nem a
+  // publikus CategoriesView-ra -- a Fiok gomb valtozatlanul a teljes
+  // admin-dashboard-ra (admin-dashboard) megy.
   const isCategoriesOrReviewsActive = isProvider
     ? currentView === 'provider-reviews'
     : isAdmin

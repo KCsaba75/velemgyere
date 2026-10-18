@@ -4,7 +4,6 @@ import { CountryFlag } from './CountryFlag';
 import {
   ShieldCheck,
   FileText,
-  Building2,
   MessageSquare,
   Check,
   X,
@@ -15,11 +14,7 @@ import {
   Clock,
   Globe,
   PlusCircle,
-  Layers,
-  Edit,
   RotateCcw,
-  Ban,
-  ShieldOff,
   Tag,
   Ticket,
   Banknote,
@@ -28,8 +23,7 @@ import {
   LogOut,
   Landmark
 } from 'lucide-react';
-import { CategoryIcon, AVAILABLE_SERVICE_ICONS } from './CategoryIcon';
-import { Region, Category, OnsitePaymentMethod, ReviewStatus } from '../types/database';
+import { Region, OnsitePaymentMethod, ReviewStatus } from '../types/database';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import { RescheduleOrderModal } from './RescheduleOrderModal';
 import { FilterPillBar } from './FilterPillBar';
@@ -42,16 +36,9 @@ const PAYMENT_METHOD_LABEL: Record<OnsitePaymentMethod, string> = {
   bank_transfer: 'Előre utalás',
 };
 
-type AdminDashboardTab = 'programs' | 'providers' | 'bookings' | 'reviews' | 'regions' | 'categories' | 'inquiries' | 'settings';
+type AdminDashboardTab = 'programs' | 'bookings' | 'reviews' | 'regions' | 'inquiries' | 'settings';
 
-interface AdminDashboardProps {
-  // Kanban daa1ed70 (Csaba, via Zora): admin-nav "Kategoriak" deep-linkeli a
-  // kategoria-kezelo fulet (/admin/kategoriak), ne a defaultos "programs" fulre
-  // nyisson -- lasd App.tsx kulon route-ja.
-  initialTab?: AdminDashboardTab;
-}
-
-export const AdminDashboard: React.FC<AdminDashboardProps> = ({ initialTab = 'programs' }) => {
+export const AdminDashboard: React.FC = () => {
   const {
     programs,
     providers,
@@ -61,24 +48,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ initialTab = 'pr
     moderateReview,
     deleteReview,
     regions,
-    categories,
     approveProgram,
     rejectProgram,
     archiveProgram,
     toggleFeaturedProgram,
-    approveProvider,
-    suspendProvider,
-    banProvider,
     openProgramDetail,
     deleteProgram,
     createRegion,
     updateRegion,
     deleteRegion,
     toggleRegionActive,
-    createCategory,
-    updateCategory,
-    deleteCategory,
-    toggleCategoryActive,
     resetToDefaults,
     feePercentage,
     feeMinimumEur,
@@ -88,7 +67,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ initialTab = 'pr
 
   useDocumentMeta('Adminisztrátori felület', 'Programok, szolgáltatók, foglalások és katalógus-adatok kezelése.');
 
-  const [activeTab, setActiveTab] = useState<AdminDashboardTab>(initialTab);
+  const [activeTab, setActiveTab] = useState<AdminDashboardTab>('programs');
   const [reviewFilter, setReviewFilter] = useState<'all' | 'published' | 'flagged' | 'hidden'>('all');
   const [rescheduleOrderId, setRescheduleOrderId] = useState<string | null>(null);
 
@@ -124,7 +103,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ initialTab = 'pr
     }
   };
   const [programFilter, setProgramFilter] = useState<string>('all');
-  const [providerFilter, setProviderFilter] = useState<string>('all');
 
   // Modal state for adding a new Region
   const [addRegionModalOpen, setAddRegionModalOpen] = useState(false);
@@ -134,32 +112,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ initialTab = 'pr
   const [newRegionDesc, setNewRegionDesc] = useState('');
   const [newRegionImage, setNewRegionImage] = useState('');
 
-  // Modal state for adding a new Service Type (Category)
-  const [addCategoryModalOpen, setAddCategoryModalOpen] = useState(false);
-  const [newCategoryName, setNewCategoryName] = useState('');
-  const [newCategoryIcon, setNewCategoryIcon] = useState('Luggage');
-
-  // Modal state for editing a Service Type (Category)
-  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
-  const [editCategoryName, setEditCategoryName] = useState('');
-  const [editCategoryIcon, setEditCategoryIcon] = useState('Luggage');
-
   // Metrics
   const totalPrograms = programs.length;
   const activePrograms = programs.filter(p => p.status === 'published').length;
   const pendingPrograms = programs.filter(p => p.status === 'pending_review').length;
   const totalProviders = providers.length;
-  const pendingProviders = providers.filter(p => p.status === 'pending').length;
   const totalInquiries = inquiries.length;
 
   const filteredPrograms = programs.filter(p => {
     if (programFilter === 'all') return true;
     return p.status === programFilter;
-  });
-
-  const filteredProviders = providers.filter(p => {
-    if (providerFilter === 'all') return true;
-    return p.status === providerFilter;
   });
 
   const handleCreateRegionSubmit = async (e: React.FormEvent) => {
@@ -181,39 +143,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ initialTab = 'pr
     setNewRegionDesc('');
     setNewRegionImage('');
     setAddRegionModalOpen(false);
-  };
-
-  const handleCreateCategorySubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newCategoryName.trim()) return;
-
-    await createCategory({
-      name: newCategoryName.trim(),
-      icon: newCategoryIcon,
-      active: true,
-    });
-
-    setNewCategoryName('');
-    setNewCategoryIcon('Luggage');
-    setAddCategoryModalOpen(false);
-  };
-
-  const handleOpenEditCategory = (cat: Category) => {
-    setEditingCategory(cat);
-    setEditCategoryName(cat.name);
-    setEditCategoryIcon(cat.icon || 'Luggage');
-  };
-
-  const handleUpdateCategorySubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingCategory || !editCategoryName.trim()) return;
-
-    await updateCategory(editingCategory.id, {
-      name: editCategoryName.trim(),
-      icon: editCategoryIcon,
-    });
-
-    setEditingCategory(null);
   };
 
   return (
@@ -348,38 +277,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ initialTab = 'pr
           <span>Úticélok & Régiók ({regions.length})</span>
         </button>
 
-        <button
-          onClick={() => setActiveTab('categories')}
-          className={`pb-3 text-sm font-bold transition-colors cursor-pointer border-b-2 flex items-center gap-2 shrink-0 ${
-            activeTab === 'categories'
-              ? 'border-emerald-600 text-emerald-800'
-              : 'border-transparent text-stone-500 hover:text-stone-800'
-          }`}
-        >
-          <Layers className="w-4 h-4" />
-          <span>Szolgáltatás Típusok ({categories.length})</span>
-        </button>
-
         <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 pb-3 sm:ml-2">
           Működés
         </span>
-        <button
-          onClick={() => setActiveTab('providers')}
-          className={`pb-3 text-sm font-bold transition-colors cursor-pointer border-b-2 flex items-center gap-2 shrink-0 ${
-            activeTab === 'providers'
-              ? 'border-emerald-600 text-emerald-800'
-              : 'border-transparent text-stone-500 hover:text-stone-800'
-          }`}
-        >
-          <Building2 className="w-4 h-4" />
-          <span>Szolgáltatók ({providers.length})</span>
-          {pendingProviders > 0 && (
-            <span className="bg-purple-500 text-white text-[10px] font-extrabold px-1.5 py-0.5 rounded-full">
-              {pendingProviders} új
-            </span>
-          )}
-        </button>
-
         <button
           onClick={() => setActiveTab('bookings')}
           className={`pb-3 text-sm font-bold transition-colors cursor-pointer border-b-2 flex items-center gap-2 shrink-0 ${
@@ -740,184 +640,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ initialTab = 'pr
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* TAB 3: SZOLGÁLTATÁS TÍPUSOK KEZELÉSE (Admin Extensibility) */}
-      {activeTab === 'categories' && (
-        <div className="space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-emerald-50/60 p-5 rounded-2xl border border-emerald-100">
-            <div>
-              <h3 className="font-display font-bold text-lg text-emerald-950">
-                Szolgáltatás Típusok Adminisztrációja
-              </h3>
-              <p className="text-xs text-stone-600 mt-1 max-w-2xl">
-                Kezeld és bővítsd a katalógusban elérhető szolgáltatási kategóriákat (pl. Reptéri Transzfer, Hajókirándulás, Privát túra, Gasztro).
-              </p>
-            </div>
-
-            <button
-              onClick={() => setAddCategoryModalOpen(true)}
-              className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer shrink-0"
-            >
-              <PlusCircle className="w-4 h-4" />
-              <span>+ Új Szolgáltatás Típus Hozzáadása</span>
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {categories.map((cat) => {
-              const count = programs.filter(p => p.category_id === cat.id || p.category?.slug === cat.slug).length;
-              return (
-                <div key={cat.id} className="bg-white p-5 rounded-2xl border border-stone-200 shadow-sm flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
-                      <CategoryIcon icon={cat.icon} className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-stone-900 text-base font-display">
-                        {cat.name}
-                      </h4>
-                      <span className="text-xs text-stone-400">
-                        {count} program ebben a típusban
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handleOpenEditCategory(cat)}
-                      className="text-stone-400 hover:text-emerald-700 p-1.5 rounded-lg hover:bg-emerald-50 transition-colors cursor-pointer"
-                      title="Szerkesztés & Ikon módosítása"
-                    >
-                      <Edit className="w-4 h-4" />
-                    </button>
-
-                    <button
-                      onClick={() => toggleCategoryActive(cat.id)}
-                      className={`text-xs px-2 py-1 rounded-lg font-bold transition-colors cursor-pointer ${
-                        cat.active ? 'bg-emerald-100 text-emerald-800' : 'bg-stone-200 text-stone-600'
-                      }`}
-                    >
-                      {cat.active ? 'Aktív' : 'Inaktív'}
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        if (window.confirm(`Biztosan törölni szeretnéd a(z) ${cat.name} szolgáltatás típust?`)) {
-                          deleteCategory(cat.id);
-                        }
-                      }}
-                      className="text-stone-400 hover:text-rose-600 p-1.5 rounded-lg cursor-pointer"
-                      title="Törlés"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* TAB 4: SZOLGÁLTATÓK KEZELÉSE */}
-      {activeTab === 'providers' && (
-        <div className="space-y-4">
-          <FilterPillBar
-            options={[
-              { id: 'all', label: 'Összes szolgáltató' },
-              { id: 'pending', label: 'Új / Jóváhagyásra vár' },
-              { id: 'approved', label: 'Jóváhagyott (Approved)' },
-              { id: 'suspended', label: 'Felfüggesztett (Suspended)' },
-              { id: 'banned', label: 'Véglegesen letiltott (Banned)' },
-            ]}
-            value={providerFilter}
-            onChange={setProviderFilter}
-          />
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {filteredProviders.map((prov) => {
-              const provProgramsCount = programs.filter(p => p.provider_id === prov.id).length;
-              return (
-                <div key={prov.id} className="bg-white p-5 rounded-2xl border border-stone-200 shadow-sm flex flex-col justify-between space-y-4">
-                  <div>
-                    <div className="flex items-center justify-between gap-2 mb-2">
-                      <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
-                        prov.status === 'approved' ? 'bg-emerald-100 text-emerald-800' :
-                        prov.status === 'pending' ? 'bg-amber-100 text-amber-900 ring-1 ring-amber-300' :
-                        prov.status === 'suspended' ? 'bg-orange-100 text-orange-900 ring-1 ring-orange-300' :
-                        'bg-rose-100 text-rose-800 ring-1 ring-rose-300'
-                      }`}>
-                        {prov.status === 'approved' ? 'Jóváhagyva' :
-                         prov.status === 'pending' ? 'Függőben (Új regisztráció)' :
-                         prov.status === 'suspended' ? 'Felfüggesztve (ideiglenes)' : 'Véglegesen letiltva'}
-                      </span>
-
-                      <span className="text-xs text-stone-400">
-                        {provProgramsCount} program a katalógusban
-                      </span>
-                    </div>
-
-                    <h4 className="font-display font-bold text-lg text-stone-900">
-                      {prov.company_name}
-                    </h4>
-
-                    <p className="text-xs text-stone-600 mt-2 line-clamp-2">
-                      {prov.description}
-                    </p>
-
-                    <div className="mt-3 pt-3 border-t border-stone-100 space-y-1 text-xs text-stone-600">
-                      <div>👤 Kapcsolattartó: <strong className="text-stone-800">{prov.contact_name}</strong></div>
-                      <div>📧 E-mail: <strong className="text-stone-800">{prov.email}</strong></div>
-                      <div>📞 Telefon: <strong className="text-stone-800">{prov.phone}</strong></div>
-                      {prov.website && (
-                        <div>🌐 Web: <a href={prov.website} target="_blank" rel="noreferrer" className="text-emerald-700 hover:underline">{prov.website}</a></div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="pt-3 border-t border-stone-100 flex items-center justify-end gap-2">
-                    {prov.status !== 'approved' && (
-                      <button
-                        onClick={() => approveProvider(prov.id)}
-                        className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1 cursor-pointer shadow-sm"
-                      >
-                        <Check className="w-3.5 h-3.5" />
-                        <span>Szolgáltató Jóváhagyása</span>
-                      </button>
-                    )}
-
-                    {prov.status !== 'suspended' && (
-                      <button
-                        onClick={() => suspendProvider(prov.id)}
-                        className="px-3.5 py-1.5 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-700 text-xs font-semibold flex items-center gap-1 cursor-pointer"
-                        title="Ideiglenes, visszavonható -- a Jóváhagyás gombbal bármikor újraaktiválható"
-                      >
-                        <Ban className="w-3.5 h-3.5" />
-                        <span>Felfüggesztés</span>
-                      </button>
-                    )}
-
-                    {prov.status !== 'banned' && (
-                      <button
-                        onClick={() => {
-                          if (window.confirm(`Biztosan VÉGLEGESEN letiltod a(z) "${prov.company_name}" szolgáltatót? Ez admin-szemantikailag végleges döntés (a Jóváhagyás gombbal technikailag visszaállítható, de ez nem a szándékolt út).`)) {
-                            banProvider(prov.id);
-                          }
-                        }}
-                        className="px-3.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold flex items-center gap-1 cursor-pointer"
-                        title="Végleges tiltás"
-                      >
-                        <ShieldOff className="w-3.5 h-3.5" />
-                        <span>Végleges tiltás</span>
-                      </button>
-                    )}
                   </div>
                 </div>
               );
@@ -1407,203 +1129,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ initialTab = 'pr
                   className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer"
                 >
                   Régió Mentése
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL: ADD NEW SERVICE TYPE / CATEGORY */}
-      {addCategoryModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-stone-200 relative animate-in zoom-in-95 duration-200">
-            <button
-              onClick={() => setAddCategoryModalOpen(false)}
-              className="absolute top-5 right-5 text-stone-400 hover:text-stone-700 p-1.5 rounded-xl hover:bg-stone-100 transition-colors cursor-pointer"
-            >
-              ✕
-            </button>
-
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
-                <Layers className="w-6 h-6" />
-              </div>
-              <div>
-                <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider block">
-                  Szolgáltatás Típus
-                </span>
-                <h3 className="font-display text-2xl font-extrabold text-stone-900">
-                  Új Szolgáltatás Típus
-                </h3>
-              </div>
-            </div>
-
-            <form onSubmit={handleCreateCategorySubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
-                  Típus megnevezése <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={newCategoryName}
-                  onChange={(e) => setNewCategoryName(e.target.value)}
-                  placeholder="Pl. Helikopteres túra vagy Extrém sport"
-                  className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3.5 py-2.5 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5 flex items-center justify-between">
-                  <span>Ikon</span>
-                  <span className="text-[11px] font-normal text-stone-400">Kattints a kívánt ikonra vagy válassz alább</span>
-                </label>
-
-                {/* Visual Icon Grid with Luggage, Bus, Walking Person and more */}
-                <div className="grid grid-cols-4 sm:grid-cols-8 gap-1.5 mb-2.5 p-2 bg-stone-100/80 rounded-xl border border-stone-200">
-                  {AVAILABLE_SERVICE_ICONS.map((opt) => {
-                    const isSelected = newCategoryIcon === opt.value;
-                    return (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => setNewCategoryIcon(opt.value)}
-                        className={`p-2 rounded-lg flex flex-col items-center justify-center gap-1 transition-all text-xs cursor-pointer ${
-                          isSelected
-                            ? 'bg-emerald-600 text-white font-bold shadow-sm scale-105'
-                            : 'bg-white text-stone-700 hover:bg-stone-50 border border-stone-200/80'
-                        }`}
-                        title={`${opt.label} - ${opt.description}`}
-                      >
-                        <CategoryIcon icon={opt.value} className="w-4 h-4" />
-                        <span className="text-[10px] truncate max-w-full leading-none">{opt.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <select
-                  value={newCategoryIcon}
-                  onChange={(e) => setNewCategoryIcon(e.target.value)}
-                  className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3.5 py-2.5 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
-                >
-                  {AVAILABLE_SERVICE_ICONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.emoji} {opt.value} ({opt.label} / {opt.description})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="pt-2 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setAddCategoryModalOpen(false)}
-                  className="px-4 py-2.5 rounded-xl border border-stone-300 text-stone-700 text-xs font-semibold cursor-pointer"
-                >
-                  Mégse
-                </button>
-                <button
-                  type="submit"
-                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer"
-                >
-                  Típus Mentése
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL: SZOLGÁLTATÁS TÍPUS SZERKESZTÉSE & IKON MÓDOSÍTÁSA */}
-      {editingCategory && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl border border-stone-200 p-6 sm:p-8 max-w-lg w-full shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
-                <CategoryIcon icon={editCategoryIcon} className="w-6 h-6" />
-              </div>
-              <div>
-                <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider block">
-                  Szolgáltatás Típus Szerkesztése
-                </span>
-                <h3 className="font-display text-2xl font-extrabold text-stone-900">
-                  {editingCategory.name}
-                </h3>
-              </div>
-            </div>
-
-            <form onSubmit={handleUpdateCategorySubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
-                  Típus megnevezése <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={editCategoryName}
-                  onChange={(e) => setEditCategoryName(e.target.value)}
-                  placeholder="Pl. Városnézés & Séta"
-                  className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3.5 py-2.5 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5 flex items-center justify-between">
-                  <span>Ikon kiválasztása</span>
-                  <span className="text-[11px] font-normal text-stone-400">Kattints a kívánt ikonra vagy válassz alább</span>
-                </label>
-
-                {/* Visual Icon Grid with Luggage, Bus, Walking Person and more */}
-                <div className="grid grid-cols-4 sm:grid-cols-8 gap-1.5 mb-2.5 p-2 bg-stone-100/80 rounded-xl border border-stone-200">
-                  {AVAILABLE_SERVICE_ICONS.map((opt) => {
-                    const isSelected = editCategoryIcon === opt.value;
-                    return (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => setEditCategoryIcon(opt.value)}
-                        className={`p-2 rounded-lg flex flex-col items-center justify-center gap-1 transition-all text-xs cursor-pointer ${
-                          isSelected
-                            ? 'bg-emerald-600 text-white font-bold shadow-sm scale-105'
-                            : 'bg-white text-stone-700 hover:bg-stone-50 border border-stone-200/80'
-                        }`}
-                        title={`${opt.label} - ${opt.description}`}
-                      >
-                        <CategoryIcon icon={opt.value} className="w-4 h-4" />
-                        <span className="text-[10px] truncate max-w-full leading-none">{opt.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <select
-                  value={editCategoryIcon}
-                  onChange={(e) => setEditCategoryIcon(e.target.value)}
-                  className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3.5 py-2.5 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
-                >
-                  {AVAILABLE_SERVICE_ICONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.emoji} {opt.value} ({opt.label} / {opt.description})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="pt-2 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setEditingCategory(null)}
-                  className="px-4 py-2.5 rounded-xl border border-stone-300 text-stone-700 text-xs font-semibold cursor-pointer"
-                >
-                  Mégse
-                </button>
-                <button
-                  type="submit"
-                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer"
-                >
-                  Módosítások Mentése
                 </button>
               </div>
             </form>

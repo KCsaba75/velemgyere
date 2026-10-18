@@ -13,6 +13,8 @@ import { ProviderReviewsPage } from './components/ProviderReviewsPage';
 import { ProviderInquiriesPage } from './components/ProviderInquiriesPage';
 import { ProviderMessagesPage } from './components/ProviderMessagesPage';
 import { AdminDashboard } from './components/AdminDashboard';
+import { AdminCategoriesPage } from './components/AdminCategoriesPage';
+import { AdminProvidersPage } from './components/AdminProvidersPage';
 import { CategoriesView } from './components/CategoriesView';
 import { LoginModal } from './components/LoginModal';
 import { ProviderRegisterModal } from './components/ProviderRegisterModal';
@@ -120,20 +122,20 @@ const AppContent: React.FC = () => {
             path="/admin"
             element={
               <ProtectedRoute allow={['admin']}>
-                {/* kanban daa1ed70: kulon key, hogy a /admin <-> /admin/kategoriak
-                    valtas tenyleg remountolja a komponenst -- kulonben a ket Route
-                    ugyanazon a fa-pozicion azonos tipusu elemet renderel, React nem
-                    cserel instance-ot, es a useState(initialTab) csak az ELSO
-                    mountkor olvasna be az erteket. */}
-                <AdminDashboard key="admin-dashboard" />
+                <AdminDashboard />
               </ProtectedRoute>
             }
           />
+          {/* Kanban fb32ec4b (Csaba korrekcioja a daa1ed70/a8676c22 deep-linkre):
+              a Kategoriak/Szolgaltatok kezeles nem deep-link az AdminDashboard
+              tab-sorara, hanem onallo oldal/komponens -- a daa1ed70/a8676c22-ben
+              bevezetett initialTab prop + kulon-key remount-mechanika emiatt
+              feleslegesse valt, el is tavolitva az AdminDashboard-rol. */}
           <Route
             path="/admin/kategoriak"
             element={
               <ProtectedRoute allow={['admin']}>
-                <AdminDashboard key="admin-categories" initialTab="categories" />
+                <AdminCategoriesPage />
               </ProtectedRoute>
             }
           />
@@ -141,7 +143,7 @@ const AppContent: React.FC = () => {
             path="/admin/szolgaltatok"
             element={
               <ProtectedRoute allow={['admin']}>
-                <AdminDashboard key="admin-providers" initialTab="providers" />
+                <AdminProvidersPage />
               </ProtectedRoute>
             }
           />
