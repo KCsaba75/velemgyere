@@ -1916,3 +1916,25 @@ create policy "Admins can manage payout requests"
   on public.payout_requests for update
   using (public.is_admin())
   with check (public.is_admin());
+
+-- ============================================================================
+-- KANBAN d8440929 (Csaba, via Zora, 10-18 kiegeszites): uj fizetesi mod opcio
+-- 'bank_transfer' ("elore utalas") a korabbi 'cash'/'revolut' mellett.
+-- DROP+ADD CONSTRAINT, nem string-replace -- a pg_get_constraintdef
+-- ARRAY/ANY formaban adja vissza a definiciot, azt nem lehet egyszeruen
+-- becserelni egy korabbi sorban.
+-- ============================================================================
+alter table public.orders
+  drop constraint orders_onsite_payment_method_check;
+alter table public.orders
+  add constraint orders_onsite_payment_method_check
+  check (onsite_payment_method is null or onsite_payment_method in ('cash', 'revolut', 'bank_transfer'));
+
+alter table public.providers
+  drop constraint providers_accepted_payment_methods_check;
+alter table public.providers
+  add constraint providers_accepted_payment_methods_check
+  check (
+    accepted_payment_methods <@ array['cash','revolut','bank_transfer']::text[]
+    and cardinality(accepted_payment_methods) >= 1
+  );

@@ -25,7 +25,8 @@ import {
   Hash,
   CalendarDays,
   Download,
-  Printer
+  Printer,
+  Landmark
 } from 'lucide-react';
 import { Order, OrderStatus, OrderProviderContact, OnsitePaymentMethod } from '../types/database';
 import { ReviewModal } from './ReviewModal';
@@ -35,6 +36,7 @@ import { buildCalendarEventPayload, openGoogleCalendar, downloadIcsFile } from '
 const PAYMENT_METHOD_LABEL: Record<OnsitePaymentMethod, string> = {
   cash: 'Készpénz',
   revolut: 'Revolut',
+  bank_transfer: 'Előre utalás',
 };
 
 const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
@@ -273,7 +275,13 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
             </div>
             {order.onsite_payment_method && (
               <div className="flex items-center gap-2">
-                {order.onsite_payment_method === 'revolut' ? <Wallet className="w-4 h-4 text-stone-400 shrink-0" /> : <Banknote className="w-4 h-4 text-stone-400 shrink-0" />}
+                {order.onsite_payment_method === 'revolut' ? (
+                  <Wallet className="w-4 h-4 text-stone-400 shrink-0" />
+                ) : order.onsite_payment_method === 'bank_transfer' ? (
+                  <Landmark className="w-4 h-4 text-stone-400 shrink-0" />
+                ) : (
+                  <Banknote className="w-4 h-4 text-stone-400 shrink-0" />
+                )}
                 <span>Helyszíni fizetés módja: <strong className="text-stone-900">{PAYMENT_METHOD_LABEL[order.onsite_payment_method]}</strong></span>
               </div>
             )}

@@ -161,7 +161,9 @@ export interface OccurrenceAvailability {
 
 export type OrderStatus = 'pending' | 'confirmed' | 'cancelled';
 
-export type OnsitePaymentMethod = 'cash' | 'revolut';
+// Kanban d8440929 (Csaba, via Zora, kiegeszites): 'bank_transfer' ("elore
+// utalas") az uj harmadik opcio a korabbi 'cash'/'revolut' mellett.
+export type OnsitePaymentMethod = 'cash' | 'revolut' | 'bank_transfer';
 
 // Forrás: a foglalás származási helye (platform, vagy szolgáltató által rögzített külső)
 export type BookingSource = 'platform' | 'phone' | 'onsite' | 'whatsapp' | 'email' | 'external';

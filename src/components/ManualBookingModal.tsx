@@ -388,6 +388,7 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
               >
                 <option value="cash">💵 Helyszínen készpénz</option>
                 <option value="revolut">💳 Helyszínen Revolut</option>
+                <option value="bank_transfer">🏦 Előre utalás</option>
               </select>
             </div>
 

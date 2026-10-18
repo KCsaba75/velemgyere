@@ -25,7 +25,8 @@ import {
   Banknote,
   Wallet,
   Star,
-  LogOut
+  LogOut,
+  Landmark
 } from 'lucide-react';
 import { CategoryIcon, AVAILABLE_SERVICE_ICONS } from './CategoryIcon';
 import { Region, Category, OnsitePaymentMethod, ReviewStatus } from '../types/database';
@@ -38,6 +39,7 @@ import { Settings as SettingsIcon } from 'lucide-react';
 const PAYMENT_METHOD_LABEL: Record<OnsitePaymentMethod, string> = {
   cash: 'Készpénz',
   revolut: 'Revolut',
+  bank_transfer: 'Előre utalás',
 };
 
 export const AdminDashboard: React.FC = () => {
@@ -1015,7 +1017,13 @@ export const AdminDashboard: React.FC = () => {
                           <span>Helyszínen: <strong className="text-stone-800">{formatPrice(order.onsite_amount)} €</strong></span>
                           {order.onsite_payment_method && (
                             <span className="inline-flex items-center gap-1 text-stone-600 bg-stone-100 px-2 py-0.5 rounded-md">
-                              {order.onsite_payment_method === 'revolut' ? <Wallet className="w-3 h-3" /> : <Banknote className="w-3 h-3" />}
+                              {order.onsite_payment_method === 'revolut' ? (
+                                <Wallet className="w-3 h-3" />
+                              ) : order.onsite_payment_method === 'bank_transfer' ? (
+                                <Landmark className="w-3 h-3" />
+                              ) : (
+                                <Banknote className="w-3 h-3" />
+                              )}
                               {PAYMENT_METHOD_LABEL[order.onsite_payment_method]}
                             </span>
                           )}

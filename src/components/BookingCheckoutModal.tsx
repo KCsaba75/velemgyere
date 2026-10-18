@@ -24,7 +24,8 @@ import {
   AlertCircle,
   Printer,
   CalendarDays,
-  Download
+  Download,
+  Landmark
 } from 'lucide-react';
 import { BookingVoucher } from './BookingVoucher';
 import { buildCalendarEventPayload, openGoogleCalendar, downloadIcsFile, getCalendarSyncPreference } from '../services/googleCalendarService';
@@ -287,6 +288,11 @@ export const BookingCheckoutModal: React.FC<BookingCheckoutModalProps> = ({
                     {(!program.provider?.accepted_payment_methods || program.provider.accepted_payment_methods.includes('revolut')) && (
                       <span className="inline-flex items-center gap-1 text-xs">
                         <Wallet className="w-3.5 h-3.5 text-emerald-600 shrink-0" /> Revolut
+                      </span>
+                    )}
+                    {program.provider?.accepted_payment_methods?.includes('bank_transfer') && (
+                      <span className="inline-flex items-center gap-1 text-xs">
+                        <Landmark className="w-3.5 h-3.5 text-emerald-600 shrink-0" /> Előre utalás
                       </span>
                     )}
                   </div>

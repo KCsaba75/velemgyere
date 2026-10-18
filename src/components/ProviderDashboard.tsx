@@ -9,6 +9,7 @@ import {
   Star,
   Banknote,
   Wallet,
+  Landmark,
   LogOut,
   FileText,
   Ticket,
@@ -344,6 +345,17 @@ export const ProviderDashboard: React.FC = () => {
                   type="checkbox"
                   checked={profileForm.accepted_payment_methods.includes('revolut')}
                   onChange={() => toggleProfilePaymentMethod('revolut')}
+                  className="w-5 h-5 accent-emerald-600 cursor-pointer"
+                />
+              </label>
+              <label className="flex items-center justify-between gap-4 p-3 rounded-xl border border-stone-200 cursor-pointer hover:bg-stone-50 transition-colors">
+                <span className="flex items-center gap-2 text-xs font-semibold text-stone-700">
+                  <Landmark className="w-3.5 h-3.5 text-stone-400" /> Előre utalás
+                </span>
+                <input
+                  type="checkbox"
+                  checked={profileForm.accepted_payment_methods.includes('bank_transfer')}
+                  onChange={() => toggleProfilePaymentMethod('bank_transfer')}
                   className="w-5 h-5 accent-emerald-600 cursor-pointer"
                 />
               </label>

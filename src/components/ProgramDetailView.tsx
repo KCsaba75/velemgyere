@@ -28,7 +28,8 @@ import {
   Heart,
   Ticket,
   User,
-  Edit3
+  Edit3,
+  Landmark
 } from 'lucide-react';
 import { CategoryIcon } from './CategoryIcon';
 import { CountryFlag } from './CountryFlag';
@@ -922,6 +923,12 @@ export const ProgramDetailView: React.FC = () => {
                               <span>Revolut</span>
                             </span>
                           )}
+                          {acceptedPaymentMethods.includes('bank_transfer') && (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-stone-100 text-stone-800 font-semibold border border-stone-200">
+                              <Landmark className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                              <span>Előre utalás</span>
+                            </span>
+                          )}
                         </div>
                       </div>
 
@@ -990,7 +997,7 @@ export const ProgramDetailView: React.FC = () => {
                         </p>
                       )}
                       <p className="text-[11px] text-stone-400 leading-relaxed">
-                        A gombra kattintva áttekintheted a foglalás összes adatát, majd véglegesítheted a foglalást. A <strong>helyszínen fizetendő díj</strong> ({acceptedPaymentMethods.map(m => m === 'cash' ? 'készpénzben' : 'Revoluton').join(' vagy ')}) a program napján közvetlenül a szolgáltatónak fizetendő.
+                        A gombra kattintva áttekintheted a foglalás összes adatát, majd véglegesítheted a foglalást. A <strong>helyszínen fizetendő díj</strong> ({acceptedPaymentMethods.map(m => m === 'cash' ? 'készpénzben' : m === 'revolut' ? 'Revoluton' : 'előre utalással').join(' vagy ')}) a program napján közvetlenül a szolgáltatónak fizetendő.
                       </p>
                     </form>
                   )}

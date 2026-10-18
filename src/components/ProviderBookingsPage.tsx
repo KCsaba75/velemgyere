@@ -11,7 +11,8 @@ import {
   Wallet,
   CalendarDays,
   List,
-  Briefcase
+  Briefcase,
+  Landmark
 } from 'lucide-react';
 import { OrderBuyerInfo, OnsitePaymentMethod, ProgramOccurrence, Order } from '../types/database';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
@@ -23,6 +24,7 @@ import { RescheduleOrderModal } from './RescheduleOrderModal';
 const PAYMENT_METHOD_LABEL: Record<OnsitePaymentMethod, string> = {
   cash: 'Készpénz',
   revolut: 'Revolut',
+  bank_transfer: 'Előre utalás',
 };
 
 // Kanban 5a3a8dd8 (Csaba, 10-17): a beerkezett foglalasok kezelese kikerult a
@@ -298,7 +300,13 @@ export const ProviderBookingsPage: React.FC = () => {
                       <span>{order.participants_count} fő · helyszínen fizetendő: <strong className="text-stone-800">{formatPrice(order.onsite_amount)} {order.currency === 'EUR' ? '€' : order.currency}</strong></span>
                       {order.onsite_payment_method && (
                         <span className="inline-flex items-center gap-1 text-stone-600 bg-stone-100 px-2 py-0.5 rounded-md">
-                          {order.onsite_payment_method === 'revolut' ? <Wallet className="w-3 h-3" /> : <Banknote className="w-3 h-3" />}
+                          {order.onsite_payment_method === 'revolut' ? (
+                            <Wallet className="w-3 h-3" />
+                          ) : order.onsite_payment_method === 'bank_transfer' ? (
+                            <Landmark className="w-3 h-3" />
+                          ) : (
+                            <Banknote className="w-3 h-3" />
+                          )}
                           {PAYMENT_METHOD_LABEL[order.onsite_payment_method]}
                         </span>
                       )}

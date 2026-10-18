@@ -101,7 +101,7 @@ export function buildCalendarEventPayload(
     if (order.source_notes) {
       detailLines.push(`Megjegyzés: ${order.source_notes}`);
     }
-    detailLines.push(`Fizetési mód helyszínen: ${order.onsite_payment_method === 'revolut' ? 'Revolut' : 'Készpénz'}`);
+    detailLines.push(`Fizetési mód helyszínen: ${order.onsite_payment_method === 'revolut' ? 'Revolut' : order.onsite_payment_method === 'bank_transfer' ? 'Előre utalás' : 'Készpénz'}`);
     detailLines.push(`Összeg: ${order.total_price} ${order.currency || 'EUR'}`);
     detailLines.push(`Találkozási pont: ${location}`);
   } else {
@@ -120,7 +120,7 @@ export function buildCalendarEventPayload(
       if (contact.email) detailLines.push(`E-mail: ${contact.email}`);
     }
     if (order.onsite_amount && order.onsite_amount > 0) {
-      detailLines.push(`Helyszínen fizetendő: ${order.onsite_amount} ${order.currency || 'EUR'} (${order.onsite_payment_method === 'revolut' ? 'Revolut' : 'Készpénz'})`);
+      detailLines.push(`Helyszínen fizetendő: ${order.onsite_amount} ${order.currency || 'EUR'} (${order.onsite_payment_method === 'revolut' ? 'Revolut' : order.onsite_payment_method === 'bank_transfer' ? 'Előre utalás' : 'Készpénz'})`);
     }
     detailLines.push(`\nJó szórakozást és felejthetetlen élményeket kíván a Velem Gyere csapata!`);
   }
