@@ -115,7 +115,14 @@ export const Navbar: React.FC<NavbarProps> = ({
         isBookingsActive ? 'text-emerald-700 bg-emerald-50/80 font-bold' : 'text-stone-700 hover:text-stone-900 hover:bg-stone-100'
       }`}
     >
-      <Ticket className={`w-4 h-4 ${isAuthenticated && providerOwnOrdersCount > 0 ? 'text-emerald-600' : 'text-stone-400'}`} />
+      <span className="relative inline-flex">
+        <Ticket className={`w-4 h-4 ${isAuthenticated && providerOwnOrdersCount > 0 ? 'text-emerald-600' : 'text-stone-400'}`} />
+        {/* Kanban c70cb435: csak customerkent -- providernek a kulon "Uzenet" gombon
+            van sajat badge-je, itt felesleges/zavaro lenne a duplikalas. */}
+        {!isProvider && totalUnreadBookingMessageCount > 0 && (
+          <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-rose-500" />
+        )}
+      </span>
       <span>Foglalásaim</span>
       {isAuthenticated && providerOwnOrdersCount > 0 && (
         <span className="bg-emerald-600 text-white text-[11px] font-extrabold px-1.5 py-0.5 rounded-full leading-none">
@@ -171,6 +178,9 @@ export const Navbar: React.FC<NavbarProps> = ({
     >
       <div className="relative flex items-center justify-center">
         <Ticket className={`w-5 h-5 transition-transform ${isBookingsActive ? 'scale-110 stroke-[2.4] text-emerald-700' : 'stroke-[1.8]'}`} />
+        {!isProvider && totalUnreadBookingMessageCount > 0 && (
+          <span className="absolute -top-1 -left-1.5 w-2 h-2 rounded-full bg-rose-500 shadow-xs" />
+        )}
         {isAuthenticated && providerOwnOrdersCount > 0 && (
           <span className="absolute -top-1.5 -right-2.5 bg-emerald-600 text-white text-[9px] font-extrabold px-1.5 min-w-[15px] h-3.5 rounded-full flex items-center justify-center leading-none shadow-xs">
             {providerOwnOrdersCount > 99 ? '99+' : providerOwnOrdersCount}

@@ -25,6 +25,7 @@ export const BookingsView: React.FC = () => {
     currentUser,
     setCurrentView,
     openLoginModal,
+    unreadBookingMessageCounts,
   } = useApp();
 
   useDocumentMeta('Foglalásaim', 'Korábbi és aktuális helyfoglalásaid egy áttekinthető listában.');
@@ -132,6 +133,7 @@ export const BookingsView: React.FC = () => {
         <div className="space-y-3">
           {sortedOrders.map((order) => {
             const prog = order.program || programs.find(p => p.id === order.program_id || p.slug === order.program_id);
+            const unreadCount = unreadBookingMessageCounts[order.id] || 0;
             return (
               <div
                 key={order.id}
@@ -139,12 +141,18 @@ export const BookingsView: React.FC = () => {
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2 mb-1">
+                    {unreadCount > 0 && <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />}
                     <span className="font-mono text-xs font-bold text-stone-600 bg-stone-100 px-2.5 py-0.5 rounded-md border border-stone-200">
                       #{getBookingReference(order)}
                     </span>
                     <h3 className="font-bold text-stone-900 text-sm sm:text-base truncate">
                       {prog?.title || 'Program'}
                     </h3>
+                    {unreadCount > 0 && (
+                      <span className="bg-rose-500 text-white text-[10px] font-extrabold px-1.5 py-0.5 rounded-full leading-none shrink-0">
+                        {unreadCount > 9 ? '9+' : unreadCount} új üzenet
+                      </span>
+                    )}
                   </div>
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-stone-500">
                     <span>{formatDate(order.created_at)}</span>

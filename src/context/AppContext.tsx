@@ -421,8 +421,9 @@ interface AppContextType {
   favoriteToast: { message: string; program?: Program; folderName?: string } | null;
   dismissFavoriteToast: () => void;
 
-  // Kanban 4fe242f2: olvasatlan booking-uzenet szamlalo (szolgaltatoi badge-hez)
-  // -- order_id -> olvasatlan uzenetek szama, csak a sajat szalaimra.
+  // Kanban 4fe242f2 (szolgaltatoi) + c70cb435 (customer): olvasatlan booking-uzenet
+  // szamlalo, role-agnosztikus -- order_id -> olvasatlan uzenetek szama, csak a
+  // sajat szalaimra (akar provider, akar customer nezi).
   unreadBookingMessageCounts: Record<string, number>;
   totalUnreadBookingMessageCount: number;
   markBookingThreadRead: (orderId: string) => void;
@@ -3046,13 +3047,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     0
   );
 
-  // Csak providerkent toltjuk/figyeljuk -- a badge-kerest is csak a
-  // szolgaltatoi feluletre kerte Csaba. Betoltesnel az RPC adja a kezdeti
-  // allapotot, utana egy global (szures nelkuli) Realtime INSERT-feliratkozas
-  // tartja frissen -- a kliens a RLS miatt amugy is csak a sajat szalainak
-  // sorait latja a booking_messages tablabol.
+  // Kanban c70cb435: role-agnosztikus -- a kezdeti provider-only badge (4fe242f2)
+  // utan Csaba kerte, hogy az igenybevevo (customer) oldalon is jelezze a Foglalasaim
+  // lista. A get_unread_booking_message_counts() RPC amugy is auth.uid()-re megy,
+  // igy barmelyik szerepkornek csak a sajat szalainak nem-sajat-kuldesu uzeneteit adja.
+  // Betoltesnel az RPC adja a kezdeti allapotot, utana egy global (szures nelkuli)
+  // Realtime INSERT-feliratkozas tartja frissen -- a kliens a RLS miatt amugy is
+  // csak a sajat szalainak sorait latja a booking_messages tablabol.
   useEffect(() => {
-    if (!isSupabaseConfigured || currentUser.role !== 'provider' || !currentUser.user_id) {
+    if (!isSupabaseConfigured || !isAuthenticated || !currentUser?.user_id) {
       setUnreadBookingMessageCounts({});
       return;
     }
@@ -3092,7 +3095,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       cancelled = true;
       supabase.removeChannel(channel);
     };
-  }, [currentUser.role, currentUser.user_id]);
+  }, [isAuthenticated, currentUser.user_id]);
 
   const getFolderPrograms = (folderId: string): Program[] => {
     if (!isAuthenticated || !currentUser?.user_id) return [];
