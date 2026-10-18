@@ -75,6 +75,9 @@ const VIEW_TO_PATH: Record<string, string> = {
   // kategoria-kezelo fulre, kulon path -- nem query-param, mert ez a
   // view/path mapping csak pathname-et ismer (lasd pathToView).
   'admin-categories': '/admin/kategoriak',
+  // Kanban a8676c22 (Csaba, via Zora): admin-nav "Foglalasok" deep-link a
+  // szolgaltato-kezelo fulre, ugyanazon elv szerint mint admin-categories.
+  'admin-providers': '/admin/szolgaltatok',
   'my-account': '/sajat-fiokom',
 };
 
@@ -99,6 +102,7 @@ function pathToView(pathname: string): string {
   // a specifikusabb /admin/kategoriak check az altalanos /admin ELOTT kell,
   // kulonben a prefix-match sosem jutna el ide.
   if (pathname.startsWith('/admin/kategoriak')) return 'admin-categories';
+  if (pathname.startsWith('/admin/szolgaltatok')) return 'admin-providers';
   if (pathname.startsWith('/admin')) return 'admin-dashboard';
   if (pathname.startsWith('/sajat-fiokom')) return 'my-account';
   return 'home';

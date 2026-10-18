@@ -59,6 +59,11 @@ export const Navbar: React.FC<NavbarProps> = ({
   const handleBookingsClick = () => {
     if (isProvider) {
       navigateTo('provider-bookings');
+    } else if (isAdmin) {
+      // Kanban a8676c22 (Csaba, via Zora): adminnak nincs ertelme a sajat
+      // (vasarloi) foglalasainak -- ugyanez a nav-slot a szolgaltato-kezelesre
+      // (AdminDashboard activeTab=providers) nyilik.
+      navigateTo('admin-providers');
     } else if (!isAuthenticated) {
       openLoginModal('A foglalásaid megtekintéséhez kérjük jelentkezz be a saját fiókodba!');
     } else {
@@ -98,7 +103,11 @@ export const Navbar: React.FC<NavbarProps> = ({
   };
 
   const isProgramsNavActive = isProvider ? currentView === 'provider-programs' : currentView === 'programs';
-  const isBookingsActive = isProvider ? currentView === 'provider-bookings' : currentView === 'bookings';
+  const isBookingsActive = isProvider
+    ? currentView === 'provider-bookings'
+    : isAdmin
+    ? currentView === 'admin-providers'
+    : currentView === 'bookings';
   // Kanban 5d6bb3d4 (Csaba, via Zora): szolgaltatokent a globalis
   // "Kategoriak"/"Kedvencek" nav-elemek az ertekeleseim / a (meg placeholder)
   // uzenet-fulre mutatnak, nem a publikus kategoria-bongezore / kedvenc-listara.
@@ -133,15 +142,20 @@ export const Navbar: React.FC<NavbarProps> = ({
       }`}
     >
       <span className="relative inline-flex">
-        <Ticket className={`w-4 h-4 ${isAuthenticated && providerOwnOrdersCount > 0 ? 'text-emerald-600' : 'text-stone-400'}`} />
+        {isAdmin ? (
+          <Briefcase className="w-4 h-4 text-stone-400" />
+        ) : (
+          <Ticket className={`w-4 h-4 ${isAuthenticated && providerOwnOrdersCount > 0 ? 'text-emerald-600' : 'text-stone-400'}`} />
+        )}
         {/* Kanban c70cb435: csak customerkent -- providernek a kulon "Uzenet" gombon
-            van sajat badge-je, itt felesleges/zavaro lenne a duplikalas. */}
-        {!isProvider && totalUnreadBookingMessageCount > 0 && (
+            van sajat badge-je, itt felesleges/zavaro lenne a duplikalas.
+            Kanban a8676c22: admin eseten sincs ertelme (nincs sajat foglalasa). */}
+        {!isProvider && !isAdmin && totalUnreadBookingMessageCount > 0 && (
           <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-rose-500" />
         )}
       </span>
-      <span>Foglalásaim</span>
-      {isAuthenticated && providerOwnOrdersCount > 0 && (
+      <span>{isAdmin ? 'Szolgáltatók' : 'Foglalásaim'}</span>
+      {isAuthenticated && !isAdmin && providerOwnOrdersCount > 0 && (
         <span className="bg-emerald-600 text-white text-[11px] font-extrabold px-1.5 py-0.5 rounded-full leading-none">
           {providerOwnOrdersCount}
         </span>
@@ -196,17 +210,21 @@ export const Navbar: React.FC<NavbarProps> = ({
       }`}
     >
       <div className="relative flex items-center justify-center">
-        <Ticket className={`w-5 h-5 transition-transform ${isBookingsActive ? 'scale-110 stroke-[2.4] text-emerald-700' : 'stroke-[1.8]'}`} />
-        {!isProvider && totalUnreadBookingMessageCount > 0 && (
+        {isAdmin ? (
+          <Briefcase className={`w-5 h-5 transition-transform ${isBookingsActive ? 'scale-110 stroke-[2.4] text-emerald-700' : 'stroke-[1.8]'}`} />
+        ) : (
+          <Ticket className={`w-5 h-5 transition-transform ${isBookingsActive ? 'scale-110 stroke-[2.4] text-emerald-700' : 'stroke-[1.8]'}`} />
+        )}
+        {!isProvider && !isAdmin && totalUnreadBookingMessageCount > 0 && (
           <span className="absolute -top-1 -left-1.5 w-2 h-2 rounded-full bg-rose-500 shadow-xs" />
         )}
-        {isAuthenticated && providerOwnOrdersCount > 0 && (
+        {isAuthenticated && !isAdmin && providerOwnOrdersCount > 0 && (
           <span className="absolute -top-1.5 -right-2.5 bg-emerald-600 text-white text-[9px] font-extrabold px-1.5 min-w-[15px] h-3.5 rounded-full flex items-center justify-center leading-none shadow-xs">
             {providerOwnOrdersCount > 99 ? '99+' : providerOwnOrdersCount}
           </span>
         )}
       </div>
-      <span className="text-[11px] leading-tight mt-1 truncate">Foglalások</span>
+      <span className="text-[11px] leading-tight mt-1 truncate">{isAdmin ? 'Szolgáltatók' : 'Foglalások'}</span>
     </button>
   );
 

@@ -138,6 +138,14 @@ const AppContent: React.FC = () => {
             }
           />
           <Route
+            path="/admin/szolgaltatok"
+            element={
+              <ProtectedRoute allow={['admin']}>
+                <AdminDashboard key="admin-providers" initialTab="providers" />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/sajat-fiokom"
             element={
               <ProtectedRoute allow={['visitor', 'provider', 'admin']}>
