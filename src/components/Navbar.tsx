@@ -12,6 +12,7 @@ import {
   LayoutGrid,
   Star,
   MessageSquare,
+  Building2,
   X
 } from 'lucide-react';
 
@@ -40,6 +41,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   } = useApp();
 
   const isProvider = currentUser.role === 'provider';
+  const isAdmin = currentUser.role === 'admin';
 
   const navigateTo = (view: string) => {
     setCurrentView(view);
@@ -101,7 +103,14 @@ export const Navbar: React.FC<NavbarProps> = ({
   // "Kategoriak"/"Kedvencek" nav-elemek az ertekeleseim / a (meg placeholder)
   // uzenet-fulre mutatnak, nem a publikus kategoria-bongezore / kedvenc-listara.
   const isCategoriesOrReviewsActive = isProvider ? currentView === 'provider-reviews' : currentView === 'categories';
-  const isFavoritesOrMessagesActive = isProvider ? currentView === 'provider-messages' : currentView === 'favorites';
+  // Kanban 60f45b83 (Csaba, via Zora): admin-kent ugyanez a nav-slot a
+  // szolgaltato-szerzesre szant landing oldalra (6b02b939) mutat -- adminnak
+  // nincs ertelme a Kedvencek-nezetnek, a provider/customer viselkedes valtozatlan.
+  const isFavoritesOrMessagesActive = isProvider
+    ? currentView === 'provider-messages'
+    : isAdmin
+    ? currentView === 'provider-landing'
+    : currentView === 'favorites';
 
   // Kanban ce0aeeef (Csaba, via Zora): kiemelve, hogy a Foglalasaim/Uzenet
   // gombok sorrendje szolgaltatokent felcserelt legyen a desktop navban --
@@ -135,10 +144,10 @@ export const Navbar: React.FC<NavbarProps> = ({
   const desktopFavoritesOrMessagesButton = (
     <button
       key="favorites-or-messages"
-      onClick={() => navigateTo(isProvider ? 'provider-messages' : 'favorites')}
+      onClick={() => navigateTo(isProvider ? 'provider-messages' : isAdmin ? 'provider-landing' : 'favorites')}
       className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
         isFavoritesOrMessagesActive
-          ? isProvider
+          ? isProvider || isAdmin
             ? 'text-emerald-700 bg-emerald-50/80 font-bold'
             : 'text-rose-700 bg-rose-50/80 font-bold'
           : 'text-stone-700 hover:text-stone-900 hover:bg-stone-100'
@@ -146,16 +155,18 @@ export const Navbar: React.FC<NavbarProps> = ({
     >
       {isProvider ? (
         <MessageSquare className={`w-4 h-4 ${totalUnreadBookingMessageCount > 0 ? 'text-rose-500' : 'text-stone-400'}`} />
+      ) : isAdmin ? (
+        <Building2 className="w-4 h-4 text-stone-400" />
       ) : (
         <Heart className={`w-4 h-4 ${totalFavoritesCount > 0 ? 'fill-rose-500 text-rose-500' : 'text-stone-400'}`} />
       )}
-      <span>{isProvider ? 'Üzenet' : 'Kedvencek'}</span>
+      <span>{isProvider ? 'Üzenet' : isAdmin ? 'Szolgáltatók' : 'Kedvencek'}</span>
       {isProvider && totalUnreadBookingMessageCount > 0 && (
         <span className="bg-rose-500 text-white text-[11px] font-extrabold px-1.5 py-0.5 rounded-full leading-none">
           {totalUnreadBookingMessageCount > 99 ? '99+' : totalUnreadBookingMessageCount}
         </span>
       )}
-      {!isProvider && totalFavoritesCount > 0 && (
+      {!isProvider && !isAdmin && totalFavoritesCount > 0 && (
         <span className="bg-rose-500 text-white text-[11px] font-extrabold px-1.5 py-0.5 rounded-full leading-none">
           {totalFavoritesCount}
         </span>
@@ -195,10 +206,10 @@ export const Navbar: React.FC<NavbarProps> = ({
     <button
       key="favorites-or-messages"
       type="button"
-      onClick={() => navigateTo(isProvider ? 'provider-messages' : 'favorites')}
+      onClick={() => navigateTo(isProvider ? 'provider-messages' : isAdmin ? 'provider-landing' : 'favorites')}
       className={`flex flex-col items-center justify-center py-1.5 px-0.5 transition-colors cursor-pointer min-w-0 ${
         isFavoritesOrMessagesActive
-          ? isProvider ? 'text-emerald-700 font-bold' : 'text-rose-700 font-bold'
+          ? isProvider || isAdmin ? 'text-emerald-700 font-bold' : 'text-rose-700 font-bold'
           : 'text-stone-500 hover:text-stone-800 font-medium'
       }`}
     >
@@ -208,6 +219,12 @@ export const Navbar: React.FC<NavbarProps> = ({
             className={`w-5 h-5 transition-transform ${
               isFavoritesOrMessagesActive ? 'scale-110 stroke-[2.4]' : 'stroke-[1.8]'
             } ${totalUnreadBookingMessageCount > 0 ? 'text-rose-500' : ''}`}
+          />
+        ) : isAdmin ? (
+          <Building2
+            className={`w-5 h-5 transition-transform ${
+              isFavoritesOrMessagesActive ? 'scale-110 stroke-[2.4]' : 'stroke-[1.8]'
+            }`}
           />
         ) : (
           <Heart
@@ -223,13 +240,13 @@ export const Navbar: React.FC<NavbarProps> = ({
             {totalUnreadBookingMessageCount > 99 ? '99+' : totalUnreadBookingMessageCount}
           </span>
         )}
-        {!isProvider && totalFavoritesCount > 0 && (
+        {!isProvider && !isAdmin && totalFavoritesCount > 0 && (
           <span className="absolute -top-1.5 -right-2.5 bg-rose-500 text-white text-[9px] font-extrabold px-1.5 min-w-[15px] h-3.5 rounded-full flex items-center justify-center leading-none shadow-xs">
             {totalFavoritesCount > 99 ? '99+' : totalFavoritesCount}
           </span>
         )}
       </div>
-      <span className="text-[11px] leading-tight mt-1 truncate">{isProvider ? 'Üzenet' : 'Kedvencek'}</span>
+      <span className="text-[11px] leading-tight mt-1 truncate">{isProvider ? 'Üzenet' : isAdmin ? 'Szolgáltatók' : 'Kedvencek'}</span>
     </button>
   );
 
