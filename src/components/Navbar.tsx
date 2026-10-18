@@ -168,7 +168,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       ) : (
         <Heart className={`w-4 h-4 ${totalFavoritesCount > 0 ? 'fill-rose-500 text-rose-500' : 'text-stone-400'}`} />
       )}
-      <span>{isProvider ? 'Üzenet' : isAdmin ? 'Szolgáltatók' : 'Kedvencek'}</span>
+      <span>{isProvider ? 'Üzenet' : isAdmin ? 'Reklám' : 'Kedvencek'}</span>
       {isProvider && totalUnreadBookingMessageCount > 0 && (
         <span className="bg-rose-500 text-white text-[11px] font-extrabold px-1.5 py-0.5 rounded-full leading-none">
           {totalUnreadBookingMessageCount > 99 ? '99+' : totalUnreadBookingMessageCount}
@@ -254,7 +254,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           </span>
         )}
       </div>
-      <span className="text-[11px] leading-tight mt-1 truncate">{isProvider ? 'Üzenet' : isAdmin ? 'Szolgáltatók' : 'Kedvencek'}</span>
+      <span className="text-[11px] leading-tight mt-1 truncate">{isProvider ? 'Üzenet' : isAdmin ? 'Reklám' : 'Kedvencek'}</span>
     </button>
   );
 
