@@ -102,7 +102,15 @@ export const Navbar: React.FC<NavbarProps> = ({
   // Kanban 5d6bb3d4 (Csaba, via Zora): szolgaltatokent a globalis
   // "Kategoriak"/"Kedvencek" nav-elemek az ertekeleseim / a (meg placeholder)
   // uzenet-fulre mutatnak, nem a publikus kategoria-bongezore / kedvenc-listara.
-  const isCategoriesOrReviewsActive = isProvider ? currentView === 'provider-reviews' : currentView === 'categories';
+  // Kanban daa1ed70 (Csaba, via Zora): admin-kent ugyanez a nav-slot a
+  // kategoria-kezelo admin-dashboard fulre (admin-categories, /admin/kategoriak)
+  // deep-linkel, nem a publikus CategoriesView-ra -- a Fiok gomb valtozatlanul
+  // a teljes admin-dashboard-ra (admin-dashboard) megy.
+  const isCategoriesOrReviewsActive = isProvider
+    ? currentView === 'provider-reviews'
+    : isAdmin
+    ? currentView === 'admin-categories'
+    : currentView === 'categories';
   // Kanban 60f45b83 (Csaba, via Zora): admin-kent ugyanez a nav-slot a
   // szolgaltato-szerzesre szant landing oldalra (6b02b939) mutat -- adminnak
   // nincs ertelme a Kedvencek-nezetnek, a provider/customer viselkedes valtozatlan.
@@ -310,7 +318,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 Programok
               </button>
               <button
-                onClick={() => navigateTo(isProvider ? 'provider-reviews' : 'categories')}
+                onClick={() => navigateTo(isProvider ? 'provider-reviews' : isAdmin ? 'admin-categories' : 'categories')}
                 className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
                   isCategoriesOrReviewsActive ? 'text-emerald-700 bg-emerald-50/80 font-bold' : 'text-stone-700 hover:text-stone-900 hover:bg-stone-100'
                 }`}
@@ -415,7 +423,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* 2. Kategóriák (szolgáltatóként: Értékeléseim) */}
           <button
             type="button"
-            onClick={() => navigateTo(isProvider ? 'provider-reviews' : 'categories')}
+            onClick={() => navigateTo(isProvider ? 'provider-reviews' : isAdmin ? 'admin-categories' : 'categories')}
             className={`flex flex-col items-center justify-center py-1.5 px-0.5 transition-colors cursor-pointer min-w-0 ${
               isCategoriesOrReviewsActive
                 ? 'text-emerald-700 font-bold'

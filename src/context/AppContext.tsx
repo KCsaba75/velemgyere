@@ -71,6 +71,10 @@ const VIEW_TO_PATH: Record<string, string> = {
   // helyere kerulo uj "Uzenet" placeholder menupont, onallo top-level oldal.
   'provider-messages': '/szolgaltato/uzeneteim',
   'admin-dashboard': '/admin',
+  // Kanban daa1ed70 (Csaba, via Zora): admin-nav "Kategoriak" deep-link a
+  // kategoria-kezelo fulre, kulon path -- nem query-param, mert ez a
+  // view/path mapping csak pathname-et ismer (lasd pathToView).
+  'admin-categories': '/admin/kategoriak',
   'my-account': '/sajat-fiokom',
 };
 
@@ -92,6 +96,9 @@ function pathToView(pathname: string): string {
   if (pathname.startsWith('/szolgaltato/erdeklodeseim')) return 'provider-inquiries';
   if (pathname.startsWith('/szolgaltato/uzeneteim')) return 'provider-messages';
   if (pathname.startsWith('/szolgaltato/dashboard')) return 'provider-dashboard';
+  // a specifikusabb /admin/kategoriak check az altalanos /admin ELOTT kell,
+  // kulonben a prefix-match sosem jutna el ide.
+  if (pathname.startsWith('/admin/kategoriak')) return 'admin-categories';
   if (pathname.startsWith('/admin')) return 'admin-dashboard';
   if (pathname.startsWith('/sajat-fiokom')) return 'my-account';
   return 'home';

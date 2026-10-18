@@ -120,7 +120,20 @@ const AppContent: React.FC = () => {
             path="/admin"
             element={
               <ProtectedRoute allow={['admin']}>
-                <AdminDashboard />
+                {/* kanban daa1ed70: kulon key, hogy a /admin <-> /admin/kategoriak
+                    valtas tenyleg remountolja a komponenst -- kulonben a ket Route
+                    ugyanazon a fa-pozicion azonos tipusu elemet renderel, React nem
+                    cserel instance-ot, es a useState(initialTab) csak az ELSO
+                    mountkor olvasna be az erteket. */}
+                <AdminDashboard key="admin-dashboard" />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/kategoriak"
+            element={
+              <ProtectedRoute allow={['admin']}>
+                <AdminDashboard key="admin-categories" initialTab="categories" />
               </ProtectedRoute>
             }
           />

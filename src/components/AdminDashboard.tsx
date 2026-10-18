@@ -42,7 +42,16 @@ const PAYMENT_METHOD_LABEL: Record<OnsitePaymentMethod, string> = {
   bank_transfer: 'Előre utalás',
 };
 
-export const AdminDashboard: React.FC = () => {
+type AdminDashboardTab = 'programs' | 'providers' | 'bookings' | 'reviews' | 'regions' | 'categories' | 'inquiries' | 'settings';
+
+interface AdminDashboardProps {
+  // Kanban daa1ed70 (Csaba, via Zora): admin-nav "Kategoriak" deep-linkeli a
+  // kategoria-kezelo fulet (/admin/kategoriak), ne a defaultos "programs" fulre
+  // nyisson -- lasd App.tsx kulon route-ja.
+  initialTab?: AdminDashboardTab;
+}
+
+export const AdminDashboard: React.FC<AdminDashboardProps> = ({ initialTab = 'programs' }) => {
   const {
     programs,
     providers,
@@ -79,7 +88,7 @@ export const AdminDashboard: React.FC = () => {
 
   useDocumentMeta('Adminisztrátori felület', 'Programok, szolgáltatók, foglalások és katalógus-adatok kezelése.');
 
-  const [activeTab, setActiveTab] = useState<'programs' | 'providers' | 'bookings' | 'reviews' | 'regions' | 'categories' | 'inquiries' | 'settings'>('programs');
+  const [activeTab, setActiveTab] = useState<AdminDashboardTab>(initialTab);
   const [reviewFilter, setReviewFilter] = useState<'all' | 'published' | 'flagged' | 'hidden'>('all');
   const [rescheduleOrderId, setRescheduleOrderId] = useState<string | null>(null);
 
