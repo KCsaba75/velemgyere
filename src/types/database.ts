@@ -168,6 +168,21 @@ export type OnsitePaymentMethod = 'cash' | 'revolut' | 'bank_transfer';
 // Forrás: a foglalás származási helye (platform, vagy szolgáltató által rögzített külső)
 export type BookingSource = 'platform' | 'phone' | 'onsite' | 'whatsapp' | 'email' | 'external';
 
+// Kanban 2ffb61fa: foglalásonkénti (booking/order_id-hez kötött) üzenetszál az
+// igénybevevő és a szolgáltató között. sender_role NEM a profil szerepköréből jön
+// (admin pl. sosem küldhet), hanem abból, melyik fél a rendelés tényleges
+// szereplője -- lásd BookingDetailModal/ProviderMessagesPage role-detection.
+export type BookingMessageSenderRole = 'customer' | 'provider';
+
+export interface BookingMessage {
+  id: string;
+  order_id: string;
+  sender_role: BookingMessageSenderRole;
+  sender_id: string;
+  content: string;
+  created_at: string;
+}
+
 export interface Order {
   id: string;
   booking_reference?: string;

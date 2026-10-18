@@ -26,11 +26,13 @@ import {
   CalendarDays,
   Download,
   Printer,
-  Landmark
+  Landmark,
+  MessageSquare
 } from 'lucide-react';
 import { Order, OrderStatus, OrderProviderContact, OnsitePaymentMethod } from '../types/database';
 import { ReviewModal } from './ReviewModal';
 import { BookingVoucher } from './BookingVoucher';
+import { BookingMessageThread } from './BookingMessageThread';
 import { buildCalendarEventPayload, openGoogleCalendar, downloadIcsFile } from '../services/googleCalendarService';
 
 const PAYMENT_METHOD_LABEL: Record<OnsitePaymentMethod, string> = {
@@ -59,6 +61,7 @@ interface BookingDetailModalProps {
 export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, onClose }) => {
   const {
     currentUser,
+    currentProvider,
     programs,
     reviews,
     getUserReviewForOrder,
@@ -71,6 +74,7 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
   const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
+  const [messagesOpen, setMessagesOpen] = useState(false);
 
   const bookingCode = getBookingReference(order);
   const formattedBookingId = `#${bookingCode}`;
@@ -87,6 +91,14 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
   };
 
   const program = order.program || programs.find(p => p.id === order.program_id || p.slug === order.program_id);
+
+  // Kanban 2ffb61fa: a szerepkort NEM a profil role-jabol (admin sosem igazi
+  // fel), hanem a rendeles tenyleges tulajdonlasabol allapitjuk meg -- ez a
+  // modal mindket oldalrol (BookingsView=igenybevevo, ProviderBookingsPage=
+  // szolgaltato) ugyanazzal a komponenssel nyilik meg.
+  const isProviderViewer = !!(currentProvider && program && currentProvider.id === program.provider_id);
+  const isCustomerViewer = !isProviderViewer && !!(currentUser?.user_id && order.user_id === currentUser.user_id);
+  const canMessage = (isProviderViewer || isCustomerViewer) && !!order.user_id && !order.is_manual;
 
   useEffect(() => {
     let cancelled = false;
@@ -249,6 +261,42 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
               </button>
             </div>
           </div>
+
+          {/* Uzeneto -- kanban 2ffb61fa, csak a ket valodi felnek (lasd canMessage) */}
+          {canMessage && (
+            <div className="rounded-2xl border border-emerald-200/80 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setMessagesOpen(prev => !prev)}
+                className="w-full flex items-center justify-between gap-3 p-3.5 bg-emerald-50/70 hover:bg-emerald-50 transition-colors cursor-pointer"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-white border border-emerald-200 flex items-center justify-center text-emerald-600 shadow-2xs shrink-0">
+                    <MessageSquare className="w-5 h-5" />
+                  </div>
+                  <div className="text-left">
+                    <h5 className="font-bold text-xs sm:text-sm text-stone-900">
+                      Üzenet {isProviderViewer ? 'az igénybevevőnek' : 'a szolgáltatónak'}
+                    </h5>
+                    <p className="text-[11px] text-stone-500">
+                      {messagesOpen ? 'Bezárás' : 'Közvetlen üzenetküldés a foglaláshoz'}
+                    </p>
+                  </div>
+                </div>
+              </button>
+              {messagesOpen && (
+                <div className="p-3">
+                  <BookingMessageThread
+                    orderId={order.id}
+                    senderRole={isProviderViewer ? 'provider' : 'customer'}
+                    senderId={currentUser.user_id}
+                    otherPartyLabel={isProviderViewer ? 'az igénybevevőnek' : 'a szolgáltatónak'}
+                    compact
+                  />
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Booking data */}
           <div className="bg-stone-50 rounded-2xl border border-stone-200/80 p-4 space-y-2 text-sm text-stone-700">
