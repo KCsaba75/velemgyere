@@ -324,29 +324,29 @@ export const ProviderDashboard: React.FC = () => {
             <p className="text-xs text-stone-400 mb-2">
               Ez minden programodra érvényes, nem állítható program-szintenként. A vásárló csak az itt bejelölt módok közül választhat Véglegesítésnél.
             </p>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => toggleProfilePaymentMethod('cash')}
-                className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-semibold border cursor-pointer transition-colors ${
-                  profileForm.accepted_payment_methods.includes('cash')
-                    ? 'bg-emerald-600 border-emerald-600 text-white'
-                    : 'bg-stone-50 border-stone-300 text-stone-600 hover:bg-stone-100'
-                }`}
-              >
-                <Banknote className="w-3.5 h-3.5" /> Készpénz
-              </button>
-              <button
-                type="button"
-                onClick={() => toggleProfilePaymentMethod('revolut')}
-                className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-semibold border cursor-pointer transition-colors ${
-                  profileForm.accepted_payment_methods.includes('revolut')
-                    ? 'bg-emerald-600 border-emerald-600 text-white'
-                    : 'bg-stone-50 border-stone-300 text-stone-600 hover:bg-stone-100'
-                }`}
-              >
-                <Wallet className="w-3.5 h-3.5" /> Revolut
-              </button>
+            <div className="space-y-2">
+              <label className="flex items-center justify-between gap-4 p-3 rounded-xl border border-stone-200 cursor-pointer hover:bg-stone-50 transition-colors">
+                <span className="flex items-center gap-2 text-xs font-semibold text-stone-700">
+                  <Banknote className="w-3.5 h-3.5 text-stone-400" /> Készpénz
+                </span>
+                <input
+                  type="checkbox"
+                  checked={profileForm.accepted_payment_methods.includes('cash')}
+                  onChange={() => toggleProfilePaymentMethod('cash')}
+                  className="w-5 h-5 accent-emerald-600 cursor-pointer"
+                />
+              </label>
+              <label className="flex items-center justify-between gap-4 p-3 rounded-xl border border-stone-200 cursor-pointer hover:bg-stone-50 transition-colors">
+                <span className="flex items-center gap-2 text-xs font-semibold text-stone-700">
+                  <Wallet className="w-3.5 h-3.5 text-stone-400" /> Revolut
+                </span>
+                <input
+                  type="checkbox"
+                  checked={profileForm.accepted_payment_methods.includes('revolut')}
+                  onChange={() => toggleProfilePaymentMethod('revolut')}
+                  className="w-5 h-5 accent-emerald-600 cursor-pointer"
+                />
+              </label>
             </div>
           </div>
 
