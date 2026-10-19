@@ -166,7 +166,7 @@ export type OrderBucket = 'upcoming' | 'past' | 'cancelled';
 
 export function getOrderBucket(order: Order, programs: Program[]): OrderBucket {
   if (order.status === 'cancelled') return 'cancelled';
-  const dateStr = order.event_date || order.program?.event_date || programs.find(p => p.id === order.program_id)?.event_date;
+  const dateStr = order.event_date || order.occurrence?.event_date || order.program?.event_date || programs.find(p => p.id === order.program_id)?.event_date;
   if (!dateStr) return 'upcoming';
   const eventDate = new Date(dateStr);
   if (isNaN(eventDate.getTime())) return 'upcoming';
@@ -2069,6 +2069,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const netAmount = (targetProg?.price || 0) * data.participants_count;
     const feeAmount = isManual ? 0 : Math.max(0, data.total_price - netAmount);
 
+    let resolvedEventDate = data.event_date || null;
+    let resolvedStartTime = data.start_time || null;
+
+    if (!resolvedEventDate && data.occurrence_id && isSupabaseConfigured) {
+      try {
+        const { data: occRow } = await supabase
+          .from('program_occurrences')
+          .select('event_date, start_time')
+          .eq('id', data.occurrence_id)
+          .maybeSingle();
+        if (occRow) {
+          resolvedEventDate = occRow.event_date || null;
+          resolvedStartTime = occRow.start_time || resolvedStartTime;
+        }
+      } catch (e) {
+        console.error('Error fetching occurrence date:', e);
+      }
+    }
+
     // Fallback base order object
     const baseOrder: Order = {
       id: bookingRef,
@@ -2089,8 +2108,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       manual_customer_name: data.manual_customer_name,
       manual_customer_phone: data.manual_customer_phone,
       manual_customer_email: data.manual_customer_email,
-      event_date: data.event_date || null,
-      start_time: data.start_time || null,
+      event_date: resolvedEventDate,
+      start_time: resolvedStartTime,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       program: targetProg,
@@ -2132,8 +2151,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       manual_customer_name: data.manual_customer_name,
       manual_customer_phone: data.manual_customer_phone,
       manual_customer_email: data.manual_customer_email,
-      event_date: data.event_date || null,
-      start_time: data.start_time || null,
+      event_date: resolvedEventDate,
+      start_time: resolvedStartTime,
     };
 
     let insertedRow: any = null;

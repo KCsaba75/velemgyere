@@ -147,7 +147,7 @@ export const ProviderMessagesPage: React.FC = () => {
                   senderRole="provider"
                   senderId={currentUser.user_id}
                   otherPartyLabel="az igénybevevő"
-                  canSend={isBookingMessageWriteWindowOpen(selectedOrder.event_date || selectedProgram?.event_date)}
+                  canSend={isBookingMessageWriteWindowOpen(selectedOrder.event_date || selectedOrder.occurrence?.event_date || selectedProgram?.event_date)}
                 />
               </div>
             ) : (

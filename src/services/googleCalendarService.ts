@@ -57,9 +57,9 @@ export function buildCalendarEventPayload(
   const progTitle = program?.title || order.program?.title || 'Velem Gyere Program';
   const location = program?.departure_location || program?.location || program?.region?.name || 'Helyszín megegyezés szerint';
   
-  const rawDate = occurrence?.event_date || program?.event_date || order.created_at;
+  const rawDate = order.event_date || occurrence?.event_date || order.program?.event_date || program?.event_date || order.created_at;
   const dateStr = rawDate ? (rawDate.includes('T') ? rawDate.split('T')[0] : rawDate) : new Date().toISOString().split('T')[0];
-  const timeStr = occurrence?.start_time || program?.start_time || '10:00';
+  const timeStr = order.start_time || occurrence?.start_time || order.program?.start_time || program?.start_time || '10:00';
   
   let duration = 2.5;
   if (program?.duration) {

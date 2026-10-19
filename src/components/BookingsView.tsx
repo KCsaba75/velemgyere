@@ -202,7 +202,10 @@ export const BookingsView: React.FC = () => {
                     )}
                   </div>
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-stone-500">
-                    <span>{formatDate(order.created_at)}</span>
+                    <span>
+                      📅 {formatDate(order.event_date || order.occurrence?.event_date || prog?.event_date || order.created_at)}
+                      {(order.start_time || order.occurrence?.start_time) && ` (${order.start_time || order.occurrence?.start_time})`}
+                    </span>
                     <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5" />{order.participants_count} fő</span>
                     <span className="font-semibold text-stone-700">{formatPrice(order.total_price)} {order.currency === 'EUR' ? '€' : order.currency}</span>
                     <span className={`text-[11px] font-bold px-2 py-0.5 rounded-lg border ${ORDER_STATUS_CLASS[order.status]}`}>

@@ -109,7 +109,9 @@ export const BookingCheckoutModal: React.FC<BookingCheckoutModalProps> = ({
     try {
       const result = await createOrder({
         program_id: program.id,
-        occurrence_id: selectedOccurrenceId || null,
+        occurrence_id: selectedOccurrenceId || selectedOccurrence?.id || null,
+        event_date: selectedOccurrence?.event_date || null,
+        start_time: selectedOccurrence?.start_time || null,
         participants_count: participantsCount,
         total_price: total,
         currency: program.currency,
