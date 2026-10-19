@@ -1401,13 +1401,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return { success: true, message: 'Kifizetési kérelmed rögzítettük, hamarosan feldolgozzuk.' };
   };
 
-  // Kanban e3d1d669 point 6 (fiok vegleges torlese). A delete_my_account() RPC
-  // migraciojat (auth.users SAJAT sorának torlese, security definer) a destruktiv-SQL
-  // jovahagyasi kapu ismetelten elutasitotta ebben a sessionben -- szandekosan NEM
-  // erőltettem at, ez Csaba dontesere var (lasd kanban-komment). A fuggveny itt a
-  // RPC-t MEGIS meghivja: amig nincs eleösítve, a Supabase egy valodi "function does
-  // not exist" hibat ad vissza, amit ide forditunk emberi uzenette -- igy a UI oszinte
-  // (nem egy nema no-op gomb), es automatikusan elkezd mukodni, amint az RPC elesedik.
+  // Kanban e494046c (fiok vegleges torlese). A delete_my_account() RPC elesitve
+  // (auth.users SAJAT sorának torlese auth.uid()-bol, security definer) -- Csaba
+  // dontese (2026-10-19): teljes kaszkad-torles, nincs anonimizalt megorzes.
+  // orders/reviews/favorites/credit_transactions/profiles/providers mind ON DELETE
+  // CASCADE auth.users(id)-ra, tehat a sajat auth.users-sor torlese eleg. Valodi
+  // teszt-userrel vegig-igazolva dev-en (signup -> torles -> profil+auth.users sor
+  // is eltunt, anon hivas 401-et kap).
   const deleteMyAccount = async (): Promise<{ success: boolean; message: string }> => {
     if (!isAuthenticated || !currentUser?.user_id) {
       return { success: false, message: 'Nincs bejelentkezve.' };
@@ -1420,7 +1420,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.error('delete_my_account failed:', error);
       return {
         success: false,
-        message: 'A végleges törlés háttérfunkciója még nincs élesítve -- Csaba jóváhagyására vár.',
+        message: `A fiók törlése sikertelen: ${error.message}`,
       };
     }
     await supabase.auth.signOut();
