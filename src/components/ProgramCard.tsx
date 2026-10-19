@@ -137,7 +137,10 @@ export const ProgramCard: React.FC<ProgramCardProps> = ({ program, onSelect }) =
 
         {/* Price Tag overlay on image */}
         <div className="absolute bottom-3 right-3 bg-emerald-600/95 backdrop-blur-sm text-white px-2.5 sm:px-3 py-1 rounded-xl shadow-lg font-bold text-xs sm:text-sm z-10">
-          <span className="font-extrabold">{formatPrice(displayPrice)} {program.currency === 'EUR' ? '€' : program.currency}/fő</span>
+          <span className="font-extrabold">
+            {formatPrice(displayPrice)} {program.currency === 'EUR' ? '€' : program.currency}
+            {program.pricing_mode === 'tiered' ? '/túra-tól' : '/fő'}
+          </span>
         </div>
       </div>
 

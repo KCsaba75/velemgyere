@@ -126,7 +126,8 @@ export const FavoriteFolderModal: React.FC = () => {
               {folderModalProgram.title}
             </h4>
             <p className="text-xs font-extrabold text-emerald-700 mt-0.5">
-              {formatPrice(folderModalProgram.price)} {folderModalProgram.currency === 'EUR' ? '€' : folderModalProgram.currency}/fő
+              {formatPrice(folderModalProgram.price)} {folderModalProgram.currency === 'EUR' ? '€' : folderModalProgram.currency}
+              {folderModalProgram.pricing_mode === 'tiered' ? '/túra-tól' : '/fő'}
             </p>
           </div>
         </div>

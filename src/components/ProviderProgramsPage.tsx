@@ -275,7 +275,7 @@ export const ProviderProgramsPage: React.FC<ProviderProgramsPageProps> = ({ onOp
                           <span className="flex items-center gap-1">📅 {prog.event_date}</span>
                           <span className="flex items-center gap-1 font-bold text-emerald-800">
                             💰 {prog.pricing_mode === 'tiered'
-                              ? 'Sávos (csoportos) árazás'
+                              ? `${formatPrice(prog.price)} ${prog.currency === 'EUR' ? '€' : prog.currency}/túra-tól (Sávos)`
                               : `${formatPrice(prog.price)} ${prog.currency === 'EUR' ? '€' : prog.currency}/fő`}
                           </span>
                         </div>

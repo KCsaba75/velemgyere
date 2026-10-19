@@ -482,7 +482,7 @@ export const AdminDashboard: React.FC = () => {
                           <span>📍 {prog.location}</span>
                           <span>📅 {prog.event_date}</span>
                           <span className="font-bold text-emerald-800">
-                            💰 {formatPrice(prog.price)} {prog.currency === 'EUR' ? '€' : prog.currency}/fő
+                            💰 {formatPrice(prog.price)} {prog.currency === 'EUR' ? '€' : prog.currency}{prog.pricing_mode === 'tiered' ? '/túra-tól' : '/fő'}
                           </span>
                         </div>
                       </div>

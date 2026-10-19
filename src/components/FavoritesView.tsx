@@ -176,7 +176,7 @@ export const FavoritesView: React.FC = () => {
   };
 
   const handleShareList = (title: string, programsToShare: typeof allFavoritePrograms) => {
-    const listSummary = programsToShare.map((p, i) => `${i + 1}. ${p.title} (${formatPrice(p.price)} €/fő - ${p.country || p.region?.name})`).join('\n');
+    const listSummary = programsToShare.map((p, i) => `${i + 1}. ${p.title} (${formatPrice(p.price)} €${p.pricing_mode === 'tiered' ? '/túra-tól' : '/fő'} - ${p.country || p.region?.name})`).join('\n');
     const textToCopy = `📌 ${title} - Velem Gyere:\n\n${listSummary}\n\nFedezd fel: ${window.location.origin}/kedvencek`;
 
     if (navigator.clipboard) {

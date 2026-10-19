@@ -486,7 +486,7 @@ export const ProgramDetailView: React.FC = () => {
                 lowestTier ? (
                   <>
                     {formatPrice(computeTotalPrice(lowestTier.total_price))} {program.currency === 'EUR' ? '€' : program.currency}
-                    <span className="text-xs sm:text-sm font-normal text-emerald-100"> -tól / csoport</span>
+                    <span className="text-xs sm:text-sm font-normal text-emerald-100">/túra-tól</span>
                   </>
                 ) : (
                   <span className="text-xs sm:text-sm font-normal">Ár hamarosan</span>
@@ -703,7 +703,7 @@ export const ProgramDetailView: React.FC = () => {
                         <span className="text-3xl sm:text-4xl font-extrabold text-stone-900 font-display">
                           {formatPrice(computeTotalPrice(lowestTier.total_price))} {program.currency === 'EUR' ? '€' : program.currency}
                         </span>
-                        <span className="text-xs text-stone-500 font-medium"> -tól / csoport</span>
+                        <span className="text-xs text-stone-500 font-medium">/túra-tól</span>
                       </>
                     ) : (
                       <span className="text-sm text-stone-500 font-medium">Ár hamarosan</span>
