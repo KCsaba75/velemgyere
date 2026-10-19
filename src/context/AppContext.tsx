@@ -1771,10 +1771,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       included: data.included || [],
       not_included: data.not_included || [],
       max_participants: data.max_participants ? Number(data.max_participants) : null,
-      // Kanban b73c3ee2 (2026-10-09): uj program admin-jovahagyas nelkul egyenesen
-      // publikus -- a 'pending_review' admin-gate kiesett ebbol az agbol. 'draft' csak
-      // akkor, ha a szolgaltato explicit piszkozatkent menti.
-      status: currentUser.role === 'admin' ? (data.status || 'published') : (data.status === 'draft' ? 'draft' : 'published'),
+      status: currentUser.role === 'admin' ? (data.status || 'published') : (data.status === 'published' ? 'published' : 'draft'),
       featured: Boolean(data.featured),
     };
 

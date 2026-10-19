@@ -75,8 +75,8 @@ export const NewProgramModal: React.FC<NewProgramModalProps> = ({ isOpen, onClos
   const [uploadingCount, setUploadingCount] = useState(0);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
-  // Status choice: default to published (or match existing program)
-  const [status, setStatus] = useState<ProgramStatus>('published');
+  // Status choice: default to draft (or match existing program)
+  const [status, setStatus] = useState<ProgramStatus>('draft');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Synchronize state when opening or when programToEdit changes
@@ -110,7 +110,7 @@ export const NewProgramModal: React.FC<NewProgramModalProps> = ({ isOpen, onClos
           }
         ]);
       }
-      setStatus(programToEdit.status === 'draft' ? 'draft' : 'published');
+      setStatus(programToEdit.status === 'published' ? 'published' : 'draft');
     } else {
       setTitle('');
       setRegionId(regions[0]?.id || '');
@@ -141,7 +141,7 @@ export const NewProgramModal: React.FC<NewProgramModalProps> = ({ isOpen, onClos
           isCover: true
         }
       ]);
-      setStatus('published');
+      setStatus('draft');
     }
   }, [isOpen, programToEdit, regions, categories]);
 
