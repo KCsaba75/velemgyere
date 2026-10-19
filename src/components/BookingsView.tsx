@@ -1,9 +1,18 @@
 import React, { useState } from 'react';
-import { useApp, formatPrice, getBookingReference } from '../context/AppContext';
+import { useApp, formatPrice, getBookingReference, getOrderBucket, OrderBucket } from '../context/AppContext';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
-import { Ticket, Compass, Eye, Sparkles, ArrowRight, Users } from 'lucide-react';
+import { Ticket, Compass, Eye, Sparkles, ArrowRight, Users, History, XCircle } from 'lucide-react';
 import { Order, OrderStatus } from '../types/database';
 import { BookingDetailModal } from './BookingDetailModal';
+
+// Kanban 5ef2d0b8 (Csaba kérése): fő nézet = upcoming (pending/confirmed, nem
+// múltbeli), két külön fül a Múltbelinek és a Lemondottnak -- lásd getOrderBucket
+// (AppContext.tsx) a pontos bucket-elési logikáért.
+const TABS: { key: OrderBucket; label: string }[] = [
+  { key: 'upcoming', label: 'Aktuális' },
+  { key: 'past', label: 'Múltbeli' },
+  { key: 'cancelled', label: 'Lemondott' },
+];
 
 const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
   pending: 'Függőben',
@@ -31,6 +40,7 @@ export const BookingsView: React.FC = () => {
   useDocumentMeta('Foglalásaim', 'Korábbi és aktuális helyfoglalásaid egy áttekinthető listában.');
 
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<OrderBucket>('upcoming');
 
   if (!isAuthenticated) {
     return (
@@ -75,12 +85,16 @@ export const BookingsView: React.FC = () => {
     );
   }
 
-  // Legújabb foglalás felül (kanban 4a2bbf40 point 1) -- a context mar created_at
-  // szerint csokkeno sorrendben tolti be/prependeli az orders tombot, ez a sort csak
-  // a garancia, nem a fetch/insert sorrendjetol fuggoen.
-  const sortedOrders = [...orders].sort(
-    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-  );
+  // Kanban 5ef2d0b8: bucket-enkent csoportositva (lasd getOrderBucket), majd a
+  // kivalasztott fulon belul a mar meglevo legujabb-felul rendezes (kanban
+  // 4a2bbf40 point 1) -- a context mar created_at szerint csokkeno sorrendben
+  // tolti be/prependeli az orders tombot, ez a sort csak a garancia.
+  const bucketCounts: Record<OrderBucket, number> = { upcoming: 0, past: 0, cancelled: 0 };
+  orders.forEach(o => { bucketCounts[getOrderBucket(o, programs)]++; });
+
+  const sortedOrders = orders
+    .filter(o => getOrderBucket(o, programs) === activeTab)
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
   const selectedOrder = selectedOrderId ? orders.find(o => o.id === selectedOrderId) || null : null;
 
@@ -101,10 +115,35 @@ export const BookingsView: React.FC = () => {
         </div>
         <div>
           <h1 className="font-display text-xl sm:text-2xl sm:text-3xl font-extrabold text-stone-900 leading-tight">
-            Foglalásaim ({orders.length})
+            Foglalásaim ({bucketCounts[activeTab]})
           </h1>
           <p className="text-xs sm:text-sm text-stone-500">{currentUser?.name || currentUser?.email}</p>
         </div>
+      </div>
+
+      {/* Fülek: Aktuális / Múltbeli / Lemondott -- kanban 5ef2d0b8 */}
+      <div className="flex items-center gap-1.5 mb-5 border-b border-stone-200">
+        {TABS.map(tab => (
+          <button
+            key={tab.key}
+            type="button"
+            onClick={() => setActiveTab(tab.key)}
+            className={`px-3.5 py-2.5 text-sm font-bold rounded-t-lg transition-colors cursor-pointer -mb-px border-b-2 flex items-center gap-1.5 ${
+              activeTab === tab.key
+                ? 'border-emerald-600 text-emerald-700'
+                : 'border-transparent text-stone-500 hover:text-stone-700'
+            }`}
+          >
+            {tab.key === 'past' && <History className="w-3.5 h-3.5" />}
+            {tab.key === 'cancelled' && <XCircle className="w-3.5 h-3.5" />}
+            <span>{tab.label}</span>
+            <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full ${
+              activeTab === tab.key ? 'bg-emerald-100 text-emerald-700' : 'bg-stone-100 text-stone-500'
+            }`}>
+              {bucketCounts[tab.key]}
+            </span>
+          </button>
+        ))}
       </div>
 
       {sortedOrders.length === 0 ? (
@@ -114,12 +153,19 @@ export const BookingsView: React.FC = () => {
           </div>
           <div>
             <h3 className="font-display font-bold text-lg text-stone-900">
-              Még nincs helyfoglalásod
+              {orders.length === 0
+                ? 'Még nincs helyfoglalásod'
+                : activeTab === 'past'
+                ? 'Nincs múltbeli foglalásod'
+                : 'Nincs lemondott foglalásod'}
             </h3>
             <p className="text-xs sm:text-sm text-stone-500 mt-1 leading-relaxed">
-              A programok részletes nézetén foglalhatsz helyet magyar nyelvű vezetéssel.
+              {orders.length === 0
+                ? 'A programok részletes nézetén foglalhatsz helyet magyar nyelvű vezetéssel.'
+                : 'Ezen a fülön jelenleg nincs megjeleníthető foglalás.'}
             </p>
           </div>
+          {orders.length === 0 && (
           <button
             type="button"
             onClick={() => { setCurrentView('programs'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
@@ -128,6 +174,7 @@ export const BookingsView: React.FC = () => {
             <Compass className="w-4 h-4" />
             <span>Programok felfedezése</span>
           </button>
+          )}
         </div>
       ) : (
         <div className="space-y-3">

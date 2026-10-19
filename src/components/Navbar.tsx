@@ -1,5 +1,5 @@
 import React from 'react';
-import { useApp } from '../context/AppContext';
+import { useApp, getOrderBucket } from '../context/AppContext';
 import {
   ShieldCheck,
   Briefcase,
@@ -80,9 +80,12 @@ export const Navbar: React.FC<NavbarProps> = ({
           .map(p => p.id)
       )
     : null;
+  // Kanban 5ef2d0b8 (Csaba kérése): vásárlóként a badge CSAK a "upcoming" (pending/
+  // confirmed, nem múltbeli) bucket méretét mutatja -- lemondott/múltbeli nem
+  // számít bele, ugyanaz a bucket-elés mint a Foglalásaim lap fő nézetén.
   const providerOwnOrdersCount = isProvider
     ? orders.filter(o => providerOwnProgramIds!.has(o.program_id) || providerOwnProgramIds!.size === 0).length
-    : orders.length;
+    : orders.filter(o => getOrderBucket(o, programs) === 'upcoming').length;
 
   const handleAccountClick = () => {
     if (!isAuthenticated) {

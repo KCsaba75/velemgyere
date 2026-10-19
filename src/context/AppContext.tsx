@@ -153,6 +153,29 @@ export function getBookingReference(orderOrId?: { id?: string; booking_reference
   return `VG-${CURRENT_BOOKING_YEAR}-${num}`;
 }
 
+// Kanban 5ef2d0b8 (Csaba kérése): a vásárlói Foglalásaim lap fő nézete CSAK
+// pending/confirmed foglalást mutat, a Múltbeli és Lemondott külön fülre kerül --
+// ugyanez a bucket-elés adja a nav-badge számát is (csak 'upcoming'). Lemondva
+// mindig a "Lemondott" fülre megy, függetlenül a dátumtól. A dátum-összevetéshez
+// a BookingDetailModal-ban is már használt konvenciót követjük: order.event_date,
+// ha az üres, a program event_date-je (lásd kanban 97ca24ba send-booking-email
+// Edge Function, ami occurrence_id-t is néz -- itt szándékosan nem megyünk ilyen
+// mélyre, a meglévő frontend-konvenciót tartjuk, külön feladat lenne occurrence-re
+// bővíteni mindkét helyen egyszerre).
+export type OrderBucket = 'upcoming' | 'past' | 'cancelled';
+
+export function getOrderBucket(order: Order, programs: Program[]): OrderBucket {
+  if (order.status === 'cancelled') return 'cancelled';
+  const dateStr = order.event_date || order.program?.event_date || programs.find(p => p.id === order.program_id)?.event_date;
+  if (!dateStr) return 'upcoming';
+  const eventDate = new Date(dateStr);
+  if (isNaN(eventDate.getTime())) return 'upcoming';
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  eventDate.setHours(0, 0, 0, 0);
+  return eventDate < today ? 'past' : 'upcoming';
+}
+
 interface AppContextType {
   // Navigation. currentView/setCurrentView are a compatibility shim over real
   // react-router URLs (16241c32) -- currentView is derived from location.pathname,
