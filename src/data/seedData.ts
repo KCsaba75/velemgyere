@@ -1183,8 +1183,8 @@ export const INITIAL_FAVORITE_FOLDERS: FavoriteFolder[] = [
   {
     id: 'f0000000-0000-4000-8000-000000000001',
     user_id: 'user-visitor',
-    name: 'Általános kedvencek',
-    description: 'Bármikor mentett kedvenc programjaim egy helyen',
+    name: 'Bakancslista',
+    description: 'Utazási terveim és elmentett Bakancslista programjaim',
     color: 'emerald',
     icon: 'heart',
     is_default: true,

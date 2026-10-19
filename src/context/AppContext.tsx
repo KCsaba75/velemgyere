@@ -955,13 +955,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
             folders = uniqueFolders;
 
-            // 2. If folders exist, ensure at least one folder is marked is_default
-            if (folders.length > 0) {
+            // 2. If no folders exist yet for this user, create default "Bakancslista" folder
+            if (folders.length === 0) {
+              const defaultBakancslista: FavoriteFolder = {
+                id: generateUUID(),
+                user_id: userId,
+                name: 'Bakancslista',
+                description: 'Utazási terveim és elmentett Bakancslista programjaim',
+                color: 'emerald',
+                icon: 'heart',
+                is_default: true,
+                created_at: new Date().toISOString()
+              };
+              folders = [defaultBakancslista];
+              if (isSupabaseConfigured) {
+                supabase.from('favorite_folders').insert([defaultBakancslista]).then(() => {}, (err) => console.error('Bakancslista creation error:', err));
+              }
+            } else {
               const hasDefault = folders.some(f => f.is_default);
               if (!hasDefault) {
-                const preferred = folders.find(f => f.name.toLowerCase() === 'általános kedvencek') || folders[0];
+                const preferred = folders.find(f => f.name.toLowerCase() === 'bakancslista') ||
+                  folders.find(f => f.name.toLowerCase() === 'általános kedvencek') ||
+                  folders[0];
                 preferred.is_default = true;
-                supabase.from('favorite_folders').update({ is_default: true }).eq('id', preferred.id).eq('user_id', userId).then(() => {}, () => {});
+                if (isSupabaseConfigured) {
+                  supabase.from('favorite_folders').update({ is_default: true }).eq('id', preferred.id).eq('user_id', userId).then(() => {}, () => {});
+                }
               }
             }
 
@@ -2767,6 +2786,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     let defaultFolder = userFavoriteFolders.find((f: FavoriteFolder) => f.is_default) ||
+      userFavoriteFolders.find((f: FavoriteFolder) => f.name.toLowerCase() === 'bakancslista') ||
       userFavoriteFolders.find((f: FavoriteFolder) => f.name.toLowerCase() === 'általános kedvencek') ||
       userFavoriteFolders[0];
     let targetFolderId = folderId || defaultFolder?.id;
@@ -2775,7 +2795,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // Check if an existing folder already exists in rawFavoriteFolders for this user
       const existingFolder = rawFavoriteFolders.find(f =>
         f.user_id === currentUser.user_id &&
-        (f.is_default || f.name.toLowerCase() === 'általános kedvencek')
+        (f.is_default || f.name.toLowerCase() === 'bakancslista' || f.name.toLowerCase() === 'általános kedvencek')
       ) || rawFavoriteFolders.find(f => f.user_id === currentUser.user_id);
 
       if (existingFolder) {
@@ -2785,8 +2805,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const newDefaultFolder: FavoriteFolder = {
           id: generateUUID(),
           user_id: currentUser.user_id,
-          name: 'Általános kedvencek',
-          description: 'Bármikor mentett kedvenc programjaim egy helyen',
+          name: 'Bakancslista',
+          description: 'Utazási terveim és elmentett Bakancslista programjaim',
           color: 'emerald',
           icon: 'heart',
           is_default: true,
@@ -3149,6 +3169,57 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
       return;
     }
+
+    // Ensure user has a default folder named "Bakancslista"
+    let defaultFolder = userFavoriteFolders.find((f: FavoriteFolder) => f.is_default) ||
+      userFavoriteFolders.find((f: FavoriteFolder) => f.name.toLowerCase() === 'bakancslista') ||
+      userFavoriteFolders.find((f: FavoriteFolder) => f.name.toLowerCase() === 'általános kedvencek') ||
+      userFavoriteFolders[0];
+
+    if (!defaultFolder) {
+      const newBakancslistaFolder: FavoriteFolder = {
+        id: generateUUID(),
+        user_id: currentUser.user_id,
+        name: 'Bakancslista',
+        description: 'Utazási terveim és elmentett Bakancslista programjaim',
+        color: 'emerald',
+        icon: 'heart',
+        is_default: true,
+        created_at: new Date().toISOString()
+      };
+      setRawFavoriteFolders(prev => [newBakancslistaFolder, ...prev]);
+      if (isSupabaseConfigured) {
+        supabase.from('favorite_folders').insert([newBakancslistaFolder]).then(() => {}, (err) => console.error('Error creating default folder:', err));
+      }
+      defaultFolder = newBakancslistaFolder;
+    }
+
+    // "a szivecskére kattintás esetén ez legyen kiválasztva a felugróban!"
+    // If the program is not in any folder yet, automatically select/add it to Bakancslista so it is checked in the popup
+    const resolvedId = program.id;
+    const currentFolderIds = userFavorites
+      .filter((f: FavoriteItem) => f.user_id === currentUser.user_id && (f.program_id === resolvedId || f.program_id === program.slug))
+      .map((f: FavoriteItem) => f.folder_id);
+
+    if (currentFolderIds.length === 0 && defaultFolder) {
+      const newFav: FavoriteItem = {
+        id: generateUUID(),
+        user_id: currentUser.user_id,
+        program_id: resolvedId,
+        folder_id: defaultFolder.id,
+        added_at: new Date().toISOString()
+      };
+      setRawFavorites(prev => [newFav, ...prev]);
+      if (isSupabaseConfigured) {
+        supabase.from('favorites').insert([newFav]).then(() => {}, () => {});
+      }
+      setFavoriteToast({
+        message: `Mentve a Bakancslistához: ${program.title}`,
+        program: program,
+        folderName: defaultFolder.name
+      });
+    }
+
     setFolderModalProgram(program);
   };
 

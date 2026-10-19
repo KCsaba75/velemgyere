@@ -67,6 +67,12 @@ export function createMockSupabaseClient(options: MockSupabaseOptions = {}) {
       signOut: vi.fn(async () => ({ error: null })),
     },
     from: vi.fn((table: string) => createQueryBuilder(tables[table] || (() => ({ data: [], error: null })))),
+    rpc: vi.fn(async () => ({ data: [], error: null })),
+    channel: vi.fn(() => ({
+      on: vi.fn().mockReturnThis(),
+      subscribe: vi.fn().mockReturnThis(),
+    })),
+    removeChannel: vi.fn(),
     storage: {
       listBuckets: vi.fn(async () => ({ data: [], error: null })),
     },
