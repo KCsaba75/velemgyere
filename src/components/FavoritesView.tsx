@@ -355,14 +355,16 @@ export const FavoritesView: React.FC = () => {
                       >
                         <Edit3 className="w-3.5 h-3.5" />
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => setFolderToDelete(folder)}
-                        className="p-2 rounded-xl text-rose-600 hover:text-rose-800 bg-white hover:bg-rose-50 border border-rose-200 transition-colors cursor-pointer"
-                        title="Lista törlése a benne lévő programokkal együtt"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      {!folder.is_default && folder.name.toLowerCase() !== 'bakancslista' && (
+                        <button
+                          type="button"
+                          onClick={() => setFolderToDelete(folder)}
+                          className="p-2 rounded-xl text-rose-600 hover:text-rose-800 bg-white hover:bg-rose-50 border border-rose-200 transition-colors cursor-pointer"
+                          title="Lista törlése a benne lévő programokkal együtt"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -494,15 +496,17 @@ export const FavoritesView: React.FC = () => {
                             <Edit3 className="w-4 h-4 text-stone-500" />
                             <span>Szerkesztés</span>
                           </button>
-                          <button
-                            type="button"
-                            role="menuitem"
-                            onClick={() => { setFolderToDelete(folder); setOpenMenuFolderId(null); }}
-                            className="w-full px-3.5 py-2.5 text-left text-sm text-rose-600 hover:bg-rose-50 flex items-center gap-2 cursor-pointer border-t border-stone-100"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                            <span>Törlés</span>
-                          </button>
+                          {!folder.is_default && folder.name.toLowerCase() !== 'bakancslista' && (
+                            <button
+                              type="button"
+                              role="menuitem"
+                              onClick={() => { setFolderToDelete(folder); setOpenMenuFolderId(null); }}
+                              className="w-full px-3.5 py-2.5 text-left text-sm text-rose-600 hover:bg-rose-50 flex items-center gap-2 cursor-pointer border-t border-stone-100"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              <span>Törlés</span>
+                            </button>
+                          )}
                         </div>
                       )}
                     </div>
@@ -722,18 +726,24 @@ export const FavoritesView: React.FC = () => {
               </div>
 
               <div className="flex items-center justify-between pt-3 border-t border-stone-100">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const toDel = editingFolder;
-                    setEditingFolder(null);
-                    setFolderToDelete(toDel);
-                  }}
-                  className="px-3 py-2 text-rose-600 hover:bg-rose-50 border border-rose-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>Lista törlése</span>
-                </button>
+                {!editingFolder.is_default && editingFolder.name.toLowerCase() !== 'bakancslista' ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const toDel = editingFolder;
+                      setEditingFolder(null);
+                      setFolderToDelete(toDel);
+                    }}
+                    className="px-3 py-2 text-rose-600 hover:bg-rose-50 border border-rose-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Lista törlése</span>
+                  </button>
+                ) : (
+                  <div className="text-xs text-stone-400 font-semibold italic">
+                    Alapértelmezett lista (nem törölhető)
+                  </div>
+                )}
 
                 <div className="flex items-center gap-2">
                   <button

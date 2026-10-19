@@ -2971,6 +2971,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const folder = rawFavoriteFolders.find((f: FavoriteFolder) => f.id === id);
     if (!folder) return;
 
+    if (folder.is_default || folder.name.trim().toLowerCase() === 'bakancslista') {
+      setFavoriteToast({ message: 'A Bakancslista az alapértelmezett mappa, nem törölhető.' });
+      return;
+    }
+
     const folderUserId = folder.user_id || currentUser?.user_id;
 
     // Remaining folders for this user

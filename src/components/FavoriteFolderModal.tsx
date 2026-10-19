@@ -190,19 +190,21 @@ export const FavoriteFolderModal: React.FC = () => {
                   <span className="text-xs font-semibold text-stone-400">
                     {folderCount} tétel
                   </span>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      e.preventDefault();
-                      deleteFavoriteFolder(folder.id, true);
-                    }}
-                    className="p-1.5 text-stone-300 hover:text-rose-600 rounded-lg hover:bg-stone-100 transition-colors cursor-pointer"
-                    title={`„${folder.name}” lista törlése a programokkal együtt`}
-                    aria-label={`„${folder.name}” lista törlése`}
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  {!folder.is_default && folder.name.toLowerCase() !== 'bakancslista' && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        deleteFavoriteFolder(folder.id, true);
+                      }}
+                      className="p-1.5 text-stone-300 hover:text-rose-600 rounded-lg hover:bg-stone-100 transition-colors cursor-pointer"
+                      title={`„${folder.name}” lista törlése a programokkal együtt`}
+                      aria-label={`„${folder.name}” lista törlése`}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
               </div>
             );
