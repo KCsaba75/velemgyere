@@ -9,10 +9,11 @@
   {{PROVIDER_COMPANY_NAME}} {{PROVIDER_CONTACT_NAME}} {{PROVIDER_PHONE}}
   {{PROVIDER_EMAIL}} {{PROVIDER_WEBSITE}}
 
-  A szolgaltatoi elerhetoseg-blokk SZANDEKOSAN csak itt szerepel (nem a
-  foglalas-megtortent sablonban) -- az app sajat jogi modellje szerint
-  (get_provider_contact_for_order RPC) a szolgaltato elerhetosege csak CONFIRMED
-  rendelesnel jar a vasarlonak.
+  A szolgaltatoi elerhetoseg-blokk mostantol a foglalas-megtortent (pending)
+  sablonban IS szerepel -- Csaba korrekcioja (2026-10-19 08:26 Telegram, kartya
+  951a129f). A korabbi "csak confirmednel jar" feltetelezes teves volt: a
+  get_provider_contact_for_order RPC tenyleges SQL-je 'o.status in
+  (''pending'', ''confirmed'')', tehat nincs valodi RLS/technikai korlat.
 -->
 <!DOCTYPE html>
 <html lang="hu" xmlns="http://www.w3.org/1999/xhtml">

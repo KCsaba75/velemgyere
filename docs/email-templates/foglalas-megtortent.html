@@ -10,11 +10,15 @@
   {{DATE_FORMATTED}} {{START_TIME}} {{DURATION}} {{DEPARTURE_LOCATION}}
   {{PARTICIPANTS_COUNT}} {{INCLUDED_LIST}} {{TOTAL_PRICE}} {{ONSITE_AMOUNT}}
   {{ONSITE_PAYMENT_METHOD}} {{BOOKING_FEE}} {{BOOKING_DETAIL_URL}}
+  {{PROVIDER_COMPANY_NAME}} {{PROVIDER_CONTACT_NAME}} {{PROVIDER_PHONE}}
+  {{PROVIDER_EMAIL}} {{PROVIDER_WEBSITE}}
 
-  Szándékosan NEM tartalmaz szolgáltatói elérhetőséget (telefon/email) -- az app
-  sajátjogi modellje szerint (get_provider_contact_for_order RPC) a szolgáltató
-  elérhetősége csak CONFIRMED rendelésnél jár a vásárlónak. Lásd a masik sablont
-  (foglalas-visszaigazolva.html) a confirmed allapotra.
+  Csaba korrekcioja (2026-10-19 08:26 Telegram, kartya 951a129f): a szolgaltatoi
+  elerhetoseg EBBEN (pending) a sablonban is szerepeljen, nem csak a
+  visszaigazoltban. Ellenorizve: a get_provider_contact_for_order RPC tenyleges
+  SQL-je ('o.status in (''pending'', ''confirmed'')') MAR EDDIG IS engedte ezt --
+  a korabbi "csak confirmed" megszoritas egy felreertett kutatasi osszegzesen
+  alapulo, nem-kenyszeritett UI-dontes volt, nem valodi RLS/technikai korlat.
 -->
 <!DOCTYPE html>
 <html lang="hu" xmlns="http://www.w3.org/1999/xhtml">
@@ -86,6 +90,33 @@
                 <tr>
                   <td style="padding:10px 0; font-size:13px; color:#6b7280;">Résztvevők</td>
                   <td style="padding:10px 0; font-size:14px; color:#111827;">{{PARTICIPANTS_COUNT}} fő</td>
+                </tr>
+              </table>
+
+              <!-- provider contact block -->
+              <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 24px 0; background-color:#f0fdf4; border:1px solid #d1fae5; border-radius:10px; padding:16px;">
+                <tr>
+                  <td colspan="2" style="padding:0 0 8px 0; font-size:13px; font-weight:700; color:#065f46;">Szolgáltató elérhetősége</td>
+                </tr>
+                <tr>
+                  <td style="padding:3px 0; font-size:13px; color:#6b7280; width:110px;">Cég</td>
+                  <td style="padding:3px 0; font-size:14px; color:#111827;">{{PROVIDER_COMPANY_NAME}}</td>
+                </tr>
+                <tr>
+                  <td style="padding:3px 0; font-size:13px; color:#6b7280;">Kapcsolattartó</td>
+                  <td style="padding:3px 0; font-size:14px; color:#111827;">{{PROVIDER_CONTACT_NAME}}</td>
+                </tr>
+                <tr>
+                  <td style="padding:3px 0; font-size:13px; color:#6b7280;">Telefon</td>
+                  <td style="padding:3px 0; font-size:14px; color:#111827;">{{PROVIDER_PHONE}}</td>
+                </tr>
+                <tr>
+                  <td style="padding:3px 0; font-size:13px; color:#6b7280;">Email</td>
+                  <td style="padding:3px 0; font-size:14px; color:#111827;">{{PROVIDER_EMAIL}}</td>
+                </tr>
+                <tr>
+                  <td style="padding:3px 0; font-size:13px; color:#6b7280;">Weboldal</td>
+                  <td style="padding:3px 0; font-size:14px; color:#111827;">{{PROVIDER_WEBSITE}}</td>
                 </tr>
               </table>
 
