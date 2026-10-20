@@ -3,7 +3,7 @@ import { Program } from '../types/database';
 import { MapPin, Calendar, Clock, ArrowRight, Sparkles, Building2, Heart, Star } from 'lucide-react';
 import { CategoryIcon } from './CategoryIcon';
 import { CountryFlag } from './CountryFlag';
-import { useApp, formatPrice, formatProgramDisplayDate } from '../context/AppContext';
+import { useApp, formatPrice, formatHuf, formatProgramDisplayDate } from '../context/AppContext';
 
 interface ProgramCardProps {
   program: Program;
@@ -177,7 +177,7 @@ export const ProgramCard: React.FC<ProgramCardProps> = ({ program, onSelect }) =
                 </div>
                 {(program.currency === 'EUR' || !program.currency) && eurHufRate > 0 && (
                   <span className="text-[11px] font-medium text-stone-500 tracking-tight">
-                    ({formatPrice(Math.round(displayPrice * eurHufRate))} Ft)
+                    ({formatHuf(displayPrice * eurHufRate)} Ft)
                   </span>
                 )}
               </div>

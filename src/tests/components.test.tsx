@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatPrice } from '../lib/priceUtils';
+import { formatPrice, formatHuf } from '../lib/priceUtils';
 import { buildCalendarEventPayload, generateGoogleCalendarUrl, generateIcsContent } from '../services/googleCalendarService';
 import { Order, Program } from '../types/database';
 
@@ -17,6 +17,14 @@ describe('Price Formatting Utilities', () => {
   it('handles 0 and negative inputs safely', () => {
     expect(formatPrice(0)).toBe('0');
     expect(formatPrice(-5)).toBeDefined();
+  });
+
+  it('correctly separates thousands with space for Hungarian Forint (formatHuf)', () => {
+    expect(formatHuf(19000)).toBe('19 000');
+    expect(formatHuf(190000)).toBe('190 000');
+    expect(formatHuf(1234567)).toBe('1 234 567');
+    expect(formatHuf(500)).toBe('500');
+    expect(formatHuf(0)).toBe('0');
   });
 });
 

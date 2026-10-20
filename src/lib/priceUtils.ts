@@ -36,3 +36,15 @@ export const formatPrice = (value: number | string | undefined | null): string =
 export const formatPlatformFee = (value: number | string | undefined | null): string => {
   return formatPrice(value);
 };
+
+/**
+ * Formázza a forint összeget ezres tagolással a magyar helyesírásnak megfelelően (pl. 19 000 Ft):
+ * - Egész számmá kerekít (Math.round)
+ * - Három számjegyenként szóközzel tagolja a számot
+ */
+export const formatHuf = (value: number | string | undefined | null): string => {
+  const num = typeof value === 'string' ? parseFloat(value) : Number(value);
+  if (isNaN(num)) return '0';
+  const rounded = Math.round(num);
+  return rounded.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+};

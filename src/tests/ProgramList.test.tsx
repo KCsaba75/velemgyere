@@ -12,9 +12,10 @@ import type { Program, Profile } from '../types/database';
 const mockUseApp = vi.fn();
 vi.mock('../context/AppContext', () => ({
   useApp: () => mockUseApp(),
-  // ProgramCard (amit a nepesitett-lista eset renderel) a formatPrice-t es formatProgramDisplayDate-et kozvetlen
+  // ProgramCard (amit a nepesitett-lista eset renderel) a formatPrice-t, formatHuf-ot es formatProgramDisplayDate-et kozvetlen
   // named importkent hasznalja az AppContext modulbol, nem a hook-on at.
   formatPrice: (n: number) => String(n),
+  formatHuf: (n: number) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' '),
   formatProgramDisplayDate: (d: string) => d,
   getHungarianDateSuffix: () => '-tól',
 }));

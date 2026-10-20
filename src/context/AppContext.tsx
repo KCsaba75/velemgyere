@@ -3600,4 +3600,4 @@ export const useApp = () => {
   return context;
 };
 
-export { roundToHalfEuro, formatPrice, formatPlatformFee } from '../lib/priceUtils';
+export { roundToHalfEuro, formatPrice, formatPlatformFee, formatHuf } from '../lib/priceUtils';
