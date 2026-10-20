@@ -10,10 +10,6 @@ import {
   CheckCircle2,
   XCircle,
   Users,
-  Building2,
-  Phone,
-  Mail,
-  Globe,
   Share2,
   Check,
   Sparkles,
@@ -27,7 +23,6 @@ import {
   Star,
   Heart,
   Ticket,
-  User,
   Edit3,
   Landmark
 } from 'lucide-react';
@@ -36,7 +31,7 @@ import { CountryFlag } from './CountryFlag';
 import { ProgramReviewsSection } from './ProgramReviewsSection';
 import { BookingCheckoutModal } from './BookingCheckoutModal';
 import { NewProgramModal } from './NewProgramModal';
-import { ProgramAvailability, OnsitePaymentMethod, OrderProviderContact, OccurrenceAvailability, ProgramPriceTier } from '../types/database';
+import { ProgramAvailability, OnsitePaymentMethod, OccurrenceAvailability, ProgramPriceTier } from '../types/database';
 
 export const ProgramDetailView: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -48,16 +43,13 @@ export const ProgramDetailView: React.FC = () => {
     currentUser,
     isAuthenticated,
     openLoginModal,
-    orders,
     checkProgramAvailability,
     listOpenOccurrences,
     getProgramPriceTiers,
     createOrder,
-    getProviderContactForOrder,
     computeBookingFee,
     computeTotalPrice,
     getProgramRatingStats,
-    getProviderRatingStats,
     isProgramFavorite,
     toggleFavorite,
     openFolderModal,
@@ -84,9 +76,6 @@ export const ProgramDetailView: React.FC = () => {
   // kanban-kartyat). Ez a komponens 1. renderje volt, tehat BARMELYIK program
   // megnyitasa azonnal crashelt.
   const programStats = program ? getProgramRatingStats(program.id) : null;
-  const providerStats = (programProvider?.id || program?.provider_id || program?.provider?.id)
-    ? getProviderRatingStats(programProvider?.id || program?.provider_id || program?.provider?.id)
-    : null;
 
   const coverImageUrl = program?.images?.find((img) => img.is_cover)?.image_url
     || program?.images?.[0]?.image_url;
@@ -228,22 +217,6 @@ export const ProgramDetailView: React.FC = () => {
   // a kesobbi admin-megerosites (confirmed) utan, resolved server-side
   // (get_provider_contact_for_order never returns another user's or a cancelled
   // order's contact details, see schema.sql).
-  const [providerContact, setProviderContact] = useState<OrderProviderContact | null>(null);
-  const activeOrderForProgram = orders.find(o => o.program_id === program?.id && (o.status === 'pending' || o.status === 'confirmed'));
-
-  useEffect(() => {
-    setProviderContact(null);
-    if (!activeOrderForProgram) return;
-    let cancelled = false;
-    getProviderContactForOrder(activeOrderForProgram.id).then(contact => {
-      if (!cancelled) setProviderContact(contact);
-    });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeOrderForProgram?.id]);
-
   const handleCheckAvailability = async () => {
     if (!program) return;
     setAvailabilityLoading(true);
@@ -1018,108 +991,7 @@ export const ProgramDetailView: React.FC = () => {
               </div>
             </div>
 
-            {/* Provider Info Card (point 3): company_name/description always public
-                (already in providers_public) -- contact details (contact_name/phone/
-                email/website) ONLY after a confirmed order for THIS program, resolved
-                server-side via getProviderContactForOrder, never from program.provider
-                directly (that join is teaser-only now, see schema.sql). */}
-            {program.provider && (
-              <div className="border-t border-stone-100 pt-5 space-y-4">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold font-display shrink-0">
-                    <Building2 className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <span className="text-[11px] font-bold text-stone-500 uppercase tracking-wider block">
-                      Helyi Szolgáltató
-                    </span>
-                    <h2 className="font-bold text-stone-900 text-sm">
-                      {program.provider.company_name}
-                    </h2>
-                    {providerStats && (
-                      <div className="flex items-center gap-1.5 mt-1 text-xs">
-                        <div className="flex text-amber-400">
-                          <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                        </div>
-                        <span className="font-extrabold text-stone-900 font-display">
-                          {providerStats.average.toFixed(1)}
-                        </span>
-                        <span className="text-stone-300">•</span>
-                        <span className="text-stone-500 font-medium">
-                          {providerStats.count > 0 ? `${providerStats.count} túraértékelés alapján` : 'Új helyi partner'}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
 
-                <p className="text-xs text-stone-600 leading-relaxed line-clamp-3">
-                  {program.provider.description}
-                </p>
-
-                {providerContact ? (
-                  <div className="space-y-2 text-xs text-stone-600 pt-2 border-t border-stone-100">
-                    <div className="flex items-center gap-2">
-                      <Users className="w-3.5 h-3.5 text-stone-400 shrink-0" />
-                      <span>Kapcsolattartó: <strong className="text-stone-800">{providerContact.contact_name}</strong></span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <Phone className="w-3.5 h-3.5 text-stone-400 shrink-0" />
-                      <span className="text-stone-800 font-semibold">{providerContact.phone}</span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <Mail className="w-3.5 h-3.5 text-stone-400 shrink-0" />
-                      <span className="text-stone-800 truncate">{providerContact.email}</span>
-                    </div>
-
-                    {providerContact.website && (
-                      <div className="flex items-center gap-2">
-                        <Globe className="w-3.5 h-3.5 text-stone-400 shrink-0" />
-                        <a
-                          href={providerContact.website}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-emerald-700 hover:underline truncate font-semibold"
-                        >
-                          {providerContact.website}
-                        </a>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="pt-2 border-t border-stone-100 bg-stone-50 border border-dashed border-stone-300 rounded-xl p-4 flex items-center gap-3 text-xs text-stone-600">
-                    <Lock className="w-4 h-4 text-stone-400 shrink-0" />
-                    <span>
-                      A szolgáltató elérhetőségeit a foglalás befejezése után a fiókodban találod meg.
-                    </span>
-                  </div>
-                )}
-
-                {activeOrderForProgram && (
-                  <div className="space-y-2 text-xs text-stone-600 pt-2 border-t border-stone-100">
-                    <span className="text-[11px] font-bold text-stone-500 uppercase tracking-wider block">
-                      Igénybe vevő (a te adataid)
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <User className="w-3.5 h-3.5 text-stone-400 shrink-0" />
-                      <span className="text-stone-800 font-semibold">{currentUser.name}</span>
-                    </div>
-                    {currentUser.phone && (
-                      <div className="flex items-center gap-2">
-                        <Phone className="w-3.5 h-3.5 text-stone-400 shrink-0" />
-                        <span className="text-stone-800 font-semibold">{currentUser.phone}</span>
-                      </div>
-                    )}
-                    <div className="flex items-center gap-2">
-                      <Mail className="w-3.5 h-3.5 text-stone-400 shrink-0" />
-                      <span className="text-stone-800 truncate">{currentUser.email}</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
         </div>
 
