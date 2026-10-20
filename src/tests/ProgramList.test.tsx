@@ -92,6 +92,7 @@ function baseAppValue(overrides: Record<string, unknown> = {}) {
     openFolderModal: vi.fn(),
     isAuthenticated: false,
     programOccurrencesCounts: {},
+    programOccurrencesDates: {},
     eurHufRate: 400,
     getProgramRatingStats: () => ({ average: 0, count: 0, recommendPercent: 0, breakdown: { guide: 0, value: 0, organization: 0, safety: 0 }, distribution: {} }),
     ...overrides,
@@ -142,6 +143,50 @@ describe('ProgramList -- isLoading / ures-lista / nepesitett allapotok', () => {
     // a szerver (RLS) amugy sem kuldene el ezt a sort egy visitor-nek, de a
     // UI-szures regresszioja (pl. ha valaki admin-only adatot is lekerne)
     // itt is elkaphato.
+    expect(screen.getByText('Nincs találat a megadott szűrési feltételekre')).toBeInTheDocument();
+  });
+
+  it('dátumszűrő: megjeleníti a programot, ha annak több időpontja van, és valamelyik foglalható időpontja beleesik a szűrésbe', () => {
+    // Alap event_date korábbi (2026-10-15), de van a szűrt tartományba eső nyitott időpontja (2026-11-05)
+    const progWithOccurrences = makeProgram({
+      id: 'prog-multi-dates',
+      title: 'Több Időpontos Túra',
+      status: 'published',
+      event_date: '2026-10-15',
+    });
+
+    mockUseApp.mockReturnValue(baseAppValue({
+      isLoading: false,
+      programs: [progWithOccurrences],
+      selectedDateFrom: '2026-11-01',
+      selectedDateTo: '2026-11-10',
+      programOccurrencesCounts: { 'prog-multi-dates': 2 },
+      programOccurrencesDates: { 'prog-multi-dates': ['2026-10-15', '2026-11-05'] },
+    }));
+
+    render(<ProgramList onOpenMobileFilters={() => {}} />);
+    expect(screen.getByText('Több Időpontos Túra')).toBeInTheDocument();
+  });
+
+  it('dátumszűrő: kiszűri a programot, ha egyetlen foglalható időpontja sem esik a megadott tartományba', () => {
+    const progWithOccurrences = makeProgram({
+      id: 'prog-oct-only',
+      title: 'Csak Októberi Túra',
+      status: 'published',
+      event_date: '2026-10-15',
+    });
+
+    mockUseApp.mockReturnValue(baseAppValue({
+      isLoading: false,
+      programs: [progWithOccurrences],
+      selectedDateFrom: '2026-11-01',
+      selectedDateTo: '2026-11-10',
+      programOccurrencesCounts: { 'prog-oct-only': 2 },
+      programOccurrencesDates: { 'prog-oct-only': ['2026-10-15', '2026-10-20'] },
+    }));
+
+    render(<ProgramList onOpenMobileFilters={() => {}} />);
+    expect(screen.queryByText('Csak Októberi Túra')).not.toBeInTheDocument();
     expect(screen.getByText('Nincs találat a megadott szűrési feltételekre')).toBeInTheDocument();
   });
 });

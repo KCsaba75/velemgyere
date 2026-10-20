@@ -31,7 +31,8 @@ export const ProgramList: React.FC<ProgramListProps> = ({ onOpenMobileFilters })
     currencyFilter,
     openProgramDetail,
     resetFilters,
-    isLoading
+    isLoading,
+    programOccurrencesDates
   } = useApp();
 
   // Mirrors FilterBar's own hasActiveFilters -- shows a dot on the mobile
@@ -102,14 +103,24 @@ export const ProgramList: React.FC<ProgramListProps> = ({ onOpenMobileFilters })
         }
       }
 
-      // Date from & to
-      if (selectedDateFrom) {
-        if (p.event_date < selectedDateFrom) {
-          return false;
+      // Date from & to (ha a programnak több időpontja van, akkor akkor felel meg, ha BÁRMELYIK foglalható dátum beleesik)
+      if (selectedDateFrom || selectedDateTo) {
+        const occDates = programOccurrencesDates?.[p.id];
+        const candidateDates: string[] = [];
+        if (occDates && occDates.length > 0) {
+          candidateDates.push(...occDates);
         }
-      }
-      if (selectedDateTo) {
-        if (p.event_date > selectedDateTo) {
+        if (p.event_date && !candidateDates.includes(p.event_date)) {
+          candidateDates.push(p.event_date);
+        }
+
+        const matchesDate = candidateDates.length > 0 && candidateDates.some((d) => {
+          if (selectedDateFrom && d < selectedDateFrom) return false;
+          if (selectedDateTo && d > selectedDateTo) return false;
+          return true;
+        });
+
+        if (!matchesDate) {
           return false;
         }
       }
@@ -145,7 +156,8 @@ export const ProgramList: React.FC<ProgramListProps> = ({ onOpenMobileFilters })
     selectedDateFrom,
     selectedDateTo,
     selectedDurationType,
-    maxPrice
+    maxPrice,
+    programOccurrencesDates
   ]);
 
   return (

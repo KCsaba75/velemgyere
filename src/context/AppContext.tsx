@@ -364,6 +364,7 @@ interface AppContextType {
   // RPC, anon is hivhatja). getProgramOccurrences: szolgaltato/admin sajat-kezeles
   // nezete, MINDEN sajat occurrence (direkt tabla-select, RLS-gatelt).
   programOccurrencesCounts: Record<string, number>;
+  programOccurrencesDates: Record<string, string[]>;
   listOpenOccurrences: (programId: string) => Promise<OccurrenceAvailability[]>;
   getProgramOccurrences: (programId: string) => Promise<ProgramOccurrence[]>;
   createOccurrences: (
@@ -2307,23 +2308,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const [programOccurrencesCounts, setProgramOccurrencesCounts] = useState<Record<string, number>>({});
+  const [programOccurrencesDates, setProgramOccurrencesDates] = useState<Record<string, string[]>>({});
 
   const refreshOccurrenceCounts = useCallback(async () => {
     if (!isSupabaseConfigured) return;
     try {
       const { data } = await supabase
         .from('program_occurrences')
-        .select('program_id')
+        .select('program_id, event_date')
         .eq('status', 'open');
       if (data) {
         const counts: Record<string, number> = {};
+        const dates: Record<string, string[]> = {};
         data.forEach(row => {
           counts[row.program_id] = (counts[row.program_id] || 0) + 1;
+          if (row.event_date) {
+            if (!dates[row.program_id]) dates[row.program_id] = [];
+            if (!dates[row.program_id].includes(row.event_date)) {
+              dates[row.program_id].push(row.event_date);
+            }
+          }
         });
         setProgramOccurrencesCounts(counts);
+        setProgramOccurrencesDates(dates);
       }
     } catch (err) {
-      console.error('Error fetching occurrence counts:', err);
+      console.error('Error fetching occurrence counts and dates:', err);
     }
   }, []);
 
@@ -2382,6 +2392,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       .from('program_occurrences')
       .upsert(rows, { onConflict: 'program_id,event_date', ignoreDuplicates: true });
     if (error) throw error;
+    await refreshOccurrenceCounts();
   };
 
   const updateOccurrence = async (
@@ -2391,6 +2402,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!isSupabaseConfigured) return;
     const { error } = await supabase.from('program_occurrences').update(updates).eq('id', id);
     if (error) throw error;
+    await refreshOccurrenceCounts();
   };
 
   // Fail-loud torles, ugyanazzal a mintaval mint deleteProgram -- az RLS csendben 0
@@ -2402,6 +2414,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!data || data.length === 0) {
       throw new Error('Az időpont nem törölhető: van hozzá tartozó foglalás. Zárd le helyette (ne legyen nyitott).');
     }
+    await refreshOccurrenceCounts();
   };
 
   const rescheduleOrder = async (orderId: string, newOccurrenceId: string): Promise<void> => {
@@ -3501,6 +3514,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         cancelOrder,
         checkProgramAvailability,
         programOccurrencesCounts,
+        programOccurrencesDates,
         listOpenOccurrences,
         getProgramOccurrences,
         createOccurrences,
