@@ -76,7 +76,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <>
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-stone-200">
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-stone-200 w-full max-w-full">
         {/* Main Navbar */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 sm:h-20 gap-2 sm:gap-4">
@@ -232,7 +232,8 @@ export const Navbar: React.FC<NavbarProps> = ({
       {/* Mobile Bottom Navigation Bar (only on mobile screens) */}
       <nav
         aria-label="Mobil navigáció"
-        className="md:hidden fixed bottom-0 inset-x-0 z-50 bg-white/95 backdrop-blur-lg border-t border-stone-200 shadow-[0_-4px_20px_rgba(0,0,0,0.07)]"
+        className="md:hidden fixed bottom-0 inset-x-0 z-50 bg-white/95 backdrop-blur-lg border-t border-stone-200 shadow-[0_-4px_20px_rgba(0,0,0,0.07)] transform-gpu will-change-transform select-none w-full max-w-full"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
       >
         <div className="grid grid-cols-5 h-16 max-w-lg mx-auto px-1 items-stretch">
           {/* 1. Programok */}

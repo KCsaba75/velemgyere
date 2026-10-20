@@ -107,7 +107,7 @@ export const BookingsView: React.FC = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-2 sm:pt-10 pb-8 sm:pb-14 animate-in fade-in duration-200">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-2 sm:pt-10 pb-24 sm:pb-14 animate-in fade-in duration-200 overflow-x-hidden w-full">
       {/* Header */}
       <div className="flex items-center gap-3 sm:gap-4 mb-3">
         <div className="w-11 h-11 sm:w-14 sm:h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
@@ -122,13 +122,13 @@ export const BookingsView: React.FC = () => {
       </div>
 
       {/* Fülek: Aktuális / Múltbeli / Lemondott -- kanban 5ef2d0b8 */}
-      <div className="flex items-center gap-1.5 mb-5 border-b border-stone-200">
+      <div className="flex items-center gap-1.5 mb-5 border-b border-stone-200 overflow-x-auto no-scrollbar scroll-smooth pb-0.5 max-w-full">
         {TABS.map(tab => (
           <button
             key={tab.key}
             type="button"
             onClick={() => setActiveTab(tab.key)}
-            className={`px-3.5 py-2.5 text-sm font-bold rounded-t-lg transition-colors cursor-pointer -mb-px border-b-2 flex items-center gap-1.5 ${
+            className={`shrink-0 px-3.5 py-2.5 text-sm font-bold rounded-t-lg transition-colors cursor-pointer -mb-px border-b-2 flex items-center gap-1.5 ${
               activeTab === tab.key
                 ? 'border-emerald-600 text-emerald-700'
                 : 'border-transparent text-stone-500 hover:text-stone-700'
@@ -184,7 +184,7 @@ export const BookingsView: React.FC = () => {
             return (
               <div
                 key={order.id}
-                className="bg-white rounded-2xl border border-stone-200 p-5 flex items-center justify-between gap-4"
+                className="bg-white rounded-2xl border border-stone-200 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 shadow-xs"
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2 mb-1">
@@ -217,7 +217,7 @@ export const BookingsView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setSelectedOrderId(order.id)}
-                  className="shrink-0 px-4 py-2.5 bg-stone-900 hover:bg-emerald-600 text-white font-bold rounded-xl text-xs sm:text-sm shadow-sm transition-all cursor-pointer inline-flex items-center gap-1.5"
+                  className="w-full sm:w-auto shrink-0 px-4 py-2.5 bg-stone-900 hover:bg-emerald-600 text-white font-bold rounded-xl text-xs sm:text-sm shadow-sm transition-all cursor-pointer inline-flex items-center justify-center gap-1.5"
                 >
                   <Eye className="w-4 h-4" />
                   <span>Megtekintés</span>
