@@ -10,11 +10,6 @@ export interface DocumentMetaOptions {
   canonicalUrl?: string;
   type?: 'website' | 'article' | 'product';
   jsonLd?: Record<string, any> | Array<Record<string, any>>;
-  // Kanban 6b02b939: csak-linkkel elerheto oldalakhoz (nincs nav-bol hivatkozva,
-  // Csaba kuldi kozvetlenul) -- a sima robots.txt Disallow a JS-t nem futtato
-  // crawlerekre fedi le (prerender.js ezt a route-ot szandekosan nem generalja),
-  // ez pedig a JS-t futtato crawlerekre (Googlebot).
-  noindex?: boolean;
 }
 
 /**
@@ -49,13 +44,6 @@ export function useDocumentMeta(
 
     // Primary SEO
     setMeta('name', 'description', fullDescription);
-
-    if (options?.noindex) {
-      setMeta('name', 'robots', 'noindex, nofollow');
-    } else {
-      const robotsTag = document.querySelector('meta[name="robots"]');
-      if (robotsTag) robotsTag.remove();
-    }
 
     // OpenGraph
     setMeta('property', 'og:title', fullTitle);
@@ -96,8 +84,6 @@ export function useDocumentMeta(
     return () => {
       document.title = DEFAULT_TITLE;
       setMeta('name', 'description', DEFAULT_DESCRIPTION);
-      const robotsTag = document.querySelector('meta[name="robots"]');
-      if (robotsTag) robotsTag.remove();
       setMeta('property', 'og:title', DEFAULT_TITLE);
       setMeta('property', 'og:description', DEFAULT_DESCRIPTION);
       setMeta('property', 'og:image', DEFAULT_IMAGE);
@@ -113,5 +99,5 @@ export function useDocumentMeta(
         activeRouteJsonLd.remove();
       }
     };
-  }, [title, description, options?.image, options?.canonicalUrl, options?.type, options?.noindex, JSON.stringify(options?.jsonLd)]);
+  }, [title, description, options?.image, options?.canonicalUrl, options?.type, JSON.stringify(options?.jsonLd)]);
 }

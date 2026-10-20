@@ -1,15 +1,15 @@
 <!--
-  ELAVULT -- lecserélve. Ez a 2026-10-06-i első tervezet volt (Csaba kérése).
+  Branded "Confirm signup" template for Supabase Auth (Csaba kérése, 2026-10-06).
 
-  A JELENLEGI, Csaba által 2026-10-19-én jóváhagyott verzió itt van:
-  docs/email-templates/confirm-signup.html (+ a booking-sablonok ugyanabban a
-  mappában: foglalas-megtortent.html, foglalas-visszaigazolva.html). Lásd kanban
-  951a129f. A vault PAT auth_config jogosultsága azóta megvan (Management API
-  GET/PATCH /config/auth működik), a custom SMTP terv is pontosított: Resend relay,
-  nem generikusan "Resend/Postmark/SendGrid".
+  NEM alkalmazva automatikusan -- ehhez Supabase Dashboard > Authentication >
+  Email Templates > "Confirm signup" kell (vagy Management API, de a vault PAT-nak
+  nincs auth_config_read/write joga, lásd a kanban 0d9d8364 kártyát). Csak másold
+  be ezt a HTML-t a "Message body" mezőbe.
 
-  Ez a fájl csak történeti referenciaként maradt itt, NE ezt másold be a Supabase
-  dashboardra.
+  A feladó NÉV ("Supabase" helyett "Velemgyere") ezzel a sablonnal NEM változik --
+  az a beépített Supabase levélküldőnél fixen "Supabase", csak egy custom SMTP
+  (pl. Resend/Postmark/SendGrid, saját hitelesített domainnel) tudja felülírni.
+  Ez külön, Csaba-döntést igénylő lépés.
 -->
 <div style="background-color:#f5f5f4; padding:40px 16px; font-family:'Segoe UI', Helvetica, Arial, sans-serif;">
   <div style="max-width:480px; margin:0 auto; background:#ffffff; border-radius:24px; overflow:hidden; border:1px solid #e7e5e4;">

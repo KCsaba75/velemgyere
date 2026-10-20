@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { ProgramCard } from './ProgramCard';
 import { CountryFlag } from './CountryFlag';
-import { SearchX, RotateCcw, Globe, Filter, MapPin, Calendar, ChevronDown, AlertTriangle } from 'lucide-react';
+import { SearchX, RotateCcw, Globe, Filter, MapPin, Calendar, ChevronDown } from 'lucide-react';
 
 interface ProgramListProps {
   // Mobile filter-drawer trigger (kanban e0ee8b7e) -- the open/close state
@@ -10,17 +10,9 @@ interface ProgramListProps {
   // FilterBar (the drawer's owner) is a sibling of this component, not a
   // parent.
   onOpenMobileFilters: () => void;
-  // Eleni #244 audit [F, heading-order]: ez a komponens HomePage-en (ahol a
-  // <Hero> mar ad egy h1-et) ES ProgramsPage-en (ahol NINCS mas h1 a cimsorhoz,
-  // ez volt a "nincs H1 a /programok oldalon" talalat oka) IS megjelenik.
-  // Default true (ProgramsPage/kategoria/regio nezetek -- ezeken ez az
-  // oldal-cimsor), HomePage explicit false-t ad at, hogy ne legyen ket h1 egy
-  // oldalon.
-  asPageHeading?: boolean;
 }
 
-export const ProgramList: React.FC<ProgramListProps> = ({ onOpenMobileFilters, asPageHeading = true }) => {
-  const HeadingTag = asPageHeading ? 'h1' : 'h2';
+export const ProgramList: React.FC<ProgramListProps> = ({ onOpenMobileFilters }) => {
   const {
     programs,
     regions,
@@ -39,8 +31,7 @@ export const ProgramList: React.FC<ProgramListProps> = ({ onOpenMobileFilters, a
     currencyFilter,
     openProgramDetail,
     resetFilters,
-    isLoading,
-    catalogLoadError
+    isLoading
   } = useApp();
 
   // Mirrors FilterBar's own hasActiveFilters -- shows a dot on the mobile
@@ -174,9 +165,9 @@ export const ProgramList: React.FC<ProgramListProps> = ({ onOpenMobileFilters, a
                 </span>
               )}
             </div>
-            <HeadingTag className="text-lg font-extrabold font-display text-stone-900 tracking-tight">
+            <h1 className="text-lg font-extrabold font-display text-stone-900 tracking-tight">
               Kirándulások & Élmények
-            </HeadingTag>
+            </h1>
           </div>
 
           <div className="text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-xl shrink-0 flex items-center gap-1.5">
@@ -194,10 +185,9 @@ export const ProgramList: React.FC<ProgramListProps> = ({ onOpenMobileFilters, a
                 <MapPin className="w-4 h-4" />
               </div>
               <select
-                aria-label="Hová utazol? (úticél szűrése)"
                 value={selectedRegion || ''}
                 onChange={(e) => setSelectedRegion(e.target.value || null)}
-                className="w-full pl-9 pr-8 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-bold text-stone-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 cursor-pointer appearance-none truncate"
+                className="w-full pl-9 pr-8 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-bold text-stone-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer appearance-none truncate"
               >
                 <option value="">Hová utazol? (Összes úticél)</option>
                 {regions.filter(r => r.active).map((reg) => (
@@ -234,12 +224,11 @@ export const ProgramList: React.FC<ProgramListProps> = ({ onOpenMobileFilters, a
           {/* Indulás & Érkezés */}
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label htmlFor="quickfilter-date-from" className="block text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1 flex items-center gap-1">
+              <label className="block text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1 flex items-center gap-1">
                 <Calendar className="w-3 h-3 text-emerald-600" />
                 <span>Indulás</span>
               </label>
               <input
-                id="quickfilter-date-from"
                 type="date"
                 value={selectedDateFrom}
                 onChange={(e) => {
@@ -249,22 +238,21 @@ export const ProgramList: React.FC<ProgramListProps> = ({ onOpenMobileFilters, a
                     setSelectedDateTo('');
                   }
                 }}
-                className="w-full text-xs bg-stone-50 border border-stone-200 rounded-xl px-2.5 py-1.5 text-stone-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 cursor-pointer"
+                className="w-full text-xs bg-stone-50 border border-stone-200 rounded-xl px-2.5 py-1.5 text-stone-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
               />
             </div>
 
             <div>
-              <label htmlFor="quickfilter-date-to" className="block text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1 flex items-center gap-1">
+              <label className="block text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1 flex items-center gap-1">
                 <Calendar className="w-3 h-3 text-emerald-600" />
                 <span>Érkezés</span>
               </label>
               <input
-                id="quickfilter-date-to"
                 type="date"
                 value={selectedDateTo}
                 min={selectedDateFrom || undefined}
                 onChange={(e) => setSelectedDateTo(e.target.value)}
-                className="w-full text-xs bg-stone-50 border border-stone-200 rounded-xl px-2.5 py-1.5 text-stone-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 cursor-pointer"
+                className="w-full text-xs bg-stone-50 border border-stone-200 rounded-xl px-2.5 py-1.5 text-stone-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
               />
             </div>
           </div>
@@ -299,9 +287,9 @@ export const ProgramList: React.FC<ProgramListProps> = ({ onOpenMobileFilters, a
               </span>
             )}
           </div>
-          <HeadingTag className="text-2xl sm:text-3xl font-extrabold font-display text-stone-900 tracking-tight">
+          <h2 className="text-2xl sm:text-3xl font-extrabold font-display text-stone-900 tracking-tight">
             Magyar Nyelvű Kirándulások, Élmények & Transzferek
-          </HeadingTag>
+          </h2>
           <p className="text-sm text-stone-500 mt-1">
             Közvetlen kapcsolat helyi magyar idegenvezetőkkel és tapasztalt túraszervezőkkel
           </p>
@@ -344,25 +332,6 @@ export const ProgramList: React.FC<ProgramListProps> = ({ onOpenMobileFilters, a
               onSelect={openProgramDetail}
             />
           ))}
-        </div>
-      ) : catalogLoadError ? (
-        <div role="alert" className="bg-rose-50 rounded-2xl border border-rose-200 p-12 text-center max-w-lg mx-auto">
-          <div className="w-16 h-16 rounded-2xl bg-rose-100 text-rose-500 mx-auto flex items-center justify-center mb-4">
-            <AlertTriangle className="w-8 h-8" />
-          </div>
-          <h3 className="text-lg font-bold text-rose-900 font-display mb-2">
-            Nem sikerült betölteni a programokat
-          </h3>
-          <p className="text-sm text-rose-700 mb-6">
-            Hálózati vagy szerverhiba történt az adatok lekérésekor -- ez NEM jelenti azt, hogy nincs találat. Próbáld újratölteni az oldalt egy kis idő múlva.
-          </p>
-          <button
-            onClick={() => window.location.reload()}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold text-sm transition-colors cursor-pointer shadow-sm"
-          >
-            <RotateCcw className="w-4 h-4" />
-            <span>Újratöltés</span>
-          </button>
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-stone-200 p-12 text-center max-w-lg mx-auto">

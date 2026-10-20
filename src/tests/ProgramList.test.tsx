@@ -5,15 +5,18 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import '@testing-library/jest-dom';
 import userEvent from '@testing-library/user-event';
 import type { Program, Profile } from '../types/database';
 
 const mockUseApp = vi.fn();
 vi.mock('../context/AppContext', () => ({
   useApp: () => mockUseApp(),
-  // ProgramCard (amit a nepesitett-lista eset renderel) a formatPrice-t kozvetlen
+  // ProgramCard (amit a nepesitett-lista eset renderel) a formatPrice-t es formatProgramDisplayDate-et kozvetlen
   // named importkent hasznalja az AppContext modulbol, nem a hook-on at.
   formatPrice: (n: number) => String(n),
+  formatProgramDisplayDate: (d: string) => d,
+  getHungarianDateSuffix: () => '-tól',
 }));
 
 import { ProgramList } from '../components/ProgramList';
@@ -87,6 +90,8 @@ function baseAppValue(overrides: Record<string, unknown> = {}) {
     toggleFavorite: vi.fn(),
     openFolderModal: vi.fn(),
     isAuthenticated: false,
+    programOccurrencesCounts: {},
+    eurHufRate: 400,
     getProgramRatingStats: () => ({ average: 0, count: 0, recommendPercent: 0, breakdown: { guide: 0, value: 0, organization: 0, safety: 0 }, distribution: {} }),
     ...overrides,
   };

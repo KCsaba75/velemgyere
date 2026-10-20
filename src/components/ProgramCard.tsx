@@ -3,7 +3,7 @@ import { Program } from '../types/database';
 import { MapPin, Calendar, Clock, ArrowRight, Sparkles, Building2, Heart, Star } from 'lucide-react';
 import { CategoryIcon } from './CategoryIcon';
 import { CountryFlag } from './CountryFlag';
-import { useApp, formatPrice } from '../context/AppContext';
+import { useApp, formatPrice, formatProgramDisplayDate } from '../context/AppContext';
 
 interface ProgramCardProps {
   program: Program;
@@ -20,11 +20,20 @@ export const ProgramCard: React.FC<ProgramCardProps> = ({ program, onSelect }) =
     toggleFavorite,
     openFolderModal,
     isAuthenticated,
-    getProgramRatingStats
+    getProgramRatingStats,
+    programOccurrencesCounts,
+    eurHufRate,
   } = useApp();
   const displayPrice = computeTotalPrice(program.price);
   const isFav = isProgramFavorite(program.id);
   const stats = getProgramRatingStats(program.id);
+  const hasMultipleDates = (programOccurrencesCounts?.[program.id] || 0) > 1;
+
+  // Format Hungarian date (appends -tól/-től if multiple dates are available)
+  const formattedDate = formatProgramDisplayDate(program.event_date, hasMultipleDates);
+
+  const flagEmoji = program.region?.flag_emoji || '✈️';
+  const regionName = program.region?.name || program.country || 'Külföld';
 
   const handleCardClick = () => {
     if (onSelect) {
@@ -34,30 +43,7 @@ export const ProgramCard: React.FC<ProgramCardProps> = ({ program, onSelect }) =
     }
   };
 
-  // Kanban f2d93218: lista-nezetben a kis thumb_url-t hasznaljuk ha van
-  // (480px WebP), ne a reszletezo oldalnak szant 1600px-es teljes kepet --
-  // ez a reszponziv meretezes resze, kulon a lazy loading-tol.
-  const coverImageEntry = program.images?.find(img => img.is_cover) || program.images?.[0];
-  const coverImage = coverImageEntry?.thumb_url
-    || coverImageEntry?.image_url
-    || 'https://images.unsplash.com/photo-1590523741831-ab7e8b8f9c7f?auto=format&fit=crop&w=800&q=80';
-
-  // Format Hungarian date
-  const formattedDate = (() => {
-    try {
-      const d = new Date(program.event_date);
-      return d.toLocaleDateString('hu-HU', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
-    } catch {
-      return program.event_date;
-    }
-  })();
-
-  const flagEmoji = program.region?.flag_emoji || '✈️';
-  const regionName = program.region?.name || program.country || 'Külföld';
+  const coverImage = program.cover_image_url || program.photos?.[0] || 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80';
 
   return (
     <div 
@@ -184,9 +170,16 @@ export const ProgramCard: React.FC<ProgramCardProps> = ({ program, onSelect }) =
               </div>
 
               {/* Price */}
-              <div className="flex items-center gap-1 text-emerald-800 font-bold shrink-0">
-                <span className="text-base">💰</span>
-                <span>{formatPrice(displayPrice)} {program.currency === 'EUR' ? '€' : program.currency} / fő</span>
+              <div className="flex flex-col items-end shrink-0">
+                <div className="flex items-center gap-1 text-emerald-800 font-bold">
+                  <span className="text-base">💰</span>
+                  <span>{formatPrice(displayPrice)} {program.currency === 'EUR' ? '€' : program.currency} {program.pricing_mode === 'tiered' ? '/túra-tól' : '/fő'}</span>
+                </div>
+                {(program.currency === 'EUR' || !program.currency) && eurHufRate > 0 && (
+                  <span className="text-[11px] font-medium text-stone-500 tracking-tight">
+                    ({formatPrice(Math.round(displayPrice * eurHufRate))} Ft)
+                  </span>
+                )}
               </div>
             </div>
           </div>

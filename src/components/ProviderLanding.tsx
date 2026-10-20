@@ -2,11 +2,16 @@ import React from 'react';
 import { useApp } from '../context/AppContext';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import {
-  TrendingUp,
-  ShieldCheck,
-  Sparkles,
-  ArrowRight,
-  Building2
+  Compass, 
+  Users, 
+  TrendingUp, 
+  ShieldCheck, 
+  Sparkles, 
+  CheckCircle2, 
+  ArrowRight, 
+  CalendarCheck,
+  Building2,
+  Mail
 } from 'lucide-react';
 
 interface ProviderLandingProps {
@@ -14,23 +19,15 @@ interface ProviderLandingProps {
   onOpenLogin: () => void;
 }
 
-// Kanban 6b02b939 (Csaba, via Zora): ez a route sosem volt nav/footerbol
-// hivatkozva (d09b128 ota orarva all) -- ahelyett hogy egy masik, nagyreszt
-// atfedo tartalmu "csatlakozz" oldalt epitenenk fel kulon URL-en, inkabb EZT
-// a mar meglevo, pontosan ide valo oldalt frissitettuk + tettuk noindex-sze.
-// Csak kozvetlen linkkel elerheto, Csaba maga kuldi el erdeklodo
-// szolgaltatoknak -- nincs nav-bol/footerbol hivatkozva, es a robots.txt is
-// kulon Disallow-olja (lasd public/robots.txt).
-export const ProviderLanding: React.FC<ProviderLandingProps> = ({
-  onOpenRegister,
-  onOpenLogin
+export const ProviderLanding: React.FC<ProviderLandingProps> = ({ 
+  onOpenRegister, 
+  onOpenLogin 
 }) => {
   const { currentUser, setCurrentView } = useApp();
 
   useDocumentMeta(
     'Szolgáltatóknak',
-    'Tedd közzé programjaidat a Velem Gyere katalógusában -- csatlakozz szolgáltatói partnerként.',
-    { noindex: true }
+    'Tedd közzé programjaidat a Velem Gyere katalógusában -- csatlakozz szolgáltatói partnerként.'
   );
 
   return (
@@ -96,25 +93,25 @@ export const ProviderLanding: React.FC<ProviderLandingProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="bg-white p-7 rounded-3xl border border-stone-200 shadow-sm space-y-4">
             <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <TrendingUp className="w-6 h-6" />
+              <Users className="w-6 h-6" />
             </div>
             <h3 className="font-display font-bold text-xl text-stone-900">
-              Több foglalás
+              Célzott magyar közönség
             </h3>
             <p className="text-sm text-stone-600 leading-relaxed">
-              Kifejezetten belföldi kirándulásokat, túrákat és minőségi hétvégi programokat kereső magyar látogatók böngészik a katalógust nap mint nap -- ők a te új foglalóid.
+              Kifejezetten belföldi kirándulásokat, túrákat és minőségi hétvégi programokat kereső látogatók böngészik a katalógust nap mint nap.
             </p>
           </div>
 
           <div className="bg-white p-7 rounded-3xl border border-stone-200 shadow-sm space-y-4">
             <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <Sparkles className="w-6 h-6" />
+              <Mail className="w-6 h-6" />
             </div>
             <h3 className="font-display font-bold text-xl text-stone-900">
-              Nulla beállítási költség
+              Közvetlen érdeklődések
             </h3>
             <p className="text-sm text-stone-600 leading-relaxed">
-              A regisztráció és a programfeltöltés is díjmentes, nincs előfizetés vagy beállítási díj -- csak tedd közzé a programod, a többit mi hozzuk.
+              Az érdeklődők közvetlenül a te adataidhoz küldik a megkeresést névvel, telefonszámmal és egyedi üzenettel, közvetítői díjak nélkül az MVP-ben.
             </p>
           </div>
 

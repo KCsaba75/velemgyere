@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useApp, formatPrice } from '../context/AppContext';
+import { useApp, formatPrice, formatProgramDisplayDate } from '../context/AppContext';
 import { CountryFlag } from './CountryFlag';
 import {
   PlusCircle,
@@ -43,6 +43,7 @@ export const ProviderProgramsPage: React.FC<ProviderProgramsPageProps> = ({ onOp
     archiveProgram,
     setCurrentView,
     getProgramOccurrences,
+    programOccurrencesCounts,
   } = useApp();
 
   useDocumentMeta('Programjaim -- Szolgáltatói Dashboard', 'Saját programjaid kezelése, árazás, időpontok és archiválás.');
@@ -272,7 +273,7 @@ export const ProviderProgramsPage: React.FC<ProviderProgramsPageProps> = ({ onOp
                         </h4>
                         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-stone-500 mt-1">
                           <span className="flex items-center gap-1">📍 {prog.location}</span>
-                          <span className="flex items-center gap-1">📅 {prog.event_date}</span>
+                          <span className="flex items-center gap-1">📅 {formatProgramDisplayDate(prog.event_date, (programOccurrencesCounts[prog.id] || 0) > 1)}</span>
                           <span className="flex items-center gap-1 font-bold text-emerald-800">
                             💰 {prog.pricing_mode === 'tiered'
                               ? `${formatPrice(prog.price)} ${prog.currency === 'EUR' ? '€' : prog.currency}/túra-tól (Sávos)`

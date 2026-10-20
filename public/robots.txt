@@ -5,32 +5,25 @@ User-agent: *
 Allow: /
 Disallow: /admin-secret
 Disallow: /api/private
-Disallow: /szolgaltatoknak
 
 # AI Search & LLM Engines (Google AI Overviews, Perplexity, OpenAI SearchGPT, Claude, Bing Copilot)
 User-agent: GPTBot
 Allow: /
-Disallow: /szolgaltatoknak
 
 User-agent: Google-Extended
 Allow: /
-Disallow: /szolgaltatoknak
 
 User-agent: PerplexityBot
 Allow: /
-Disallow: /szolgaltatoknak
 
 User-agent: ClaudeBot
 Allow: /
-Disallow: /szolgaltatoknak
 
 User-agent: CCBot
 Allow: /
-Disallow: /szolgaltatoknak
 
 User-agent: Applebot-Extended
 Allow: /
-Disallow: /szolgaltatoknak
 
 # Sitemap Index
 Sitemap: https://velemgyere.hu/sitemap.xml

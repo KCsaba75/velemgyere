@@ -18,8 +18,7 @@ import {
   Filter,
   Eye,
   Phone,
-  ExternalLink,
-  Landmark
+  ExternalLink
 } from 'lucide-react';
 import { Order, Program, ProgramOccurrence, OrderBuyerInfo, OnsitePaymentMethod } from '../types/database';
 import { formatPrice, getBookingReference } from '../context/AppContext';
@@ -41,7 +40,6 @@ interface ProviderBookingsCalendarProps {
 const PAYMENT_METHOD_LABEL: Record<OnsitePaymentMethod, string> = {
   cash: 'Készpénz',
   revolut: 'Revolut',
-  bank_transfer: 'Előre utalás',
 };
 
 const WEEKDAYS = [
@@ -803,8 +801,6 @@ export const ProviderBookingsCalendar: React.FC<ProviderBookingsCalendarProps> =
                               <span className="inline-flex items-center gap-1 ml-2 text-[11px] text-stone-600 bg-stone-100 px-1.5 py-0.5 rounded">
                                 {order.onsite_payment_method === 'revolut' ? (
                                   <Wallet className="w-3 h-3" />
-                                ) : order.onsite_payment_method === 'bank_transfer' ? (
-                                  <Landmark className="w-3 h-3" />
                                 ) : (
                                   <Banknote className="w-3 h-3" />
                                 )}

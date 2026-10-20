@@ -111,14 +111,14 @@ export const ProgramReviewsSection: React.FC<ProgramReviewsSectionProps> = ({ pr
                 <Compass className="w-5 h-5" />
               </div>
               <div className="min-w-0">
-                <h3 className="text-xs sm:text-sm font-bold text-stone-900 truncate">Idegenvezető / Sofőr</h3>
+                <h4 className="text-xs sm:text-sm font-bold text-stone-900 truncate">Idegenvezető / Sofőr</h4>
               </div>
             </div>
             <div className="text-right shrink-0">
               <span className="text-sm font-extrabold text-stone-900 font-display">
                 {stats.breakdown.guide.toFixed(1)}
               </span>
-              <span className="text-[10px] text-stone-500 block">/ 5.0</span>
+              <span className="text-[10px] text-stone-400 block">/ 5.0</span>
             </div>
           </div>
 
@@ -129,14 +129,14 @@ export const ProgramReviewsSection: React.FC<ProgramReviewsSectionProps> = ({ pr
                 <BadgePercent className="w-5 h-5" />
               </div>
               <div className="min-w-0">
-                <h3 className="text-xs sm:text-sm font-bold text-stone-900 truncate">Ár-érték arány</h3>
+                <h4 className="text-xs sm:text-sm font-bold text-stone-900 truncate">Ár-érték arány</h4>
               </div>
             </div>
             <div className="text-right shrink-0">
               <span className="text-sm font-extrabold text-stone-900 font-display">
                 {stats.breakdown.value.toFixed(1)}
               </span>
-              <span className="text-[10px] text-stone-500 block">/ 5.0</span>
+              <span className="text-[10px] text-stone-400 block">/ 5.0</span>
             </div>
           </div>
 
@@ -147,14 +147,14 @@ export const ProgramReviewsSection: React.FC<ProgramReviewsSectionProps> = ({ pr
                 <Clock className="w-5 h-5" />
               </div>
               <div className="min-w-0">
-                <h3 className="text-xs sm:text-sm font-bold text-stone-900 truncate">Szervezés & Menetrend</h3>
+                <h4 className="text-xs sm:text-sm font-bold text-stone-900 truncate">Szervezés & Menetrend</h4>
               </div>
             </div>
             <div className="text-right shrink-0">
               <span className="text-sm font-extrabold text-stone-900 font-display">
                 {stats.breakdown.organization.toFixed(1)}
               </span>
-              <span className="text-[10px] text-stone-500 block">/ 5.0</span>
+              <span className="text-[10px] text-stone-400 block">/ 5.0</span>
             </div>
           </div>
 
@@ -165,14 +165,14 @@ export const ProgramReviewsSection: React.FC<ProgramReviewsSectionProps> = ({ pr
                 <Shield className="w-5 h-5" />
               </div>
               <div className="min-w-0">
-                <h3 className="text-xs sm:text-sm font-bold text-stone-900 truncate">Biztonság & Minőség</h3>
+                <h4 className="text-xs sm:text-sm font-bold text-stone-900 truncate">Biztonság & Minőség</h4>
               </div>
             </div>
             <div className="text-right shrink-0">
               <span className="text-sm font-extrabold text-stone-900 font-display">
                 {stats.breakdown.safety.toFixed(1)}
               </span>
-              <span className="text-[10px] text-stone-500 block">/ 5.0</span>
+              <span className="text-[10px] text-stone-400 block">/ 5.0</span>
             </div>
           </div>
         </div>
@@ -194,7 +194,7 @@ export const ProgramReviewsSection: React.FC<ProgramReviewsSectionProps> = ({ pr
                 onClick={() => setSelectedPhoto(url)}
                 className="relative w-28 sm:w-32 aspect-square rounded-2xl overflow-hidden shrink-0 border border-stone-200 hover:scale-105 transition-transform duration-300 shadow-xs cursor-pointer group"
               >
-                <img src={url} alt="" loading="lazy" className="w-full h-full object-cover" />
+                <img src={url} alt="" className="w-full h-full object-cover" />
                 <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold">
                   🔍 Nagyítás
                 </div>
@@ -390,7 +390,7 @@ export const ProgramReviewsSection: React.FC<ProgramReviewsSectionProps> = ({ pr
                         onClick={() => setSelectedPhoto(url)}
                         className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden border border-stone-200 shadow-2xs hover:scale-105 transition-transform cursor-pointer"
                       >
-                        <img src={url} alt="" loading="lazy" className="w-full h-full object-cover" />
+                        <img src={url} alt="" className="w-full h-full object-cover" />
                       </button>
                     ))}
                   </div>

@@ -161,27 +161,10 @@ export interface OccurrenceAvailability {
 
 export type OrderStatus = 'pending' | 'confirmed' | 'cancelled';
 
-// Kanban d8440929 (Csaba, via Zora, kiegeszites): 'bank_transfer' ("elore
-// utalas") az uj harmadik opcio a korabbi 'cash'/'revolut' mellett.
-export type OnsitePaymentMethod = 'cash' | 'revolut' | 'bank_transfer';
+export type OnsitePaymentMethod = 'cash' | 'revolut';
 
 // Forrás: a foglalás származási helye (platform, vagy szolgáltató által rögzített külső)
 export type BookingSource = 'platform' | 'phone' | 'onsite' | 'whatsapp' | 'email' | 'external';
-
-// Kanban 2ffb61fa: foglalásonkénti (booking/order_id-hez kötött) üzenetszál az
-// igénybevevő és a szolgáltató között. sender_role NEM a profil szerepköréből jön
-// (admin pl. sosem küldhet), hanem abból, melyik fél a rendelés tényleges
-// szereplője -- lásd BookingDetailModal/ProviderMessagesPage role-detection.
-export type BookingMessageSenderRole = 'customer' | 'provider';
-
-export interface BookingMessage {
-  id: string;
-  order_id: string;
-  sender_role: BookingMessageSenderRole;
-  sender_id: string;
-  content: string;
-  created_at: string;
-}
 
 export interface Order {
   id: string;
@@ -285,10 +268,6 @@ export interface ProgramImage {
   id: string;
   program_id: string;
   image_url: string;
-  // Kanban f2d93218: reszponziv lista-nezet thumbnail (480px WebP) -- NULL a
-  // migracio elotti/externalis-URL-es (pl. Unsplash) kepeknel, ilyenkor a
-  // kliens image_url-re esik vissza.
-  thumb_url?: string | null;
   is_cover: boolean;
   sort_order: number;
 }

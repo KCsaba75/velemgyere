@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { useApp, formatPrice, formatPlatformFee } from '../context/AppContext';
+import { useApp, formatPrice, formatPlatformFee, formatProgramDisplayDate } from '../context/AppContext';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import {
   ArrowLeft,
@@ -61,7 +61,8 @@ export const ProgramDetailView: React.FC = () => {
     isProgramFavorite,
     toggleFavorite,
     openFolderModal,
-    isLoading
+    isLoading,
+    programOccurrencesCounts,
   } = useApp();
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -312,32 +313,28 @@ export const ProgramDetailView: React.FC = () => {
 
   const currentImage = images[activeImageIndex]?.image_url || images[0].image_url;
 
+  const hasMultipleDates = occurrenceOptions.length > 1 || ((program?.id ? programOccurrencesCounts[program.id] : 0) || 0) > 1;
+
   // Format Hungarian date nicely (avoid UTC midnight shifting and long weekday truncation)
   const { dateFormatted, weekdayFormatted, fullDateFormatted } = (() => {
     try {
-      if (!program.event_date) {
+      const activeDate = selectedOccurrence?.event_date || program?.event_date;
+      if (!activeDate) {
         return { dateFormatted: 'Egyeztetés szerint', weekdayFormatted: '', fullDateFormatted: 'Egyeztetés szerint' };
       }
-      const dateStr = program.event_date.includes('T') ? program.event_date : `${program.event_date}T00:00:00`;
+      const dateFormatted = selectedOccurrence 
+        ? formatProgramDisplayDate(selectedOccurrence.event_date, false)
+        : formatProgramDisplayDate(program!.event_date, hasMultipleDates);
+      const dateStr = activeDate.includes('T') ? activeDate : `${activeDate}T00:00:00`;
       const d = new Date(dateStr);
-      if (isNaN(d.getTime())) {
-        return { dateFormatted: program.event_date, weekdayFormatted: '', fullDateFormatted: program.event_date };
-      }
-      const dateFormatted = d.toLocaleDateString('hu-HU', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
-      const weekdayFormatted = d.toLocaleDateString('hu-HU', {
-        weekday: 'long'
-      });
+      const weekdayFormatted = !isNaN(d.getTime()) ? d.toLocaleDateString('hu-HU', { weekday: 'long' }) : '';
       return {
         dateFormatted,
         weekdayFormatted,
-        fullDateFormatted: `${dateFormatted} (${weekdayFormatted})`
+        fullDateFormatted: weekdayFormatted ? `${dateFormatted} (${weekdayFormatted})` : dateFormatted
       };
     } catch {
-      return { dateFormatted: program.event_date, weekdayFormatted: '', fullDateFormatted: program.event_date };
+      return { dateFormatted: selectedOccurrence?.event_date || program?.event_date || '', weekdayFormatted: '', fullDateFormatted: selectedOccurrence?.event_date || program?.event_date || '' };
     }
   })();
   const formattedDate = fullDateFormatted;

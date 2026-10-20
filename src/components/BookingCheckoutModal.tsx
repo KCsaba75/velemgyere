@@ -539,6 +539,8 @@ export const BookingCheckoutModal: React.FC<BookingCheckoutModalProps> = ({
                           onsite_amount: netTotal,
                           currency: curr,
                           status: 'pending',
+                          event_date: selectedOccurrence?.event_date || null,
+                          start_time: selectedOccurrence?.start_time || null,
                           created_at: new Date().toISOString(),
                           updated_at: new Date().toISOString()
                         },
@@ -571,6 +573,8 @@ export const BookingCheckoutModal: React.FC<BookingCheckoutModalProps> = ({
                           onsite_amount: netTotal,
                           currency: curr,
                           status: 'pending',
+                          event_date: selectedOccurrence?.event_date || null,
+                          start_time: selectedOccurrence?.start_time || null,
                           created_at: new Date().toISOString(),
                           updated_at: new Date().toISOString()
                         },

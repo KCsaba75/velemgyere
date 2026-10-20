@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useMemo, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Profile,
@@ -44,6 +44,7 @@ import {
 } from '../data/seedData';
 import { roundToHalfEuro, formatPrice } from '../lib/priceUtils';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { fetchLiveEurHufRate } from '../lib/exchangeRate';
 
 // 16241c32: real react-router URLs replaced the old pure-state "currentView" router.
 // This mapping lets currentView/setCurrentView keep working as a thin shim over the
@@ -149,8 +150,42 @@ export function getBookingReference(orderOrId?: { id?: string; booking_reference
     hash = ((hash << 5) - hash) + rawId.charCodeAt(i);
     hash |= 0;
   }
-  const num = Math.abs(hash) % 900000 + 100000;
-  return `VG-${CURRENT_BOOKING_YEAR}-${num}`;
+}
+
+export function getHungarianDateSuffix(dateInput: string): string {
+  try {
+    const cleanDate = dateInput.includes('T') ? dateInput.split('T')[0] : dateInput;
+    const parts = cleanDate.split('-');
+    const day = parseInt(parts[2], 10);
+    // Hungarian date suffix for -tól/-től based on the day number:
+    // Days with back vowels (-tól): 3, 6, 8, 13, 16, 18, 20, 23, 26, 28, 30
+    const backVowelDays = [3, 6, 8, 13, 16, 18, 20, 23, 26, 28, 30];
+    return backVowelDays.includes(day) ? '-tól' : '-től';
+  } catch {
+    return '-tól';
+  }
+}
+
+export function formatProgramDisplayDate(eventDate?: string | null, hasMultipleDates: boolean = false): string {
+  if (!eventDate) return 'Egyeztetés szerint';
+  try {
+    const cleanStr = eventDate.includes('T') ? eventDate : `${eventDate}T00:00:00`;
+    const d = new Date(cleanStr);
+    if (isNaN(d.getTime())) return eventDate;
+    const baseStr = d.toLocaleDateString('hu-HU', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+    if (hasMultipleDates) {
+      const cleanBase = baseStr.replace(/\.$/, '');
+      const suffix = getHungarianDateSuffix(eventDate);
+      return `${cleanBase}${suffix}`;
+    }
+    return baseStr;
+  } catch {
+    return eventDate;
+  }
 }
 
 // Kanban 5ef2d0b8 (Csaba kérése): a vásárlói Foglalásaim lap fő nézete CSAK
@@ -328,6 +363,7 @@ interface AppContextType {
   // listOpenOccurrences: vevo-oldali, csak NYITOTT+JOVOBELI+PUBLIKALT (list_program_occurrences
   // RPC, anon is hivhatja). getProgramOccurrences: szolgaltato/admin sajat-kezeles
   // nezete, MINDEN sajat occurrence (direkt tabla-select, RLS-gatelt).
+  programOccurrencesCounts: Record<string, number>;
   listOpenOccurrences: (programId: string) => Promise<OccurrenceAvailability[]>;
   getProgramOccurrences: (programId: string) => Promise<ProgramOccurrence[]>;
   createOccurrences: (
@@ -385,6 +421,11 @@ interface AppContextType {
   feePercentage: number;
   feeMinimumEur: number;
   updateFeeSettings: (values: { fee_percentage: number; fee_minimum_eur: number }) => Promise<void>;
+  // EUR / HUF Exchange Rate API & Settings
+  eurHufRate: number;
+  eurHufLastUpdated: string | null;
+  updateEurHufRate: (rate: number) => Promise<void>;
+  fetchAndApplyLiveRate: () => Promise<number | null>;
   // Display-only helpers mirroring the server's compute_booking_fee/orders trigger
   // formula -- a program's stored `price` is the NET amount the provider receives,
   // the catalog/detail views must show the buyer-facing TOTAL (net+fee).
@@ -570,6 +611,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // isAuthenticated.
   const [feePercentage, setFeePercentage] = useState<number>(0);
   const [feeMinimumEur, setFeeMinimumEur] = useState<number>(0);
+  const [eurHufRate, setEurHufRate] = useState<number>(400);
+  const [eurHufLastUpdated, setEurHufLastUpdated] = useState<string | null>(null);
 
   // Current active user profile (derived from Supabase Auth session)
   const [currentUser, setCurrentUser] = useState<Profile>(() => {
@@ -712,7 +755,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           supabase.from('program_images').select('*'),
           supabase.from('inquiries').select('*'),
           supabase.from('reviews').select('*').order('created_at', { ascending: false }),
-          supabase.from('app_settings').select('*').in('key', ['fee_percentage', 'fee_minimum_eur']),
+          supabase.from('app_settings').select('*').in('key', ['fee_percentage', 'fee_minimum_eur', 'eur_huf_rate']),
         ]);
 
         if (cancelled) return;
@@ -725,11 +768,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (reviewsRes.data) setReviews(reviewsRes.data as Review[]);
 
         if (!settingsRes.error && settingsRes.data) {
-          const rows = settingsRes.data as { key: string; value: number }[];
+          const rows = settingsRes.data as { key: string; value: number; updated_at?: string }[];
           const pct = rows.find(r => r.key === 'fee_percentage');
           const min = rows.find(r => r.key === 'fee_minimum_eur');
+          const rateRow = rows.find(r => r.key === 'eur_huf_rate');
           if (pct) setFeePercentage(Number(pct.value) || 0);
           if (min) setFeeMinimumEur(Number(min.value) || 0);
+
+          let rateIsStale = true;
+          if (rateRow) {
+            const currentRate = Number(rateRow.value) || 400;
+            setEurHufRate(currentRate);
+            if (rateRow.updated_at) {
+              setEurHufLastUpdated(rateRow.updated_at);
+              const lastUpdatedTime = new Date(rateRow.updated_at).getTime();
+              const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+              if (!isNaN(lastUpdatedTime) && (Date.now() - lastUpdatedTime < ONE_DAY_MS)) {
+                rateIsStale = false;
+              }
+            }
+          }
+
+          // Automatic daily refresh: if rate is stale (>24h) or missing, auto-fetch live API
+          if (rateIsStale) {
+            fetchLiveEurHufRate().then(liveRate => {
+              if (liveRate && liveRate > 0) {
+                updateEurHufRate(liveRate);
+              }
+            }).catch(e => console.warn('Auto exchange rate refresh note:', e));
+          }
         }
 
         if (regionsRes.error || categoriesRes.error) {
@@ -2239,6 +2306,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return row ? (row as ProgramAvailability) : null;
   };
 
+  const [programOccurrencesCounts, setProgramOccurrencesCounts] = useState<Record<string, number>>({});
+
+  const refreshOccurrenceCounts = useCallback(async () => {
+    if (!isSupabaseConfigured) return;
+    try {
+      const { data } = await supabase
+        .from('program_occurrences')
+        .select('program_id')
+        .eq('status', 'open');
+      if (data) {
+        const counts: Record<string, number> = {};
+        data.forEach(row => {
+          counts[row.program_id] = (counts[row.program_id] || 0) + 1;
+        });
+        setProgramOccurrencesCounts(counts);
+      }
+    } catch (err) {
+      console.error('Error fetching occurrence counts:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshOccurrenceCounts();
+  }, [refreshOccurrenceCounts]);
+
   // Occurrence/slot-rendszer (kanban c039bfb6). listOpenOccurrences a vevo-oldali
   // datumvalaszto forrasa -- anon is hivhatja (list_program_occurrences RPC), mert
   // bejelentkezes elott is latni kell a nyitott datumokat.
@@ -2316,7 +2408,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!isSupabaseConfigured) return;
     const { error } = await supabase.rpc('reschedule_order', { p_order_id: orderId, p_new_occurrence_id: newOccurrenceId });
     if (error) throw error;
-    setOrders(prev => prev.map(o => (o.id === orderId ? { ...o, occurrence_id: newOccurrenceId } : o)));
+    let newDate: string | undefined;
+    let newTime: string | undefined;
+    try {
+      const { data: occ } = await supabase
+        .from('program_occurrences')
+        .select('event_date, start_time')
+        .eq('id', newOccurrenceId)
+        .maybeSingle();
+      if (occ) {
+        newDate = occ.event_date;
+        newTime = occ.start_time;
+      }
+    } catch {}
+    setOrders(prev => prev.map(o => (o.id === orderId ? {
+      ...o,
+      occurrence_id: newOccurrenceId,
+      event_date: newDate || o.event_date,
+      start_time: newTime || o.start_time,
+    } : o)));
   };
 
   // Savos/csoportos arazas (kanban 62e69729) -- direkt tabla-CRUD, RLS-gatelt
@@ -2424,6 +2534,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setFeePercentage(values.fee_percentage);
     setFeeMinimumEur(values.fee_minimum_eur);
   };
+
+  const updateEurHufRate = useCallback(async (rate: number): Promise<void> => {
+    const nowIso = new Date().toISOString();
+    setEurHufRate(rate);
+    setEurHufLastUpdated(nowIso);
+    if (!isSupabaseConfigured) return;
+    await supabase.from('app_settings').upsert([
+      { key: 'eur_huf_rate', value: rate, updated_at: nowIso }
+    ], { onConflict: 'key' });
+  }, []);
+
+  const fetchAndApplyLiveRate = useCallback(async (): Promise<number | null> => {
+    const liveRate = await fetchLiveEurHufRate();
+    if (liveRate && liveRate > 0) {
+      await updateEurHufRate(liveRate);
+      return liveRate;
+    }
+    return null;
+  }, [updateEurHufRate]);
 
   // Mirrors the server's compute_booking_fee/orders trigger formula exactly, for
   // display only -- the actual order record is always server-computed (schema.sql
@@ -3371,6 +3500,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         createOrder,
         cancelOrder,
         checkProgramAvailability,
+        programOccurrencesCounts,
         listOpenOccurrences,
         getProgramOccurrences,
         createOccurrences,
@@ -3396,6 +3526,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         feePercentage,
         feeMinimumEur,
         updateFeeSettings,
+        eurHufRate,
+        eurHufLastUpdated,
+        updateEurHufRate,
+        fetchAndApplyLiveRate,
         computeBookingFee,
         computeTotalPrice,
 

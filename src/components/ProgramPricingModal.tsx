@@ -212,7 +212,22 @@ export const ProgramPricingModal: React.FC<ProgramPricingModalProps> = ({ progra
                       }
                       setMinParticipants(val);
                     }}
-                    onFocus={() => setMinParticipants('')}
+                    onFocus={(e) => {
+                      const val = e.target.value;
+                      if (val === '0') {
+                        setMinParticipants('');
+                      } else {
+                        e.target.select();
+                      }
+                    }}
+                    onClick={(e) => {
+                      const val = (e.target as HTMLInputElement).value;
+                      if (val === '0') {
+                        setMinParticipants('');
+                      } else {
+                        (e.target as HTMLInputElement).select();
+                      }
+                    }}
                     className="w-full text-sm bg-white border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
@@ -229,7 +244,22 @@ export const ProgramPricingModal: React.FC<ProgramPricingModalProps> = ({ progra
                       }
                       setMaxParticipants(val);
                     }}
-                    onFocus={() => setMaxParticipants('')}
+                    onFocus={(e) => {
+                      const val = e.target.value;
+                      if (val === '0') {
+                        setMaxParticipants('');
+                      } else {
+                        e.target.select();
+                      }
+                    }}
+                    onClick={(e) => {
+                      const val = (e.target as HTMLInputElement).value;
+                      if (val === '0') {
+                        setMaxParticipants('');
+                      } else {
+                        (e.target as HTMLInputElement).select();
+                      }
+                    }}
                     placeholder="∞"
                     className="w-full text-sm bg-white border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
@@ -248,7 +278,22 @@ export const ProgramPricingModal: React.FC<ProgramPricingModalProps> = ({ progra
                       }
                       setTotalPrice(val);
                     }}
-                    onFocus={() => setTotalPrice('')}
+                    onFocus={(e) => {
+                      const val = e.target.value;
+                      if (val === '0' || val === '0.00' || val === '0.0') {
+                        setTotalPrice('');
+                      } else {
+                        e.target.select();
+                      }
+                    }}
+                    onClick={(e) => {
+                      const val = (e.target as HTMLInputElement).value;
+                      if (val === '0' || val === '0.00' || val === '0.0') {
+                        setTotalPrice('');
+                      } else {
+                        (e.target as HTMLInputElement).select();
+                      }
+                    }}
                     placeholder="Pl. 150"
                     className="w-full text-sm bg-white border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />

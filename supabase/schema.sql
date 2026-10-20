@@ -159,21 +159,9 @@ create policy "Users can read own profile"
   on public.profiles for select
   using (auth.uid() = user_id or public.is_admin());
 
--- Eleni #244 audit [MEDIUM, defense-in-depth], applied 2026-10-16: no WITH CHECK meant
--- role was only unreachable via the column-GRANT (authenticated has no UPDATE grant on
--- role), not via RLS itself. This closes it at the RLS layer too -- role may only stay
--- the same on a self-update, admin bypasses via is_admin().
 create policy "Users can update own profile"
-  on public.profiles
-  for update
-  using (auth.uid() = user_id or public.is_admin())
-  with check (
-    (
-      auth.uid() = user_id
-      and role = (select p.role from public.profiles p where p.user_id = auth.uid())
-    )
-    or public.is_admin()
-  );
+  on public.profiles for update
+  using (auth.uid() = user_id or public.is_admin());
 
 -- Added live 2026-10-06: the table had no INSERT policy at all, which silently
 -- blocked the deferred profile-creation step for both visitor self-registration
@@ -235,33 +223,12 @@ create policy "Providers can insert programs"
     or public.is_admin()
   );
 
--- Eleni #244 audit [HIGH], applied 2026-10-16: no WITH CHECK meant a provider could
--- self-publish past an admin rejection via direct REST (status not part of the
--- ownership check). draft<->published<->archived self-service stays intact (kanban
--- b73c3ee2: new programs go live without admin approval) -- only rejected/pending_review
--- becomes admin-only to touch, both to read away from (USING) and to write into
--- (WITH CHECK). Mutation-tested live (rollback-wrapped): rejected->published blocked,
--- draft->published still succeeds.
 create policy "Providers can update own programs"
-  on public.programs
-  for update
+  on public.programs for update
   using (
-    (
-      exists (
-        select 1 from public.providers
-        where providers.id = programs.provider_id and providers.user_id = auth.uid()
-      )
-      and status not in ('rejected', 'pending_review')
-    )
-    or public.is_admin()
-  )
-  with check (
-    (
-      exists (
-        select 1 from public.providers
-        where providers.id = programs.provider_id and providers.user_id = auth.uid()
-      )
-      and status in ('draft', 'published', 'archived')
+    exists (
+      select 1 from public.providers
+      where providers.id = programs.provider_id and providers.user_id = auth.uid()
     )
     or public.is_admin()
   );
@@ -1194,14 +1161,6 @@ create table public.program_occurrences (
 
 alter table public.program_occurrences enable row level security;
 
--- orders.occurrence_id -- NULLABLE a regi (occurrence nelkuli) programok miatt.
--- ON DELETE RESTRICT: ne tamaszkodjunk kizarolag az RLS-re, a service_role/kozvetlen
--- DB-hozzaferes eseten is tiltott legyen egy rendelessel rendelkezo occurrence torlese.
--- (Ennek ITT kell lennie, a program_occurrences letrehozasa utan de az occurrence_has_orders()
--- fuggveny ELOTT, mert az a oszlopra hivatkozik -- lasd kanban 866cb61a teszt-strategia audit.)
-alter table public.orders
-  add column occurrence_id uuid references public.program_occurrences(id) on delete restrict;
-
 grant select, insert, update, delete, references, trigger, truncate
   on public.program_occurrences to authenticated;
 grant insert, update, delete, references, trigger, truncate
@@ -1285,6 +1244,12 @@ create policy "Providers and admins can delete orders-free occurrences"
     )
     and not occurrence_has_orders(program_occurrences.id)
   );
+
+-- orders.occurrence_id -- NULLABLE a regi (occurrence nelkuli) programok miatt.
+-- ON DELETE RESTRICT: ne tamaszkodjunk kizarolag az RLS-re, a service_role/kozvetlen
+-- DB-hozzaferes eseten is tiltott legyen egy rendelessel rendelkezo occurrence torlese.
+alter table public.orders
+  add column occurrence_id uuid references public.program_occurrences(id) on delete restrict;
 
 -- Vevo-oldali elerhetoseg-lista: occurrence-szintu kapacitassal, csak NYITOTT,
 -- JOVOBELI datumok, csak PUBLIKALT program eseten. Kulon RPC a check_program_availability
@@ -1859,22 +1824,13 @@ create policy "Visitors can view published programs"
 -- programjait -- redundans a fenti bazis-RLS-szel (security_invoker=true miatt ugyanis
 -- amugy is orokolne), de a Csaba-kerte "WHERE-feltetelbe bele kell venni" szo szerint
 -- itt is latszodjon, ne csak kovetkeztetve a RLS-bol.
--- FIX (kanban 866cb61a teszt-strategia audit): ez a blokk korabban a view EGY REGEBBI,
--- 18-oszlopos verziojat masolta be (description/departure_location/pricing_mode nelkul),
--- ami -- ha lefutna -- csendben visszadobta volna ezt a harom, a frontend altal
--- hasznalt oszlopot egy MAR eles view-rol (lasd 771/1592 sorokat ahol felkerultek).
--- Elesben ez a blokk soha nem futott le (a live programs_public meg 21 oszlopos,
--- anon REST-lekerdezessel igazolva), de a schema.sql-nek magaban KELL replay-kepesnek
--- lennie (ez volt a pgTAP lokal-teszt-env elokeszites blokkolo oka), ezert itt az
--- OSSZES jelenleg eles oszlop megtartva.
 create or replace view public.programs_public with (security_invoker = true) as
   select
     id, provider_id, category_id, region_id,
     title, slug, short_description,
     country, price, currency, event_date,
     featured, status, created_at, updated_at,
-    location, duration, language,
-    description, departure_location, pricing_mode
+    location, duration, language
   from public.programs
   where status = 'published'
     and exists (
@@ -1916,234 +1872,3 @@ create policy "Admins can manage payout requests"
   on public.payout_requests for update
   using (public.is_admin())
   with check (public.is_admin());
-
--- ============================================================================
--- KANBAN d8440929 (Csaba, via Zora, 10-18 kiegeszites): uj fizetesi mod opcio
--- 'bank_transfer' ("elore utalas") a korabbi 'cash'/'revolut' mellett.
--- DROP+ADD CONSTRAINT, nem string-replace -- a pg_get_constraintdef
--- ARRAY/ANY formaban adja vissza a definiciot, azt nem lehet egyszeruen
--- becserelni egy korabbi sorban.
--- ============================================================================
-alter table public.orders
-  drop constraint orders_onsite_payment_method_check;
-alter table public.orders
-  add constraint orders_onsite_payment_method_check
-  check (onsite_payment_method is null or onsite_payment_method in ('cash', 'revolut', 'bank_transfer'));
-
-alter table public.providers
-  drop constraint providers_accepted_payment_methods_check;
-alter table public.providers
-  add constraint providers_accepted_payment_methods_check
-  check (
-    accepted_payment_methods <@ array['cash','revolut','bank_transfer']::text[]
-    and cardinality(accepted_payment_methods) >= 1
-  );
-
--- ============================================================================
--- KANBAN 2ffb61fa (Csaba+Zora egyeztetes, 2026-10-18): foglalasonkenti
--- (booking_id-hez kotott) uzenetszal igenybevevo es szolgaltato kozott,
--- Supabase Realtime-mal. V1 = csak szoveg, nincs fajlcsatolas/read-receipt/
--- typing-indicator/push-ertesites (szandekosan, lasd kartya scope).
---
--- RLS: KRITIKUS, hogy csak a ket valodi fel (az adott order.user_id, VAGY a
--- program->provider lanc szerinti sajat szolgaltato) lassa/irhassa a sajat
--- szalat. Szandekosan NEM masolom at az orders tabla meglevo
--- "providers.user_id is null" megengedo klozat (lasd "Providers can view
--- orders for their programs") -- az egy MEGLEVO, ebben a korben nem erintett
--- lazasag a nem-regisztralt (user_id NULL) seed-szolgaltatokra, de uzenet-
--- kuldesnel nincs ertelme (nincs valodi fiok ami fogadna/irna), es nem
--- akarom szelesebbe tenni az uj feature-on keresztul.
--- ============================================================================
-create table if not exists public.booking_messages (
-  id uuid primary key default uuid_generate_v4(),
-  order_id uuid not null references public.orders(id) on delete cascade,
-  sender_role text not null check (sender_role in ('customer', 'provider')),
-  sender_id uuid not null references auth.users(id) on delete cascade,
-  content text not null check (char_length(btrim(content)) > 0 and char_length(content) <= 4000),
-  created_at timestamp with time zone not null default timezone('utc'::text, now())
-);
-
-create index if not exists booking_messages_order_id_created_at_idx
-  on public.booking_messages (order_id, created_at);
-
-alter table public.booking_messages enable row level security;
-
--- Nincs delete/update grant -- v1-ben az uzenetek vegleges, nem szerkesztheto/
--- torolheto, ez szandekosan egyszerusiti a konfliktus-/audit-kerdest.
-grant select, insert on public.booking_messages to authenticated;
-
-create or replace function public.can_access_booking_messages(p_order_id uuid)
-returns boolean
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select exists (
-    select 1 from public.orders o
-    where o.id = p_order_id
-      and (
-        o.user_id = auth.uid()
-        or exists (
-          select 1 from public.programs pr
-          join public.providers p on p.id = pr.provider_id
-          where pr.id = o.program_id and p.user_id = auth.uid()
-        )
-        or public.is_admin()
-      )
-  );
-$$;
-
-revoke all on function public.can_access_booking_messages(uuid) from public, anon;
-grant execute on function public.can_access_booking_messages(uuid) to authenticated;
-
-create policy "Booking participants can view their message thread"
-  on public.booking_messages for select
-  using (public.can_access_booking_messages(order_id));
-
--- Az INSERT with-check KULON ellenorzi, hogy a sender_id a sajat auth.uid(),
--- ES hogy a sender_role tenylegesen egyezik azzal, melyik fel ir -- igy sem a
--- customer nem allithatja be magat 'provider'-nek, sem fordítva, meg akkor sem,
--- ha egyebkent (admin-kent) latna a szalat a fenti SELECT policy-n keresztul.
-create policy "Booking participants can send messages on their thread"
-  on public.booking_messages for insert
-  with check (
-    sender_id = auth.uid()
-    and (
-      (
-        sender_role = 'customer'
-        and exists (select 1 from public.orders o where o.id = order_id and o.user_id = auth.uid())
-      )
-      or
-      (
-        sender_role = 'provider'
-        and exists (
-          select 1 from public.orders o
-          join public.programs pr on pr.id = o.program_id
-          join public.providers p on p.id = pr.provider_id
-          where o.id = order_id and p.user_id = auth.uid()
-        )
-      )
-    )
-  );
-
-alter publication supabase_realtime add table public.booking_messages;
-
--- ============================================================================
--- KANBAN 2ffb61fa KIEGESZITES (Csaba, meg az eredeti RLS-tervezes ELOTT kert,
--- de Devon csak utolag eszlelte a kartya-kommentet -- lasd review): az
--- uzenetiras IDOKORLATOS. Uj uzenetet csak a program/foglalas UTOLSO napja
--- utani nap VEGEIG (effektiv datum + 2 nap hataranal, kizarolag) szabad
--- kuldeni, utana a szal READ-ONLY -- DB/RLS-szinten, nem csak UI-n elrejtve
--- (a UI-only tiltas kozvetlen API-hivassal megkerulheto lenne).
---
--- Az "effektiv datum" ugyanazt a precedenciat koveti, mint a tobbi helyen
--- (ProviderBookingsCalendar formatEffectiveDate): order.event_date (kulso/
--- manualis foglalasnak lehet sajat datuma) -> program_occurrences.event_date
--- (ha van occurrence_id) -> programs.event_date (alap, mindig letezik). Ha
--- valamiert semelyik sem allapithato meg (nem fordulhatna elo, de biztonsag
--- kedveert), a fuggveny FAIL-OPEN-t ad (true) -- ez csak egy hatarido-
--- kenyelmi logika, nem a reszvetel-ellenorzes (az a masik, kulon feltetel
--- az INSERT policy-ban, valtozatlan marad).
--- ============================================================================
-create or replace function public.booking_message_write_window_open(p_order_id uuid)
-returns boolean
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select coalesce(
-    (
-      select (now() at time zone 'Europe/Budapest')::date
-        < (coalesce(o.event_date, occ.event_date::text, pr.event_date::text)::date + interval '2 days')
-      from public.orders o
-      left join public.program_occurrences occ on occ.id = o.occurrence_id
-      left join public.programs pr on pr.id = o.program_id
-      where o.id = p_order_id
-    ),
-    true
-  );
-$$;
-
-revoke all on function public.booking_message_write_window_open(uuid) from public, anon;
-grant execute on function public.booking_message_write_window_open(uuid) to authenticated;
-
-drop policy "Booking participants can send messages on their thread" on public.booking_messages;
-
-create policy "Booking participants can send messages on their thread"
-  on public.booking_messages for insert
-  with check (
-    sender_id = auth.uid()
-    and public.booking_message_write_window_open(order_id)
-    and (
-      (
-        sender_role = 'customer'
-        and exists (select 1 from public.orders o where o.id = order_id and o.user_id = auth.uid())
-      )
-      or
-      (
-        sender_role = 'provider'
-        and exists (
-          select 1 from public.orders o
-          join public.programs pr on pr.id = o.program_id
-          join public.providers p on p.id = pr.provider_id
-          where o.id = order_id and p.user_id = auth.uid()
-        )
-      )
-    )
-  );
-
--- ============================================================================
--- KANBAN 4fe242f2 (Csaba, via Zora): olvasatlan-uzenet badge a szolgaltatoi
--- menuben + az Uzenetek lista kartyain. A booking_messages-nek SZANDEKOSAN
--- nincs update/delete grant-ja (v1 -- lasd fent), igy az "olvasva" allapotot
--- NEM az uzenet-soron taroljuk, hanem egy kulon, per-(order,user) olvasasi
--- kurzor-tablaban -- igy a booking_messages immutabilitasa nem serul.
--- ============================================================================
-create table if not exists public.booking_message_reads (
-  order_id uuid not null references public.orders(id) on delete cascade,
-  user_id uuid not null references auth.users(id) on delete cascade,
-  last_read_at timestamp with time zone not null default timezone('utc'::text, now()),
-  primary key (order_id, user_id)
-);
-
-alter table public.booking_message_reads enable row level security;
-
-grant select, insert, update on public.booking_message_reads to authenticated;
-
-create policy "Users can view their own booking message read cursor"
-  on public.booking_message_reads for select
-  using (user_id = auth.uid());
-
-create policy "Participants can set their own booking message read cursor"
-  on public.booking_message_reads for insert
-  with check (user_id = auth.uid() and public.can_access_booking_messages(order_id));
-
-create policy "Participants can advance their own booking message read cursor"
-  on public.booking_message_reads for update
-  using (user_id = auth.uid())
-  with check (user_id = auth.uid() and public.can_access_booking_messages(order_id));
-
--- SECURITY INVOKER (nem DEFINER): a booking_messages fenti SELECT policy-ja
--- (can_access_booking_messages) igy a sajat jogan ervenyesul erre a lekerdezesre
--- is, tehat a fuggveny CSAK a hivo fel sajat szalait adja vissza -- nincs
--- szukseg kulon jogosultsag-ismetlesre a fuggveny torzsében.
-create or replace function public.get_unread_booking_message_counts()
-returns table (order_id uuid, unread_count bigint)
-language sql
-stable
-security invoker
-set search_path = public
-as $$
-  select bm.order_id, count(*)::bigint as unread_count
-  from public.booking_messages bm
-  left join public.booking_message_reads r
-    on r.order_id = bm.order_id and r.user_id = auth.uid()
-  where bm.sender_id <> auth.uid()
-    and bm.created_at > coalesce(r.last_read_at, '-infinity'::timestamptz)
-  group by bm.order_id;
-$$;
-
-revoke all on function public.get_unread_booking_message_counts() from public, anon;
-grant execute on function public.get_unread_booking_message_counts() to authenticated;

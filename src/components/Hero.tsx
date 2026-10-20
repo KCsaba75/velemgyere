@@ -85,7 +85,7 @@ export const Hero: React.FC = () => {
             <div className="flex-1 flex items-center px-3 gap-3 min-w-0">
               <Search className="w-5 h-5 text-emerald-600 shrink-0" />
               <div className="flex-1 text-left">
-                <label htmlFor="search-input" className="block text-[11px] font-bold text-stone-500 uppercase tracking-wider">
+                <label htmlFor="search-input" className="block text-[11px] font-bold text-stone-400 uppercase tracking-wider">
                   Mit keresel?
                 </label>
                 <input
@@ -101,7 +101,7 @@ export const Hero: React.FC = () => {
 
             <button
               type="submit"
-              className="bg-emerald-700 hover:bg-emerald-600 text-white font-semibold px-7 py-3.5 rounded-xl transition-colors flex items-center justify-center gap-2 shrink-0 shadow-md cursor-pointer"
+              className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-7 py-3.5 rounded-xl transition-colors flex items-center justify-center gap-2 shrink-0 shadow-md cursor-pointer"
             >
               <span>Keresés</span>
               <Search className="w-4 h-4" />

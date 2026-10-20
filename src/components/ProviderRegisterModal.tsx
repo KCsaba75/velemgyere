@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Building2, Check, Sparkles, AlertCircle, Banknote, Wallet, Landmark } from 'lucide-react';
+import { Building2, Check, Sparkles, AlertCircle, Banknote, Wallet } from 'lucide-react';
 import { OnsitePaymentMethod } from '../types/database';
 
 interface ProviderRegisterModalProps {
@@ -207,17 +207,6 @@ export const ProviderRegisterModal: React.FC<ProviderRegisterModalProps> = ({ is
                     }`}
                   >
                     <Wallet className="w-3.5 h-3.5" /> Revolut
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => togglePaymentMethod('bank_transfer')}
-                    className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-semibold border cursor-pointer transition-colors ${
-                      acceptedPaymentMethods.includes('bank_transfer')
-                        ? 'bg-emerald-600 border-emerald-600 text-white'
-                        : 'bg-stone-50 border-stone-300 text-stone-600 hover:bg-stone-100'
-                    }`}
-                  >
-                    <Landmark className="w-3.5 h-3.5" /> Előre utalás
                   </button>
                 </div>
                 {acceptedPaymentMethods.length === 0 && (

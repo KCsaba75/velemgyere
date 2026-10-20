@@ -28,9 +28,9 @@ export const Footer: React.FC = () => {
 
           {/* Quick links */}
           <div className="space-y-3">
-            <h2 className="font-bold text-white text-xs uppercase tracking-wider">
+            <h5 className="font-bold text-white text-xs uppercase tracking-wider">
               Katalógus
-            </h2>
+            </h5>
             <ul className="space-y-2 text-xs text-stone-400">
               <li>
                 <button onClick={() => { setCurrentView('home'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="hover:text-emerald-400 cursor-pointer">
@@ -57,9 +57,9 @@ export const Footer: React.FC = () => {
 
         </div>
 
-        <div className="pt-8 border-t border-stone-800 text-xs text-stone-300 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="pt-8 border-t border-stone-800 text-xs text-stone-500 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p>© {new Date().getFullYear()} VELEM GYERE – Minden jog fenntartva. Magyarországi Élménykatalógus MVP.</p>
-          <p className="text-[11px] text-stone-400">
+          <p className="text-[11px] text-stone-600">
             Tervezve és felépítve későbbi foglalási és fizetési rendszerrel való bővíthetőségre.
           </p>
         </div>

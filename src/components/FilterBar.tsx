@@ -60,15 +60,14 @@ export const FilterBar: React.FC<FilterBarProps> = ({ mobileOpen, onCloseMobile 
     <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         {/* 1. Úticél / Régió */}
         <div className="col-span-2 sm:col-span-1">
-          <label htmlFor="filterbar-region" className="block text-xs font-bold text-stone-700 mb-1.5 flex items-center gap-1">
+          <label className="block text-xs font-bold text-stone-700 mb-1.5 flex items-center gap-1">
             <Globe className="w-3.5 h-3.5 text-emerald-600" />
             <span>Úticél / Régió</span>
           </label>
           <select
-            id="filterbar-region"
             value={selectedRegion || ''}
             onChange={(e) => setSelectedRegion(e.target.value || null)}
-            className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 cursor-pointer"
+            className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
           >
             <option value="">Összes desztináció</option>
             {regions.filter(r => r.active).map((reg) => (
@@ -81,15 +80,14 @@ export const FilterBar: React.FC<FilterBarProps> = ({ mobileOpen, onCloseMobile 
 
         {/* 2. Szolgáltatás típusa */}
         <div className="col-span-2 sm:col-span-1">
-          <label htmlFor="filterbar-category" className="block text-xs font-bold text-stone-700 mb-1.5 flex items-center gap-1">
+          <label className="block text-xs font-bold text-stone-700 mb-1.5 flex items-center gap-1">
             <Layers className="w-3.5 h-3.5 text-emerald-600" />
             <span>Szolgáltatás Típusa</span>
           </label>
           <select
-            id="filterbar-category"
             value={selectedCategory || ''}
             onChange={(e) => setSelectedCategory(e.target.value || null)}
-            className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 cursor-pointer"
+            className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
           >
             <option value="">Összes típus (Kirándulás, Transzfer...)</option>
             {categories.filter(c => c.active).map((cat) => (
@@ -102,12 +100,11 @@ export const FilterBar: React.FC<FilterBarProps> = ({ mobileOpen, onCloseMobile 
 
         {/* 3. Dátumtól */}
         <div className="col-span-1">
-          <label htmlFor="filterbar-date-from" className="block text-xs font-bold text-stone-700 mb-1.5 flex items-center gap-1">
+          <label className="block text-xs font-bold text-stone-700 mb-1.5 flex items-center gap-1">
             <Calendar className="w-3.5 h-3.5 text-emerald-600" />
             <span>Dátumtól</span>
           </label>
           <input
-            id="filterbar-date-from"
             type="date"
             value={selectedDateFrom}
             onChange={(e) => {
@@ -117,23 +114,22 @@ export const FilterBar: React.FC<FilterBarProps> = ({ mobileOpen, onCloseMobile 
                 setSelectedDateTo('');
               }
             }}
-            className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 cursor-pointer"
+            className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
           />
         </div>
 
         {/* 4. Dátumig */}
         <div className="col-span-1">
-          <label htmlFor="filterbar-date-to" className="block text-xs font-bold text-stone-700 mb-1.5 flex items-center gap-1">
+          <label className="block text-xs font-bold text-stone-700 mb-1.5 flex items-center gap-1">
             <Calendar className="w-3.5 h-3.5 text-emerald-600" />
             <span>Dátumig</span>
           </label>
           <input
-            id="filterbar-date-to"
             type="date"
             value={selectedDateTo}
             min={selectedDateFrom || undefined}
             onChange={(e) => setSelectedDateTo(e.target.value)}
-            className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 cursor-pointer"
+            className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
           />
         </div>
 

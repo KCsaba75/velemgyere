@@ -81,7 +81,7 @@ export const CategoriesView: React.FC = () => {
               >
                 <div className="relative aspect-[16/9] w-full overflow-hidden bg-stone-900">
                   {reg.image_url ? (
-                    <img src={reg.image_url} alt="" loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    <img src={reg.image_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
                       <CountryFlag emoji={reg.flag_emoji} country={reg.country || reg.name} size="xl" className="w-12 h-8 sm:w-20 sm:h-14 rounded-lg" />
