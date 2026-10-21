@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useBookingMessages } from '../hooks/useBookingMessages';
+import { useApp } from '../context/AppContext';
 import { BookingMessageSenderRole } from '../types/database';
 import { Send, MessageSquare, Loader2 } from 'lucide-react';
 
@@ -20,12 +21,31 @@ export const BookingMessageThread: React.FC<BookingMessageThreadProps> = ({
   canSend,
   compact = false,
 }) => {
+  const { markBookingThreadRead, registerActiveMessageThread, unregisterActiveMessageThread } = useApp();
   const { messages, loading, sending, sendMessage } = useBookingMessages(
     orderId,
     senderRole,
     senderId
   );
   const [inputText, setInputText] = useState('');
+
+  // Register active thread and mark read upon viewing
+  useEffect(() => {
+    if (!orderId) return;
+    registerActiveMessageThread(orderId);
+    markBookingThreadRead(orderId);
+
+    return () => {
+      unregisterActiveMessageThread(orderId);
+    };
+  }, [orderId, markBookingThreadRead, registerActiveMessageThread, unregisterActiveMessageThread]);
+
+  // Mark read when messages update while thread is open
+  useEffect(() => {
+    if (orderId && messages.length > 0) {
+      markBookingThreadRead(orderId);
+    }
+  }, [orderId, messages.length, markBookingThreadRead]);
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -19,6 +19,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
     programs,
     unreadBookingMessageCounts,
     totalUnreadBookingMessageCount,
+    markBookingThreadRead,
     openLoginModal,
     setCurrentView
   } = useApp();
@@ -67,6 +68,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
   }, [isAuthenticated, orders, programs, unreadBookingMessageCounts]);
 
   const handleOrderClick = (order: Order) => {
+    markBookingThreadRead(order.id);
     setIsOpen(false);
     onSelectOrder(order);
   };
