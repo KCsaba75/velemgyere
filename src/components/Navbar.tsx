@@ -13,6 +13,10 @@ import {
   X
 } from 'lucide-react';
 
+import { NotificationBell } from './NotificationBell';
+import { BookingDetailModal } from './BookingDetailModal';
+import { Order } from '../types/database';
+
 interface NavbarProps {
   onOpenLogin: () => void;
   onOpenNewProgram: () => void;
@@ -33,6 +37,8 @@ export const Navbar: React.FC<NavbarProps> = ({
     searchQuery,
     setSearchQuery
   } = useApp();
+
+  const [selectedNotificationOrder, setSelectedNotificationOrder] = React.useState<Order | null>(null);
 
   const navigateTo = (view: string) => {
     setCurrentView(view);
@@ -165,7 +171,9 @@ export const Navbar: React.FC<NavbarProps> = ({
             </nav>
 
             {/* Desktop Action Buttons */}
-            <div className="hidden md:flex items-center gap-3">
+            <div className="hidden md:flex items-center gap-2 lg:gap-3">
+              {/* Értesítési csengő */}
+              <NotificationBell onSelectOrder={setSelectedNotificationOrder} />
               {currentUser.role === 'admin' ? (
                 <button
                   onClick={() => navigateTo('admin-dashboard')}
@@ -212,7 +220,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               )}
             </div>
 
-            {/* Mobile Top Header right-side quick action (e.g. + Új for provider) */}
+            {/* Mobile Top Header right-side quick action (e.g. + Új for provider & Notification Bell) */}
             <div className="flex items-center md:hidden gap-1.5 shrink-0">
               {currentUser.role === 'provider' && (
                 <button
@@ -224,6 +232,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <span>Új</span>
                 </button>
               )}
+              <NotificationBell onSelectOrder={setSelectedNotificationOrder} />
             </div>
           </div>
         </div>
@@ -345,6 +354,13 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
         </div>
       </nav>
+
+      {selectedNotificationOrder && (
+        <BookingDetailModal
+          order={selectedNotificationOrder}
+          onClose={() => setSelectedNotificationOrder(null)}
+        />
+      )}
     </>
   );
 };
