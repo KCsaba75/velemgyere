@@ -10,6 +10,8 @@ import {
   Ticket,
   Compass,
   LayoutGrid,
+  Star,
+  MessageSquare,
   X
 } from 'lucide-react';
 
@@ -30,14 +32,17 @@ export const Navbar: React.FC<NavbarProps> = ({
     currentView,
     setCurrentView,
     currentUser,
+    currentProvider,
     isAuthenticated,
     totalFavoritesCount,
     orders,
+    programs,
     openLoginModal,
     searchQuery,
     setSearchQuery
   } = useApp();
 
+  const isProvider = currentUser.role === 'provider';
   const [selectedNotificationOrder, setSelectedNotificationOrder] = React.useState<Order | null>(null);
 
   const navigateTo = (view: string) => {
@@ -45,13 +50,35 @@ export const Navbar: React.FC<NavbarProps> = ({
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // Kanban 5a3a8dd8 (Csaba, 10-17 pontositas): providerkent a globalis
+  // "Programok"/"Foglalások" nav-elemek a sajat program-kezelesre / beerkezett
+  // foglalasokra mutatnak, nem a publikus katalogusra / a sajat (vasarloi)
+  // foglalasaimra.
+  const handleProgramsNavClick = () => {
+    navigateTo(isProvider ? 'provider-programs' : 'programs');
+  };
+
   const handleBookingsClick = () => {
-    if (!isAuthenticated) {
+    if (isProvider) {
+      navigateTo('provider-bookings');
+    } else if (!isAuthenticated) {
       openLoginModal('A foglalásaid megtekintéséhez kérjük jelentkezz be a saját fiókodba!');
     } else {
       navigateTo('bookings');
     }
   };
+
+  // Provider szamara a beerkezett foglalasok darabszama (nem a vasarloi orders.length).
+  const providerOwnProgramIds = isProvider
+    ? new Set(
+        programs
+          .filter(p => p.provider_id === currentProvider?.id || currentUser.role === 'admin')
+          .map(p => p.id)
+      )
+    : null;
+  const providerOwnOrdersCount = isProvider
+    ? orders.filter(o => providerOwnProgramIds!.has(o.program_id) || providerOwnProgramIds!.size === 0).length
+    : orders.length;
 
   const handleAccountClick = () => {
     if (!isAuthenticated) {
@@ -67,12 +94,122 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (currentView !== 'programs') {
-      navigateTo('programs');
+    if (currentView !== 'programs' && currentView !== 'provider-programs') {
+      navigateTo(isProvider ? 'provider-programs' : 'programs');
     }
   };
 
-  const isBookingsActive = currentView === 'bookings';
+  const isProgramsNavActive = isProvider ? currentView === 'provider-programs' : currentView === 'programs';
+  const isBookingsActive = isProvider ? currentView === 'provider-bookings' : currentView === 'bookings';
+
+  // Kanban 5d6bb3d4 (Csaba, via Zora): szolgaltatokent a globalis
+  // "Kategoriak"/"Kedvencek" nav-elemek az ertekeleseim / a
+  // uzenet-fulre mutatnak, nem a publikus kategoria-bongezore / kedvenc-listara.
+  const isCategoriesOrReviewsActive = isProvider ? currentView === 'provider-reviews' : currentView === 'categories';
+  const isFavoritesOrMessagesActive = isProvider ? currentView === 'provider-messages' : currentView === 'favorites';
+
+  // Kanban ce0aeeef (Csaba, via Zora): kiemelve, hogy a Foglalasaim/Uzenet
+  // gombok sorrendje szolgaltatokent felcserelt legyen a desktop navban
+  const desktopBookingsButton = (
+    <button
+      key="bookings"
+      onClick={handleBookingsClick}
+      className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
+        isBookingsActive ? 'text-emerald-700 bg-emerald-50/80 font-bold' : 'text-stone-700 hover:text-stone-900 hover:bg-stone-100'
+      }`}
+    >
+      <Ticket className={`w-4 h-4 ${isAuthenticated && providerOwnOrdersCount > 0 ? 'text-emerald-600' : 'text-stone-400'}`} />
+      <span>{isProvider ? 'Foglalások' : 'Foglalásaim'}</span>
+      {isAuthenticated && providerOwnOrdersCount > 0 && (
+        <span className="bg-emerald-600 text-white text-[11px] font-extrabold px-1.5 py-0.5 rounded-full leading-none">
+          {providerOwnOrdersCount}
+        </span>
+      )}
+    </button>
+  );
+
+  const desktopFavoritesOrMessagesButton = (
+    <button
+      key="favorites-or-messages"
+      onClick={() => navigateTo(isProvider ? 'provider-messages' : 'favorites')}
+      className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
+        isFavoritesOrMessagesActive
+          ? isProvider
+            ? 'text-emerald-700 bg-emerald-50/80 font-bold'
+            : 'text-rose-700 bg-rose-50/80 font-bold'
+          : 'text-stone-700 hover:text-stone-900 hover:bg-stone-100'
+      }`}
+    >
+      {isProvider ? (
+        <MessageSquare className="w-4 h-4 text-stone-400" />
+      ) : (
+        <Heart className={`w-4 h-4 ${totalFavoritesCount > 0 ? 'fill-rose-500 text-rose-500' : 'text-stone-400'}`} />
+      )}
+      <span>{isProvider ? 'Üzenet' : 'Kedvencek'}</span>
+      {!isProvider && totalFavoritesCount > 0 && (
+        <span className="bg-rose-500 text-white text-[11px] font-extrabold px-1.5 py-0.5 rounded-full leading-none">
+          {totalFavoritesCount}
+        </span>
+      )}
+    </button>
+  );
+
+  const mobileBookingsButton = (
+    <button
+      key="bookings"
+      type="button"
+      onClick={handleBookingsClick}
+      className={`flex flex-col items-center justify-center py-1.5 px-0.5 transition-colors cursor-pointer min-w-0 ${
+        isBookingsActive
+          ? 'text-emerald-700 font-bold'
+          : 'text-stone-500 hover:text-stone-800 font-medium'
+      }`}
+    >
+      <div className="relative flex items-center justify-center">
+        <Ticket className={`w-5 h-5 transition-transform ${isBookingsActive ? 'scale-110 stroke-[2.4] text-emerald-700' : 'stroke-[1.8]'}`} />
+        {isAuthenticated && providerOwnOrdersCount > 0 && (
+          <span className="absolute -top-1.5 -right-2.5 bg-emerald-600 text-white text-[9px] font-extrabold px-1.5 min-w-[15px] h-3.5 rounded-full flex items-center justify-center leading-none shadow-xs">
+            {providerOwnOrdersCount > 99 ? '99+' : providerOwnOrdersCount}
+          </span>
+        )}
+      </div>
+      <span className="text-[11px] leading-tight mt-1 truncate">{isProvider ? 'Foglalások' : 'Foglalásaim'}</span>
+    </button>
+  );
+
+  const mobileFavoritesOrMessagesButton = (
+    <button
+      key="favorites-or-messages"
+      type="button"
+      onClick={() => navigateTo(isProvider ? 'provider-messages' : 'favorites')}
+      className={`flex flex-col items-center justify-center py-1.5 px-0.5 transition-colors cursor-pointer min-w-0 ${
+        isFavoritesOrMessagesActive
+          ? isProvider ? 'text-emerald-700 font-bold' : 'text-rose-700 font-bold'
+          : 'text-stone-500 hover:text-stone-800 font-medium'
+      }`}
+    >
+      <div className="relative flex items-center justify-center">
+        {isProvider ? (
+          <MessageSquare className={`w-5 h-5 transition-transform ${isFavoritesOrMessagesActive ? 'scale-110 stroke-[2.4]' : 'stroke-[1.8]'}`} />
+        ) : (
+          <Heart
+            className={`w-5 h-5 transition-transform ${
+              currentView === 'favorites' || totalFavoritesCount > 0
+                ? 'fill-rose-500 text-rose-500 scale-105'
+                : 'stroke-[1.8]'
+            }`}
+          />
+        )}
+        {!isProvider && totalFavoritesCount > 0 && (
+          <span className="absolute -top-1.5 -right-2.5 bg-rose-500 text-white text-[9px] font-extrabold px-1.5 min-w-[15px] h-3.5 rounded-full flex items-center justify-center leading-none shadow-xs">
+            {totalFavoritesCount > 99 ? '99+' : totalFavoritesCount}
+          </span>
+        )}
+      </div>
+      <span className="text-[11px] leading-tight mt-1 truncate">{isProvider ? 'Üzenet' : 'Kedvencek'}</span>
+    </button>
+  );
+
   const isAccountActive =
     currentUser.role === 'admin'
       ? currentView === 'admin-dashboard'
@@ -88,7 +225,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <div className="flex items-center justify-between h-16 sm:h-20 gap-2 sm:gap-4">
             {/* Logo */}
             <button
-              onClick={() => navigateTo(isAuthenticated ? 'programs' : 'home')}
+              onClick={() => navigateTo(isAuthenticated ? (isProvider ? 'provider-programs' : 'programs') : 'home')}
               className="flex items-center text-left group cursor-pointer shrink-0"
             >
               <img
@@ -98,7 +235,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               />
             </button>
 
-            {/* Search bar between Logo and Programok */}
+            {/* Search bar */}
             <div className="flex-1 max-w-xs sm:max-w-sm md:max-w-xs lg:max-w-md mx-1 sm:mx-3 min-w-0">
               <form onSubmit={handleSearchSubmit} className="relative w-full">
                 <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -125,49 +262,24 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* Desktop Navigation Links */}
             <nav className="hidden md:flex items-center gap-1 lg:gap-2 shrink-0">
               <button
-                onClick={() => navigateTo('programs')}
+                onClick={handleProgramsNavClick}
                 className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
-                  currentView === 'programs' ? 'text-emerald-700 bg-emerald-50/80 font-bold' : 'text-stone-700 hover:text-stone-900 hover:bg-stone-100'
+                  isProgramsNavActive ? 'text-emerald-700 bg-emerald-50/80 font-bold' : 'text-stone-700 hover:text-stone-900 hover:bg-stone-100'
                 }`}
               >
-                Programok
+                {isProvider ? 'Programjaim' : 'Programok'}
               </button>
               <button
-                onClick={() => navigateTo('categories')}
+                onClick={() => navigateTo(isProvider ? 'provider-reviews' : 'categories')}
                 className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
-                  currentView === 'categories' ? 'text-emerald-700 bg-emerald-50/80' : 'text-stone-700 hover:text-stone-900 hover:bg-stone-100'
+                  isCategoriesOrReviewsActive ? 'text-emerald-700 bg-emerald-50/80 font-bold' : 'text-stone-700 hover:text-stone-900 hover:bg-stone-100'
                 }`}
               >
-                Kategóriák
+                {isProvider ? 'Értékeléseim' : 'Kategóriák'}
               </button>
-              <button
-                onClick={() => navigateTo('favorites')}
-                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
-                  currentView === 'favorites' ? 'text-rose-700 bg-rose-50/80 font-bold' : 'text-stone-700 hover:text-stone-900 hover:bg-stone-100'
-                }`}
-              >
-                <Heart className={`w-4 h-4 ${totalFavoritesCount > 0 ? 'fill-rose-500 text-rose-500' : 'text-stone-400'}`} />
-                <span>Kedvencek</span>
-                {totalFavoritesCount > 0 && (
-                  <span className="bg-rose-500 text-white text-[11px] font-extrabold px-1.5 py-0.5 rounded-full leading-none">
-                    {totalFavoritesCount}
-                  </span>
-                )}
-              </button>
-              <button
-                onClick={handleBookingsClick}
-                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
-                  isBookingsActive ? 'text-emerald-700 bg-emerald-50/80 font-bold' : 'text-stone-700 hover:text-stone-900 hover:bg-stone-100'
-                }`}
-              >
-                <Ticket className={`w-4 h-4 ${isAuthenticated && orders.length > 0 ? 'text-emerald-600' : 'text-stone-400'}`} />
-                <span>Foglalásaim</span>
-                {isAuthenticated && orders.length > 0 && (
-                  <span className="bg-emerald-600 text-white text-[11px] font-extrabold px-1.5 py-0.5 rounded-full leading-none">
-                    {orders.length}
-                  </span>
-                )}
-              </button>
+              {isProvider && desktopBookingsButton}
+              {desktopFavoritesOrMessagesButton}
+              {!isProvider && desktopBookingsButton}
             </nav>
 
             {/* Desktop Action Buttons */}
@@ -194,9 +306,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <button
                     onClick={() => navigateTo('provider-dashboard')}
                     className="px-3.5 py-2 rounded-xl border border-stone-300 hover:bg-stone-100 text-stone-800 font-medium text-sm flex items-center gap-1.5 transition-colors cursor-pointer"
+                    title="Fiókadatok, értékelések, érdeklődések"
                   >
                     <Briefcase className="w-4 h-4 text-emerald-700" />
-                    Dashboard
+                    Partner fiók
                   </button>
                 </div>
               ) : isAuthenticated ? (
@@ -220,7 +333,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               )}
             </div>
 
-            {/* Mobile Top Header right-side quick action (e.g. + Új for provider & Notification Bell) */}
+            {/* Mobile Top Header right-side quick action */}
             <div className="flex items-center md:hidden gap-1.5 shrink-0">
               {currentUser.role === 'provider' && (
                 <button
@@ -248,78 +361,39 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* 1. Programok */}
           <button
             type="button"
-            onClick={() => navigateTo('programs')}
+            onClick={handleProgramsNavClick}
             className={`flex flex-col items-center justify-center py-1.5 px-0.5 transition-colors cursor-pointer min-w-0 ${
-              currentView === 'programs'
+              isProgramsNavActive
                 ? 'text-emerald-700 font-bold'
                 : 'text-stone-500 hover:text-stone-800 font-medium'
             }`}
           >
-            <Compass className={`w-5 h-5 transition-transform ${currentView === 'programs' ? 'scale-110 stroke-[2.4]' : 'stroke-[1.8]'}`} />
-            <span className="text-[11px] leading-tight mt-1 truncate">Programok</span>
+            <Compass className={`w-5 h-5 transition-transform ${isProgramsNavActive ? 'scale-110 stroke-[2.4]' : 'stroke-[1.8]'}`} />
+            <span className="text-[11px] leading-tight mt-1 truncate">{isProvider ? 'Programjaim' : 'Programok'}</span>
           </button>
 
-          {/* 2. Kategóriák */}
+          {/* 2. Kategóriák (szolgáltatóként: Értékeléseim) */}
           <button
             type="button"
-            onClick={() => navigateTo('categories')}
+            onClick={() => navigateTo(isProvider ? 'provider-reviews' : 'categories')}
             className={`flex flex-col items-center justify-center py-1.5 px-0.5 transition-colors cursor-pointer min-w-0 ${
-              currentView === 'categories'
+              isCategoriesOrReviewsActive
                 ? 'text-emerald-700 font-bold'
                 : 'text-stone-500 hover:text-stone-800 font-medium'
             }`}
           >
-            <LayoutGrid className={`w-5 h-5 transition-transform ${currentView === 'categories' ? 'scale-110 stroke-[2.4]' : 'stroke-[1.8]'}`} />
-            <span className="text-[11px] leading-tight mt-1 truncate">Kategóriák</span>
+            {isProvider ? (
+              <Star className={`w-5 h-5 transition-transform ${isCategoriesOrReviewsActive ? 'scale-110 stroke-[2.4]' : 'stroke-[1.8]'}`} />
+            ) : (
+              <LayoutGrid className={`w-5 h-5 transition-transform ${isCategoriesOrReviewsActive ? 'scale-110 stroke-[2.4]' : 'stroke-[1.8]'}`} />
+            )}
+            <span className="text-[11px] leading-tight mt-1 truncate">{isProvider ? 'Értékeléseim' : 'Kategóriák'}</span>
           </button>
 
-          {/* 3. Kedvencek */}
-          <button
-            type="button"
-            onClick={() => navigateTo('favorites')}
-            className={`flex flex-col items-center justify-center py-1.5 px-0.5 transition-colors cursor-pointer min-w-0 ${
-              currentView === 'favorites'
-                ? 'text-rose-700 font-bold'
-                : 'text-stone-500 hover:text-stone-800 font-medium'
-            }`}
-          >
-            <div className="relative flex items-center justify-center">
-              <Heart
-                className={`w-5 h-5 transition-transform ${
-                  currentView === 'favorites' || totalFavoritesCount > 0
-                    ? 'fill-rose-500 text-rose-500 scale-105'
-                    : 'stroke-[1.8]'
-                }`}
-              />
-              {totalFavoritesCount > 0 && (
-                <span className="absolute -top-1.5 -right-2.5 bg-rose-500 text-white text-[9px] font-extrabold px-1.5 min-w-[15px] h-3.5 rounded-full flex items-center justify-center leading-none shadow-xs">
-                  {totalFavoritesCount > 99 ? '99+' : totalFavoritesCount}
-                </span>
-              )}
-            </div>
-            <span className="text-[11px] leading-tight mt-1 truncate">Kedvencek</span>
-          </button>
-
-          {/* 4. Foglalások */}
-          <button
-            type="button"
-            onClick={handleBookingsClick}
-            className={`flex flex-col items-center justify-center py-1.5 px-0.5 transition-colors cursor-pointer min-w-0 ${
-              isBookingsActive
-                ? 'text-emerald-700 font-bold'
-                : 'text-stone-500 hover:text-stone-800 font-medium'
-            }`}
-          >
-            <div className="relative flex items-center justify-center">
-              <Ticket className={`w-5 h-5 transition-transform ${isBookingsActive ? 'scale-110 stroke-[2.4] text-emerald-700' : 'stroke-[1.8]'}`} />
-              {isAuthenticated && orders.length > 0 && (
-                <span className="absolute -top-1.5 -right-2.5 bg-emerald-600 text-white text-[9px] font-extrabold px-1.5 min-w-[15px] h-3.5 rounded-full flex items-center justify-center leading-none shadow-xs">
-                  {orders.length > 99 ? '99+' : orders.length}
-                </span>
-              )}
-            </div>
-            <span className="text-[11px] leading-tight mt-1 truncate">Foglalások</span>
-          </button>
+          {/* 3-4. Kedvencek/Foglalások */}
+          {isProvider && mobileBookingsButton}
+          {mobileFavoritesOrMessagesButton}
+          {!isProvider && mobileBookingsButton}
 
           {/* 5. fiókom */}
           <button
