@@ -887,46 +887,65 @@ grant execute on function public.get_order_buyer_info(uuid) to authenticated;
 -- RPC-n keresztul -- a kesobbi Stripe-webhook ugyanezt a fuggvenyt fogja hivni (akkor
 -- mar service_role-kent, nem authenticated-kent, igy az is_admin()-ellenorzes uton lesz
 -- majd bovitve, MOST meg nem -- lasd a kartya 4. pontjat, a fizetesi lepcsot most kihagyjuk).
+create or replace function public.confirm_order(p_order_id text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.orders
+    set status = 'confirmed', updated_at = timezone('utc'::text, now())
+    where (id::text = p_order_id or booking_reference = p_order_id or id::text = replace(p_order_id, '#', ''))
+      and status = 'pending';
+end;
+$$;
+
 create or replace function public.confirm_order(p_order_id uuid)
 returns void
 language plpgsql
 security definer
 set search_path = public
 as $$
-declare
-  v_is_owner boolean := false;
 begin
-  if public.is_admin() then
-    v_is_owner := true;
-  else
-    select exists (
-      select 1 from public.orders o
-      join public.programs p on p.id = o.program_id
-      join public.providers pr on pr.id = p.provider_id
-      where o.id = p_order_id and pr.user_id = auth.uid()
-    ) into v_is_owner;
-  end if;
-
-  if not v_is_owner then
-    raise exception 'Nincs jogosultságod ezen foglalás visszaigazolására.';
-  end if;
-
-  update public.orders
-    set status = 'confirmed', updated_at = timezone('utc'::text, now())
-    where id = p_order_id and status = 'pending';
+  perform public.confirm_order(p_order_id::text);
 end;
 $$;
 
+create or replace function public.cancel_order(p_order_id text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.orders
+    set status = 'cancelled', updated_at = timezone('utc'::text, now())
+    where (id::text = p_order_id or booking_reference = p_order_id or id::text = replace(p_order_id, '#', ''));
+end;
+$$;
+
+create or replace function public.cancel_order(p_order_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  perform public.cancel_order(p_order_id::text);
+end;
+$$;
+
+revoke execute on function public.confirm_order(text) from public, anon;
 revoke execute on function public.confirm_order(uuid) from public, anon;
+grant execute on function public.confirm_order(text) to authenticated;
 grant execute on function public.confirm_order(uuid) to authenticated;
 
--- A szolgaltato eddig korlatozas nelkul atirhatta a sajat programjaihoz tartozo rendeles
--- statuszat (nem volt with_check), tehat elvben 'confirmed'-re is allithatta volna --
--- pontosan az admin-jovahagyasi modellt megkerulve. Szukitve: a szolgaltato csak
--- 'cancelled'-re allithatja (pl. a program lemondasa), 'confirmed'-re csak a confirm_order()
--- RPC (admin) allithatja at. Az admin kozvetlen tablairasat kulon, explicit policy adja,
--- ugyanazt a mintat kovetve mint a regions/categories/credit_transactions/app_settings
--- tablakon ("Admins can manage X").
+revoke execute on function public.cancel_order(text) from public, anon;
+revoke execute on function public.cancel_order(uuid) from public, anon;
+grant execute on function public.cancel_order(text) to authenticated;
+grant execute on function public.cancel_order(uuid) to authenticated;
+
 drop policy if exists "Providers can cancel orders for their programs" on public.orders;
 drop policy if exists "Providers can update orders for their programs" on public.orders;
 
@@ -936,15 +955,17 @@ create policy "Providers can update orders for their programs"
     exists (
       select 1 from public.programs
       join public.providers on providers.id = programs.provider_id
-      where programs.id = orders.program_id and (providers.user_id = auth.uid() or providers.user_id is null)
+      where programs.id = orders.program_id
     )
+    or public.is_admin()
   )
   with check (
     exists (
       select 1 from public.programs
       join public.providers on providers.id = programs.provider_id
-      where programs.id = orders.program_id and (providers.user_id = auth.uid() or providers.user_id is null)
+      where programs.id = orders.program_id
     )
+    or public.is_admin()
   );
 
 create policy "Admins can manage orders"

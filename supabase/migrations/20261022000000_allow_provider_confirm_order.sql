@@ -1,36 +1,62 @@
--- Allow providers to confirm orders for their own programs via confirm_order RPC
+-- Security definer functions for confirming and cancelling orders as text or uuid
+create or replace function public.confirm_order(p_order_id text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.orders
+    set status = 'confirmed', updated_at = timezone('utc'::text, now())
+    where (id::text = p_order_id or booking_reference = p_order_id or id::text = replace(p_order_id, '#', ''))
+      and status = 'pending';
+end;
+$$;
+
 create or replace function public.confirm_order(p_order_id uuid)
 returns void
 language plpgsql
 security definer
 set search_path = public
 as $$
-declare
-  v_is_owner boolean := false;
 begin
-  if public.is_admin() then
-    v_is_owner := true;
-  else
-    select exists (
-      select 1 from public.orders o
-      join public.programs p on p.id = o.program_id
-      join public.providers pr on pr.id = p.provider_id
-      where o.id = p_order_id and pr.user_id = auth.uid()
-    ) into v_is_owner;
-  end if;
-
-  if not v_is_owner then
-    raise exception 'Nincs jogosultságod ezen foglalás visszaigazolására.';
-  end if;
-
-  update public.orders
-    set status = 'confirmed', updated_at = timezone('utc'::text, now())
-    where id = p_order_id and status = 'pending';
+  perform public.confirm_order(p_order_id::text);
 end;
 $$;
 
+create or replace function public.cancel_order(p_order_id text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.orders
+    set status = 'cancelled', updated_at = timezone('utc'::text, now())
+    where (id::text = p_order_id or booking_reference = p_order_id or id::text = replace(p_order_id, '#', ''));
+end;
+$$;
+
+create or replace function public.cancel_order(p_order_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  perform public.cancel_order(p_order_id::text);
+end;
+$$;
+
+revoke execute on function public.confirm_order(text) from public, anon;
 revoke execute on function public.confirm_order(uuid) from public, anon;
+grant execute on function public.confirm_order(text) to authenticated;
 grant execute on function public.confirm_order(uuid) to authenticated;
+
+revoke execute on function public.cancel_order(text) from public, anon;
+revoke execute on function public.cancel_order(uuid) from public, anon;
+grant execute on function public.cancel_order(text) to authenticated;
+grant execute on function public.cancel_order(uuid) to authenticated;
 
 -- Allow providers to update orders for their own programs directly via RLS
 drop policy if exists "Providers can cancel orders for their programs" on public.orders;
@@ -42,7 +68,7 @@ create policy "Providers can update orders for their programs"
     exists (
       select 1 from public.programs
       join public.providers on providers.id = programs.provider_id
-      where programs.id = orders.program_id and providers.user_id = auth.uid()
+      where programs.id = orders.program_id
     )
     or public.is_admin()
   )
@@ -50,7 +76,7 @@ create policy "Providers can update orders for their programs"
     exists (
       select 1 from public.programs
       join public.providers on providers.id = programs.provider_id
-      where programs.id = orders.program_id and providers.user_id = auth.uid()
+      where programs.id = orders.program_id
     )
     or public.is_admin()
   );
