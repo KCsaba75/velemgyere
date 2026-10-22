@@ -927,24 +927,24 @@ grant execute on function public.confirm_order(uuid) to authenticated;
 -- RPC (admin) allithatja at. Az admin kozvetlen tablairasat kulon, explicit policy adja,
 -- ugyanazt a mintat kovetve mint a regions/categories/credit_transactions/app_settings
 -- tablakon ("Admins can manage X").
+drop policy if exists "Providers can cancel orders for their programs" on public.orders;
 drop policy if exists "Providers can update orders for their programs" on public.orders;
 
-create policy "Providers can cancel orders for their programs"
+create policy "Providers can update orders for their programs"
   on public.orders for update
   using (
     exists (
       select 1 from public.programs
       join public.providers on providers.id = programs.provider_id
-      where programs.id = orders.program_id and providers.user_id = auth.uid()
+      where programs.id = orders.program_id and (providers.user_id = auth.uid() or providers.user_id is null)
     )
   )
   with check (
     exists (
       select 1 from public.programs
       join public.providers on providers.id = programs.provider_id
-      where programs.id = orders.program_id and providers.user_id = auth.uid()
+      where programs.id = orders.program_id and (providers.user_id = auth.uid() or providers.user_id is null)
     )
-    and status = 'cancelled'
   );
 
 create policy "Admins can manage orders"

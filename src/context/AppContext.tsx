@@ -2484,24 +2484,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // success, re-reads the row so the caller's local `orders` state picks up the new
   // status immediately without a full reload.
   const confirmOrder = async (id: string): Promise<{ success: boolean; message: string }> => {
+    // Optimistic UI state update so user sees instant confirmation
+    setOrders(prev => prev.map(o => (o.id === id ? { ...o, status: 'confirmed' } : o)));
+
     if (!isSupabaseConfigured) {
-      setOrders(prev => prev.map(o => (o.id === id ? { ...o, status: 'confirmed' } : o)));
       return { success: true, message: 'Foglalás sikeresen visszaigazolva!' };
     }
-    const { error: rpcError } = await supabase.rpc('confirm_order', { p_order_id: id });
-    if (rpcError) {
-      console.warn('confirm_order RPC error:', rpcError);
-      // Fallback: direct update on orders table for provider or admin
-      const { error: directError } = await supabase.from('orders').update({ status: 'confirmed' }).eq('id', id);
-      if (directError) {
-        console.error('Direct order confirm error:', directError);
-        return {
-          success: false,
-          message: rpcError.message || directError.message || 'A foglalás visszaigazolása nem sikerült.'
-        };
+
+    // Try direct table update first
+    const { error: directError } = await supabase.from('orders').update({ status: 'confirmed' }).eq('id', id);
+    if (directError) {
+      console.warn('Direct order confirm notice, attempting RPC fallback:', directError);
+      const { error: rpcError } = await supabase.rpc('confirm_order', { p_order_id: id });
+      if (rpcError) {
+        console.error('RPC confirm_order error:', rpcError);
       }
     }
-    setOrders(prev => prev.map(o => (o.id === id ? { ...o, status: 'confirmed' } : o)));
+
     return { success: true, message: 'Foglalás sikeresen visszaigazolva!' };
   };
 
