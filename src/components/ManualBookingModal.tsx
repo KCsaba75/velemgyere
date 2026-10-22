@@ -28,8 +28,8 @@ interface ManualBookingModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialProgramId?: string;
-  programs: Program[];
-  occurrencesMap: Record<string, ProgramOccurrence>;
+  programs?: Program[];
+  occurrencesMap?: Record<string, ProgramOccurrence>;
   onCreated?: (order: Order) => void;
 }
 
@@ -45,13 +45,20 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
   isOpen,
   onClose,
   initialProgramId,
-  programs,
-  occurrencesMap,
+  programs: propsPrograms,
+  occurrencesMap = {},
   onCreated,
 }) => {
-  const { currentUser, createOrder, listOpenOccurrences } = useApp();
+  const { currentUser, currentProvider, programs: contextPrograms, createOrder, listOpenOccurrences } = useApp();
 
-  const [selectedProgramId, setSelectedProgramId] = useState<string>(initialProgramId || (programs[0]?.id || ''));
+  const availablePrograms = useMemo(() => {
+    const raw = propsPrograms || contextPrograms || [];
+    if (!currentProvider && currentUser?.role !== 'admin') return raw;
+    const own = raw.filter(p => p.provider_id === currentProvider?.id || currentUser?.role === 'admin');
+    return own.length > 0 ? own : raw;
+  }, [propsPrograms, contextPrograms, currentProvider, currentUser]);
+
+  const [selectedProgramId, setSelectedProgramId] = useState<string>(initialProgramId || (availablePrograms?.[0]?.id || ''));
   const [selectedOccurrenceId, setSelectedOccurrenceId] = useState<string>('custom');
   const [customDate, setCustomDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [customTime, setCustomTime] = useState<string>('10:00');
@@ -75,8 +82,8 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
 
   // Active program
   const currentProgram = useMemo(() => {
-    return programs.find(p => p.id === selectedProgramId) || programs[0];
-  }, [programs, selectedProgramId]);
+    return availablePrograms.find(p => p.id === selectedProgramId) || availablePrograms[0];
+  }, [availablePrograms, selectedProgramId]);
 
   // Occurrences for this program
   const programOccurrences = useMemo(() => {
@@ -88,10 +95,10 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
   useEffect(() => {
     if (initialProgramId) {
       setSelectedProgramId(initialProgramId);
-    } else if (programs.length > 0 && !selectedProgramId) {
-      setSelectedProgramId(programs[0].id);
+    } else if (availablePrograms.length > 0 && !selectedProgramId) {
+      setSelectedProgramId(availablePrograms[0].id);
     }
-  }, [initialProgramId, programs, selectedProgramId]);
+  }, [initialProgramId, availablePrograms, selectedProgramId]);
 
   // Calculated default price
   const basePricePerPerson = currentProgram?.price || 0;
@@ -281,7 +288,7 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
                 className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 text-sm font-medium focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 bg-white"
                 required
               >
-                {programs.map((prog) => (
+                {availablePrograms.map((prog) => (
                   <option key={prog.id} value={prog.id}>
                     {prog.title} ({formatPrice(prog.price)} {prog.currency} / fő)
                   </option>
