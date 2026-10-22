@@ -67,6 +67,7 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
     reviews,
     getUserReviewForOrder,
     cancelOrder,
+    confirmOrder,
     getProviderContactForOrder,
     openProgramDetail,
   } = useApp();
@@ -75,6 +76,7 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
   const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
+  const [confirmingOrder, setConfirmingOrder] = useState(false);
   const [messagesOpen, setMessagesOpen] = useState(false);
 
   const bookingCode = getBookingReference(order);
@@ -131,6 +133,15 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
     || program?.images?.[0]?.image_url
     || 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=600&q=80';
 
+  const handleConfirmOrder = async () => {
+    setConfirmingOrder(true);
+    try {
+      await confirmOrder(order.id);
+    } finally {
+      setConfirmingOrder(false);
+    }
+  };
+
   return (
     <>
     <div
@@ -177,6 +188,18 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
               <span className={`inline-block text-xs font-bold px-3 py-1.5 rounded-lg border ${ORDER_STATUS_CLASS[order.status]}`}>
                 {ORDER_STATUS_LABEL[order.status]}
               </span>
+
+              {(isProviderViewer || currentUser?.role === 'admin') && order.status === 'pending' && (
+                <button
+                  type="button"
+                  onClick={handleConfirmOrder}
+                  disabled={confirmingOrder}
+                  className="bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>{confirmingOrder ? 'Visszaigazolás...' : 'Foglalás visszaigazolása'}</span>
+                </button>
+              )}
 
               {order.source && order.source !== 'platform' && (
                 <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border bg-blue-50 text-blue-800 border-blue-200">
