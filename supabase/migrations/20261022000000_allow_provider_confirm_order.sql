@@ -42,13 +42,15 @@ create policy "Providers can update orders for their programs"
     exists (
       select 1 from public.programs
       join public.providers on providers.id = programs.provider_id
-      where programs.id = orders.program_id and (providers.user_id = auth.uid() or providers.user_id is null)
+      where programs.id = orders.program_id and providers.user_id = auth.uid()
     )
+    or public.is_admin()
   )
   with check (
     exists (
       select 1 from public.programs
       join public.providers on providers.id = programs.provider_id
-      where programs.id = orders.program_id and (providers.user_id = auth.uid() or providers.user_id is null)
+      where programs.id = orders.program_id and providers.user_id = auth.uid()
     )
+    or public.is_admin()
   );

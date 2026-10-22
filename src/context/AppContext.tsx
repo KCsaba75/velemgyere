@@ -1127,9 +1127,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // 2. Merge local cache orders (offline or pending DB migration)
         localCache.forEach(o => {
           const key = o.id || o.booking_reference || '';
-          if (key && !mergedOrdersMap.has(key)) {
-            const prog = rawPrograms.find(p => p.id === o.program_id);
-            mergedOrdersMap.set(key, { ...o, program: prog || o.program });
+          if (key) {
+            const existing = mergedOrdersMap.get(key);
+            if (!existing) {
+              const prog = rawPrograms.find(p => p.id === o.program_id);
+              mergedOrdersMap.set(key, { ...o, program: prog || o.program });
+            } else if ((o.status === 'confirmed' || o.status === 'cancelled') && existing.status === 'pending') {
+              mergedOrdersMap.set(key, { ...existing, status: o.status });
+            }
           }
         });
 
@@ -2096,7 +2101,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // see the public.orders comment in schema.sql. The capacity trigger on the DB side
   // (enforce_order_capacity) rejects the insert if the program is full; that error
   // message is passed through as-is since it's already a plain Hungarian sentence.
-  // Helper to persist orders locally so manual / external bookings are never lost
   const persistOrderToLocalCache = (order: Order) => {
     if (typeof window === 'undefined' || !window.localStorage) return;
     try {
@@ -2107,6 +2111,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       localStorage.setItem('vg_manual_orders_cache', JSON.stringify([order, ...filtered]));
     } catch (e) {
       console.warn('Orders local cache write note:', e);
+    }
+  };
+
+  const updateOrderInLocalCache = (orderId: string, updates: Partial<Order>) => {
+    if (typeof window === 'undefined' || !window.localStorage) return;
+    try {
+      const raw = localStorage.getItem('vg_manual_orders_cache');
+      const list: Order[] = raw ? JSON.parse(raw) : [];
+      let found = false;
+      const updatedList = list.map(o => {
+        if (o.id === orderId || o.booking_reference === orderId) {
+          found = true;
+          return { ...o, ...updates };
+        }
+        return o;
+      });
+      if (!found) {
+        const currentOrder = orders.find(o => o.id === orderId || o.booking_reference === orderId);
+        if (currentOrder) {
+          updatedList.unshift({ ...currentOrder, ...updates });
+        }
+      }
+      localStorage.setItem('vg_manual_orders_cache', JSON.stringify(updatedList));
+    } catch (e) {
+      console.warn('Orders local cache update note:', e);
     }
   };
 
