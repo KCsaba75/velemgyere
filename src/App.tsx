@@ -7,7 +7,14 @@ import { ProgramsPage } from './components/ProgramsPage';
 import { ProgramDetailView } from './components/ProgramDetailView';
 import { ProviderLanding } from './components/ProviderLanding';
 import { ProviderDashboard } from './components/ProviderDashboard';
+import { ProviderProgramsPage } from './components/ProviderProgramsPage';
+import { ProviderBookingsPage } from './components/ProviderBookingsPage';
+import { ProviderReviewsPage } from './components/ProviderReviewsPage';
+import { ProviderInquiriesPage } from './components/ProviderInquiriesPage';
+import { ProviderMessagesPage } from './components/ProviderMessagesPage';
 import { AdminDashboard } from './components/AdminDashboard';
+import { AdminCategoriesPage } from './components/AdminCategoriesPage';
+import { AdminProvidersPage } from './components/AdminProvidersPage';
 import { CategoriesView } from './components/CategoriesView';
 import { LoginModal } from './components/LoginModal';
 import { ProviderRegisterModal } from './components/ProviderRegisterModal';
@@ -67,7 +74,47 @@ const AppContent: React.FC = () => {
             path="/szolgaltato/dashboard"
             element={
               <ProtectedRoute allow={['provider', 'admin']}>
-                <ProviderDashboard onOpenNewProgram={() => setNewProgramModalOpen(true)} />
+                <ProviderDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/szolgaltato/programjaim"
+            element={
+              <ProtectedRoute allow={['provider', 'admin']}>
+                <ProviderProgramsPage onOpenNewProgram={() => setNewProgramModalOpen(true)} />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/szolgaltato/foglalasaim"
+            element={
+              <ProtectedRoute allow={['provider', 'admin']}>
+                <ProviderBookingsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/szolgaltato/ertekeleseim"
+            element={
+              <ProtectedRoute allow={['provider', 'admin']}>
+                <ProviderReviewsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/szolgaltato/erdeklodeseim"
+            element={
+              <ProtectedRoute allow={['provider', 'admin']}>
+                <ProviderInquiriesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/szolgaltato/uzeneteim"
+            element={
+              <ProtectedRoute allow={['provider', 'admin']}>
+                <ProviderMessagesPage />
               </ProtectedRoute>
             }
           />
@@ -76,6 +123,22 @@ const AppContent: React.FC = () => {
             element={
               <ProtectedRoute allow={['admin']}>
                 <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/kategoriak"
+            element={
+              <ProtectedRoute allow={['admin']}>
+                <AdminCategoriesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/szolgaltatok"
+            element={
+              <ProtectedRoute allow={['admin']}>
+                <AdminProvidersPage />
               </ProtectedRoute>
             }
           />
