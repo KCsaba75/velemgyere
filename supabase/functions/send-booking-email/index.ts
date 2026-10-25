@@ -1,8 +1,13 @@
 // Velemgyere booking email sender -- kanban 97ca24ba.
 //
 // Triggered by a Postgres trigger (pg_net's net.http_post, see the
-// 20261019000000_booking_email_webhook.sql migration) on public.orders INSERT and UPDATE.
+// 20261019000000_booking_email_webhook.sql migration, widened by
+// 20261025000000_booking_email_insert_confirmed.sql) on public.orders INSERT and UPDATE.
 // - INSERT with status='pending' -> "foglalás megtörtént" email to the buyer.
+// - INSERT with status='confirmed' (manual booking, or any other instant-confirm path
+//   that creates the row already confirmed) -> "visszaigazolva" email directly, skipping
+//   the pointless "we received your request" step (kanban 97ca24ba reopen, 2026-10-25:
+//   order VG-2026-113711 was created INSERT-confirmed and got silently no email at all).
 // - UPDATE where status changes from something else TO 'confirmed' -> "visszaigazolva" email.
 // Any other transition (e.g. ->cancelled, or a no-op update) is ignored.
 //
@@ -163,6 +168,8 @@ Deno.serve(async (req: Request) => {
   let kind: 'pending' | 'confirmed' | null = null;
   if (payload.type === 'INSERT' && order.status === 'pending') {
     kind = 'pending';
+  } else if (payload.type === 'INSERT' && order.status === 'confirmed') {
+    kind = 'confirmed';
   } else if (payload.type === 'UPDATE' && order.status === 'confirmed' && oldOrder?.status !== 'confirmed') {
     kind = 'confirmed';
   }
