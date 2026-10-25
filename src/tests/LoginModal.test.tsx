@@ -23,6 +23,7 @@ function baseAppValue(overrides: Partial<ReturnType<typeof mockUseApp>> = {}) {
     login: vi.fn(),
     loginWithGoogle: vi.fn(),
     registerVisitor: vi.fn(),
+    requestPasswordReset: vi.fn(),
     setCurrentView: vi.fn(),
     loginModalMessage: null,
     loginRedirectTo: null,
@@ -145,5 +146,49 @@ describe('LoginModal -- loading allapot', () => {
 
     resolveLogin({ success: true });
     await waitFor(() => expect(screen.queryByRole('button', { name: /Belépés\.\.\./i })).not.toBeInTheDocument());
+  });
+});
+
+describe('LoginModal -- elfelejtett jelszó (af2a6460)', () => {
+  beforeEach(() => {
+    mockUseApp.mockReset();
+  });
+
+  it('az "Elfelejtett jelszó?" linkre valtva csak az email mezot mutatja, jelszot nem', async () => {
+    mockUseApp.mockReturnValue(baseAppValue());
+    const user = userEvent.setup();
+
+    render(<LoginModal isOpen={true} onClose={() => {}} />);
+    await user.click(screen.getByRole('button', { name: 'Elfelejtett jelszó?' }));
+
+    expect(screen.getByRole('heading', { name: 'Elfelejtett jelszó' })).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('••••••••')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Visszaállító link küldése' })).toBeInTheDocument();
+  });
+
+  it('forgot modban a megadott emaillel hivja a requestPasswordReset-et, es a kapott uzenetet mutatja', async () => {
+    const requestPasswordReset = vi.fn().mockResolvedValue({ success: true, message: 'Ha létezik fiók, kapsz egy e-mailt.' });
+    mockUseApp.mockReturnValue(baseAppValue({ requestPasswordReset }));
+    const user = userEvent.setup();
+
+    render(<LoginModal isOpen={true} onClose={() => {}} />);
+    await user.click(screen.getByRole('button', { name: 'Elfelejtett jelszó?' }));
+    await user.type(screen.getByPlaceholderText('pl. anna@pelda.hu'), 'anna@example.com');
+    await user.click(screen.getByRole('button', { name: 'Visszaállító link küldése' }));
+
+    expect(requestPasswordReset).toHaveBeenCalledWith('anna@example.com');
+    expect(await screen.findByText('Ha létezik fiók, kapsz egy e-mailt.')).toBeInTheDocument();
+  });
+
+  it('"Vissza a bejelentkezéshez" visszavalt login modba', async () => {
+    mockUseApp.mockReturnValue(baseAppValue());
+    const user = userEvent.setup();
+
+    render(<LoginModal isOpen={true} onClose={() => {}} />);
+    await user.click(screen.getByRole('button', { name: 'Elfelejtett jelszó?' }));
+    await user.click(screen.getByRole('button', { name: 'Vissza a bejelentkezéshez' }));
+
+    expect(screen.getByRole('heading', { name: 'Bejelentkezés' })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('••••••••')).toBeInTheDocument();
   });
 });

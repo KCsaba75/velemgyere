@@ -252,6 +252,9 @@ interface AppContextType {
   loginWithGoogle: () => Promise<{ success: boolean; message: string }>;
   logout: () => void;
   registerVisitor: (data: { name: string; email: string; password: string }) => Promise<{ success: boolean; message: string }>;
+  requestPasswordReset: (email: string) => Promise<{ success: boolean; message: string }>;
+  confirmPasswordReset: (email: string, token: string, newPassword: string) => Promise<{ success: boolean; message: string }>;
+  checkPasswordResetToken: (email: string, token: string) => Promise<boolean>;
   deleteMyAccount: () => Promise<{ success: boolean; message: string }>;
   updateMyProfile: (updates: {
     name?: string;
@@ -1619,6 +1622,62 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCurrentUser(newProfile);
     setIsAuthenticated(true);
     return { success: true, message: 'Sikeres regisztráció!' };
+  };
+
+  // Kartya af2a6460 (Csaba kerese): elfelejtett jelszo, brandelt email, 15 perces
+  // link, max 3 probalkozas/ora. NEM a Supabase natÍv resetPasswordForEmail()-t
+  // hasznalja, mert annak mailer_otp_exp/rate_limit_email_sent mezoi MINDEN
+  // mailer-flow-ra (signup-confirm IS) egyetlen kozos erteket vonatkoznak -- ezeket
+  // a kart kerese szerint allitani csendben regresszalna a mar eles 951a129f
+  // regisztracio-email-folyamatot. Helyette sajat Edge Function + token-tabla
+  // (lasd supabase/functions/request-password-reset + migracio 20261025000000).
+  // A valasz MINDIG ugyanaz, fuggetlenul attol hogy letezik-e a fiok vagy
+  // rate-limitelve volt-e -- a fiok-letezest soha nem szivargatja ki.
+  const requestPasswordReset = async (email: string): Promise<{ success: boolean; message: string }> => {
+    const genericMessage = 'Ha létezik fiók ezzel az e-mail címmel, néhány percen belül kapsz egy e-mailt a jelszó visszaállításához.';
+    if (!isSupabaseConfigured) {
+      return { success: true, message: genericMessage };
+    }
+    const { data, error } = await supabase.functions.invoke('request-password-reset', {
+      body: { email: email.trim() },
+    });
+    if (error) {
+      return { success: false, message: 'Hiba történt a kérés feldolgozása során.' };
+    }
+    return { success: data?.success ?? true, message: data?.message ?? genericMessage };
+  };
+
+  // A ResetPasswordPage hivja, a jelszo-visszaallito emailben kapott email+token
+  // parosssal -- a public.confirm_password_reset() SQL fuggveny vegzi a tenyleges
+  // ellenorzest+jelszo-cserét (anon is hivhatja, a token-tudas maga az authorizacio).
+  const confirmPasswordReset = async (email: string, token: string, newPassword: string): Promise<{ success: boolean; message: string }> => {
+    if (!isSupabaseConfigured) {
+      return { success: true, message: 'Jelszó frissítve.' };
+    }
+    const { data, error } = await supabase.rpc('confirm_password_reset', {
+      p_email: email.trim(),
+      p_token: token,
+      p_new_password: newPassword,
+    });
+    if (error) {
+      return { success: false, message: 'Hiba történt a jelszó frissítése során.' };
+    }
+    if (!data) {
+      return { success: false, message: 'A link érvénytelen, lejárt, vagy már felhasználtad.' };
+    }
+    return { success: true, message: 'A jelszavad sikeresen frissült. Most már bejelentkezhetsz vele.' };
+  };
+
+  // Csak a ResetPasswordPage mountkor valo elo-ellenorzeshez (ne mutassa az
+  // uj-jelszo urlapot egy mar lejart/hasznalt linkre) -- NEM fogyasztja el a tokent.
+  const checkPasswordResetToken = async (email: string, token: string): Promise<boolean> => {
+    if (!isSupabaseConfigured) return true;
+    const { data, error } = await supabase.rpc('check_password_reset_token', {
+      p_email: email.trim(),
+      p_token: token,
+    });
+    if (error) return false;
+    return Boolean(data);
   };
 
   const registerProvider = async (data: {
@@ -3524,6 +3583,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         loginWithGoogle,
         logout,
         registerVisitor,
+        requestPasswordReset,
+        confirmPasswordReset,
+        checkPasswordResetToken,
         deleteMyAccount,
         updateMyProfile,
         registerProvider,

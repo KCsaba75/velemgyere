@@ -68,6 +68,9 @@ export function createMockSupabaseClient(options: MockSupabaseOptions = {}) {
     },
     from: vi.fn((table: string) => createQueryBuilder(tables[table] || (() => ({ data: [], error: null })))),
     rpc: vi.fn(async () => ({ data: [], error: null })),
+    functions: {
+      invoke: vi.fn(async () => ({ data: { success: true, message: 'ok' }, error: null })),
+    },
     channel: vi.fn(() => ({
       on: vi.fn().mockReturnThis(),
       subscribe: vi.fn().mockReturnThis(),
