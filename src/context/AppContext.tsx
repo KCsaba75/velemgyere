@@ -1583,6 +1583,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             : `Hiba a regisztráció során: ${error.message}`,
         };
       }
+      if (!signUpData.session && signUpData.user && signUpData.user.identities?.length === 0) {
+        // signUp() on an existing, already-confirmed email returns no error and no session
+        // (Supabase security-by-design: can't leak whether the account exists), but signals
+        // it via an empty identities array. Without this check the caller saw a false
+        // "almost done, confirm your email" success message instead of being sent to login.
+        return {
+          success: false,
+          message: 'Ezzel az e-mail címmel már van fiók. Kérjük jelentkezzen be.',
+        };
+      }
       if (signUpData.session) {
         // Only reachable if this project's email confirmation requirement is ever turned
         // off (it's ON today). The session-sync effect creates the real profiles row
@@ -1642,6 +1652,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return { success: false, message: error.message === 'User already registered'
           ? 'Ezzel az e-mail címmel már van fiók. Kérjük jelentkezzen be.'
           : `Hiba a regisztráció során: ${error.message}` };
+      }
+      if (!signUpData.session && signUpData.user && signUpData.user.identities?.length === 0) {
+        // Same existing-confirmed-email signal as registerVisitor above.
+        return {
+          success: false,
+          message: 'Ezzel az e-mail címmel már van fiók. Kérjük jelentkezzen be.',
+        };
       }
       if (signUpData.session) {
         // Only reachable if this Supabase project's email confirmation requirement is ever
