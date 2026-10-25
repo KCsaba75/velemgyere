@@ -29,6 +29,7 @@ import {
   LogOut
 } from 'lucide-react';
 import { GoogleCalendarSyncCard } from './GoogleCalendarSyncCard';
+import { BookingPushNotificationCard } from './BookingPushNotificationCard';
 
 export const MyAccountView: React.FC = () => {
   const {
@@ -368,6 +369,17 @@ export const MyAccountView: React.FC = () => {
             initialEnabled={currentUser.google_calendar_sync_enabled}
             onSavePreference={async (enabled) => {
               await updateMyProfile({ google_calendar_sync_enabled: enabled });
+            }}
+          />
+        </section>
+
+        {/* BLOCK: Foglalás-chat böngésző push-értesítés (kanban d973bfec) */}
+        <section>
+          <BookingPushNotificationCard
+            userId={currentUser.user_id || currentUser.id || ''}
+            initialEnabled={currentUser.push_notifications_enabled ?? true}
+            onSavePreference={async (enabled) => {
+              await updateMyProfile({ push_notifications_enabled: enabled });
             }}
           />
         </section>

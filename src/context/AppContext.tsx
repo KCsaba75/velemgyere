@@ -265,6 +265,7 @@ interface AppContextType {
     notify_promo?: boolean;
     google_calendar_sync_enabled?: boolean;
     google_calendar_id?: string;
+    push_notifications_enabled?: boolean;
   }) => Promise<{ success: boolean; message: string }>;
   registerProvider: (data: {
     company_name: string;
@@ -1451,6 +1452,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     notify_promo?: boolean;
     google_calendar_sync_enabled?: boolean;
     google_calendar_id?: string;
+    push_notifications_enabled?: boolean;
   }): Promise<{ success: boolean; message: string }> => {
     if (!isAuthenticated || !currentUser?.user_id) {
       return { success: false, message: 'Nincs bejelentkezve.' };

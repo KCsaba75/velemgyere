@@ -19,6 +19,8 @@ export interface Profile {
   // Google Calendar szinkronizáció beállítás (kanban naptár integráció)
   google_calendar_sync_enabled?: boolean;
   google_calendar_id?: string;
+  // Böngésző push-értesítés a foglalás-chat új üzeneteire (kanban d973bfec), opt-out.
+  push_notifications_enabled?: boolean;
 }
 
 export interface Provider {

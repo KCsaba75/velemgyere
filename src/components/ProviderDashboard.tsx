@@ -17,6 +17,7 @@ import {
 import { OnsitePaymentMethod } from '../types/database';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import { GoogleCalendarSyncCard } from './GoogleCalendarSyncCard';
+import { BookingPushNotificationCard } from './BookingPushNotificationCard';
 
 // Kanban 5a3a8dd8 (Csaba, 10-17 + pontositas 19:30 + masodik pontositas): a
 // Programok, Foglalasok, Ertekelesek es Erdeklodesek kezelese is kikerult
@@ -34,6 +35,7 @@ export const ProviderDashboard: React.FC = () => {
     orders,
     getProviderRatingStats,
     updateProviderProfile,
+    updateMyProfile,
     setCurrentView,
     logout
   } = useApp();
@@ -361,6 +363,17 @@ export const ProviderDashboard: React.FC = () => {
             initialEnabled={currentProvider?.google_calendar_sync_enabled}
             onSavePreference={async (enabled) => {
               await updateProviderProfile({ google_calendar_sync_enabled: enabled });
+            }}
+          />
+        </div>
+
+        {/* Foglalás-chat böngésző push-értesítés a szolgáltató számára (kanban d973bfec) */}
+        <div className="mt-8 pt-6 border-t border-stone-200">
+          <BookingPushNotificationCard
+            userId={currentUser?.user_id || currentUser?.id || ''}
+            initialEnabled={currentUser?.push_notifications_enabled ?? true}
+            onSavePreference={async (enabled) => {
+              await updateMyProfile({ push_notifications_enabled: enabled });
             }}
           />
         </div>
