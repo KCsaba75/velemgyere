@@ -103,18 +103,29 @@ export const ProgramList: React.FC<ProgramListProps> = ({ onOpenMobileFilters })
         }
       }
 
-      // Date from & to (ha a programnak több időpontja van, akkor akkor felel meg, ha BÁRMELYIK foglalható dátum beleesik)
-      if (selectedDateFrom || selectedDateTo) {
-        const occDates = programOccurrencesDates?.[p.id];
-        const candidateDates: string[] = [];
-        if (occDates && occDates.length > 0) {
-          candidateDates.push(...occDates);
-        }
-        if (p.event_date && !candidateDates.includes(p.event_date)) {
-          candidateDates.push(p.event_date);
-        }
+      // Foglalhato datum-jeloltek (nyitott program_occurrences + legacy event_date fallback,
+      // ha a programnak tobb idopontja van, akkor BARMELYIK szamit).
+      const occDates = programOccurrencesDates?.[p.id];
+      const candidateDates: string[] = [];
+      if (occDates && occDates.length > 0) {
+        candidateDates.push(...occDates);
+      }
+      if (p.event_date && !candidateDates.includes(p.event_date)) {
+        candidateDates.push(p.event_date);
+      }
 
-        const matchesDate = candidateDates.length > 0 && candidateDates.some((d) => {
+      // Csak ma vagy jovobeli foglalhato datummal rendelkezo programok latszodjanak a
+      // programvadasz feluleten (Csaba kerese, kartya af5f9ec9) -- mult-beli/lezart
+      // idopontu programok ki, meg ha nincs is aktiv datum-szuro beallitva.
+      const todayStr = new Date().toISOString().split('T')[0];
+      const hasUpcomingDate = candidateDates.some((d) => d >= todayStr);
+      if (!hasUpcomingDate) {
+        return false;
+      }
+
+      // Date from & to
+      if (selectedDateFrom || selectedDateTo) {
+        const matchesDate = candidateDates.some((d) => {
           if (selectedDateFrom && d < selectedDateFrom) return false;
           if (selectedDateTo && d > selectedDateTo) return false;
           return true;

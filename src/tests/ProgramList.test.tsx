@@ -189,4 +189,51 @@ describe('ProgramList -- isLoading / ures-lista / nepesitett allapotok', () => {
     expect(screen.queryByText('Csak Októberi Túra')).not.toBeInTheDocument();
     expect(screen.getByText('Nincs találat a megadott szűrési feltételekre')).toBeInTheDocument();
   });
+
+  // Kartya af5f9ec9 (Csaba kerese): a programvadász felületen csak azok a programok
+  // látszódjanak, amelyeknek van foglalható dátuma ma vagy a jövőben -- MÉG aktív
+  // dátum-szűrő nélkül is (a fenti két teszt csak a selectedDateFrom/To ággal
+  // foglalkozik, ez a ketto az alap, szűretlen listázást teszteli).
+  function isoDaysFromNow(days: number): string {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    return d.toISOString().split('T')[0];
+  }
+
+  it('alap listázásnál (dátumszűrő nélkül) kiszűri a kizárólag múltbeli időponttal rendelkező programot', () => {
+    const pastOnly = makeProgram({
+      id: 'prog-past-only',
+      title: 'Lezárt Múltbeli Túra',
+      status: 'published',
+      event_date: isoDaysFromNow(-10),
+    });
+
+    mockUseApp.mockReturnValue(baseAppValue({
+      isLoading: false,
+      programs: [pastOnly],
+      programOccurrencesDates: { 'prog-past-only': [isoDaysFromNow(-5), isoDaysFromNow(-1)] },
+    }));
+
+    render(<ProgramList onOpenMobileFilters={() => {}} />);
+    expect(screen.queryByText('Lezárt Múltbeli Túra')).not.toBeInTheDocument();
+    expect(screen.getByText('Nincs találat a megadott szűrési feltételekre')).toBeInTheDocument();
+  });
+
+  it('alap listázásnál (dátumszűrő nélkül) megjeleníti a programot, ha van ma vagy jövőbeli foglalható időpontja', () => {
+    const upcoming = makeProgram({
+      id: 'prog-upcoming',
+      title: 'Közelgő Túra',
+      status: 'published',
+      event_date: isoDaysFromNow(-10),
+    });
+
+    mockUseApp.mockReturnValue(baseAppValue({
+      isLoading: false,
+      programs: [upcoming],
+      programOccurrencesDates: { 'prog-upcoming': [isoDaysFromNow(-5), isoDaysFromNow(20)] },
+    }));
+
+    render(<ProgramList onOpenMobileFilters={() => {}} />);
+    expect(screen.getByText('Közelgő Túra')).toBeInTheDocument();
+  });
 });
