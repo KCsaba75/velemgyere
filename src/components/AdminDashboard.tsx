@@ -22,7 +22,8 @@ import {
   Star,
   LogOut,
   Landmark,
-  RefreshCw
+  RefreshCw,
+  Users
 } from 'lucide-react';
 import { Region, OnsitePaymentMethod, ReviewStatus } from '../types/database';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
@@ -37,13 +38,14 @@ const PAYMENT_METHOD_LABEL: Record<OnsitePaymentMethod, string> = {
   bank_transfer: 'Előre utalás',
 };
 
-type AdminDashboardTab = 'programs' | 'bookings' | 'reviews' | 'regions' | 'inquiries' | 'settings';
+type AdminDashboardTab = 'programs' | 'bookings' | 'reviews' | 'regions' | 'inquiries' | 'visitors' | 'settings';
 
 export const AdminDashboard: React.FC = () => {
   const {
     programs,
     providers,
     inquiries,
+    registeredVisitors,
     totalRegisteredVisitors,
     orders,
     reviews,
@@ -372,6 +374,18 @@ export const AdminDashboard: React.FC = () => {
         >
           <MessageSquare className="w-4 h-4" />
           <span>Érdeklődések ({inquiries.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('visitors')}
+          className={`pb-3 text-sm font-bold transition-colors cursor-pointer border-b-2 flex items-center gap-2 shrink-0 ${
+            activeTab === 'visitors'
+              ? 'border-emerald-600 text-emerald-800'
+              : 'border-transparent text-stone-500 hover:text-stone-800'
+          }`}
+        >
+          <Users className="w-4 h-4" />
+          <span>Programvadászok ({registeredVisitors.length})</span>
         </button>
 
         <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 pb-3 sm:ml-2">
@@ -1143,6 +1157,43 @@ export const AdminDashboard: React.FC = () => {
                       </div>
                     )}
                   </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* TAB: PROGRAMVADÁSZOK (kanban 3129aebc) -- csak megtekinthető lista,
+          nincs szerkesztés/törlés ezen a fülön. */}
+      {activeTab === 'visitors' && (
+        <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden shadow-sm">
+          <div className="p-4 bg-stone-50 border-b border-stone-100 text-xs font-bold text-stone-500 uppercase tracking-wider">
+            Regisztrált Programvadászok ({registeredVisitors.length})
+          </div>
+
+          <div className="divide-y divide-stone-100">
+            {registeredVisitors.length === 0 && (
+              <div className="p-5 text-sm text-stone-500">Még nincs regisztrált programvadász.</div>
+            )}
+            {registeredVisitors.map((visitor) => {
+              const formattedDate = new Date(visitor.created_at).toLocaleString('hu-HU', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              });
+              return (
+                <div key={visitor.id} className="p-5 hover:bg-stone-50/50 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-4 text-xs text-stone-700">
+                    <div>👤 <strong className="text-stone-900">{visitor.name}</strong></div>
+                    <div>📧 <a href={`mailto:${visitor.email}`} className="text-emerald-700 hover:underline font-semibold">{visitor.email}</a></div>
+                    {visitor.phone && <div>📞 <strong className="text-stone-900">{visitor.phone}</strong></div>}
+                  </div>
+                  <span className="text-xs text-stone-400">
+                    Regisztrált: {formattedDate}
+                  </span>
                 </div>
               );
             })}

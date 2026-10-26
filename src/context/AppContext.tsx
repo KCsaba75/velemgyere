@@ -284,6 +284,7 @@ interface AppContextType {
   programs: Program[];
   providers: Provider[];
   inquiries: Inquiry[];
+  registeredVisitors: Profile[];
   totalRegisteredVisitors: number;
 
   // Admin: Regions Management
@@ -1245,11 +1246,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   });
 
-  // Admin KPI (kanban bb108f51): regisztralt vegfelhasznalok ("programvadaszok"),
-  // NEM a szolgaltatok -- role='visitor' a profiles tablaban. RLS miatt ez csak
-  // adminkent lesz teljes lista (lasd "Users can read own profile" policy),
-  // sima programvadasz/szolgaltato sessionben csak a sajat soruk jon le.
-  const totalRegisteredVisitors = rawProfiles.filter(p => p.role === 'visitor').length;
+  // Admin KPI + Programvadaszok ful (kanban bb108f51 / 3129aebc): regisztralt
+  // vegfelhasznalok, NEM a szolgaltatok -- role='visitor' a profiles tablaban,
+  // legujabb regisztracio legfelul. RLS miatt ez csak adminkent lesz teljes
+  // lista (lasd "Users can read own profile" policy), sima programvadasz/
+  // szolgaltato sessionben csak a sajat soruk jon le.
+  const registeredVisitors: Profile[] = rawProfiles
+    .filter(p => p.role === 'visitor')
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  const totalRegisteredVisitors = registeredVisitors.length;
 
   // Orders joined with their program (for display in MyAccountView) -- same
   // local-join style as `programs`/`inquiriesWithDetails` above, rather than a
@@ -3620,6 +3625,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         programs,
         providers: rawProviders,
         inquiries: inquiriesWithDetails,
+        registeredVisitors,
         totalRegisteredVisitors,
 
         createRegion,
