@@ -1,53 +1,274 @@
-import React, { useState } from 'react';
-import { useApp } from '../context/AppContext';
-import { 
-  ArrowLeft, 
-  MapPin, 
-  Calendar, 
-  Clock, 
-  CheckCircle2, 
-  XCircle, 
-  Users, 
-  Building2, 
-  Phone, 
-  Mail, 
-  Globe, 
-  Share2, 
-  Send, 
-  Check, 
+import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
+import { useApp, formatPrice, formatPlatformFee, formatProgramDisplayDate } from '../context/AppContext';
+import { useDocumentMeta } from '../hooks/useDocumentMeta';
+import {
+  ArrowLeft,
+  MapPin,
+  Calendar,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  Users,
+  Share2,
+  Check,
   Sparkles,
-  ShieldCheck
+  Lock,
+  LogIn,
+  Loader2,
+  BadgeEuro,
+  Banknote,
+  CreditCard,
+  Wallet,
+  Star,
+  Heart,
+  Ticket,
+  Edit3,
+  Landmark
 } from 'lucide-react';
 import { CategoryIcon } from './CategoryIcon';
+import { CountryFlag } from './CountryFlag';
+import { ProgramReviewsSection } from './ProgramReviewsSection';
+import { BookingCheckoutModal } from './BookingCheckoutModal';
+import { NewProgramModal } from './NewProgramModal';
+import { ProgramAvailability, OnsitePaymentMethod, OccurrenceAvailability, ProgramPriceTier } from '../types/database';
 
 export const ProgramDetailView: React.FC = () => {
-  const { 
-    selectedProgramId, 
-    programs, 
-    setCurrentView, 
-    submitInquiry,
-    currentUser 
+  const { slug } = useParams<{ slug: string }>();
+  const {
+    programs,
+    providers,
+    currentProvider,
+    setCurrentView,
+    currentUser,
+    isAuthenticated,
+    openLoginModal,
+    checkProgramAvailability,
+    listOpenOccurrences,
+    getProgramPriceTiers,
+    createOrder,
+    computeBookingFee,
+    computeTotalPrice,
+    getProgramRatingStats,
+    isProgramFavorite,
+    toggleFavorite,
+    openFolderModal,
+    isLoading,
+    programOccurrencesCounts,
   } = useApp();
 
-  const program = programs.find((p) => p.id === selectedProgramId);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+  const program = programs.find((p) => p.slug === slug || p.id === slug);
+  const isFav = program ? isProgramFavorite(program.id) : false;
+  const programProvider = providers.find((p) => p.id === program?.provider_id);
+  // Payment methods are a provider-level setting, inherited by all their programs
+  // (kanban cfa4b20a point 3) -- fall back to cash-only if the provider row hasn't
+  // loaded yet or predates the column.
+  const acceptedPaymentMethods: OnsitePaymentMethod[] =
+    programProvider?.accepted_payment_methods?.length ? programProvider.accepted_payment_methods : ['cash'];
+
+  // Kanban 866cb61a (E2E teszteles kozben talalt kritikus regresszio): ennek
+  // KORABBAN a useDocumentMeta hivas UTAN kellett volna lennie forraskod-sorrendben,
+  // de a useDocumentMeta also a jsonLd objektumaban MAR hivatkozott ra -- mivel
+  // const/let nem hoistolhato hasznalhato modon, ez minden egyes program-reszletező
+  // oldal-megnyitast ReferenceError-ral eldobott (lasd a lejjebbi kommentet es a
+  // kanban-kartyat). Ez a komponens 1. renderje volt, tehat BARMELYIK program
+  // megnyitasa azonnal crashelt.
+  const programStats = program ? getProgramRatingStats(program.id) : null;
+
+  const coverImageUrl = program?.images?.find((img) => img.is_cover)?.image_url
+    || program?.images?.[0]?.image_url;
+
+  useDocumentMeta(
+    program?.title,
+    program?.short_description || program?.description?.substring(0, 160),
+    program ? {
+      image: coverImageUrl,
+      type: 'product',
+      canonicalUrl: `https://velemgyere.hu/programok/${program.slug || program.id}`,
+      jsonLd: {
+        '@context': 'https://schema.org',
+        '@type': 'TouristTrip',
+        name: program.title,
+        description: program.short_description || program.description?.substring(0, 200),
+        image: coverImageUrl,
+        touristType: 'Leisure',
+        offers: {
+          '@type': 'Offer',
+          price: program.price,
+          priceCurrency: program.currency || 'EUR',
+          availability: 'https://schema.org/InStock',
+          url: `https://velemgyere.hu/programok/${program.slug || program.id}`,
+        },
+        provider: {
+          '@type': 'Organization',
+          name: programProvider?.company_name || 'Velem Gyere Partner',
+        },
+        ...(programStats?.count ? {
+          aggregateRating: {
+            '@type': 'AggregateRating',
+            ratingValue: programStats.average,
+            reviewCount: programStats.count,
+          }
+        } : {})
+      }
+    } : undefined
+  );
 
   // Gallery state
   const [activeImageIndex, setActiveImageIndex] = useState(0);
-
-  // Inquiry Modal state
-  const [inquiryModalOpen, setInquiryModalOpen] = useState(false);
-  const [name, setName] = useState(currentUser.role === 'visitor' ? '' : currentUser.name);
-  const [email, setEmail] = useState(currentUser.role === 'visitor' ? '' : currentUser.email);
-  const [phone, setPhone] = useState('');
-  const [message, setMessage] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitSuccess, setSubmitSuccess] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+
+  // Availability check (point 6) -- only callable once logged in, see checkProgramAvailability.
+  const [availability, setAvailability] = useState<ProgramAvailability | null>(null);
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
+  const [availabilityChecked, setAvailabilityChecked] = useState(false);
+
+  // Reservation ("Helyfoglalás", kanban fbf552b2 point 2) -- a status-only order record,
+  // not a real payment yet. This is now the ONLY primary CTA on the page -- it replaces
+  // the old "Érdekel a program!" inquiry modal, which let a buyer message the provider
+  // directly (and the provider reply directly) completely outside the order/fee model.
+  // Kanban 84b90320: participantsCount a COMMITTED, mindig ervenyes szam (ezt
+  // hasznalja minden ar-szamitas/kijelzes es a BookingCheckoutModal prop), kulon
+  // participantsInput a mezo nyers megjelenitett szovege. A ketto szet van valva,
+  // mert focus-kor a mezot KIURITJUK (lasd lejjebb onFocus) a natív text-selection
+  // helyett -- mobilon a select() a masolas/beillesztes bubble-t valtotta ki, ures
+  // mezonel viszont nincs mit kijelolni. MUTACIOS TESZT-CSAPDA amit ez a szetvalas
+  // kerul el: ha participantsCount kozvetlenul parseInt(participantsInput)-bol szarmazna,
+  // minden ures-focus pillanatban visszaesne 1-re, es blur-kor (ha a felhasznalo nem
+  // irt semmit) a korabban beallitott erteket (pl. 5 fo) csendben 1-re irna at.
+  const [participantsCount, setParticipantsCount] = useState(1);
+  const [participantsInput, setParticipantsInput] = useState('1');
+  const [onsitePaymentMethod, setOnsitePaymentMethod] = useState<OnsitePaymentMethod>('cash');
+  const [reservationSubmitting, setReservationSubmitting] = useState(false);
+  const [reservationResult, setReservationResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
+
+  // Occurrence/slot-rendszer (kanban c039bfb6 point 4): ha a programhoz van nyitott,
+  // jövőbeli időpont, a vevő EGY konkrétat választ -- az időpont-specifikus kapacitás
+  // már a listával együtt megjön (list_program_occurrences), nincs külön "ellenőrzés"
+  // lépés mint a régi, occurrence nélküli programoknál. Ha a lista üres (régi program),
+  // a lenti teljesen régi, program-szintű flow marad érvényben.
+  const [occurrenceOptions, setOccurrenceOptions] = useState<OccurrenceAvailability[]>([]);
+  const [occurrencesLoading, setOccurrencesLoading] = useState(true);
+  const [selectedOccurrenceId, setSelectedOccurrenceId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setOccurrenceOptions([]);
+    setSelectedOccurrenceId(null);
+    if (!program) {
+      setOccurrencesLoading(false);
+      return;
+    }
+    setOccurrencesLoading(true);
+    let cancelled = false;
+    listOpenOccurrences(program.id).then(rows => {
+      if (cancelled) return;
+      setOccurrenceOptions(rows);
+      setOccurrencesLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [program?.id]);
+
+  const selectedOccurrence = occurrenceOptions.find(o => o.id === selectedOccurrenceId) || null;
+
+  // Savos/csoportos arazas (kanban 62e69729): 'tiered' programnal a letszamhoz tartozo
+  // SAV OSSZES ara donti el a netTotal-t, nem a price*participantsCount linearis szorzas.
+  const [priceTiers, setPriceTiers] = useState<ProgramPriceTier[]>([]);
+  useEffect(() => {
+    setPriceTiers([]);
+    if (!program || program.pricing_mode !== 'tiered') return;
+    let cancelled = false;
+    getProgramPriceTiers(program.id).then(rows => {
+      if (!cancelled) setPriceTiers(rows);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [program?.id, program?.pricing_mode]);
+
+  const matchingTier = program?.pricing_mode === 'tiered'
+    ? priceTiers.find(t => participantsCount >= t.min_participants && (t.max_participants == null || participantsCount <= t.max_participants)) || null
+    : null;
+  const lowestTier = priceTiers.length > 0 ? priceTiers[0] : null;
+  // null = tiered program, de nincs a jelenlegi letszamhoz illo sav -- a form ezt jelzi,
+  // nem enged tovabb (a szerver enfore_order_capacity/set_order_booking_fee ugyanezt
+  // utolag is kikenyszeriti, ez csak elore jelzi a vevonek).
+  const netTotalForCount = program
+    ? (program.pricing_mode === 'tiered' ? (matchingTier ? matchingTier.total_price : null) : program.price * participantsCount)
+    : null;
+
+  // Keep the selection valid if the provider doesn't accept the default/previous
+  // choice (e.g. a cash-only provider, or switching between programs of different
+  // providers without a full remount).
+  useEffect(() => {
+    if (!acceptedPaymentMethods.includes(onsitePaymentMethod)) {
+      setOnsitePaymentMethod(acceptedPaymentMethods[0]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [program?.id, acceptedPaymentMethods.join(',')]);
+
+  // Provider contact reveal (point 3) -- mar a fizetes (pending) utan latszik, nem csak
+  // a kesobbi admin-megerosites (confirmed) utan, resolved server-side
+  // (get_provider_contact_for_order never returns another user's or a cancelled
+  // order's contact details, see schema.sql).
+  const handleCheckAvailability = async () => {
+    if (!program) return;
+    setAvailabilityLoading(true);
+    try {
+      const result = await checkProgramAvailability(program.id);
+      setAvailability(result);
+      setAvailabilityChecked(true);
+    } finally {
+      setAvailabilityLoading(false);
+    }
+  };
+
+  const handleReservationSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!program) return;
+    if (!isAuthenticated || !currentUser) {
+      openLoginModal('A foglalás véglegesítéséhez és a fizetéshez kérjük jelentkezz be a saját fiókodba!');
+      return;
+    }
+    // Tiered programnal nincs illo sav a jelenlegi letszamhoz -- ugyanezt a
+    // szerver (set_order_booking_fee) is FAIL LOUD-dal elutasitana, de ne is
+    // probalkozzunk, a gomb is le van tiltva erre az esetre.
+    if (netTotalForCount === null) return;
+    setIsCheckoutModalOpen(true);
+  };
+
+  if (isLoading && !program) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-pulse">
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_440px] gap-8">
+          <div className="min-w-0 space-y-6">
+            <div className="aspect-[16/10] bg-stone-200 rounded-3xl"></div>
+            <div className="h-10 bg-stone-200 rounded-xl w-3/4"></div>
+            <div className="h-5 bg-stone-200 rounded-lg w-1/2"></div>
+            <div className="space-y-3 pt-4">
+              <div className="h-4 bg-stone-200 rounded w-full"></div>
+              <div className="h-4 bg-stone-200 rounded w-5/6"></div>
+              <div className="h-4 bg-stone-200 rounded w-4/6"></div>
+            </div>
+          </div>
+          <div className="lg:w-[440px]">
+            <div className="h-96 bg-stone-200 rounded-3xl"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!program) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-16 text-center">
-        <h2 className="text-2xl font-bold text-stone-900 mb-4 font-display">A keresett program nem található</h2>
+        <h1 className="text-2xl font-bold text-stone-900 mb-4 font-display">A keresett program nem található</h1>
         <button
           onClick={() => setCurrentView('programs')}
           className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white rounded-xl font-medium cursor-pointer"
@@ -65,41 +286,31 @@ export const ProgramDetailView: React.FC = () => {
 
   const currentImage = images[activeImageIndex]?.image_url || images[0].image_url;
 
-  // Format Hungarian date
-  const formattedDate = (() => {
+  const hasMultipleDates = occurrenceOptions.length > 1 || ((program?.id ? programOccurrencesCounts[program.id] : 0) || 0) > 1;
+
+  // Format Hungarian date nicely (avoid UTC midnight shifting and long weekday truncation)
+  const { dateFormatted, weekdayFormatted, fullDateFormatted } = (() => {
     try {
-      const d = new Date(program.event_date);
-      return d.toLocaleDateString('hu-HU', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        weekday: 'long'
-      });
+      const activeDate = selectedOccurrence?.event_date || program?.event_date;
+      if (!activeDate) {
+        return { dateFormatted: 'Egyeztetés szerint', weekdayFormatted: '', fullDateFormatted: 'Egyeztetés szerint' };
+      }
+      const dateFormatted = selectedOccurrence 
+        ? formatProgramDisplayDate(selectedOccurrence.event_date, false)
+        : formatProgramDisplayDate(program!.event_date, hasMultipleDates);
+      const dateStr = activeDate.includes('T') ? activeDate : `${activeDate}T00:00:00`;
+      const d = new Date(dateStr);
+      const weekdayFormatted = !isNaN(d.getTime()) ? d.toLocaleDateString('hu-HU', { weekday: 'long' }) : '';
+      return {
+        dateFormatted,
+        weekdayFormatted,
+        fullDateFormatted: weekdayFormatted ? `${dateFormatted} (${weekdayFormatted})` : dateFormatted
+      };
     } catch {
-      return program.event_date;
+      return { dateFormatted: selectedOccurrence?.event_date || program?.event_date || '', weekdayFormatted: '', fullDateFormatted: selectedOccurrence?.event_date || program?.event_date || '' };
     }
   })();
-
-  const handleInquirySubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim() || !email.trim()) return;
-
-    setIsSubmitting(true);
-    try {
-      await submitInquiry({
-        program_id: program.id,
-        name: name.trim(),
-        email: email.trim(),
-        phone: phone.trim() || undefined,
-        message: message.trim() || undefined,
-      });
-      setSubmitSuccess(true);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  const formattedDate = fullDateFormatted;
 
   const handleCopyLink = () => {
     navigator.clipboard?.writeText(window.location.href);
@@ -108,105 +319,196 @@ export const ProgramDetailView: React.FC = () => {
   };
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-in fade-in duration-200">
-      {/* Top Breadcrumb & Back button */}
-      <div className="flex items-center justify-between gap-4 mb-6">
-        <button
-          onClick={() => setCurrentView('programs')}
-          className="inline-flex items-center gap-2 text-stone-600 hover:text-stone-900 font-semibold text-sm px-3 py-1.5 rounded-lg hover:bg-stone-100 transition-colors cursor-pointer"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Vissza a katalógushoz</span>
-        </button>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 animate-in fade-in duration-200">
+      {/* Main Image & Gallery */}
+      <div className="space-y-3 mb-8">
+        {/* Badges */}
+        <div className="flex flex-wrap gap-2 items-center">
+          {/* Destination badge */}
+          <span className="bg-white border border-stone-200 text-stone-900 text-xs sm:text-sm font-bold px-3 py-1.5 rounded-xl shadow-sm flex items-center gap-1.5">
+            <CountryFlag emoji={program.region?.flag_emoji} country={program.region?.country || program.country} size="sm" />
+            <span>{program.region?.name || program.location}</span>
+          </span>
 
-        <div className="flex items-center gap-2">
+          {/* Date badge */}
+          <span className="bg-white border border-stone-200 text-stone-900 text-xs sm:text-sm font-bold px-3 py-1.5 rounded-xl shadow-sm flex items-center gap-1.5">
+            <Calendar className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>{dateFormatted}</span>
+            {weekdayFormatted && (
+              <span className="text-stone-500 font-normal text-xs capitalize hidden sm:inline">({weekdayFormatted})</span>
+            )}
+          </span>
+
+          {/* Service type badge */}
+          {program.category && (
+            <span className="bg-stone-900 text-stone-200 text-xs sm:text-sm font-semibold px-3 py-1.5 rounded-xl shadow-sm flex items-center gap-1.5">
+              <CategoryIcon icon={program.category.icon} className="w-4 h-4 text-emerald-400" />
+              {program.category.name}
+            </span>
+          )}
+
+          {/* Guaranteed Hungarian badge */}
+          <span className="bg-emerald-700 text-white text-xs sm:text-sm font-bold px-3 py-1.5 rounded-xl shadow-sm flex items-center gap-1.5">
+            <CountryFlag emoji="🇭🇺" country="Magyarország" size="sm" />
+            <span>{program.language || 'Magyar nyelvű vezetés'}</span>
+          </span>
+
+          {program.featured && (
+            <span className="bg-amber-700 text-white text-xs sm:text-sm font-bold px-3 py-1.5 rounded-xl shadow-sm flex items-center gap-1">
+              <Sparkles className="w-3.5 h-3.5 fill-white" />
+              Kiemelt élmény
+            </span>
+          )}
+
+          {/* Szolgáltató vagy admin szerkesztés gomb */}
+          {currentUser && (currentUser.role === 'admin' || (currentProvider && currentProvider.id === program.provider_id)) && (
+            <button
+              type="button"
+              onClick={() => setIsEditModalOpen(true)}
+              className="bg-emerald-50 border border-emerald-300 text-emerald-800 hover:bg-emerald-100 text-xs sm:text-sm font-bold px-3 py-1.5 rounded-xl shadow-sm flex items-center gap-1.5 transition-colors cursor-pointer sm:ml-auto"
+              title="Program adatainak szerkesztése"
+            >
+              <Edit3 className="w-4 h-4 text-emerald-700" />
+              <span>Program Szerkesztése</span>
+            </button>
+          )}
+
+          {/* Megosztás gomb közvetlenül a kép felett a többi címkével egy sorban */}
           <button
+            type="button"
             onClick={handleCopyLink}
-            className="inline-flex items-center gap-1.5 text-xs text-stone-600 hover:text-stone-900 px-3 py-1.5 rounded-lg border border-stone-200 hover:bg-stone-50 transition-colors cursor-pointer"
+            className={`bg-white border border-stone-200 text-stone-700 hover:text-stone-900 hover:border-stone-300 hover:bg-stone-50 text-xs sm:text-sm font-bold px-3 py-1.5 rounded-xl shadow-sm flex items-center gap-1.5 transition-colors cursor-pointer ${
+              currentUser && (currentUser.role === 'admin' || (currentProvider && currentProvider.id === program.provider_id)) ? '' : 'sm:ml-auto'
+            }`}
             title="Link másolása"
           >
-            {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Share2 className="w-3.5 h-3.5" />}
+            {copiedLink ? <Check className="w-4 h-4 text-emerald-600" /> : <Share2 className="w-4 h-4 text-stone-500" />}
             <span>{copiedLink ? 'Megosztva!' : 'Megosztás'}</span>
           </button>
         </div>
-      </div>
 
-      {/* Main Image & Gallery */}
-      <div className="space-y-3 mb-8">
         <div className="relative aspect-[16/9] sm:aspect-[21/9] w-full rounded-3xl overflow-hidden shadow-lg border border-stone-200 bg-stone-900">
           <img
             src={currentImage}
             alt={program.title}
             className="w-full h-full object-cover transition-opacity duration-300"
+            loading="eager"
+            fetchPriority="high"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/25 pointer-events-none"></div>
 
-          {/* Badges on image */}
-          <div className="absolute top-4 left-4 flex flex-wrap gap-2">
-            {/* Destination badge */}
-            <span className="bg-white/95 backdrop-blur-md text-stone-900 text-xs sm:text-sm font-bold px-3 py-1.5 rounded-xl shadow flex items-center gap-1.5">
-              <span>{program.region?.flag_emoji || '✈️'}</span>
-              <span>{program.region?.name || program.location}</span>
-            </span>
-
-            {/* Service type badge */}
-            {program.category && (
-              <span className="bg-stone-900/90 backdrop-blur-md text-stone-200 text-xs sm:text-sm font-semibold px-3 py-1.5 rounded-xl shadow flex items-center gap-1.5">
-                <CategoryIcon icon={program.category.icon} className="w-4 h-4 text-emerald-400" />
-                {program.category.name}
-              </span>
-            )}
-
-            {/* Guaranteed Hungarian badge */}
-            <span className="bg-emerald-600/95 text-white text-xs sm:text-sm font-bold px-3 py-1.5 rounded-xl shadow flex items-center gap-1.5">
-              <span>🇭🇺</span>
-              <span>{program.language || 'Magyar nyelvű vezetés'}</span>
-            </span>
-
-            {program.featured && (
-              <span className="bg-amber-500 text-white text-xs sm:text-sm font-bold px-3 py-1.5 rounded-xl shadow flex items-center gap-1">
-                <Sparkles className="w-3.5 h-3.5 fill-white" />
-                Kiemelt élmény
-              </span>
-            )}
-          </div>
-
-          <div className="absolute bottom-4 right-4 bg-emerald-600 text-white font-extrabold text-lg sm:text-2xl px-5 py-2.5 rounded-2xl shadow-xl">
-            {program.price} {program.currency === 'EUR' ? '€' : program.currency}
-            <span className="text-xs sm:text-sm font-normal text-emerald-100"> / fő</span>
-          </div>
+          {/* Floating Heart Button in the top right corner of the main photo */}
+          <button
+            type="button"
+            onClick={() => {
+              if (!program) return;
+              // Same toggle-off-on-click fix as ProgramCard (kanban 12f43965).
+              if (isFav) {
+                toggleFavorite(program.id);
+              } else {
+                openFolderModal(program);
+              }
+            }}
+            className={`absolute top-4 right-4 z-10 w-11 h-11 rounded-full backdrop-blur-md shadow-xl flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-90 cursor-pointer ${
+              isFav
+                ? 'bg-white text-rose-500 ring-2 ring-rose-400/60 shadow-rose-500/30'
+                : 'bg-stone-900/60 hover:bg-white text-white hover:text-rose-500'
+            }`}
+            title={
+              !isAuthenticated
+                ? "Jelentkezz be programvadászként a kedvencek mentéséhez (♡)"
+                : isFav
+                  ? "Mentve a kedvencekhez (mappák kezelése)"
+                  : "Mentés egy mappába (♡)"
+            }
+            aria-label={isFav ? "Kedvenc program" : "Mentés a kedvencek közé"}
+          >
+            <Heart className={`w-5 h-5 transition-transform ${isFav ? 'fill-rose-500 text-rose-500 scale-110' : 'text-current'}`} />
+          </button>
         </div>
 
-        {/* Thumbnail gallery if multiple images */}
-        {images.length > 1 && (
-          <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-            {images.map((img, idx) => (
-              <button
-                key={img.id}
-                onClick={() => setActiveImageIndex(idx)}
-                className={`relative w-24 h-16 rounded-xl overflow-hidden shrink-0 border-2 transition-all cursor-pointer ${
-                  activeImageIndex === idx ? 'border-emerald-600 ring-2 ring-emerald-300 scale-95' : 'border-transparent opacity-70 hover:opacity-100'
-                }`}
-              >
-                <img src={img.image_url} alt="" className="w-full h-full object-cover" />
-              </button>
-            ))}
+        {/* Alatta: bal oldalon a kisképek (galéria), jobb oldalon az összegcímke - azonos távolságra a nagy képtől */}
+        <div className="flex items-center justify-between gap-3">
+          {/* Thumbnail gallery if multiple images */}
+          {images.length > 1 ? (
+            <div className="flex gap-2 overflow-x-auto py-1 no-scrollbar min-w-0">
+              {images.map((img, idx) => (
+                <button
+                  key={img.id}
+                  onClick={() => setActiveImageIndex(idx)}
+                  className={`relative w-20 sm:w-24 h-14 sm:h-16 rounded-xl overflow-hidden shrink-0 border-2 transition-all cursor-pointer ${
+                    activeImageIndex === idx ? 'border-emerald-600 ring-2 ring-emerald-300 scale-95' : 'border-transparent opacity-70 hover:opacity-100'
+                  }`}
+                  aria-label={`Kép ${idx + 1}`}
+                >
+                  <img src={img.thumb_url || img.image_url} alt="" loading="lazy" className="w-full h-full object-cover" />
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div />
+          )}
+
+          {/* Price badge (összegcímke) -- savos (tiered) programnal a legalacsonyabb sav
+              "-tol, csoportonkent" arat mutatja, mert nincs egyetlen fix fejenkenti ar. */}
+          <div className="shrink-0 ml-auto">
+            <div className="inline-block bg-emerald-700 text-white font-extrabold text-lg sm:text-2xl px-5 py-2.5 rounded-2xl shadow-xl whitespace-nowrap">
+              {program.pricing_mode === 'tiered' ? (
+                lowestTier ? (
+                  <>
+                    {formatPrice(computeTotalPrice(lowestTier.total_price))} {program.currency === 'EUR' ? '€' : program.currency}
+                    <span className="text-xs sm:text-sm font-normal text-emerald-100">/túra-tól</span>
+                  </>
+                ) : (
+                  <span className="text-xs sm:text-sm font-normal">Ár hamarosan</span>
+                )
+              ) : (
+                <>
+                  {formatPrice(computeTotalPrice(program.price))} {program.currency === 'EUR' ? '€' : program.currency}
+                  <span className="text-xs sm:text-sm font-normal text-emerald-100"> / fő</span>
+                </>
+              )}
+            </div>
           </div>
-        )}
+        </div>
       </div>
 
       {/* Main Content Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_440px] gap-8 items-start">
         {/* Left Column: Details & Program Description */}
-        <div className="lg:col-span-2 space-y-8">
+        <div className="min-w-0 space-y-8 lg:col-start-1 lg:row-start-1">
           <div>
             <div className="inline-flex items-center gap-2 text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-lg mb-2">
-              <span>🇭🇺</span>
+              <CountryFlag emoji="🇭🇺" country="Magyarország" size="xs" />
               <span>Külföldi program magyar nyelvű vezetéssel vagy sofőrrel</span>
             </div>
-            <h1 className="text-3xl sm:text-4xl font-extrabold font-display text-stone-900 mb-3 tracking-tight">
+            <h1 className="text-3xl sm:text-4xl font-extrabold font-display text-stone-900 mb-2 tracking-tight">
               {program.title}
             </h1>
+
+            {programStats && (
+              <div className="mb-4">
+                <a
+                  href="#reviews-section"
+                  className="inline-flex items-center gap-2 text-xs font-bold text-stone-700 hover:text-emerald-700 bg-stone-100 hover:bg-emerald-50 px-3 py-1.5 rounded-xl border border-stone-200/80 transition-all cursor-pointer"
+                >
+                  <div className="flex text-amber-400">
+                    <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
+                  </div>
+                  <span className="text-stone-900 font-extrabold font-display text-sm">
+                    {programStats.average.toFixed(1)}
+                  </span>
+                  <span className="text-stone-400">•</span>
+                  <span className="text-stone-600">
+                    {programStats.count > 0 ? `${programStats.count} igazolt értékelés` : 'Új program'}
+                  </span>
+                  {programStats.count > 0 && (
+                    <span className="text-emerald-700 font-semibold">
+                      ({programStats.recommendPercent}% ajánlja)
+                    </span>
+                  )}
+                </a>
+              </div>
+            )}
             <p className="text-lg text-stone-600 leading-relaxed font-medium">
               {program.short_description}
             </p>
@@ -218,9 +520,18 @@ export const ProgramDetailView: React.FC = () => {
               <span className="text-xs font-bold text-stone-500 uppercase tracking-wider block mb-1">
                 Dátum
               </span>
-              <div className="flex items-center gap-1.5 font-bold text-stone-900 text-sm">
-                <Calendar className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span className="truncate">{formattedDate}</span>
+              <div className="flex items-start gap-1.5 text-stone-900">
+                <Calendar className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <div className="min-w-0">
+                  <span className="font-bold text-sm text-stone-900 block leading-tight whitespace-normal break-words">
+                    {dateFormatted}
+                  </span>
+                  {weekdayFormatted && (
+                    <span className="text-xs font-semibold text-emerald-700 capitalize block mt-0.5 whitespace-normal">
+                      {weekdayFormatted}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -239,7 +550,11 @@ export const ProgramDetailView: React.FC = () => {
                 Idősáv
               </span>
               <div className="font-bold text-stone-900 text-sm">
-                {program.start_time} - {program.end_time}
+                {isAuthenticated ? `${program.start_time} - ${program.end_time}` : (
+                  <span className="inline-flex items-center gap-1 text-stone-500 font-normal text-xs">
+                    <Lock className="w-3 h-3" /> bejelentkezve látható
+                  </span>
+                )}
               </div>
             </div>
 
@@ -256,10 +571,10 @@ export const ProgramDetailView: React.FC = () => {
 
           {/* Locations & Meeting point */}
           <div className="bg-white rounded-2xl border border-stone-200 p-5 space-y-3">
-            <h3 className="font-display font-bold text-stone-900 text-lg flex items-center gap-2">
+            <h2 className="font-display font-bold text-stone-900 text-lg flex items-center gap-2">
               <MapPin className="w-5 h-5 text-emerald-600" />
               <span>Helyszín és Találkozási Pont</span>
-            </h3>
+            </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
               <div className="bg-stone-50 p-3.5 rounded-xl border border-stone-100">
                 <span className="text-xs font-bold text-stone-500 block mb-1">📍 Program helyszíne:</span>
@@ -272,272 +587,451 @@ export const ProgramDetailView: React.FC = () => {
             </div>
           </div>
 
-          {/* Detailed Description */}
+          {/* Detailed Description (kanban fbf552b2 point 1): public since 2026-10-07,
+              no login required -- see schema.sql programs_public/anon grant. */}
           <div className="prose prose-stone max-w-none">
-            <h3 className="font-display font-bold text-stone-900 text-xl mb-3">
+            <h2 className="font-display font-bold text-stone-900 text-xl mb-3">
               Részletes leírás
-            </h3>
+            </h2>
             <div className="text-stone-700 whitespace-pre-line leading-relaxed text-base space-y-4">
               {program.description}
             </div>
           </div>
 
-          {/* Included / Not Included Sections */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-4 border-t border-stone-200">
-            {/* Mit tartalmaz */}
-            <div className="bg-emerald-50/60 rounded-2xl p-5 border border-emerald-100">
-              <h4 className="font-display font-bold text-emerald-950 text-base mb-3 flex items-center gap-2">
-                <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                <span>Mit tartalmaz az ár?</span>
-              </h4>
-              <ul className="space-y-2 text-sm text-stone-700">
-                {program.included && program.included.length > 0 ? (
-                  program.included.map((item, idx) => (
-                    <li key={idx} className="flex items-start gap-2">
-                      <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                      <span>{item}</span>
-                    </li>
-                  ))
-                ) : (
-                  <li className="text-stone-500 italic">Nincs részletezve</li>
-                )}
-              </ul>
-            </div>
-
-            {/* Mit nem tartalmaz */}
-            <div className="bg-rose-50/60 rounded-2xl p-5 border border-rose-100">
-              <h4 className="font-display font-bold text-rose-950 text-base mb-3 flex items-center gap-2">
-                <XCircle className="w-5 h-5 text-rose-500" />
-                <span>Mit nem tartalmaz?</span>
-              </h4>
-              <ul className="space-y-2 text-sm text-stone-700">
-                {program.not_included && program.not_included.length > 0 ? (
-                  program.not_included.map((item, idx) => (
-                    <li key={idx} className="flex items-start gap-2">
-                      <span className="text-rose-500 font-bold shrink-0 mt-0.5">✕</span>
-                      <span>{item}</span>
-                    </li>
-                  ))
-                ) : (
-                  <li className="text-stone-500 italic">Minden lényeges költséget tartalmaz</li>
-                )}
-              </ul>
-            </div>
-          </div>
-        </div>
-
-        {/* Right Column: Sticky Action Card & Provider Details */}
-        <div className="space-y-6">
-          <div className="bg-white rounded-3xl border border-stone-200 shadow-xl p-6 sticky top-28 space-y-6">
-            <div className="flex items-baseline justify-between border-b border-stone-100 pb-4">
-              <div>
-                <span className="text-xs text-stone-500 font-bold block uppercase">Részvételi díj</span>
-                <span className="text-3xl font-extrabold text-stone-900 font-display">
-                  {program.price} {program.currency === 'EUR' ? '€' : program.currency}
-                </span>
-                <span className="text-xs text-stone-500 font-medium"> / fő</span>
+          {/* Included / Not Included Sections -- still gated (point 1: only the
+              description + meeting point above became public, this stays behind login) */}
+          {isAuthenticated ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-4 border-t border-stone-200">
+              {/* Mit tartalmaz */}
+              <div className="bg-emerald-50/60 rounded-2xl p-5 border border-emerald-100">
+                <h3 className="font-display font-bold text-emerald-950 text-base mb-3 flex items-center gap-2">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                  <span>Mit tartalmaz az ár?</span>
+                </h3>
+                <ul className="space-y-2 text-sm text-stone-700">
+                  {program.included && program.included.length > 0 ? (
+                    program.included.map((item, idx) => (
+                      <li key={idx} className="flex items-start gap-2">
+                        <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                        <span>{item}</span>
+                      </li>
+                    ))
+                  ) : (
+                    <li className="text-stone-500 italic">Nincs részletezve</li>
+                  )}
+                </ul>
               </div>
 
-              <div className="text-right">
-                <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg">
-                  Közvetlen kapcsolat
-                </span>
+              {/* Mit nem tartalmaz */}
+              <div className="bg-rose-50/60 rounded-2xl p-5 border border-rose-100">
+                <h3 className="font-display font-bold text-rose-950 text-base mb-3 flex items-center gap-2">
+                  <XCircle className="w-5 h-5 text-rose-500" />
+                  <span>Mit nem tartalmaz?</span>
+                </h3>
+                <ul className="space-y-2 text-sm text-stone-700">
+                  {program.not_included && program.not_included.length > 0 ? (
+                    program.not_included.map((item, idx) => (
+                      <li key={idx} className="flex items-start gap-2">
+                        <span className="text-rose-500 font-bold shrink-0 mt-0.5">✕</span>
+                        <span>{item}</span>
+                      </li>
+                    ))
+                  ) : (
+                    <li className="text-stone-500 italic">Minden lényeges költséget tartalmaz</li>
+                  )}
+                </ul>
               </div>
             </div>
-
-            {/* CTA Button */}
+          ) : (
             <div>
               <button
-                onClick={() => {
-                  setSubmitSuccess(false);
-                  setInquiryModalOpen(true);
-                }}
-                className="w-full bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold py-4 px-6 rounded-2xl shadow-lg shadow-emerald-600/25 transition-all text-center flex items-center justify-center gap-2 cursor-pointer transform hover:-translate-y-0.5"
+                type="button"
+                onClick={() => openLoginModal('A részletes információk (mit tartalmaz és mit nem tartalmaz az ár) megtekintéséhez kérjük jelentkezz be!')}
+                className="inline-flex items-center justify-center gap-2 text-sm font-bold bg-emerald-700 hover:bg-emerald-800 text-white px-5 py-3 rounded-2xl transition-all cursor-pointer shadow-xs hover:shadow-sm"
               >
-                <Sparkles className="w-5 h-5" />
-                <span className="tracking-wide">ÉRDEKEL A PROGRAM</span>
+                <LogIn className="w-4 h-4" />
+                <span>További információkhoz bejelentkezés szükséges</span>
               </button>
-              <p className="text-[11px] text-stone-400 text-center mt-2.5">
-                Kérj kötelezettségmentes tájékoztatást közvetlenül a helyi magyar szolgáltatótól!
-              </p>
             </div>
+          )}
 
-            {/* Provider Info Card */}
-            {program.provider && (
-              <div className="border-t border-stone-100 pt-5 space-y-4">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold font-display shrink-0">
-                    <Building2 className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <span className="text-[11px] font-bold text-stone-400 uppercase tracking-wider block">
-                      Helyi Szolgáltató
-                    </span>
-                    <h5 className="font-bold text-stone-900 text-sm">
-                      {program.provider.company_name}
-                    </h5>
-                  </div>
-                </div>
+        </div>
 
-                <p className="text-xs text-stone-600 leading-relaxed line-clamp-3">
-                  {program.provider.description}
-                </p>
-
-                <div className="space-y-2 text-xs text-stone-600 pt-2 border-t border-stone-100">
-                  <div className="flex items-center gap-2">
-                    <Users className="w-3.5 h-3.5 text-stone-400 shrink-0" />
-                    <span>Kapcsolattartó: <strong className="text-stone-800">{program.provider.contact_name}</strong></span>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <Phone className="w-3.5 h-3.5 text-stone-400 shrink-0" />
-                    <span className="text-stone-800 font-semibold">{program.provider.phone}</span>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <Mail className="w-3.5 h-3.5 text-stone-400 shrink-0" />
-                    <span className="text-stone-800 truncate">{program.provider.email}</span>
-                  </div>
-
-                  {program.provider.website && (
-                    <div className="flex items-center gap-2">
-                      <Globe className="w-3.5 h-3.5 text-stone-400 shrink-0" />
-                      <a 
-                        href={program.provider.website} 
-                        target="_blank" 
-                        rel="noreferrer" 
-                        className="text-emerald-700 hover:underline truncate font-semibold"
-                      >
-                        {program.provider.website}
-                      </a>
-                    </div>
+        {/* Right Column: Sticky Booking Card & Provider Details */}
+        <div className="space-y-6 w-full lg:w-[440px] lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:self-stretch">
+          <div className="bg-white rounded-3xl border border-stone-200 shadow-xl p-6 lg:sticky lg:top-28 space-y-6">
+            {/* Price Header & Transparent Fee Breakdown */}
+            <div className="border-b border-stone-100 pb-5 space-y-3.5">
+              <div>
+                <span className="text-xs text-stone-500 font-bold block uppercase tracking-wider">
+                  Részvételi díj
+                </span>
+                <div className="flex items-baseline gap-1.5 mt-0.5">
+                  {program.pricing_mode === 'tiered' ? (
+                    lowestTier ? (
+                      <>
+                        <span className="text-3xl sm:text-4xl font-extrabold text-stone-900 font-display">
+                          {formatPrice(computeTotalPrice(lowestTier.total_price))} {program.currency === 'EUR' ? '€' : program.currency}
+                        </span>
+                        <span className="text-xs text-stone-500 font-medium">/túra-tól</span>
+                      </>
+                    ) : (
+                      <span className="text-sm text-stone-500 font-medium">Ár hamarosan</span>
+                    )
+                  ) : (
+                    <>
+                      <span className="text-3xl sm:text-4xl font-extrabold text-stone-900 font-display">
+                        {formatPrice(computeTotalPrice(program.price))} {program.currency === 'EUR' ? '€' : program.currency}
+                      </span>
+                      <span className="text-xs text-stone-500 font-medium"> / fő</span>
+                    </>
                   )}
                 </div>
               </div>
-            )}
+
+              {/* Detailed Payment Breakdown -- tiered programnal nincs egyetlen fix
+                  "1 fő esetén" bontas (a vegosszeg a letszamtol fugg, azt a lenti,
+                  resztvevo-szam-fuggo bontas mutatja), csak egy rovid utalas. */}
+              {program.pricing_mode === 'tiered' ? (
+                <div className="bg-stone-50 rounded-2xl p-3.5 border border-stone-200/90 text-xs text-stone-600">
+                  Sávos (csoportos) árazás: a végösszeg a résztvevők számától függ, lásd a foglalási űrlap részletezését lent.
+                </div>
+              ) : (() => {
+                const baseNet = program.price;
+                const baseTotal = computeTotalPrice(baseNet);
+                const baseFee = baseTotal - baseNet;
+                const curr = program.currency === 'EUR' ? '€' : program.currency;
+                return (
+                  <div className="bg-stone-50 rounded-2xl p-3.5 border border-stone-200/90 space-y-2 text-xs">
+                    <span className="text-[11px] font-bold text-stone-500 uppercase tracking-wider block">
+                      Fizetési részletezés (1 fő esetén):
+                    </span>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between gap-3 text-stone-700">
+                        <span className="flex items-center gap-1.5 min-w-0">
+                          <CreditCard className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <span className="truncate sm:whitespace-normal">Platform használati kényelmi díj:</span>
+                        </span>
+                        <strong className="font-bold text-stone-900 whitespace-nowrap shrink-0 ml-auto">
+                          {formatPlatformFee(baseFee)} {curr}
+                        </strong>
+                      </div>
+                      <div className="flex items-center justify-between gap-3 text-stone-700">
+                        <span className="flex items-center gap-1.5 min-w-0">
+                          <Banknote className="w-3.5 h-3.5 text-stone-500 shrink-0" />
+                          <span className="truncate sm:whitespace-normal">Helyszínen fizetendő díj:</span>
+                        </span>
+                        <strong className="font-bold text-stone-900 whitespace-nowrap shrink-0 ml-auto">
+                          {formatPrice(baseNet)} {curr}
+                        </strong>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Availability + Reservation ("Helyfoglalás") */}
+            <div>
+              <h2 className="font-display font-bold text-stone-900 text-base flex items-center gap-2 mb-3">
+                <BadgeEuro className="w-5 h-5 text-emerald-600" />
+                <span>Helyfoglalás</span>
+              </h2>
+
+              {!isAuthenticated ? (
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => openLoginModal('A helyfoglaláshoz és a foglalás véglegesítéséhez kérjük jelentkezz be!')}
+                    className="w-full bg-emerald-700 hover:bg-emerald-600 text-white font-bold py-3.5 px-5 rounded-xl text-sm cursor-pointer shadow-md transition-all hover:shadow-lg flex items-center justify-center gap-2"
+                  >
+                    <Ticket className="w-4 h-4" />
+                    <span>Érdekel a Program!</span>
+                  </button>
+                  <p className="text-[11px] text-stone-500 text-center">
+                    A helyfoglaláshoz bejelentkezés szükséges
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {occurrencesLoading ? (
+                    <p className="text-sm text-stone-400 flex items-center gap-1.5">
+                      <Loader2 className="w-4 h-4 animate-spin" /> Időpontok betöltése...
+                    </p>
+                  ) : occurrenceOptions.length > 0 ? (
+                    !selectedOccurrenceId ? (
+                      <div className="space-y-2">
+                        <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider">
+                          Válassz időpontot
+                        </label>
+                        <div className="divide-y divide-stone-100 border border-stone-200 rounded-xl overflow-hidden max-h-56 overflow-y-auto">
+                          {occurrenceOptions.map(occ => {
+                            const full = occ.available !== null && occ.available <= 0;
+                            return (
+                              <button
+                                key={occ.id}
+                                type="button"
+                                disabled={full}
+                                onClick={() => setSelectedOccurrenceId(occ.id)}
+                                className="w-full flex items-center justify-between gap-2 p-3 text-left text-sm hover:bg-stone-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                              >
+                                <span className="font-semibold text-stone-800">
+                                  {new Date(occ.event_date + 'T00:00:00').toLocaleDateString('hu-HU', { year: 'numeric', month: 'short', day: 'numeric' })}
+                                  {occ.start_time && <span className="text-stone-400 font-normal"> · {occ.start_time}</span>}
+                                </span>
+                                <span className="text-xs text-stone-500">
+                                  {full ? 'Betelt' : occ.available !== null ? `${occ.available} szabad hely` : 'Nincs létszámkorlát'}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-wrap items-center justify-between gap-2 bg-emerald-50/60 border border-emerald-100 rounded-xl p-3">
+                        <div className="flex items-center gap-1.5 text-sm text-emerald-800 font-semibold min-w-0">
+                          <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+                          <span className="whitespace-normal">
+                            {selectedOccurrence && new Date(selectedOccurrence.event_date + 'T00:00:00').toLocaleDateString('hu-HU', { year: 'numeric', month: 'short', day: 'numeric' })}
+                          </span>
+                          {selectedOccurrence?.available !== null && selectedOccurrence?.available !== undefined && (
+                            <span className="text-emerald-700 font-normal text-xs whitespace-nowrap"> · {selectedOccurrence.available} szabad hely</span>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedOccurrenceId(null)}
+                          className="text-xs font-semibold text-stone-500 hover:text-stone-800 hover:underline shrink-0 cursor-pointer"
+                        >
+                          Másik időpont
+                        </button>
+                      </div>
+                    )
+                  ) : !availabilityChecked ? (
+                    <button
+                      onClick={handleCheckAvailability}
+                      disabled={availabilityLoading}
+                      className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-stone-900 hover:bg-stone-800 text-white text-sm font-semibold cursor-pointer disabled:opacity-60"
+                    >
+                      {availabilityLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Users className="w-4 h-4" />}
+                      <span>{availabilityLoading ? 'Ellenőrzés...' : 'Van még szabad hely?'}</span>
+                    </button>
+                  ) : availability === null ? (
+                    <p className="text-sm text-stone-500">Nem sikerült lekérni az elérhetőséget, próbáld újra.</p>
+                  ) : availability.available === null ? (
+                    <p className="text-sm text-emerald-700 font-semibold flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4" /> Ehhez a programhoz nincs létszámkorlát.
+                    </p>
+                  ) : availability.available > 0 ? (
+                    <p className="text-sm text-emerald-700 font-semibold flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4" /> Még {availability.available} szabad hely van ({availability.booked}/{availability.max_participants} lefoglalva).
+                    </p>
+                  ) : (
+                    <p className="text-sm text-rose-600 font-semibold flex items-center gap-1.5">
+                      <XCircle className="w-4 h-4" /> Ez a program jelenleg betelt ({availability.booked}/{availability.max_participants}).
+                    </p>
+                  )}
+
+                  {reservationResult?.success ? (
+                    <p className="text-sm text-emerald-700 font-semibold flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4" /> {reservationResult.message}
+                    </p>
+                  ) : (occurrenceOptions.length === 0 || selectedOccurrenceId) && (
+                    <form onSubmit={handleReservationSubmit} className="space-y-3">
+                      {occurrenceOptions.length === 0 && (
+                        <div className="flex items-center gap-2.5 bg-stone-50 border border-stone-200/80 rounded-xl p-3 text-xs text-stone-700">
+                          <Calendar className="w-4 h-4 text-emerald-600 shrink-0" />
+                          <div className="min-w-0">
+                            <span className="font-bold text-stone-900 block leading-tight">{dateFormatted}</span>
+                            {weekdayFormatted && (
+                              <span className="text-stone-500 capitalize block text-[11px] mt-0.5">{weekdayFormatted}</span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      <div>
+                        <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
+                          Résztvevők száma
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          value={participantsInput}
+                          onChange={(e) => {
+                            let raw = e.target.value;
+                            if (raw.length > 1 && raw.startsWith('0')) {
+                              raw = raw.replace(/^0+/, '');
+                            }
+                            setParticipantsInput(raw);
+                            const n = parseInt(raw, 10);
+                            if (Number.isFinite(n) && n >= 1) setParticipantsCount(n);
+                          }}
+                          onFocus={() => setParticipantsInput('')}
+                          onBlur={() => {
+                            if (!participantsInput.trim() || parseInt(participantsInput, 10) < 1) {
+                              setParticipantsInput(String(participantsCount));
+                            }
+                          }}
+                          className="w-24 text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        />
+                      </div>
+
+                      <div>
+                        <span className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
+                          Helyszínen elfogadott fizetés
+                        </span>
+                        <div className="flex flex-wrap gap-2 text-xs">
+                          {acceptedPaymentMethods.includes('cash') && (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-stone-100 text-stone-800 font-semibold border border-stone-200">
+                              <Banknote className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                              <span>Készpénz</span>
+                            </span>
+                          )}
+                          {acceptedPaymentMethods.includes('revolut') && (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-stone-100 text-stone-800 font-semibold border border-stone-200">
+                              <Wallet className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                              <span>Revolut</span>
+                            </span>
+                          )}
+                          {acceptedPaymentMethods.includes('bank_transfer') && (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-stone-100 text-stone-800 font-semibold border border-stone-200">
+                              <Landmark className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                              <span>Előre utalás</span>
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {(() => {
+                        // Detailed checkout breakdown for chosen number of participants.
+                        // Tiered programnal netTotalForCount null, ha nincs a letszamhoz
+                        // illo sav -- ilyenkor nincs bontas, csak egy figyelmeztetes,
+                        // es a submit gomb (lentebb) is le van tiltva.
+                        const curr = program.currency === 'EUR' ? '€' : program.currency;
+                        if (netTotalForCount === null) {
+                          return (
+                            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3.5 text-xs text-amber-800 font-semibold">
+                              Ehhez a létszámhoz ({participantsCount} fő) jelenleg nincs megadva ár ennél a programnál. Próbálj másik létszámot, vagy keresd a szolgáltatót.
+                            </div>
+                          );
+                        }
+                        const netTotal = netTotalForCount;
+                        const total = computeTotalPrice(netTotal);
+                        const fee = total - netTotal;
+                        return (
+                          <div className="bg-stone-50 rounded-2xl p-3.5 border border-stone-200 space-y-2.5 text-xs">
+                            <span className="text-[11px] font-bold text-stone-500 uppercase tracking-wider block">
+                              Fizetési részletezés ({participantsCount} fő):
+                            </span>
+                            <div className="space-y-1.5">
+                              <div className="flex items-center justify-between gap-3 text-stone-700">
+                                <span className="flex items-center gap-1.5 min-w-0">
+                                  <CreditCard className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                  <span className="truncate sm:whitespace-normal">Platform használati kényelmi díj:</span>
+                                </span>
+                                <strong className="text-emerald-700 font-bold text-sm whitespace-nowrap shrink-0 ml-auto">
+                                  {formatPlatformFee(fee)} {curr}
+                                </strong>
+                              </div>
+                              <div className="flex items-center justify-between gap-3 text-stone-700">
+                                <span className="flex items-center gap-1.5 min-w-0">
+                                  <Banknote className="w-3.5 h-3.5 text-stone-500 shrink-0" />
+                                  <span className="truncate sm:whitespace-normal">Helyszínen fizetendő díj:</span>
+                                </span>
+                                <strong className="text-stone-900 font-bold text-sm whitespace-nowrap shrink-0 ml-auto">
+                                  {formatPrice(netTotal)} {curr}
+                                </strong>
+                              </div>
+                              <div className="pt-2 border-t border-stone-200 flex items-center justify-between gap-3 text-stone-900 font-bold text-sm">
+                                <span className="min-w-0">Teljes fizetendő összeg:</span>
+                                <span className="text-emerald-700 font-extrabold text-base whitespace-nowrap shrink-0 ml-auto">
+                                  {formatPrice(total)} {curr}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      <button
+                        type="submit"
+                        disabled={reservationSubmitting || netTotalForCount === null}
+                        className="w-full bg-emerald-700 hover:bg-emerald-600 text-white font-bold py-3.5 px-5 rounded-xl text-sm cursor-pointer shadow-md transition-all hover:shadow-lg flex items-center justify-center gap-2 disabled:opacity-60"
+                      >
+                        <Ticket className="w-4 h-4" />
+                        <span>Érdekel a Program!</span>
+                      </button>
+                      {reservationResult && (
+                        <p className={`text-xs font-semibold ${reservationResult.success ? 'text-emerald-700' : 'text-rose-600'}`}>
+                          {reservationResult.message}
+                        </p>
+                      )}
+                      <p className="text-[11px] text-stone-400 leading-relaxed">
+                        A gombra kattintva áttekintheted a foglalás összes adatát, majd véglegesítheted a foglalást. A <strong>helyszínen fizetendő díj</strong> ({acceptedPaymentMethods.map(m => m === 'cash' ? 'készpénzben' : m === 'revolut' ? 'Revoluton' : 'előre utalással').join(' vagy ')}) a program napján közvetlenül a szolgáltatónak fizetendő.
+                      </p>
+                    </form>
+                  )}
+                </div>
+              )}
+
+              {/* Quick Favorite Save in Sticky Booking Card */}
+              <div className="pt-2 border-t border-stone-100 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => program && openFolderModal(program)}
+                  className={`flex-1 py-2.5 px-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                    isFav
+                      ? 'bg-rose-50 border-rose-200 text-rose-700 shadow-xs'
+                      : 'bg-white border-stone-200 text-stone-700 hover:border-stone-300 hover:bg-stone-50'
+                  }`}
+                >
+                  <Heart className={`w-4 h-4 ${isFav ? 'fill-rose-500 text-rose-500' : 'text-stone-400'}`} />
+                  <span>{isFav ? 'Mentve a kedvencekhez (mappák kezelése)' : 'Mentés egy mappába (♡)'}</span>
+                </button>
+              </div>
+            </div>
+
+
           </div>
+        </div>
+
+        {/* Reviews & Ratings Section: comes before right column on desktop, but after right column on mobile */}
+        <div className="min-w-0 lg:col-start-1 lg:row-start-2">
+          <ProgramReviewsSection program={program} />
         </div>
       </div>
 
-      {/* Inquiry Modal */}
-      {inquiryModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-stone-200 relative animate-in zoom-in-95 duration-200">
-            <button
-              onClick={() => setInquiryModalOpen(false)}
-              className="absolute top-5 right-5 text-stone-400 hover:text-stone-700 p-1.5 rounded-xl hover:bg-stone-100 transition-colors cursor-pointer"
-            >
-              ✕
-            </button>
+      {/* Booking Checkout Modal with Stripe Demo Payment */}
+      {program && (
+        <BookingCheckoutModal
+          isOpen={isCheckoutModalOpen}
+          onClose={() => setIsCheckoutModalOpen(false)}
+          program={program}
+          selectedOccurrence={selectedOccurrence}
+          selectedOccurrenceId={selectedOccurrenceId}
+          participantsCount={participantsCount}
+          // A modal csak akkor nyilhat meg, ha netTotalForCount nem null (lasd
+          // handleReservationSubmit + a submit gomb disabled-feltetele) -- a ??0
+          // itt csak a TS-nek kell, futasidoben sosem er el 0-t.
+          netTotal={netTotalForCount ?? 0}
+          onsitePaymentMethod={onsitePaymentMethod}
+          dateFormatted={dateFormatted}
+          weekdayFormatted={weekdayFormatted}
+          onSuccess={() => {
+            setReservationResult({
+              success: true,
+              message: 'Sikeres foglalás és fizetés! A foglalást rögzítettük a saját fiókodban és továbbítottuk a szolgáltatónak visszaigazolásra.'
+            });
+          }}
+        />
+      )}
 
-            {!submitSuccess ? (
-              <>
-                <div className="mb-6">
-                  <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider block mb-1">
-                    Közvetlen Kapcsolatfelvétel Magyar Nyelven
-                  </span>
-                  <h3 className="font-display text-2xl font-extrabold text-stone-900">
-                    Érdekel a program!
-                  </h3>
-                  <p className="text-sm text-stone-600 mt-1">
-                    Küldj üzenetet közvetlenül a kinti szervezőnek (<strong>{program.provider?.company_name}</strong>). A válasz e-mailben vagy telefonon érkezik magyarul.
-                  </p>
-                </div>
-
-                <form onSubmit={handleInquirySubmit} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
-                      Név <span className="text-rose-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="Pl. Kovács Anna"
-                      className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-4 py-2.5 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
-                      E-mail cím <span className="text-rose-500">*</span>
-                    </label>
-                    <input
-                      type="email"
-                      required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="kovacs.anna@pelda.hu"
-                      className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-4 py-2.5 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
-                      Telefonszám <span className="text-stone-400 font-normal">(opcionális)</span>
-                    </label>
-                    <input
-                      type="tel"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder="+36 30 123 4567"
-                      className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-4 py-2.5 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
-                      Üzenet vagy kérdés <span className="text-stone-400 font-normal">(opcionális)</span>
-                    </label>
-                    <textarea
-                      rows={3}
-                      value={message}
-                      onChange={(e) => setMessage(e.target.value)}
-                      placeholder="Pl. Hány fővel érkeztek, milyen szállodában laktok, melyik nap lenne ideális..."
-                      className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-4 py-2.5 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none"
-                    ></textarea>
-                  </div>
-
-                  <div className="pt-2">
-                    <button
-                      type="submit"
-                      disabled={isSubmitting}
-                      className="w-full bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold py-3.5 px-6 rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md disabled:opacity-50"
-                    >
-                      {isSubmitting ? (
-                        <span>Küldés folyamatban...</span>
-                      ) : (
-                        <>
-                          <Send className="w-4 h-4" />
-                          <span>Érdeklődés elküldése</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </form>
-              </>
-            ) : (
-              <div className="text-center py-6">
-                <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-4">
-                  <Check className="w-8 h-8 stroke-[3]" />
-                </div>
-                <h3 className="font-display text-2xl font-extrabold text-stone-900 mb-2">
-                  Köszönjük érdeklődésedet!
-                </h3>
-                <p className="text-sm text-stone-600 mb-6 max-w-sm mx-auto">
-                  Üzeneted sikeresen továbbítottuk a kinti magyar szolgáltatónak (<strong>{program.provider?.company_name}</strong>). Hamarosan keresni fognak e-mailben vagy telefonon!
-                </p>
-                <button
-                  onClick={() => setInquiryModalOpen(false)}
-                  className="bg-stone-900 hover:bg-stone-800 text-white font-semibold px-6 py-2.5 rounded-xl text-sm cursor-pointer"
-                >
-                  Rendben, bezárás
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
+      {program && (
+        <NewProgramModal
+          isOpen={isEditModalOpen}
+          programToEdit={program}
+          onClose={() => setIsEditModalOpen(false)}
+        />
       )}
     </div>
   );

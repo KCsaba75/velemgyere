@@ -1,57 +1,156 @@
 import React, { useState } from 'react';
-import { useApp } from '../context/AppContext';
-import { 
-  ShieldCheck, 
-  FileText, 
-  Building2, 
-  MessageSquare, 
-  Check, 
-  X, 
-  Sparkles, 
-  Archive, 
-  Eye, 
-  Trash2, 
-  Clock, 
-  Globe, 
-  PlusCircle, 
-  Layers, 
-  Edit, 
+import { useApp, formatPrice, formatPlatformFee, getBookingReference } from '../context/AppContext';
+import { CountryFlag } from './CountryFlag';
+import {
+  ShieldCheck,
+  FileText,
+  MessageSquare,
+  Check,
+  X,
+  Sparkles,
+  Archive,
+  Eye,
+  Trash2,
+  Clock,
+  Globe,
+  PlusCircle,
   RotateCcw,
-  Ban,
-  Tag
+  Tag,
+  Ticket,
+  Banknote,
+  Wallet,
+  Star,
+  LogOut,
+  Landmark,
+  RefreshCw
 } from 'lucide-react';
-import { CategoryIcon } from './CategoryIcon';
-import { Region, Category } from '../types/database';
+import { Region, OnsitePaymentMethod, ReviewStatus } from '../types/database';
+import { useDocumentMeta } from '../hooks/useDocumentMeta';
+import { RescheduleOrderModal } from './RescheduleOrderModal';
+import { FilterPillBar } from './FilterPillBar';
+import { MetricsRow } from './MetricsRow';
+import { Settings as SettingsIcon } from 'lucide-react';
+
+const PAYMENT_METHOD_LABEL: Record<OnsitePaymentMethod, string> = {
+  cash: 'Készpénz',
+  revolut: 'Revolut',
+  bank_transfer: 'Előre utalás',
+};
+
+type AdminDashboardTab = 'programs' | 'bookings' | 'reviews' | 'regions' | 'inquiries' | 'settings';
 
 export const AdminDashboard: React.FC = () => {
-  const { 
-    programs, 
-    providers, 
-    inquiries, 
+  const {
+    programs,
+    providers,
+    inquiries,
+    orders,
+    reviews,
+    moderateReview,
+    deleteReview,
     regions,
-    categories,
-    approveProgram, 
-    rejectProgram, 
-    archiveProgram, 
+    approveProgram,
+    rejectProgram,
+    archiveProgram,
     toggleFeaturedProgram,
-    approveProvider,
-    suspendProvider,
     openProgramDetail,
     deleteProgram,
     createRegion,
     updateRegion,
     deleteRegion,
     toggleRegionActive,
-    createCategory,
-    updateCategory,
-    deleteCategory,
-    toggleCategoryActive,
-    resetToDefaults
+    resetToDefaults,
+    feePercentage,
+    feeMinimumEur,
+    updateFeeSettings,
+    eurHufRate,
+    eurHufLastUpdated,
+    updateEurHufRate,
+    fetchAndApplyLiveRate,
+    logout
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'programs' | 'providers' | 'regions' | 'categories' | 'inquiries'>('programs');
+  useDocumentMeta('Adminisztrátori felület', 'Programok, szolgáltatók, foglalások és katalógus-adatok kezelése.');
+
+  const [activeTab, setActiveTab] = useState<AdminDashboardTab>('programs');
+  const [reviewFilter, setReviewFilter] = useState<'all' | 'published' | 'flagged' | 'hidden'>('all');
+  const [rescheduleOrderId, setRescheduleOrderId] = useState<string | null>(null);
+
+  // Bookings tab: admin nyilvántartás & státuszfigyelés
+  const [bookingStatusFilter, setBookingStatusFilter] = useState<'all' | 'pending' | 'confirmed' | 'cancelled'>('all');
+  const [bookingSearch, setBookingSearch] = useState('');
+  const pendingOrders = orders.filter(o => o.status === 'pending');
+
+  // Fee settings editor (Csaba 2026-10-07 penzugyi-mukodesi-modell PDF): local
+  // draft inputs, only written on save.
+  const [feePercentageDraft, setFeePercentageDraft] = useState(String(feePercentage));
+  const [feeMinimumEurDraft, setFeeMinimumEurDraft] = useState(String(feeMinimumEur));
+  const [feeSettingsSaving, setFeeSettingsSaving] = useState(false);
+  const [feeSettingsSaved, setFeeSettingsSaved] = useState(false);
+
+  const handleSaveFeeSettings = async () => {
+    // Kanban 84b90320 2. kor (Zora talalata): a mezok most focus-kor ureskent-tartasra
+    // valtottak (lasd lejjebb onFocus) -- Number('') === 0, ami ATMENNE ezen a guardon
+    // ha csak NaN-ra/negativra szurnenk, es egy koppints-majd-elvesz-gepeles-nelkul
+    // interakcio csendben 0-ra irna at egy eles, minden jovobeli foglalast erinto
+    // penzugyi beallitast. Explicit ures-string elutasitas kell a Number.isNaN mellett.
+    if (feePercentageDraft.trim() === '' || feeMinimumEurDraft.trim() === '') return;
+    const pct = Number(feePercentageDraft);
+    const min = Number(feeMinimumEurDraft);
+    if (Number.isNaN(pct) || pct < 0 || Number.isNaN(min) || min < 0) return;
+    setFeeSettingsSaving(true);
+    try {
+      await updateFeeSettings({ fee_percentage: pct, fee_minimum_eur: min });
+      setFeeSettingsSaved(true);
+      setTimeout(() => setFeeSettingsSaved(false), 2500);
+    } finally {
+      setFeeSettingsSaving(false);
+    }
+  };
+
+  // EUR/HUF Exchange Rate settings state & handlers
+  const [eurRateDraft, setEurRateDraft] = useState<string>(String(eurHufRate));
+  const [eurRateSaving, setEurRateSaving] = useState(false);
+  const [eurRateSaved, setEurRateSaved] = useState(false);
+  const [liveFetchLoading, setLiveFetchLoading] = useState(false);
+  const [liveFetchMessage, setLiveFetchMessage] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    setEurRateDraft(String(eurHufRate));
+  }, [eurHufRate]);
+
+  const handleSaveEurRate = async () => {
+    if (eurRateDraft.trim() === '') return;
+    const parsed = Number(eurRateDraft);
+    if (Number.isNaN(parsed) || parsed <= 0) return;
+    setEurRateSaving(true);
+    try {
+      await updateEurHufRate(parsed);
+      setEurRateSaved(true);
+      setTimeout(() => setEurRateSaved(false), 2500);
+    } finally {
+      setEurRateSaving(false);
+    }
+  };
+
+  const handleFetchLiveRate = async () => {
+    setLiveFetchLoading(true);
+    setLiveFetchMessage(null);
+    try {
+      const rate = await fetchAndApplyLiveRate();
+      if (rate && rate > 0) {
+        setEurRateDraft(String(rate));
+        setLiveFetchMessage(`Sikeresen frissítve az élő API-ból: 1 EUR = ${rate} HUF`);
+      } else {
+        setLiveFetchMessage('Nem sikerült az árfolyam lekérése az API-ból. Kérjük próbáld újra!');
+      }
+    } catch {
+      setLiveFetchMessage('Hiba történt az árfolyam API hívása közben.');
+    } finally {
+      setLiveFetchLoading(false);
+    }
+  };
   const [programFilter, setProgramFilter] = useState<string>('all');
-  const [providerFilter, setProviderFilter] = useState<string>('all');
 
   // Modal state for adding a new Region
   const [addRegionModalOpen, setAddRegionModalOpen] = useState(false);
@@ -61,50 +160,16 @@ export const AdminDashboard: React.FC = () => {
   const [newRegionDesc, setNewRegionDesc] = useState('');
   const [newRegionImage, setNewRegionImage] = useState('');
 
-  // Modal state for adding a new Service Type (Category)
-  const [addCategoryModalOpen, setAddCategoryModalOpen] = useState(false);
-  const [newCategoryName, setNewCategoryName] = useState('');
-  const [newCategoryIcon, setNewCategoryIcon] = useState('Compass');
-
-  // Supabase sync status
-  const { 
-    supabaseStatus, 
-    syncSeedToSupabase, 
-    refreshFromSupabase,
-    supabaseUrl 
-  } = useApp();
-  const [syncingSupabase, setSyncingSupabase] = useState(false);
-  const [syncResultMessage, setSyncResultMessage] = useState<string | null>(null);
-
-  const handleSyncToSupabase = async () => {
-    setSyncingSupabase(true);
-    setSyncResultMessage(null);
-    try {
-      const res = await syncSeedToSupabase();
-      setSyncResultMessage(res.message);
-    } catch (e: any) {
-      setSyncResultMessage(e?.message || 'Hiba történt a szinkronizáláskor.');
-    } finally {
-      setSyncingSupabase(false);
-    }
-  };
-
   // Metrics
   const totalPrograms = programs.length;
   const activePrograms = programs.filter(p => p.status === 'published').length;
   const pendingPrograms = programs.filter(p => p.status === 'pending_review').length;
   const totalProviders = providers.length;
-  const pendingProviders = providers.filter(p => p.status === 'pending').length;
   const totalInquiries = inquiries.length;
 
   const filteredPrograms = programs.filter(p => {
     if (programFilter === 'all') return true;
     return p.status === programFilter;
-  });
-
-  const filteredProviders = providers.filter(p => {
-    if (providerFilter === 'all') return true;
-    return p.status === providerFilter;
   });
 
   const handleCreateRegionSubmit = async (e: React.FormEvent) => {
@@ -128,21 +193,6 @@ export const AdminDashboard: React.FC = () => {
     setAddRegionModalOpen(false);
   };
 
-  const handleCreateCategorySubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newCategoryName.trim()) return;
-
-    await createCategory({
-      name: newCategoryName.trim(),
-      icon: newCategoryIcon,
-      active: true,
-    });
-
-    setNewCategoryName('');
-    setNewCategoryIcon('Compass');
-    setAddCategoryModalOpen(false);
-  };
-
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-in fade-in duration-200">
       {/* Admin Header */}
@@ -160,66 +210,31 @@ export const AdminDashboard: React.FC = () => {
           </p>
         </div>
 
-        <button
-          onClick={() => {
-            if (window.confirm('Biztosan visszaállítod a katalógust az eredeti tesztadatokra?')) {
-              resetToDefaults();
-            }
-          }}
-          className="text-xs text-stone-600 hover:text-stone-900 bg-white border border-stone-300 hover:bg-stone-50 px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer self-start sm:self-auto"
-          title="Adatok visszaállítása alaphelyzetbe"
-        >
-          <RotateCcw className="w-3.5 h-3.5" />
-          <span>Tesztadatok visszaállítása</span>
-        </button>
-      </div>
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+          <button
+            onClick={() => {
+              if (window.confirm('Biztosan visszaállítod a katalógust az eredeti tesztadatokra?')) {
+                resetToDefaults();
+              }
+            }}
+            className="text-xs text-stone-600 hover:text-stone-900 bg-white border border-stone-300 hover:bg-stone-50 px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
+            title="Adatok visszaállítása alaphelyzetbe"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>Tesztadatok visszaállítása</span>
+          </button>
 
-      {/* Supabase Cloud Connection & Sync Banner */}
-      <div className="bg-gradient-to-r from-stone-900 to-emerald-950 text-white rounded-3xl p-5 sm:p-6 mb-8 border border-emerald-800/40 shadow-xl">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">
-                Supabase Felhő Adatbázis Beállítva
-              </span>
-              <span className="text-[11px] bg-stone-800 border border-stone-700 text-stone-300 px-2 py-0.5 rounded font-mono">
-                {supabaseUrl}
-              </span>
-            </div>
-            <h3 className="font-display font-extrabold text-xl text-white">
-              {supabaseStatus.tablesReady 
-                ? '🟢 Kapcsolódva – A Supabase táblák aktívak és szinkronban vannak!' 
-                : '🟡 Supabase kapcsolat aktív (Futtasd le a schema.sql-t az SQL Editorban)'}
-            </h3>
-            <p className="text-xs text-stone-300 max-w-2xl">
-              {supabaseStatus.message}
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              onClick={handleSyncToSupabase}
-              disabled={syncingSupabase}
-              className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-md flex items-center gap-2 cursor-pointer disabled:opacity-50"
-            >
-              <Sparkles className="w-4 h-4" />
-              <span>{syncingSupabase ? 'Feltöltés folyamatban...' : 'Kezdőadatok Feltöltése Supabase-be'}</span>
-            </button>
-            <button
-              onClick={() => refreshFromSupabase()}
-              className="px-4 py-2.5 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-200 border border-stone-700 text-xs font-semibold transition-colors cursor-pointer"
-            >
-              Adatok Újratöltése
-            </button>
-          </div>
+          {/* Admin szerepkorbol eddig hianyzott (kanban e49199b3) -- ugyanaz a
+              minta mint MyAccountView / ProviderDashboard sajat logout gombja. */}
+          <button
+            type="button"
+            onClick={logout}
+            className="text-xs font-bold text-stone-500 hover:text-rose-600 bg-white border border-stone-300 hover:border-rose-200 hover:bg-rose-50 px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span>Kijelentkezés</span>
+          </button>
         </div>
-
-        {syncResultMessage && (
-          <div className="mt-4 p-3 bg-stone-800/80 border border-emerald-500/40 rounded-xl text-xs text-emerald-300 font-medium">
-            {syncResultMessage}
-          </div>
-        )}
       </div>
 
       {/* KPI Metrics */}
@@ -267,8 +282,20 @@ export const AdminDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Tabs navigation */}
-      <div className="flex border-b border-stone-200 mb-6 gap-6 overflow-x-auto no-scrollbar">
+      {/* Tabs navigation. Was overflow-x-auto no-scrollbar (kanban 8138d45b): with 7
+          tabs the row's content (~1600px) always exceeds the max-w-7xl-constrained
+          container on every standard desktop width, and the hidden scrollbar left
+          "Beállítások" scrolled off-screen with zero visual affordance to reach it.
+          flex-wrap guarantees every tab is always visible, wrapping to a second row
+          instead of clipping. */}
+      <div className="flex flex-wrap items-center border-b border-stone-200 mb-6 gap-x-5 gap-y-2">
+        {/* Temakor szerinti csoportositas (kanban 0f06b97f, 1. pont): Katalogus /
+            Mukodes / Rendszer -- csak vizualis tagolas (micro-label + spacer),
+            ugyanabban az egy flex-wrap sorban marad minden fül, igy a mar
+            bizonyitottan clipping-mentes viselkedes (51fadf1) nem valtozik. */}
+        <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 pb-3">
+          Katalógus
+        </span>
         <button
           onClick={() => setActiveTab('programs')}
           className={`pb-3 text-sm font-bold transition-colors cursor-pointer border-b-2 flex items-center gap-2 shrink-0 ${
@@ -298,31 +325,39 @@ export const AdminDashboard: React.FC = () => {
           <span>Úticélok & Régiók ({regions.length})</span>
         </button>
 
+        <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 pb-3 sm:ml-2">
+          Működés
+        </span>
         <button
-          onClick={() => setActiveTab('categories')}
+          onClick={() => setActiveTab('bookings')}
           className={`pb-3 text-sm font-bold transition-colors cursor-pointer border-b-2 flex items-center gap-2 shrink-0 ${
-            activeTab === 'categories'
+            activeTab === 'bookings'
               ? 'border-emerald-600 text-emerald-800'
               : 'border-transparent text-stone-500 hover:text-stone-800'
           }`}
         >
-          <Layers className="w-4 h-4" />
-          <span>Szolgáltatás Típusok ({categories.length})</span>
+          <Ticket className="w-4 h-4" />
+          <span>Foglalások ({orders.length})</span>
+          {pendingOrders.length > 0 && (
+            <span className="bg-amber-500 text-white text-[10px] font-extrabold px-1.5 py-0.5 rounded-full">
+              {pendingOrders.length} jóváhagyásra vár
+            </span>
+          )}
         </button>
 
         <button
-          onClick={() => setActiveTab('providers')}
+          onClick={() => setActiveTab('reviews')}
           className={`pb-3 text-sm font-bold transition-colors cursor-pointer border-b-2 flex items-center gap-2 shrink-0 ${
-            activeTab === 'providers'
+            activeTab === 'reviews'
               ? 'border-emerald-600 text-emerald-800'
               : 'border-transparent text-stone-500 hover:text-stone-800'
           }`}
         >
-          <Building2 className="w-4 h-4" />
-          <span>Szolgáltatók ({providers.length})</span>
-          {pendingProviders > 0 && (
-            <span className="bg-purple-500 text-white text-[10px] font-extrabold px-1.5 py-0.5 rounded-full">
-              {pendingProviders} új
+          <Star className="w-4 h-4" />
+          <span>Értékelések ({reviews.length})</span>
+          {reviews.filter(r => r.status === 'flagged').length > 0 && (
+            <span className="bg-rose-500 text-white text-[10px] font-extrabold px-1.5 py-0.5 rounded-full">
+              {reviews.filter(r => r.status === 'flagged').length} ellenőrizendő
             </span>
           )}
         </button>
@@ -338,33 +373,192 @@ export const AdminDashboard: React.FC = () => {
           <MessageSquare className="w-4 h-4" />
           <span>Érdeklődések ({inquiries.length})</span>
         </button>
+
+        <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 pb-3 sm:ml-2">
+          Rendszer
+        </span>
+        <button
+          onClick={() => setActiveTab('settings')}
+          className={`pb-3 text-sm font-bold transition-colors cursor-pointer border-b-2 flex items-center gap-2 shrink-0 ${
+            activeTab === 'settings'
+              ? 'border-emerald-600 text-emerald-800'
+              : 'border-transparent text-stone-500 hover:text-stone-800'
+          }`}
+        >
+          <SettingsIcon className="w-4 h-4" />
+          <span>Beállítások</span>
+        </button>
       </div>
+
+      {/* TAB: BEÁLLÍTÁSOK */}
+      {activeTab === 'settings' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+          {/* Foglalási díj card */}
+          <div className="bg-white rounded-2xl border border-stone-200 p-6 space-y-4">
+            <h3 className="font-display font-bold text-stone-900 text-lg">Foglalási díj</h3>
+            <p className="text-sm text-stone-600">
+              A foglalási díj = MAX(százalék × program nettó ára, minimum összeg). A programgazda a
+              saját kézhez kapandó (nettó) összeget adja meg, erre számolódik rá a díj -- a vevő a
+              teljes (nettó+díj) árat látja. Regisztrációkor a mindenkori minimum összeggel egyező
+              ajándék-kredit kerül a visitor fiókjába -- a már kiadott kreditek és meglévő foglalások
+              nem változnak utólag, ha itt módosítod az értékeket.
+            </p>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <label className="w-40 text-xs font-bold text-stone-700 uppercase tracking-wider">Százalék</label>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={feePercentageDraft}
+                  onChange={(e) => {
+                    let val = e.target.value;
+                    if (val.length > 1 && val.startsWith('0') && !val.startsWith('0.')) {
+                      val = val.replace(/^0+/, '');
+                    }
+                    setFeePercentageDraft(val);
+                  }}
+                  onFocus={() => setFeePercentageDraft('')}
+                  onBlur={() => { if (feePercentageDraft.trim() === '') setFeePercentageDraft(String(feePercentage)); }}
+                  className="w-32 text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+                <span className="text-sm text-stone-500">%</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <label className="w-40 text-xs font-bold text-stone-700 uppercase tracking-wider">Minimum összeg</label>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={feeMinimumEurDraft}
+                  onChange={(e) => {
+                    let val = e.target.value;
+                    if (val.length > 1 && val.startsWith('0') && !val.startsWith('0.')) {
+                      val = val.replace(/^0+/, '');
+                    }
+                    setFeeMinimumEurDraft(val);
+                  }}
+                  onFocus={() => setFeeMinimumEurDraft('')}
+                  onBlur={() => { if (feeMinimumEurDraft.trim() === '') setFeeMinimumEurDraft(String(feeMinimumEur)); }}
+                  className="w-32 text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+                <span className="text-sm text-stone-500">€</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleSaveFeeSettings}
+                disabled={feeSettingsSaving}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-4 rounded-xl text-sm cursor-pointer disabled:opacity-60"
+              >
+                {feeSettingsSaving ? 'Mentés...' : 'Mentés'}
+              </button>
+              {feeSettingsSaved && (
+                <span className="text-xs font-bold text-emerald-700 flex items-center gap-1">
+                  <Check className="w-3.5 h-3.5" /> Mentve
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-stone-400">
+              Jelenlegi érték élesben: {feePercentage.toFixed(2)}% (min. {feeMinimumEur.toFixed(2)} €)
+            </p>
+          </div>
+
+          {/* EUR / HUF Árfolyam API & Beállítások card */}
+          <div className="bg-white rounded-2xl border border-stone-200 p-6 space-y-4">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="font-display font-bold text-stone-900 text-lg">Napi Euro - Forint Árfolyam (API)</h3>
+              <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 shrink-0">
+                1 EUR = {eurHufRate} Ft
+              </span>
+            </div>
+            <p className="text-sm text-stone-600">
+              Az EUR összegű programkártyák törzsén a rendszer automatikusan megjeleníti a forintösszeget is zárójelben. A napi hivatalos középárfolyam lekérhető az API-ból, vagy kézzel is megadható.
+            </p>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <label className="w-40 text-xs font-bold text-stone-700 uppercase tracking-wider">1 EUR Árfolyam (HUF)</label>
+                <input
+                  type="number"
+                  min={1}
+                  step="0.01"
+                  value={eurRateDraft}
+                  onChange={(e) => setEurRateDraft(e.target.value)}
+                  className="w-32 text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-bold"
+                />
+                <span className="text-sm text-stone-500">Ft</span>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 pt-1">
+              <button
+                onClick={handleFetchLiveRate}
+                disabled={liveFetchLoading}
+                className="bg-stone-900 hover:bg-stone-800 text-white font-bold py-2 px-3.5 rounded-xl text-xs flex items-center gap-2 cursor-pointer disabled:opacity-60 transition-colors"
+                title="Legfrissebb napi árfolyam lekérése"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${liveFetchLoading ? 'animate-spin' : ''}`} />
+                <span>Napi árfolyam frissítése (API)</span>
+              </button>
+
+              <button
+                onClick={handleSaveEurRate}
+                disabled={eurRateSaving}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-4 rounded-xl text-xs cursor-pointer disabled:opacity-60 transition-colors"
+              >
+                {eurRateSaving ? 'Mentés...' : 'Árfolyam mentése'}
+              </button>
+
+              {eurRateSaved && (
+                <span className="text-xs font-bold text-emerald-700 flex items-center gap-1">
+                  <Check className="w-3.5 h-3.5" /> Mentve
+                </span>
+              )}
+            </div>
+
+            {liveFetchMessage && (
+              <p className={`text-xs font-semibold p-2.5 rounded-xl border ${
+                liveFetchMessage.includes('Sikeresen')
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                  : 'bg-amber-50 text-amber-800 border-amber-200'
+              }`}>
+                {liveFetchMessage}
+              </p>
+            )}
+
+            <div className="pt-2 border-t border-stone-100 flex flex-col gap-1 text-xs text-stone-500">
+              <div className="flex items-center gap-1.5 font-semibold text-emerald-800">
+                <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span>Automata napi frissítés: AKTÍV (24 óránként automatikusan frissül)</span>
+              </div>
+              <p className="text-stone-400">
+                Jelenlegi aktív árfolyam a rendszerben: 1 EUR = <strong>{eurHufRate} Ft</strong>
+                {eurHufLastUpdated && (
+                  <span className="block text-[11px] mt-0.5 text-stone-400">
+                    Legutóbbi frissítés: {new Date(eurHufLastUpdated).toLocaleString('hu-HU')}
+                  </span>
+                )}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* TAB 1: PROGRAMKEZELÉS */}
       {activeTab === 'programs' && (
         <div className="space-y-4">
-          <div className="flex items-center gap-2 overflow-x-auto pb-2 no-scrollbar">
-            {[
+          <FilterPillBar
+            options={[
               { id: 'all', label: 'Összes külföldi program' },
               { id: 'pending_review', label: 'Jóváhagyásra vár (Pending)' },
               { id: 'published', label: 'Publikált (Aktív)' },
               { id: 'draft', label: 'Piszkozat (Draft)' },
               { id: 'rejected', label: 'Elutasított' },
               { id: 'archived', label: 'Archivált' },
-            ].map((btn) => (
-              <button
-                key={btn.id}
-                onClick={() => setProgramFilter(btn.id)}
-                className={`text-xs px-3.5 py-2 rounded-xl font-medium transition-colors shrink-0 cursor-pointer ${
-                  programFilter === btn.id
-                    ? 'bg-stone-900 text-white shadow-sm'
-                    : 'bg-white border border-stone-200 text-stone-600 hover:bg-stone-50'
-                }`}
-              >
-                {btn.label}
-              </button>
-            ))}
-          </div>
+            ]}
+            value={programFilter}
+            onChange={setProgramFilter}
+          />
 
           <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden shadow-sm">
             <div className="divide-y divide-stone-100">
@@ -374,7 +568,7 @@ export const AdminDashboard: React.FC = () => {
                   <div key={prog.id} className="p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 hover:bg-stone-50/50 transition-colors">
                     <div className="flex items-start gap-4 min-w-0">
                       <div className="w-20 h-16 sm:w-24 sm:h-18 rounded-xl overflow-hidden bg-stone-900 shrink-0 border border-stone-200">
-                        {cover && <img src={cover} alt="" className="w-full h-full object-cover" />}
+                        {cover && <img src={cover} alt="" loading="lazy" className="w-full h-full object-cover" />}
                       </div>
 
                       <div className="min-w-0">
@@ -393,13 +587,15 @@ export const AdminDashboard: React.FC = () => {
                           </span>
 
                           {prog.region && (
-                            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-stone-100 text-stone-800">
-                              {prog.region.flag_emoji} {prog.region.name}
+                            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-stone-100 text-stone-800 flex items-center gap-1">
+                              <CountryFlag emoji={prog.region.flag_emoji} country={prog.region.country || prog.region.name} size="xs" />
+                              <span>{prog.region.name}</span>
                             </span>
                           )}
 
-                          <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
-                            🇭🇺 {prog.language || 'Magyar nyelvű'}
+                          <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded flex items-center gap-1">
+                            <CountryFlag emoji="🇭🇺" country="Magyarország" size="xs" />
+                            <span>{prog.language || 'Magyar nyelvű'}</span>
                           </span>
 
                           <span className="text-xs text-stone-500 font-medium">
@@ -415,13 +611,13 @@ export const AdminDashboard: React.FC = () => {
                           <span>📍 {prog.location}</span>
                           <span>📅 {prog.event_date}</span>
                           <span className="font-bold text-emerald-800">
-                            💰 {prog.price} {prog.currency === 'EUR' ? '€' : prog.currency}/fő
+                            💰 {formatPrice(prog.price)} {prog.currency === 'EUR' ? '€' : prog.currency}{prog.pricing_mode === 'tiered' ? '/túra-tól' : '/fő'}
                           </span>
                         </div>
                       </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2 shrink-0 self-end lg:self-center">
+                    <div className="w-full lg:w-auto pt-3 lg:pt-0 border-t lg:border-0 border-stone-100 flex flex-wrap items-center gap-2">
                       <button
                         onClick={() => openProgramDetail(prog.id)}
                         className="px-3 py-1.5 rounded-xl border border-stone-200 text-stone-700 hover:bg-stone-100 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
@@ -522,7 +718,7 @@ export const AdminDashboard: React.FC = () => {
                 <div key={reg.id} className="bg-white p-5 rounded-2xl border border-stone-200 shadow-sm flex flex-col justify-between space-y-4">
                   <div>
                     <div className="flex items-center justify-between gap-2 mb-2">
-                      <span className="text-2xl">{reg.flag_emoji || '✈️'}</span>
+                      <CountryFlag emoji={reg.flag_emoji} country={reg.country || reg.name} size="lg" className="w-8 h-5.5 rounded shadow" />
                       <button
                         onClick={() => toggleRegionActive(reg.id)}
                         className={`text-xs px-2.5 py-0.5 rounded-full font-bold transition-colors cursor-pointer ${
@@ -581,163 +777,323 @@ export const AdminDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 3: SZOLGÁLTATÁS TÍPUSOK KEZELÉSE (Admin Extensibility) */}
-      {activeTab === 'categories' && (
+      {/* TAB: FOGLALÁSOK NYILVÁNTARTÁSA ÉS STÁTUSZFIGYELÉS */}
+      {activeTab === 'bookings' && (
         <div className="space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-emerald-50/60 p-5 rounded-2xl border border-emerald-100">
-            <div>
-              <h3 className="font-display font-bold text-lg text-emerald-950">
-                Szolgáltatás Típusok Adminisztrációja
-              </h3>
-              <p className="text-xs text-stone-600 mt-1 max-w-2xl">
-                Kezeld és bővítsd a katalógusban elérhető szolgáltatási kategóriákat (pl. Reptéri Transzfer, Hajókirándulás, Privát túra, Gasztro).
-              </p>
+          {/* Metrics summary cards */}
+          <MetricsRow
+            metrics={[
+              { label: 'Összes foglalás', value: orders.length },
+              { label: 'Szolgáltatóra vár', value: orders.filter(o => o.status === 'pending').length, tone: 'amber' },
+              { label: 'Megerősítve', value: orders.filter(o => o.status === 'confirmed').length, tone: 'emerald' },
+              {
+                label: 'Platform díjbevétel',
+                value: `${formatPrice(orders.reduce((sum, o) => o.status !== 'cancelled' ? sum + (Number(o.booking_fee) || 0) : sum, 0))} €`,
+                tone: 'indigo',
+              },
+            ]}
+          />
+
+          <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden shadow-sm">
+            {/* Header with status filters and search */}
+            <div className="p-4 sm:p-5 bg-stone-50 border-b border-stone-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h3 className="font-bold text-stone-900 text-sm font-display">
+                  Foglalási Nyilvántartás & Státuszfigyelő ({orders.length})
+                </h3>
+                <p className="text-xs text-stone-500 mt-0.5">
+                  Nyomon követheted az összes beérkezett foglalást és a fizetési/visszaigazolási státuszokat.
+                </p>
+              </div>
+
+              {/* Status filter pills */}
+              <FilterPillBar
+                options={[
+                  { id: 'all', label: `Mind (${orders.length})` },
+                  { id: 'pending', label: `Visszaigazolásra vár (${orders.filter(o => o.status === 'pending').length})`, tone: 'amber' },
+                  { id: 'confirmed', label: `Megerősítve (${orders.filter(o => o.status === 'confirmed').length})`, tone: 'emerald' },
+                  { id: 'cancelled', label: `Lemondva (${orders.filter(o => o.status === 'cancelled').length})`, tone: 'stone' },
+                ]}
+                value={bookingStatusFilter}
+                onChange={(id) => setBookingStatusFilter(id as any)}
+              />
             </div>
 
-            <button
-              onClick={() => setAddCategoryModalOpen(true)}
-              className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer shrink-0"
-            >
-              <PlusCircle className="w-4 h-4" />
-              <span>+ Új Szolgáltatás Típus Hozzáadása</span>
-            </button>
-          </div>
+            {/* Orders list */}
+            {(() => {
+              const filteredOrders = orders.filter((o) => {
+                if (bookingStatusFilter !== 'all' && o.status !== bookingStatusFilter) return false;
+                if (bookingSearch.trim()) {
+                  const q = bookingSearch.toLowerCase();
+                  const matchTitle = (o.program?.title || '').toLowerCase().includes(q);
+                  const matchId = o.id.toLowerCase().includes(q);
+                  return matchTitle || matchId;
+                }
+                return true;
+              });
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {categories.map((cat) => {
-              const count = programs.filter(p => p.category_id === cat.id || p.category?.slug === cat.slug).length;
+              if (filteredOrders.length === 0) {
+                return (
+                  <div className="p-12 text-center">
+                    <Ticket className="w-12 h-12 text-stone-300 mx-auto mb-3" />
+                    <p className="text-sm text-stone-600">Nincs a szűrésnek megfelelő foglalás a nyilvántartásban.</p>
+                  </div>
+                );
+              }
+
               return (
-                <div key={cat.id} className="bg-white p-5 rounded-2xl border border-stone-200 shadow-sm flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
-                      <CategoryIcon icon={cat.icon} className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-stone-900 text-base font-display">
-                        {cat.name}
-                      </h4>
-                      <span className="text-xs text-stone-400">
-                        {count} program ebben a típusban
-                      </span>
-                    </div>
-                  </div>
+                <div className="divide-y divide-stone-100">
+                  {filteredOrders.map((order) => (
+                    <div key={order.id} className="p-5 hover:bg-stone-50/50 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="space-y-1.5 flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-mono text-xs font-bold text-stone-600 bg-stone-100 px-2 py-0.5 rounded-md border border-stone-200">
+                            #{getBookingReference(order)}
+                          </span>
+                          <h4 
+                            onClick={() => order.program_id && openProgramDetail(order.program_id)}
+                            className="font-bold text-stone-900 text-sm hover:text-emerald-700 cursor-pointer transition-colors truncate max-w-md"
+                          >
+                            {order.program?.title || 'Program'}
+                          </h4>
+                          <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
+                            order.status === 'confirmed' ? 'bg-emerald-100 text-emerald-800' :
+                            order.status === 'pending' ? 'bg-amber-100 text-amber-900' :
+                            'bg-stone-100 text-stone-500'
+                          }`}>
+                            {order.status === 'confirmed' ? 'Megerősítve (visszaigazolva)' : order.status === 'pending' ? 'Szolgáltatói visszaigazolásra vár' : 'Lemondva'}
+                          </span>
+                        </div>
 
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => toggleCategoryActive(cat.id)}
-                      className={`text-xs px-2 py-1 rounded-lg font-bold transition-colors cursor-pointer ${
-                        cat.active ? 'bg-emerald-100 text-emerald-800' : 'bg-stone-200 text-stone-600'
-                      }`}
-                    >
-                      {cat.active ? 'Aktív' : 'Inaktív'}
-                    </button>
+                        <div className="flex flex-wrap items-center gap-3 text-xs text-stone-500">
+                          <span>{order.participants_count} fő</span>
+                          <span>·</span>
+                          <span>Teljes: <strong className="text-stone-800">{formatPrice(order.total_price)} {order.currency === 'EUR' ? '€' : order.currency}</strong></span>
+                          <span>·</span>
+                          <span className="text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
+                            Platform kényelmi díj (Stripe fizetve): {formatPlatformFee(order.booking_fee)} €
+                          </span>
+                          <span>·</span>
+                          <span>Helyszínen: <strong className="text-stone-800">{formatPrice(order.onsite_amount)} €</strong></span>
+                          {order.onsite_payment_method && (
+                            <span className="inline-flex items-center gap-1 text-stone-600 bg-stone-100 px-2 py-0.5 rounded-md">
+                              {order.onsite_payment_method === 'revolut' ? (
+                                <Wallet className="w-3 h-3" />
+                              ) : order.onsite_payment_method === 'bank_transfer' ? (
+                                <Landmark className="w-3 h-3" />
+                              ) : (
+                                <Banknote className="w-3 h-3" />
+                              )}
+                              {PAYMENT_METHOD_LABEL[order.onsite_payment_method]}
+                            </span>
+                          )}
+                        </div>
+                      </div>
 
-                    <button
-                      onClick={() => {
-                        if (window.confirm(`Biztosan törölni szeretnéd a(z) ${cat.name} szolgáltatás típust?`)) {
-                          deleteCategory(cat.id);
-                        }
-                      }}
-                      className="text-stone-400 hover:text-rose-600 p-1.5 rounded-lg cursor-pointer"
-                      title="Törlés"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {order.status !== 'cancelled' && (
+                          <button
+                            onClick={() => setRescheduleOrderId(order.id)}
+                            className="px-3 py-1.5 rounded-xl border border-stone-200 text-stone-700 hover:bg-stone-100 text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                          >
+                            <Clock className="w-3.5 h-3.5" />
+                            <span>Áthelyezés</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               );
-            })}
+            })()}
           </div>
         </div>
       )}
 
-      {/* TAB 4: SZOLGÁLTATÓK KEZELÉSE */}
-      {activeTab === 'providers' && (
-        <div className="space-y-4">
-          <div className="flex items-center gap-2 overflow-x-auto pb-2 no-scrollbar">
-            {[
-              { id: 'all', label: 'Összes szolgáltató' },
-              { id: 'pending', label: 'Új / Jóváhagyásra vár' },
-              { id: 'approved', label: 'Jóváhagyott (Approved)' },
-              { id: 'suspended', label: 'Felfüggesztett (Suspended)' },
-            ].map((btn) => (
-              <button
-                key={btn.id}
-                onClick={() => setProviderFilter(btn.id)}
-                className={`text-xs px-3.5 py-2 rounded-xl font-medium transition-colors shrink-0 cursor-pointer ${
-                  providerFilter === btn.id
-                    ? 'bg-stone-900 text-white shadow-sm'
-                    : 'bg-white border border-stone-200 text-stone-600 hover:bg-stone-50'
-                }`}
-              >
-                {btn.label}
-              </button>
-            ))}
+      {/* TAB: ÉRTÉKELÉSEK ÉS MODERÁCIÓ */}
+      {activeTab === 'reviews' && (
+        <div className="space-y-6">
+          {/* Moderation Policy Notice */}
+          <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-2xl p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-emerald-700" />
+                <h3 className="font-display font-bold text-base text-emerald-950">
+                  Velem Gyere Értékelési & Moderációs Rendszer
+                </h3>
+              </div>
+              <p className="text-xs text-stone-600 max-w-2xl leading-relaxed">
+                Kizárólag igazolt vásárlók értékelhetnek a túra lezajlása után. A moderáció biztosítja, hogy személyes adatok, gyűlöletbeszéd vagy alaptalan fenyegetés ne jelenjen meg. A negatív vélemények a szolgáltató kérésére sem törölhetők, ha megfelelnek az irányelveknek.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 bg-white px-3.5 py-2 rounded-xl border border-emerald-200/60 shadow-xs shrink-0 text-xs">
+              <span className="font-bold text-stone-700">Összes vélemény:</span>
+              <span className="font-extrabold text-emerald-800 text-sm">{reviews.length} db</span>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {filteredProviders.map((prov) => {
-              const provProgramsCount = programs.filter(p => p.provider_id === prov.id).length;
-              return (
-                <div key={prov.id} className="bg-white p-5 rounded-2xl border border-stone-200 shadow-sm flex flex-col justify-between space-y-4">
-                  <div>
-                    <div className="flex items-center justify-between gap-2 mb-2">
-                      <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
-                        prov.status === 'approved' ? 'bg-emerald-100 text-emerald-800' :
-                        prov.status === 'pending' ? 'bg-amber-100 text-amber-900 ring-1 ring-amber-300' :
-                        'bg-rose-100 text-rose-800'
-                      }`}>
-                        {prov.status === 'approved' ? 'Jóváhagyva' :
-                         prov.status === 'pending' ? 'Függőben (Új regisztráció)' : 'Letiltva / Felfüggesztve'}
-                      </span>
+          {/* Filter Bar */}
+          <FilterPillBar
+            options={[
+              { id: 'all', label: `Összes (${reviews.length})` },
+              { id: 'published', label: `Publikált (${reviews.filter(r => r.status === 'published').length})` },
+              { id: 'flagged', label: `Ellenőrizendő (${reviews.filter(r => r.status === 'flagged').length})` },
+              { id: 'hidden', label: `Rejtett (${reviews.filter(r => r.status === 'hidden').length})` },
+            ]}
+            value={reviewFilter}
+            onChange={(id) => setReviewFilter(id as any)}
+          />
 
-                      <span className="text-xs text-stone-400">
-                        {provProgramsCount} program a katalógusban
-                      </span>
+          {/* Reviews List */}
+          <div className="space-y-4">
+            {reviews
+              .filter(r => reviewFilter === 'all' || r.status === reviewFilter)
+              .map((rev) => {
+                const tourDate = rev.tour_date ? new Date(rev.tour_date).toLocaleDateString('hu-HU', { year: 'numeric', month: 'short', day: 'numeric' }) : rev.tour_date;
+                return (
+                  <div key={rev.id} className="bg-white rounded-2xl border border-stone-200 p-5 shadow-xs space-y-4">
+                    {/* Header: User & Rating & Status */}
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-bold text-stone-900 text-sm sm:text-base">
+                            {rev.user_name}
+                          </span>
+                          {rev.is_verified_buyer && (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>Igazolt vásárló</span>
+                            </span>
+                          )}
+                          <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md ${
+                            rev.status === 'published'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : rev.status === 'flagged'
+                              ? 'bg-amber-100 text-amber-800'
+                              : 'bg-stone-100 text-stone-600'
+                          }`}>
+                            {rev.status === 'published' ? '✓ Publikált' : rev.status === 'flagged' ? '⚠️ Ellenőrzésre zászlózva' : 'Rejtett'}
+                          </span>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-stone-500 mt-1">
+                          <span className="font-semibold text-stone-700">{rev.program_title || 'Túra'}</span>
+                          <span>•</span>
+                          <span>Szolgáltató: <strong className="text-stone-800">{rev.provider_name}</strong></span>
+                          <span>•</span>
+                          <span>Időpont: {tourDate}</span>
+                        </div>
+                      </div>
+
+                      {/* Stars */}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <div className="flex text-amber-400">
+                          {[1, 2, 3, 4, 5].map((s) => (
+                            <Star
+                              key={s}
+                              className={`w-4 h-4 ${s <= rev.rating ? 'fill-amber-400 text-amber-400' : 'text-stone-200'}`}
+                            />
+                          ))}
+                        </div>
+                        <span className="text-xs font-bold text-stone-900 font-display">
+                          {rev.rating}.0 / 5
+                        </span>
+                      </div>
                     </div>
 
-                    <h4 className="font-display font-bold text-lg text-stone-900">
-                      {prov.company_name}
-                    </h4>
+                    {/* Sub-ratings */}
+                    <div className="flex flex-wrap gap-2 text-[11px] text-stone-600 bg-stone-50 p-2.5 rounded-xl border border-stone-100">
+                      <span>🧭 Idegenvezető: <strong className="text-stone-800">{rev.rating_guide}/5</strong></span>
+                      <span className="text-stone-300">•</span>
+                      <span>💰 Ár-érték: <strong className="text-stone-800">{rev.rating_value}/5</strong></span>
+                      <span className="text-stone-300">•</span>
+                      <span>⏱️ Szervezés: <strong className="text-stone-800">{rev.rating_organization}/5</strong></span>
+                      <span className="text-stone-300">•</span>
+                      <span>🛡️ Biztonság: <strong className="text-stone-800">{rev.rating_safety}/5</strong></span>
+                    </div>
 
-                    <p className="text-xs text-stone-600 mt-2 line-clamp-2">
-                      {prov.description}
-                    </p>
-
-                    <div className="mt-3 pt-3 border-t border-stone-100 space-y-1 text-xs text-stone-600">
-                      <div>👤 Kapcsolattartó: <strong className="text-stone-800">{prov.contact_name}</strong></div>
-                      <div>📧 E-mail: <strong className="text-stone-800">{prov.email}</strong></div>
-                      <div>📞 Telefon: <strong className="text-stone-800">{prov.phone}</strong></div>
-                      {prov.website && (
-                        <div>🌐 Web: <a href={prov.website} target="_blank" rel="noreferrer" className="text-emerald-700 hover:underline">{prov.website}</a></div>
+                    {/* Text review */}
+                    <div className="space-y-1.5 text-xs sm:text-sm text-stone-700">
+                      {rev.title && (
+                        <h4 className="font-bold text-stone-900 font-display">
+                          „{rev.title}”
+                        </h4>
                       )}
+                      <p className="leading-relaxed whitespace-pre-line">{rev.comment}</p>
+                    </div>
+
+                    {/* Photos if any */}
+                    {rev.photos && rev.photos.length > 0 && (
+                      <div className="flex gap-2 pt-1">
+                        {rev.photos.map((pUrl, pIdx) => (
+                          <a key={pIdx} href={pUrl} target="_blank" rel="noreferrer" className="w-14 h-14 rounded-xl overflow-hidden border border-stone-200 hover:opacity-80 transition-opacity">
+                            <img src={pUrl} alt="" loading="lazy" className="w-full h-full object-cover" />
+                          </a>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Provider response if any */}
+                    {rev.provider_response && (
+                      <div className="bg-stone-50 border-l-4 border-emerald-600 rounded-r-xl p-3 text-xs space-y-1">
+                        <span className="font-bold text-stone-800 block">
+                          Túraszervező válasza ({rev.provider_response.responder_name}):
+                        </span>
+                        <p className="text-stone-600 italic">"{rev.provider_response.response_text}"</p>
+                      </div>
+                    )}
+
+                    {/* Moderation Action Buttons */}
+                    <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-stone-100">
+                      <span className="text-[11px] text-stone-400">
+                        Foglalási ID: <code className="bg-stone-100 px-1 py-0.5 rounded">{rev.order_id}</code>
+                      </span>
+
+                      <div className="flex items-center gap-2">
+                        {rev.status !== 'published' && (
+                          <button
+                            type="button"
+                            onClick={() => moderateReview(rev.id, 'published')}
+                            className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors cursor-pointer"
+                          >
+                            ✓ Jóváhagyás & Publikálás
+                          </button>
+                        )}
+                        {rev.status !== 'flagged' && (
+                          <button
+                            type="button"
+                            onClick={() => moderateReview(rev.id, 'flagged')}
+                            className="px-3 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-xs font-bold transition-colors cursor-pointer"
+                          >
+                            ⚠️ Zászlózás ellenőrzésre
+                          </button>
+                        )}
+                        {rev.status !== 'hidden' && (
+                          <button
+                            type="button"
+                            onClick={() => moderateReview(rev.id, 'hidden')}
+                            className="px-3 py-1.5 rounded-lg bg-stone-100 hover:bg-rose-50 text-stone-600 hover:text-rose-700 border border-stone-200 text-xs font-bold transition-colors cursor-pointer"
+                          >
+                            ✕ Elrejtés (Irányelvsértés)
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (window.confirm('Véglegesen törlöd ezt az értékelést a Supabase adatbázisból?')) {
+                              deleteReview(rev.id);
+                            }
+                          }}
+                          className="p-1.5 rounded-lg text-stone-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                          title="Értékelés végleges törlése"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   </div>
-
-                  <div className="pt-3 border-t border-stone-100 flex items-center justify-end gap-2">
-                    {prov.status !== 'approved' && (
-                      <button
-                        onClick={() => approveProvider(prov.id)}
-                        className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1 cursor-pointer shadow-sm"
-                      >
-                        <Check className="w-3.5 h-3.5" />
-                        <span>Szolgáltató Jóváhagyása</span>
-                      </button>
-                    )}
-
-                    {prov.status !== 'suspended' && (
-                      <button
-                        onClick={() => suspendProvider(prov.id)}
-                        className="px-3.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold flex items-center gap-1 cursor-pointer"
-                      >
-                        <Ban className="w-3.5 h-3.5" />
-                        <span>Letiltás</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
           </div>
         </div>
       )}
@@ -909,85 +1265,10 @@ export const AdminDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* MODAL: ADD NEW SERVICE TYPE / CATEGORY */}
-      {addCategoryModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-stone-200 relative animate-in zoom-in-95 duration-200">
-            <button
-              onClick={() => setAddCategoryModalOpen(false)}
-              className="absolute top-5 right-5 text-stone-400 hover:text-stone-700 p-1.5 rounded-xl hover:bg-stone-100 transition-colors cursor-pointer"
-            >
-              ✕
-            </button>
-
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
-                <Layers className="w-6 h-6" />
-              </div>
-              <div>
-                <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider block">
-                  Szolgáltatás Típus
-                </span>
-                <h3 className="font-display text-2xl font-extrabold text-stone-900">
-                  Új Szolgáltatás Típus
-                </h3>
-              </div>
-            </div>
-
-            <form onSubmit={handleCreateCategorySubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
-                  Típus megnevezése <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={newCategoryName}
-                  onChange={(e) => setNewCategoryName(e.target.value)}
-                  placeholder="Pl. Helikopteres túra vagy Extrém sport"
-                  className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3.5 py-2.5 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
-                  Ikon
-                </label>
-                <select
-                  value={newCategoryIcon}
-                  onChange={(e) => setNewCategoryIcon(e.target.value)}
-                  className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3.5 py-2.5 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
-                >
-                  <option value="Compass">🧭 Compass (Iránytű / Kirándulás)</option>
-                  <option value="Landmark">🏛️ Landmark (Műemlék / Városnézés)</option>
-                  <option value="Car">🚗 Car (Autó / Transzfer)</option>
-                  <option value="Ship">🚢 Ship (Hajó / Vízitúra)</option>
-                  <option value="Utensils">🍴 Utensils (Gasztro / Étkezés)</option>
-                  <option value="Shield">🛡️ Shield (Privát kíséret)</option>
-                  <option value="Users">👥 Users (Családi program)</option>
-                  <option value="Trees">🌲 Trees (Természet)</option>
-                </select>
-              </div>
-
-              <div className="pt-2 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setAddCategoryModalOpen(false)}
-                  className="px-4 py-2.5 rounded-xl border border-stone-300 text-stone-700 text-xs font-semibold cursor-pointer"
-                >
-                  Mégse
-                </button>
-                <button
-                  type="submit"
-                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer"
-                >
-                  Típus Mentése
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <RescheduleOrderModal
+        orderId={rescheduleOrderId}
+        onClose={() => setRescheduleOrderId(null)}
+      />
     </div>
   );
 };

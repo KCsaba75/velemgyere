@@ -1,0 +1,29 @@
+# Robots.txt for Velem Gyere (https://velemgyere.hu)
+# Search Engine & AI Search Crawler Directives
+
+User-agent: *
+Allow: /
+Disallow: /admin-secret
+Disallow: /api/private
+
+# AI Search & LLM Engines (Google AI Overviews, Perplexity, OpenAI SearchGPT, Claude, Bing Copilot)
+User-agent: GPTBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+# Sitemap Index
+Sitemap: https://velemgyere.hu/sitemap.xml

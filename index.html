@@ -2,16 +2,89 @@
 <html lang="hu">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Velem Gyere – Kirándulások • Programok • Élmények</title>
-    <meta name="description" content="Magyarországi kirándulás-, program- és élménykatalógus. Találd meg a következő élményed!" />
-    <meta property="og:title" content="Velem Gyere – Kirándulások • Programok • Élmények" />
-    <meta property="og:description" content="Magyarországi kirándulás-, program- és élménykatalógus. Találd meg a következő élményed!" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#10b981" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+
+    <!-- Favicons & Manifest -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+
+    <!-- Primary SEO Meta Tags -->
+    <title>Velem Gyere – Kirándulások, Élmények és Magyar Nyelvű Vezetések Külföldön</title>
+    <meta name="description" content="Fedezd fel a legizgalmasabb külföldi magyar nyelvű élménytúrákat, városnézéseket és reptéri transzfereket megbízható helyi szolgáltatóktól!" />
+    <link rel="canonical" href="https://velemgyere.hu/" />
+
+    <!-- Open Graph / Facebook / LinkedIn -->
     <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Velem Gyere" />
+    <meta property="og:locale" content="hu_HU" />
+    <meta property="og:url" content="https://velemgyere.hu/" />
+    <meta property="og:title" content="Velem Gyere – Kirándulások, Élmények és Magyar Nyelvű Vezetések Külföldön" />
+    <meta property="og:description" content="Fedezd fel a legizgalmasabb külföldi magyar nyelvű élménytúrákat, városnézéseket és reptéri transzfereket megbízható helyi szolgáltatóktól!" />
+    <meta property="og:image" content="https://velemgyere.hu/brand/velemgyere-logo-wide-v2.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Velem Gyere – Külföldi magyar programok és élmények katalógusa" />
+
+    <!-- Twitter / X -->
     <meta name="twitter:card" content="summary_large_image" />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <meta name="twitter:title" content="Velem Gyere – Kirándulások, Élmények és Magyar Nyelvű Vezetések Külföldön" />
+    <meta name="twitter:description" content="Fedezd fel a legizgalmasabb külföldi magyar nyelvű élménytúrákat, városnézéseket és reptéri transzfereket megbízható helyi szolgáltatóktól!" />
+    <meta name="twitter:image" content="https://velemgyere.hu/brand/velemgyere-logo-wide-v2.jpg" />
+
+    <!-- Performance & Preconnects for high-speed delivery -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://ygdvpnxtxdnueoizltzk.supabase.co" crossorigin />
+    <link rel="dns-prefetch" href="https://ygdvpnxtxdnueoizltzk.supabase.co" />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet" />
+
+    <!-- Schema.org Structured Data (JSON-LD) for Search Engines & AI Engines -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": "https://velemgyere.hu/#organization",
+          "name": "Velem Gyere",
+          "url": "https://velemgyere.hu/",
+          "logo": {
+            "@type": "ImageObject",
+            "url": "https://velemgyere.hu/brand/velemgyere-logo.jpg",
+            "caption": "Velem Gyere Logo"
+          },
+          "description": "Külföldi magyar nyelvű élménytúrák, kirándulásszervezők és megbízható reptéri transzferek egyetlen közös platformon.",
+          "contactPoint": {
+            "@type": "ContactPoint",
+            "contactType": "Customer Support",
+            "availableLanguage": ["Hungarian", "English"]
+          }
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://velemgyere.hu/#website",
+          "url": "https://velemgyere.hu/",
+          "name": "Velem Gyere",
+          "publisher": {
+            "@id": "https://velemgyere.hu/#organization"
+          },
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": {
+              "@type": "EntryPoint",
+              "urlTemplate": "https://velemgyere.hu/programok?search={search_term_string}"
+            },
+            "query-input": "required name=search_term_string"
+          }
+        }
+      ]
+    }
+    </script>
   </head>
   <body class="bg-stone-50 text-stone-900 antialiased selection:bg-emerald-500 selection:text-white">
     <div id="root"></div>

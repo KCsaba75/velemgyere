@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Building2, Check, Sparkles, AlertCircle } from 'lucide-react';
+import { Building2, Check, Sparkles, AlertCircle, Banknote, Wallet } from 'lucide-react';
+import { OnsitePaymentMethod } from '../types/database';
 
 interface ProviderRegisterModalProps {
   isOpen: boolean;
@@ -16,14 +17,25 @@ export const ProviderRegisterModal: React.FC<ProviderRegisterModalProps> = ({ is
   const [phone, setPhone] = useState('');
   const [website, setWebsite] = useState('');
   const [description, setDescription] = useState('');
+  const [password, setPassword] = useState('');
+  const [acceptedPaymentMethods, setAcceptedPaymentMethods] = useState<OnsitePaymentMethod[]>(['cash']);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
+  const togglePaymentMethod = (method: OnsitePaymentMethod) => {
+    setAcceptedPaymentMethods(prev =>
+      prev.includes(method) ? prev.filter(m => m !== method) : [...prev, method]
+    );
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!companyName.trim() || !contactName.trim() || !email.trim() || !phone.trim() || !description.trim()) {
+    if (
+      !companyName.trim() || !contactName.trim() || !email.trim() || !phone.trim() ||
+      !description.trim() || password.length < 6 || acceptedPaymentMethods.length === 0
+    ) {
       return;
     }
 
@@ -36,6 +48,8 @@ export const ProviderRegisterModal: React.FC<ProviderRegisterModalProps> = ({ is
         phone: phone.trim(),
         website: website.trim() || undefined,
         description: description.trim(),
+        password,
+        accepted_payment_methods: acceptedPaymentMethods,
       });
       setSuccessMessage(res.message);
     } catch (err) {
@@ -167,10 +181,58 @@ export const ProviderRegisterModal: React.FC<ProviderRegisterModalProps> = ({ is
                 ></textarea>
               </div>
 
+              <div>
+                <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
+                  Elfogadott fizetési mód helyszínen <span className="text-rose-500">*</span>
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => togglePaymentMethod('cash')}
+                    className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-semibold border cursor-pointer transition-colors ${
+                      acceptedPaymentMethods.includes('cash')
+                        ? 'bg-emerald-600 border-emerald-600 text-white'
+                        : 'bg-stone-50 border-stone-300 text-stone-600 hover:bg-stone-100'
+                    }`}
+                  >
+                    <Banknote className="w-3.5 h-3.5" /> Készpénz
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => togglePaymentMethod('revolut')}
+                    className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-semibold border cursor-pointer transition-colors ${
+                      acceptedPaymentMethods.includes('revolut')
+                        ? 'bg-emerald-600 border-emerald-600 text-white'
+                        : 'bg-stone-50 border-stone-300 text-stone-600 hover:bg-stone-100'
+                    }`}
+                  >
+                    <Wallet className="w-3.5 h-3.5" /> Revolut
+                  </button>
+                </div>
+                {acceptedPaymentMethods.length === 0 && (
+                  <p className="text-xs text-rose-500 mt-1.5">Legalább egy fizetési módot ki kell választanod.</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
+                  Jelszó (min. 6 karakter) <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="password"
+                  required
+                  minLength={6}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3.5 py-2.5 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+
               <div className="pt-3">
                 <button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || acceptedPaymentMethods.length === 0}
                   className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3.5 px-6 rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md disabled:opacity-50"
                 >
                   <Sparkles className="w-4 h-4" />

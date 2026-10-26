@@ -91,7 +91,7 @@ export async function seedSupabaseDatabase(): Promise<{ success: boolean; messag
     const { error: provErr } = await supabase.from('providers').upsert(
       INITIAL_PROVIDERS.map(p => ({
         id: p.id,
-        user_id: p.user_id,
+        user_id: p.user_id || null,
         company_name: p.company_name,
         contact_name: p.contact_name,
         email: p.email,
@@ -162,6 +162,25 @@ export async function seedSupabaseDatabase(): Promise<{ success: boolean; messag
       { onConflict: 'id' }
     );
     if (inqErr) throw new Error(`Érdeklődések feltöltési hiba: ${inqErr.message}`);
+
+    // 7. Seed Profiles (opcionális profilok)
+    try {
+      const { error: profErr } = await supabase.from('profiles').upsert(
+        INITIAL_PROFILES.map(prof => ({
+          id: prof.id,
+          user_id: prof.user_id || null,
+          name: prof.name,
+          email: prof.email,
+          role: prof.role
+        })),
+        { onConflict: 'id' }
+      );
+      if (profErr) {
+        console.warn('Profilok mentése figyelmeztetés (auth.users fkey):', profErr.message);
+      }
+    } catch (e) {
+      console.warn('Profilok kihagyva:', e);
+    }
 
     return { 
       success: true, 

@@ -1,23 +1,29 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
-import { 
-  PlusCircle, 
-  Upload, 
-  Check, 
-  Trash2, 
-  Sparkles, 
+import {
+  PlusCircle,
+  Edit3,
+  Upload,
+  Check,
+  Trash2,
+  Sparkles,
   Star,
-  Globe
+  Globe,
+  FileText,
+  Loader2
 } from 'lucide-react';
-import { ProgramStatus } from '../types/database';
+import { Program, ProgramStatus } from '../types/database';
+import { supabase } from '../lib/supabase';
+import { uploadProgramImage } from '../lib/imageUpload';
 
 interface NewProgramModalProps {
   isOpen: boolean;
   onClose: () => void;
+  programToEdit?: Program | null;
 }
 
-export const NewProgramModal: React.FC<NewProgramModalProps> = ({ isOpen, onClose }) => {
-  const { categories, regions, createProgram, currentUser, currentProvider } = useApp();
+export const NewProgramModal: React.FC<NewProgramModalProps> = ({ isOpen, onClose, programToEdit }) => {
+  const { categories, regions, createProgram, updateProgram, currentUser, currentProvider } = useApp();
 
   // Basic info
   const [title, setTitle] = useState('');
@@ -37,7 +43,10 @@ export const NewProgramModal: React.FC<NewProgramModalProps> = ({ isOpen, onClos
   const [departureLocation, setDepartureLocation] = useState('');
 
   // Pricing & Language
-  const [price, setPrice] = useState<number>(55);
+  // Kanban 84b90320: string-buffer (maxParticipants mintajat kovetve), nem number --
+  // igy a focus-kori ureskent-tartas (lasd lejjebb onFocus) nem tipushibas, es az
+  // uresen-hagyott mezo nem esik vissza csendben 0-ra minden billentyuleutes kozben.
+  const [price, setPrice] = useState<string>('55');
   const [currency, setCurrency] = useState('EUR');
   const [language, setLanguage] = useState('Magyar nyelvű vezetés');
   const [maxParticipants, setMaxParticipants] = useState<string>('16');
@@ -56,17 +65,85 @@ export const NewProgramModal: React.FC<NewProgramModalProps> = ({ isOpen, onClos
   const [newNotIncludedItem, setNewNotIncludedItem] = useState('');
 
   // Images state
-  const [images, setImages] = useState<{ url: string; isCover: boolean }[]>([
+  const [images, setImages] = useState<{ url: string; isCover: boolean; thumbUrl?: string }[]>([
     {
       url: 'https://images.unsplash.com/photo-1590523741831-ab7e8b8f9c7f?auto=format&fit=crop&w=1200&q=80',
       isCover: true
     }
   ]);
   const [customImageUrl, setCustomImageUrl] = useState('');
+  const [uploadingCount, setUploadingCount] = useState(0);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
-  // Status choice
-  const [status, setStatus] = useState<ProgramStatus>('pending_review');
+  // Status choice: default to draft (or match existing program)
+  const [status, setStatus] = useState<ProgramStatus>('draft');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Synchronize state when opening or when programToEdit changes
+  useEffect(() => {
+    if (!isOpen) return;
+    if (programToEdit) {
+      setTitle(programToEdit.title || '');
+      setRegionId(programToEdit.region_id || regions[0]?.id || '');
+      setCategoryId(programToEdit.category_id || categories[0]?.id || '');
+      setShortDescription(programToEdit.short_description || '');
+      setDescription(programToEdit.description || '');
+      setEventDate(programToEdit.event_date || new Date().toISOString().split('T')[0]);
+      setStartTime(programToEdit.start_time || '09:00');
+      setEndTime(programToEdit.end_time || '16:00');
+      setDuration(programToEdit.duration || 'Egész napos (7 óra)');
+      setLocation(programToEdit.location || '');
+      setDepartureLocation(programToEdit.departure_location || '');
+      setPrice(programToEdit.price != null ? String(programToEdit.price) : '0');
+      setCurrency(programToEdit.currency || 'EUR');
+      setLanguage(programToEdit.language || 'Magyar nyelvű vezetés');
+      setMaxParticipants(programToEdit.max_participants ? String(programToEdit.max_participants) : '');
+      setIncludedList(programToEdit.included ? [...programToEdit.included] : []);
+      setNotIncludedList(programToEdit.not_included ? [...programToEdit.not_included] : []);
+      if (programToEdit.images && programToEdit.images.length > 0) {
+        setImages(programToEdit.images.map(img => ({ url: img.image_url, thumbUrl: img.thumb_url || undefined, isCover: Boolean(img.is_cover) })));
+      } else {
+        setImages([
+          {
+            url: 'https://images.unsplash.com/photo-1590523741831-ab7e8b8f9c7f?auto=format&fit=crop&w=1200&q=80',
+            isCover: true
+          }
+        ]);
+      }
+      setStatus(programToEdit.status === 'published' ? 'published' : 'draft');
+    } else {
+      setTitle('');
+      setRegionId(regions[0]?.id || '');
+      setCategoryId(categories[0]?.id || '');
+      setShortDescription('');
+      setDescription('');
+      setEventDate(new Date().toISOString().split('T')[0]);
+      setStartTime('09:00');
+      setEndTime('16:00');
+      setDuration('Egész napos (7 óra)');
+      setLocation('');
+      setDepartureLocation('');
+      setPrice('55');
+      setCurrency('EUR');
+      setLanguage('Magyar nyelvű vezetés');
+      setMaxParticipants('16');
+      setIncludedList([
+        'Helyi magyar nyelvű idegenvezetés / asszisztencia',
+        'Kényelmes, klímás járművel való transzfer'
+      ]);
+      setNotIncludedList([
+        'Egyéni meleg étkezés',
+        'Múzeumi belépőjegyek'
+      ]);
+      setImages([
+        {
+          url: 'https://images.unsplash.com/photo-1590523741831-ab7e8b8f9c7f?auto=format&fit=crop&w=1200&q=80',
+          isCover: true
+        }
+      ]);
+      setStatus('draft');
+    }
+  }, [isOpen, programToEdit, regions, categories]);
 
   if (!isOpen) return null;
 
@@ -99,20 +176,37 @@ export const NewProgramModal: React.FC<NewProgramModalProps> = ({ isOpen, onClos
     }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Kanban f2d93218: a korabbi FileReader.readAsDataURL (nyers base64 a DB
+  // sorban) helyett valodi Supabase Storage-ba toltunk, kliens-oldali
+  // atmeretezes + WebP-konverzio utan (lasd lib/imageUpload.ts) -- ez adja a
+  // legnagyobb betoltesi-sebesseg nyereseget, mert egy nyers telefonos foto
+  // tobb MB-os lehet, a WebP-re konvertalt, 1600px-re skalazott verzio pedig
+  // tobbszor kisebb, plusz egy kulon 480px-es thumbnail is kepszul a
+  // lista-nezethez.
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
+    const providerId = currentProvider?.id;
+    if (!providerId) {
+      setUploadError('Kép feltöltéséhez szolgáltatói fiók szükséges.');
+      return;
+    }
 
-    Array.from(files).forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          const dataUrl = event.target.result as string;
-          setImages(prev => [...prev, { url: dataUrl, isCover: prev.length === 0 }]);
-        }
-      };
-      reader.readAsDataURL(file);
-    });
+    setUploadError(null);
+    const fileList = Array.from(files);
+    setUploadingCount(prev => prev + fileList.length);
+
+    for (const file of fileList) {
+      try {
+        const { url, thumbUrl } = await uploadProgramImage(supabase, providerId, file);
+        setImages(prev => [...prev, { url, thumbUrl, isCover: prev.length === 0 }]);
+      } catch (err) {
+        console.error('Kép feltöltése sikertelen:', err);
+        setUploadError(err instanceof Error ? err.message : 'Kép feltöltése sikertelen, próbáld újra.');
+      } finally {
+        setUploadingCount(prev => Math.max(0, prev - 1));
+      }
+    }
   };
 
   const handleSetCover = (index: number) => {
@@ -141,7 +235,7 @@ export const NewProgramModal: React.FC<NewProgramModalProps> = ({ isOpen, onClos
 
     setIsSubmitting(true);
     try {
-      await createProgram({
+      const payload = {
         title: title.trim(),
         region_id: regionId,
         country: selectedReg?.country || 'Külföld',
@@ -160,12 +254,19 @@ export const NewProgramModal: React.FC<NewProgramModalProps> = ({ isOpen, onClos
         max_participants: maxParticipants ? Number(maxParticipants) : undefined,
         included: includedList,
         not_included: notIncludedList,
-        status: status,
-      }, images);
+        status: status === 'draft' ? 'draft' as ProgramStatus : 'published' as ProgramStatus,
+      };
+
+      if (programToEdit) {
+        await updateProgram(programToEdit.id, payload, images);
+      } else {
+        await createProgram(payload, images);
+      }
 
       onClose();
     } catch (err) {
       console.error(err);
+      alert('Hiba történt a mentés során: ' + (err instanceof Error ? err.message : String(err)));
     } finally {
       setIsSubmitting(false);
     }
@@ -178,14 +279,22 @@ export const NewProgramModal: React.FC<NewProgramModalProps> = ({ isOpen, onClos
         <div className="flex items-center justify-between border-b border-stone-100 pb-4 mb-6">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
-              <PlusCircle className="w-6 h-6" />
+              {programToEdit ? <Edit3 className="w-5 h-5" /> : <PlusCircle className="w-6 h-6" />}
             </div>
             <div>
               <h3 className="font-display text-2xl font-extrabold text-stone-900">
-                Új Külföldi Program / Transzfer Létrehozása
+                {programToEdit ? 'Program Szerkesztése' : 'Új Külföldi Program / Transzfer Létrehozása'}
               </h3>
               <p className="text-xs text-stone-500">
-                Szolgáltató: <strong className="text-stone-700">{currentProvider?.company_name || currentUser.name}</strong>
+                {programToEdit ? (
+                  <span>
+                    Azonnali módosítás publikált és piszkozat állapotban is • <strong className="text-stone-700">{currentProvider?.company_name || currentUser.name}</strong>
+                  </span>
+                ) : (
+                  <span>
+                    Közvetlen publikálás vagy piszkozatként mentés • <strong className="text-stone-700">{currentProvider?.company_name || currentUser.name}</strong>
+                  </span>
+                )}
               </p>
             </div>
           </div>
@@ -406,10 +515,17 @@ export const NewProgramModal: React.FC<NewProgramModalProps> = ({ isOpen, onClos
                 <input
                   type="number"
                   min="0"
-                  step="1"
+                  step="any"
                   required
                   value={price}
-                  onChange={(e) => setPrice(Number(e.target.value))}
+                  onChange={(e) => {
+                    let val = e.target.value;
+                    if (val.length > 1 && val.startsWith('0') && !val.startsWith('0.')) {
+                      val = val.replace(/^0+/, '');
+                    }
+                    setPrice(val);
+                  }}
+                  onFocus={() => setPrice('')}
                   placeholder="55"
                   className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3.5 py-2.5 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
@@ -437,7 +553,14 @@ export const NewProgramModal: React.FC<NewProgramModalProps> = ({ isOpen, onClos
                   type="number"
                   min="1"
                   value={maxParticipants}
-                  onChange={(e) => setMaxParticipants(e.target.value)}
+                  onChange={(e) => {
+                    let val = e.target.value;
+                    if (val.length > 1 && val.startsWith('0')) {
+                      val = val.replace(/^0+/, '');
+                    }
+                    setMaxParticipants(val);
+                  }}
+                  onFocus={() => setMaxParticipants('')}
                   placeholder="16"
                   className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3.5 py-2.5 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
@@ -555,6 +678,15 @@ export const NewProgramModal: React.FC<NewProgramModalProps> = ({ isOpen, onClos
               </label>
 
               <div className="flex-1 flex flex-col justify-center gap-1.5">
+                {uploadingCount > 0 && (
+                  <p className="text-xs text-emerald-700 font-semibold flex items-center gap-1.5">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    Kép feltöltése és optimalizálása ({uploadingCount})...
+                  </p>
+                )}
+                {uploadError && (
+                  <p className="text-xs text-rose-600 font-semibold">{uploadError}</p>
+                )}
                 <span className="text-xs font-medium text-stone-600">Vagy kép URL megadása:</span>
                 <div className="flex gap-2">
                   <input
@@ -579,7 +711,7 @@ export const NewProgramModal: React.FC<NewProgramModalProps> = ({ isOpen, onClos
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
               {images.map((img, idx) => (
                 <div key={idx} className="relative aspect-video rounded-xl overflow-hidden border border-stone-200 group bg-stone-100">
-                  <img src={img.url} alt="" className="w-full h-full object-cover" />
+                  <img src={img.thumbUrl || img.url} alt="" loading="lazy" className="w-full h-full object-cover" />
                   {img.isCover && (
                     <div className="absolute top-1 left-1 bg-amber-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow flex items-center gap-0.5">
                       <Star className="w-2.5 h-2.5 fill-white" />
@@ -610,16 +742,16 @@ export const NewProgramModal: React.FC<NewProgramModalProps> = ({ isOpen, onClos
             </div>
           </div>
 
-          {/* Section 6: Státusz */}
+          {/* Section 6: Státusz és közzététel */}
           <div className="space-y-4 pt-4 border-t border-stone-100">
             <h4 className="text-xs font-bold text-stone-400 uppercase tracking-wider">
-              6. Státusz
+              6. Státusz és közzététel
             </h4>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <label 
                 className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-start gap-3 ${
-                  status === 'pending_review' 
+                  status === 'published' 
                     ? 'border-emerald-600 bg-emerald-50/50 ring-2 ring-emerald-200' 
                     : 'border-stone-200 hover:border-stone-300'
                 }`}
@@ -627,14 +759,17 @@ export const NewProgramModal: React.FC<NewProgramModalProps> = ({ isOpen, onClos
                 <input
                   type="radio"
                   name="prog_status"
-                  checked={status === 'pending_review'}
-                  onChange={() => setStatus('pending_review')}
+                  checked={status === 'published'}
+                  onChange={() => setStatus('published')}
                   className="mt-1 accent-emerald-600"
                 />
                 <div>
-                  <div className="font-bold text-stone-900 text-sm">Beküldés jóváhagyásra (pending_review)</div>
-                  <div className="text-xs text-stone-500 mt-0.5">
-                    Az adminisztrátor ellenőrzi a programot a publikálás előtt.
+                  <div className="font-bold text-stone-900 text-sm flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-emerald-600" />
+                    <span>Publikálás (Azonnal aktív)</span>
+                  </div>
+                  <div className="text-xs text-stone-500 mt-1">
+                    A program azonnal aktívvá válik és megjelenik a katalógusban. Nincs szükség külön admin jóváhagyásra!
                   </div>
                 </div>
               </label>
@@ -654,9 +789,12 @@ export const NewProgramModal: React.FC<NewProgramModalProps> = ({ isOpen, onClos
                   className="mt-1 accent-emerald-600"
                 />
                 <div>
-                  <div className="font-bold text-stone-900 text-sm">Mentés piszkozatként (draft)</div>
-                  <div className="text-xs text-stone-500 mt-0.5">
-                    Később bármikor visszatérhetsz és folytathatod a szerkesztést.
+                  <div className="font-bold text-stone-900 text-sm flex items-center gap-1.5">
+                    <FileText className="w-4 h-4 text-stone-600" />
+                    <span>Mentés piszkozatként (draft)</span>
+                  </div>
+                  <div className="text-xs text-stone-500 mt-1">
+                    Csak te látod a szolgáltatói felületeden, a katalógusban rejtve marad. Később bármikor közzéteheted.
                   </div>
                 </div>
               </label>
@@ -674,11 +812,21 @@ export const NewProgramModal: React.FC<NewProgramModalProps> = ({ isOpen, onClos
             </button>
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || uploadingCount > 0}
               className="px-7 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold text-sm shadow-md transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
             >
               <Sparkles className="w-4 h-4" />
-              <span>{isSubmitting ? 'Mentés...' : status === 'pending_review' ? 'Beküldés Admin Jóváhagyásra' : 'Mentés Piszkozatként'}</span>
+              <span>
+                {isSubmitting
+                  ? 'Mentés...'
+                  : programToEdit
+                    ? status === 'published'
+                      ? 'Módosítások mentése (Publikált)'
+                      : 'Módosítások mentése (Piszkozat)'
+                    : status === 'published'
+                      ? 'Program publikálása'
+                      : 'Mentés piszkozatként'}
+              </span>
             </button>
           </div>
         </form>

@@ -1,37 +1,55 @@
 import React from 'react';
 import { Program } from '../types/database';
-import { MapPin, Calendar, Clock, ArrowRight, Sparkles, Building2 } from 'lucide-react';
+import { MapPin, Calendar, Clock, ArrowRight, Sparkles, Building2, Heart, Star } from 'lucide-react';
 import { CategoryIcon } from './CategoryIcon';
+import { CountryFlag } from './CountryFlag';
+import { useApp, formatPrice, formatHuf, formatProgramDisplayDate } from '../context/AppContext';
 
 interface ProgramCardProps {
   program: Program;
-  onSelect: (id: string) => void;
+  onSelect?: (id: string) => void;
 }
 
 export const ProgramCard: React.FC<ProgramCardProps> = ({ program, onSelect }) => {
-  const coverImage = program.images?.find(img => img.is_cover)?.image_url 
-    || program.images?.[0]?.image_url 
-    || 'https://images.unsplash.com/photo-1590523741831-ab7e8b8f9c7f?auto=format&fit=crop&w=800&q=80';
+  // program.price is the NET amount the provider receives -- the catalog shows
+  // the buyer-facing TOTAL (net+fee), see kanban 71215856 penzugyi-mukodesi-modell.
+  const {
+    computeTotalPrice,
+    openProgramDetail,
+    isProgramFavorite,
+    toggleFavorite,
+    openFolderModal,
+    isAuthenticated,
+    getProgramRatingStats,
+    programOccurrencesCounts,
+    eurHufRate,
+  } = useApp();
+  const displayPrice = computeTotalPrice(program.price);
+  const isFav = isProgramFavorite(program.id);
+  const stats = getProgramRatingStats(program.id);
+  const hasMultipleDates = (programOccurrencesCounts?.[program.id] || 0) > 1;
 
-  // Format Hungarian date
-  const formattedDate = (() => {
-    try {
-      const d = new Date(program.event_date);
-      return d.toLocaleDateString('hu-HU', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
-    } catch {
-      return program.event_date;
-    }
-  })();
+  // Format Hungarian date (appends -tól/-től if multiple dates are available)
+  const formattedDate = formatProgramDisplayDate(program.event_date, hasMultipleDates);
 
   const flagEmoji = program.region?.flag_emoji || '✈️';
   const regionName = program.region?.name || program.country || 'Külföld';
 
+  const handleCardClick = () => {
+    if (onSelect) {
+      onSelect(program.id);
+    } else {
+      openProgramDetail(program.id);
+    }
+  };
+
+  const coverImage = program.cover_image_url || program.photos?.[0] || 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80';
+
   return (
-    <div className="group bg-white rounded-2xl border border-stone-200 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col overflow-hidden hover:-translate-y-1">
+    <div 
+      onClick={handleCardClick}
+      className="group bg-white rounded-2xl border border-stone-200 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col overflow-hidden hover:-translate-y-1 cursor-pointer"
+    >
       {/* Cover Image Container */}
       <div className="relative aspect-[16/10] sm:aspect-[4/3] w-full overflow-hidden bg-stone-900">
         <img
@@ -39,15 +57,16 @@ export const ProgramCard: React.FC<ProgramCardProps> = ({ program, onSelect }) =
           alt={program.title}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
           loading="lazy"
+          decoding="async"
         />
 
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/25 pointer-events-none"></div>
 
-        {/* Top Badges */}
-        <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
+        {/* Top Left Badges */}
+        <div className="absolute top-3 left-3 flex flex-wrap gap-1.5 z-10 max-w-[70%]">
           {/* Region / Destination Badge */}
           <div className="bg-white/95 backdrop-blur-md text-stone-900 text-xs font-bold px-2.5 py-1 rounded-lg shadow-sm flex items-center gap-1.5">
-            <span>{flagEmoji}</span>
+            <CountryFlag emoji={flagEmoji} country={program.region?.country || program.country} size="xs" />
             <span>{regionName}</span>
           </div>
 
@@ -60,23 +79,54 @@ export const ProgramCard: React.FC<ProgramCardProps> = ({ program, onSelect }) =
           )}
         </div>
 
-        {/* Featured badge */}
+        {/* Top Right: Heart / Favorite button */}
+        <div className="absolute top-3 right-3 flex items-center gap-1.5 z-20">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              // Already-saved -> single click removes it directly (toggle-off), matching
+              // the heart's own button semantics; not-yet-saved -> open the folder picker
+              // so the user can choose where to save it (kanban 12f43965).
+              if (isFav) {
+                toggleFavorite(program.id);
+              } else {
+                openFolderModal(program);
+              }
+            }}
+            className={`w-9 h-9 rounded-full backdrop-blur-md shadow-md flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-90 cursor-pointer ${
+              isFav
+                ? 'bg-white text-rose-500 ring-2 ring-rose-400/50 shadow-rose-500/25'
+                : 'bg-stone-900/60 hover:bg-white text-white hover:text-rose-500'
+            }`}
+            title={
+              !isAuthenticated
+                ? "Jelentkezz be programvadászként a kedvencek mentéséhez (♡)"
+                : isFav
+                  ? "Mentve a kedvencekhez (mappák kezelése)"
+                  : "Mentés egy mappába (♡)"
+            }
+            aria-label={isFav ? "Kedvenc program" : "Mentés a kedvencek közé"}
+          >
+            <Heart className={`w-4.5 h-4.5 transition-transform ${isFav ? 'fill-rose-500 text-rose-500 scale-110 animate-in zoom-in-75' : 'text-current'}`} />
+          </button>
+        </div>
+
+        {/* Bottom Left: Featured Badge */}
         {program.featured && (
-          <div className="absolute top-3 right-3 bg-amber-500 text-white text-xs font-bold px-2.5 py-1 rounded-lg shadow-md flex items-center gap-1">
-            <Sparkles className="w-3 h-3 fill-white" />
+          <div className="absolute bottom-3 left-3 bg-amber-500/95 backdrop-blur-sm text-white text-xs font-bold px-2.5 py-1 rounded-xl shadow-lg flex items-center gap-1.5 z-10 border border-amber-400/40">
+            <Sparkles className="w-3.5 h-3.5 fill-white" />
             <span>Kiemelt</span>
           </div>
         )}
 
-        {/* Guaranteed Hungarian badge */}
-        <div className="absolute bottom-3 left-3 bg-stone-900/90 backdrop-blur-sm text-emerald-300 text-[11px] font-bold px-2.5 py-1 rounded-lg border border-emerald-500/30 flex items-center gap-1">
-          <span>🇭🇺</span>
-          <span>{program.language || 'Magyar nyelvű vezetés'}</span>
-        </div>
-
         {/* Price Tag overlay on image */}
-        <div className="absolute bottom-3 right-3 bg-emerald-600/95 backdrop-blur-sm text-white px-3 py-1 rounded-xl shadow-lg font-extrabold text-sm sm:text-base">
-          {program.price} {program.currency === 'EUR' ? '€' : program.currency}/fő
+        <div className="absolute bottom-3 right-3 bg-emerald-600/95 backdrop-blur-sm text-white px-2.5 sm:px-3 py-1 rounded-xl shadow-lg font-bold text-xs sm:text-sm z-10">
+          <span className="font-extrabold">
+            {formatPrice(displayPrice)} {program.currency === 'EUR' ? '€' : program.currency}
+            {program.pricing_mode === 'tiered' ? '/túra-tól' : '/fő'}
+          </span>
         </div>
       </div>
 
@@ -111,16 +161,36 @@ export const ProgramCard: React.FC<ProgramCardProps> = ({ program, onSelect }) =
               <span className="text-stone-700">{program.duration}</span>
             </div>
 
-            <div className="flex items-center gap-2 text-emerald-800 font-bold">
-              <span className="text-base">💰</span>
-              <span>{program.price} {program.currency === 'EUR' ? '€' : program.currency} / fő</span>
+            <div className="flex items-center justify-between pt-1.5 border-t border-stone-200/70 gap-2">
+              {/* Rating before price */}
+              <div className="flex items-center gap-1.5 text-stone-800 font-bold">
+                <Star className="w-4 h-4 fill-amber-400 text-amber-400 shrink-0" />
+                <span className="text-stone-900 font-extrabold">{stats.average.toFixed(1)}</span>
+                <span className="text-stone-500 font-medium text-xs">({stats.count})</span>
+              </div>
+
+              {/* Price */}
+              <div className="flex flex-col items-end shrink-0">
+                <div className="flex items-center gap-1 text-emerald-800 font-bold">
+                  <span className="text-base">💰</span>
+                  <span>{formatPrice(displayPrice)} {program.currency === 'EUR' ? '€' : program.currency} {program.pricing_mode === 'tiered' ? '/túra-tól' : '/fő'}</span>
+                </div>
+                {(program.currency === 'EUR' || !program.currency) && eurHufRate > 0 && (
+                  <span className="text-[11px] font-medium text-stone-500 tracking-tight">
+                    ({formatHuf(displayPrice * eurHufRate)} Ft)
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         </div>
 
         {/* Card CTA button */}
         <button
-          onClick={() => onSelect(program.id)}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleCardClick();
+          }}
           className="w-full mt-2 bg-stone-900 hover:bg-emerald-600 text-white font-semibold py-2.5 px-4 rounded-xl transition-all duration-200 flex items-center justify-center gap-2 text-sm shadow-sm cursor-pointer group-hover:bg-emerald-600"
         >
           <span>Részletek & Érdeklődés</span>
