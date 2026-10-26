@@ -44,6 +44,7 @@ export const AdminDashboard: React.FC = () => {
     programs,
     providers,
     inquiries,
+    totalRegisteredVisitors,
     orders,
     reviews,
     moderateReview,
@@ -165,7 +166,6 @@ export const AdminDashboard: React.FC = () => {
   const activePrograms = programs.filter(p => p.status === 'published').length;
   const pendingPrograms = programs.filter(p => p.status === 'pending_review').length;
   const totalProviders = providers.length;
-  const totalInquiries = inquiries.length;
 
   const filteredPrograms = programs.filter(p => {
     if (programFilter === 'all') return true;
@@ -276,9 +276,9 @@ export const AdminDashboard: React.FC = () => {
 
         <div className="bg-white p-4 rounded-2xl border border-teal-200 shadow-sm bg-teal-50/30">
           <span className="text-[11px] font-bold text-teal-800 uppercase tracking-wider block mb-1">
-            Érdeklődések
+            Programvadászok
           </span>
-          <div className="text-2xl font-extrabold font-display text-teal-600">{totalInquiries}</div>
+          <div className="text-2xl font-extrabold font-display text-teal-600">{totalRegisteredVisitors}</div>
         </div>
       </div>
 

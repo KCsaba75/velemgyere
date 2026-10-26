@@ -284,6 +284,7 @@ interface AppContextType {
   programs: Program[];
   providers: Provider[];
   inquiries: Inquiry[];
+  totalRegisteredVisitors: number;
 
   // Admin: Regions Management
   createRegion: (data: Partial<Region>) => Promise<string>;
@@ -973,6 +974,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           setCurrentProviderFull(null);
         }
 
+        // Admin KPI (kanban bb108f51): a profiles tabla a mountkori anon RLS
+        // alatt (auth.uid()=null) ures listat ad vissza, es utana soha nem lett
+        // ujra lekerve -- csak a sajat sor kerult be fentebb. Admin bejelentkezes
+        // utan ujra kell kerni, kulonben a vegfelhasznalo-szamlalas (es minden
+        // mas rawProfiles-ra epulo admin-nezet) mindig 0/1-et lat.
+        if (role === 'admin') {
+          supabase.from('profiles').select('*').then(({ data, error }) => {
+            if (cancelled) return;
+            if (error) {
+              console.error('Admin profiles refetch failed:', error);
+              return;
+            }
+            if (data) setRawProfiles(data as Profile[]);
+          });
+        }
+
         // Sync user's favorite folders and items if available on Supabase
         if (session.user?.id) {
           const userId = session.user.id;
@@ -1227,6 +1244,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       provider_name: prov?.company_name || inq.provider_name,
     };
   });
+
+  // Admin KPI (kanban bb108f51): regisztralt vegfelhasznalok ("programvadaszok"),
+  // NEM a szolgaltatok -- role='visitor' a profiles tablaban. RLS miatt ez csak
+  // adminkent lesz teljes lista (lasd "Users can read own profile" policy),
+  // sima programvadasz/szolgaltato sessionben csak a sajat soruk jon le.
+  const totalRegisteredVisitors = rawProfiles.filter(p => p.role === 'visitor').length;
 
   // Orders joined with their program (for display in MyAccountView) -- same
   // local-join style as `programs`/`inquiriesWithDetails` above, rather than a
@@ -3597,6 +3620,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         programs,
         providers: rawProviders,
         inquiries: inquiriesWithDetails,
+        totalRegisteredVisitors,
 
         createRegion,
         updateRegion,
