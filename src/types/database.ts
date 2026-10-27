@@ -270,6 +270,7 @@ export interface ProgramImage {
   id: string;
   program_id: string;
   image_url: string;
+  thumb_url?: string | null;
   is_cover: boolean;
   sort_order: number;
 }

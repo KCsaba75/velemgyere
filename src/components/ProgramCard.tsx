@@ -43,7 +43,16 @@ export const ProgramCard: React.FC<ProgramCardProps> = ({ program, onSelect }) =
     }
   };
 
-  const coverImage = program.cover_image_url || program.photos?.[0] || 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80';
+  // Kanban f2d93218: lista-nezetben a kis thumb_url-t hasznaljuk ha van
+  // (480px WebP), ne a reszletezo oldalnak szant 1600px-es teljes kepet --
+  // ez a reszponziv meretezes resze, kulon a lazy loading-tol.
+  // (Kanban 9689af86: a 89842f98 commit veletlenul nem-letezo
+  // program.cover_image_url / program.photos mezokre cserelte ezt, ami
+  // mindig undefined -> a kartya mindig a placeholderre esett vissza.)
+  const coverImageEntry = program.images?.find(img => img.is_cover) || program.images?.[0];
+  const coverImage = coverImageEntry?.thumb_url
+    || coverImageEntry?.image_url
+    || 'https://images.unsplash.com/photo-1590523741831-ab7e8b8f9c7f?auto=format&fit=crop&w=800&q=80';
 
   return (
     <div 
