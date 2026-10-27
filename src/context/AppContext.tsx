@@ -1954,8 +1954,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       featured: Boolean(data.featured),
     };
 
+    // Kanban VELEMGYERE-KEP-UX: `img.isCover || idx === 0` ORs in idx 0 on EVERY
+    // row regardless of which image the user actually picked as cover -- if they
+    // set a later image as cover, both it AND idx 0 end up is_cover=true (Csaba
+    // screenshot: 2 images tagged "Fő/Borító" at once). Resolve to a single
+    // effective cover index first, then use strict equality per row.
+    const coverIdx = images.findIndex(img => img.isCover);
+    const effectiveCoverIdx = coverIdx === -1 ? 0 : coverIdx;
     const pendingImages = images && images.length > 0
-      ? images.map((img, idx) => ({ image_url: img.url, thumb_url: img.thumbUrl || null, is_cover: img.isCover || idx === 0, sort_order: idx }))
+      ? images.map((img, idx) => ({ image_url: img.url, thumb_url: img.thumbUrl || null, is_cover: idx === effectiveCoverIdx, sort_order: idx }))
       : [{ image_url: 'https://images.unsplash.com/photo-1590523741831-ab7e8b8f9c7f?auto=format&fit=crop&w=1200&q=80', is_cover: true, sort_order: 0 }];
 
     if (isSupabaseConfigured) {
@@ -2021,11 +2028,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // MOST MAR dobnak is hibat, ha legkozelebb barmi hasonlo torik.
         const { error: delErr } = await supabase.from('program_images').delete().eq('program_id', id);
         if (delErr) throw delErr;
+        // Kanban VELEMGYERE-KEP-UX: see the matching comment in createProgram --
+        // `img.isCover || idx === 0` could tag two rows is_cover=true at once.
+        const updateCoverIdx = updatedImages.findIndex(img => img.isCover);
+        const effectiveUpdateCoverIdx = updateCoverIdx === -1 ? 0 : updateCoverIdx;
         const imgRows = updatedImages.map((img, idx) => ({
           program_id: id,
           image_url: img.url,
           thumb_url: img.thumbUrl || null,
-          is_cover: Boolean(img.isCover || idx === 0),
+          is_cover: idx === effectiveUpdateCoverIdx,
           sort_order: idx,
         }));
         const { error: insErr } = await supabase.from('program_images').insert(imgRows);
@@ -2047,11 +2058,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (updatedImages && updatedImages.length > 0) {
       setRawImages(prev => {
         const withoutCurrent = prev.filter(img => img.program_id !== id);
+        const localCoverIdx = updatedImages.findIndex(img => img.isCover);
+        const effectiveLocalCoverIdx = localCoverIdx === -1 ? 0 : localCoverIdx;
         const newImgs: ProgramImage[] = updatedImages.map((img, idx) => ({
           id: `img-${id}-${Date.now()}-${idx}`,
           program_id: id,
           image_url: img.url,
-          is_cover: Boolean(img.isCover || idx === 0),
+          is_cover: idx === effectiveLocalCoverIdx,
           sort_order: idx,
         }));
         return [...newImgs, ...withoutCurrent];
