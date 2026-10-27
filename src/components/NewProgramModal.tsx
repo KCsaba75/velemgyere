@@ -719,12 +719,18 @@ export const NewProgramModal: React.FC<NewProgramModalProps> = ({ isOpen, onClos
                     </div>
                   )}
 
-                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 p-1">
+                  {/* Kanban VELEMGYERE-HOVER-FIX: a gombok korabban egy opacity-0
+                      group-hover:opacity-100 overlay-ben voltak -- erintokepernyon
+                      (mobil) a CSS :hover nem/megbizhatatlanul aktivalodik, tehat a
+                      Torles/Borito gomb gyakorlatilag nem volt elerheto. Allandoan
+                      lathato, kis also savba tett gombokra valtva, ne fedje el a
+                      kepet mint egy teljes sotet overlay. */}
+                  <div className="absolute bottom-1 inset-x-1 flex items-center justify-center gap-1.5">
                     {!img.isCover && (
                       <button
                         type="button"
                         onClick={() => handleSetCover(idx)}
-                        className="p-1 bg-white text-stone-900 rounded text-[10px] font-semibold hover:bg-amber-100 cursor-pointer"
+                        className="px-1.5 py-1 bg-white/95 text-stone-900 rounded text-[10px] font-semibold hover:bg-amber-100 cursor-pointer shadow"
                       >
                         Borító
                       </button>
@@ -732,7 +738,7 @@ export const NewProgramModal: React.FC<NewProgramModalProps> = ({ isOpen, onClos
                     <button
                       type="button"
                       onClick={() => handleRemoveImage(idx)}
-                      className="p-1 bg-rose-600 text-white rounded text-[10px] font-semibold hover:bg-rose-700 cursor-pointer"
+                      className="px-1.5 py-1 bg-rose-600/95 text-white rounded text-[10px] font-semibold hover:bg-rose-700 cursor-pointer shadow"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
