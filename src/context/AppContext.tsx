@@ -1110,9 +1110,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Orders/credits (kanban 71215856 points 2+5): both RLS-gated to "own rows", so they
   // only make sense once isAuthenticated flips -- reload on login, clear on logout.
-  useEffect(() => {
+  //
+  // This fetch only ran once per (isAuthenticated, rawPrograms) change -- i.e. once at
+  // login and never again for the rest of a long-lived tab's life, with no realtime
+  // subscription on `orders` (unlike booking_messages, which has one for the unread
+  // badge). A status change made elsewhere (another tab/device, the provider cancelling
+  // a booking the customer's tab has had open for days, etc.) was invisible until a
+  // full reload or re-login -- kanban 4a007dc2/c9cd13f6 investigation, 2026-10-28: this
+  // is the likely real explanation for "lemondva, de meg aktivnak latszik" reports that
+  // weren't reproducible as a fresh-session backend issue. Refetch on tab refocus too.
+  const loadOrdersAndFinancials = useCallback(async () => {
     if (!isSupabaseConfigured) return;
-    let cancelled = false;
 
     // Load locally persisted orders cache so manual/external bookings are never lost
     let localCache: Order[] = [];
@@ -1123,72 +1131,84 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       } catch {}
     }
 
-    (async () => {
-      try {
-        const { data: dbOrders, error: ordersErr } = await supabase
-          .from('orders')
-          .select('*')
-          .order('created_at', { ascending: false });
+    try {
+      const { data: dbOrders, error: ordersErr } = await supabase
+        .from('orders')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-        if (cancelled) return;
+      const mergedOrdersMap = new Map<string, Order>();
 
-        const mergedOrdersMap = new Map<string, Order>();
-
-        // 1. First add any real DB orders from Supabase
-        if (!ordersErr && dbOrders) {
-          (dbOrders as Order[]).forEach(o => {
-            const key = o.id || o.booking_reference || '';
-            const prog = rawPrograms.find(p => p.id === o.program_id);
-            mergedOrdersMap.set(key, {
-              ...o,
-              program: prog || o.program,
-            });
-          });
-        }
-
-        // 2. Merge local cache orders (offline or pending DB migration)
-        localCache.forEach(o => {
+      // 1. First add any real DB orders from Supabase
+      if (!ordersErr && dbOrders) {
+        (dbOrders as Order[]).forEach(o => {
           const key = o.id || o.booking_reference || '';
-          if (key) {
-            const existing = mergedOrdersMap.get(key);
-            if (!existing) {
-              const prog = rawPrograms.find(p => p.id === o.program_id);
-              mergedOrdersMap.set(key, { ...o, program: prog || o.program });
-            } else if ((o.status === 'confirmed' || o.status === 'cancelled') && existing.status === 'pending') {
-              mergedOrdersMap.set(key, { ...existing, status: o.status });
-            }
-          }
+          const prog = rawPrograms.find(p => p.id === o.program_id);
+          mergedOrdersMap.set(key, {
+            ...o,
+            program: prog || o.program,
+          });
         });
-
-        const combined = Array.from(mergedOrdersMap.values());
-        if (combined.length > 0 || !ordersErr) {
-          setOrders(combined);
-        } else if (localCache.length > 0) {
-          setOrders(localCache);
-        }
-      } catch (err) {
-        console.warn('Orders fetch note:', err);
-        if (!cancelled && localCache.length > 0) {
-          setOrders(localCache);
-        }
       }
 
-      // If authenticated, also fetch credits and payouts
-      if (isAuthenticated) {
-        const [creditsRes, payoutsRes] = await Promise.all([
-          supabase.from('credit_transactions').select('*').order('created_at', { ascending: false }),
-          supabase.from('payout_requests').select('*').order('requested_at', { ascending: false }),
-        ]);
-        if (cancelled) return;
-        if (!creditsRes.error && creditsRes.data) setCreditTransactions(creditsRes.data as CreditTransaction[]);
-        if (!payoutsRes.error && payoutsRes.data) setPayoutRequests(payoutsRes.data as PayoutRequest[]);
-      }
-    })();
+      // 2. Merge local cache orders (offline or pending DB migration)
+      localCache.forEach(o => {
+        const key = o.id || o.booking_reference || '';
+        if (key) {
+          const existing = mergedOrdersMap.get(key);
+          if (!existing) {
+            const prog = rawPrograms.find(p => p.id === o.program_id);
+            mergedOrdersMap.set(key, { ...o, program: prog || o.program });
+          } else if ((o.status === 'confirmed' || o.status === 'cancelled') && existing.status === 'pending') {
+            mergedOrdersMap.set(key, { ...existing, status: o.status });
+          }
+        }
+      });
 
-    return () => {
-      cancelled = true;
-    };
+      const combined = Array.from(mergedOrdersMap.values());
+      if (combined.length > 0 || !ordersErr) {
+        setOrders(combined);
+      } else if (localCache.length > 0) {
+        setOrders(localCache);
+      }
+    } catch (err) {
+      console.warn('Orders fetch note:', err);
+      if (localCache.length > 0) {
+        setOrders(localCache);
+      }
+    }
+
+    // If authenticated, also fetch credits and payouts
+    if (isAuthenticated) {
+      const [creditsRes, payoutsRes] = await Promise.all([
+        supabase.from('credit_transactions').select('*').order('created_at', { ascending: false }),
+        supabase.from('payout_requests').select('*').order('requested_at', { ascending: false }),
+      ]);
+      if (!creditsRes.error && creditsRes.data) setCreditTransactions(creditsRes.data as CreditTransaction[]);
+      if (!payoutsRes.error && payoutsRes.data) setPayoutRequests(payoutsRes.data as PayoutRequest[]);
+    }
   }, [isAuthenticated, rawPrograms]);
+
+  useEffect(() => {
+    loadOrdersAndFinancials();
+  }, [loadOrdersAndFinancials]);
+
+  // Refetch when the tab regains focus/visibility -- covers a tab left open across a
+  // status change made elsewhere, without needing a full realtime subscription.
+  useEffect(() => {
+    if (!isSupabaseConfigured || typeof document === 'undefined') return;
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        loadOrdersAndFinancials();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+    };
+  }, [loadOrdersAndFinancials]);
 
   // Current provider. Supabase-configured path: currentProviderFull, fetched server-side
   // via get_my_provider_profile(). Fallbacks guarantee the provider dashboard never breaks
