@@ -2436,8 +2436,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const cancelOrder = async (id: string): Promise<void> => {
     if (!isSupabaseConfigured) return;
-    const { error } = await supabase.from('orders').update({ status: 'cancelled' }).eq('id', id);
+    // .select('id') is required here: Postgres/PostgREST returns 204 (no error) even
+    // when RLS silently matches 0 rows (e.g. stale/expired session, order no longer
+    // owned by the current user) -- without checking the returned rows, the UI below
+    // would mark the booking cancelled locally while the DB status never changed.
+    const { data, error } = await supabase.from('orders').update({ status: 'cancelled' }).eq('id', id).select('id');
     if (error) throw error;
+    if (!data || data.length === 0) {
+      throw new Error('A lemondás nem sikerült: a foglalás már nem érhető el ezzel a fiókkal (lehet, hogy lejárt a bejelentkezésed). Jelentkezz be újra és próbáld meg ismét.');
+    }
     setOrders(prev => prev.map(o => (o.id === id ? { ...o, status: 'cancelled' } : o)));
   };
 

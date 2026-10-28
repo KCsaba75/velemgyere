@@ -77,6 +77,8 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
   const [copiedId, setCopiedId] = useState(false);
   const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
   const [confirmingOrder, setConfirmingOrder] = useState(false);
+  const [cancellingOrder, setCancellingOrder] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
   const [messagesOpen, setMessagesOpen] = useState(false);
 
   const bookingCode = getBookingReference(order);
@@ -139,6 +141,19 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
       await confirmOrder(order.id);
     } finally {
       setConfirmingOrder(false);
+    }
+  };
+
+  const handleCancelOrder = async () => {
+    setCancellingOrder(true);
+    setCancelError(null);
+    try {
+      await cancelOrder(order.id);
+      setConfirmCancelOpen(false);
+    } catch (err) {
+      setCancelError(err instanceof Error ? err.message : 'A lemondás nem sikerült, próbáld meg újra.');
+    } finally {
+      setCancellingOrder(false);
     }
   };
 
@@ -452,7 +467,10 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
               )}
               <button
                 type="button"
-                onClick={() => setConfirmCancelOpen(true)}
+                onClick={() => {
+                  setCancelError(null);
+                  setConfirmCancelOpen(true);
+                }}
                 className="inline-flex items-center gap-1 text-xs text-stone-500 hover:text-rose-600 font-semibold px-3.5 py-2 rounded-xl border border-stone-200 hover:border-rose-200 hover:bg-rose-50 transition-colors cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" /> Foglalás lemondása
@@ -651,24 +669,29 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
               </div>
             </div>
 
+            {cancelError && (
+              <p className="text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2.5">
+                {cancelError}
+              </p>
+            )}
+
             <div className="flex items-center justify-end gap-3 pt-2">
               <button
                 type="button"
                 onClick={() => setConfirmCancelOpen(false)}
-                className="px-4 py-2.5 rounded-xl border border-stone-300 text-stone-700 hover:bg-stone-100 text-xs font-semibold transition-colors cursor-pointer"
+                disabled={cancellingOrder}
+                className="px-4 py-2.5 rounded-xl border border-stone-300 text-stone-700 hover:bg-stone-100 text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
               >
                 Mégsem
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setConfirmCancelOpen(false);
-                  cancelOrder(order.id);
-                }}
-                className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 cursor-pointer"
+                onClick={handleCancelOrder}
+                disabled={cancellingOrder}
+                className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 <X className="w-4 h-4" />
-                <span>Lemondás</span>
+                <span>{cancellingOrder ? 'Lemondás...' : 'Lemondás'}</span>
               </button>
             </div>
           </div>
