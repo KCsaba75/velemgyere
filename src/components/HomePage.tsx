@@ -9,15 +9,20 @@ import { ProgramList } from './ProgramList';
 // correct for the home page, and every other route's own unmount cleanup already
 // restores it on the way back -- nothing to override.
 export const HomePage: React.FC = () => {
-  const { isAuthenticated } = useApp();
+  const { isAuthenticated, currentUser } = useApp();
   const navigate = useNavigate();
+  const role = currentUser.role;
 
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/programok', { replace: true });
+      // Kartya cde7bd96 (Csaba): szolgaltatonal a Foglalasok legyen az
+      // alapertelmezett kezdonezet, ne a programok katalogus -- ez a tenyleges
+      // utolso szo, mert ez az effekt a gyoker-url-en ('/') mindig lefut
+      // bejelentkezve, akar a login-redirect celpontjat is felulirva.
+      navigate(role === 'provider' ? '/szolgaltato/foglalasaim' : '/programok', { replace: true });
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, role, navigate]);
 
   // Mobile filter drawer (kanban e0ee8b7e): lifted here because FilterBar
   // (the drawer) and ProgramList (the trigger button, next to its h2) are

@@ -248,8 +248,8 @@ interface AppContextType {
   currentUser: Profile;
   currentProvider: Provider | null;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; message: string }>;
-  loginWithGoogle: () => Promise<{ success: boolean; message: string }>;
+  login: (email: string, password: string) => Promise<{ success: boolean; message: string; role?: string }>;
+  loginWithGoogle: () => Promise<{ success: boolean; message: string; role?: string }>;
   logout: () => void;
   registerVisitor: (data: { name: string; email: string; password: string }) => Promise<{ success: boolean; message: string }>;
   requestPasswordReset: (email: string) => Promise<{ success: boolean; message: string }>;
@@ -949,11 +949,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (loginRedirectRef.current) {
           const target = loginRedirectRef.current;
           loginRedirectRef.current = null;
-          setCurrentView(target);
+          // Kartya cde7bd96 (Csaba): a Fiok-gomb meg szerep-ismeret elott allitja be
+          // a generikus 'programs' celpontot (lasd Navbar handleAccountClick) -- ez
+          // szolgaltatonal nem ertelmes default, nala a Foglalasok legyen az.
+          setCurrentView(role === 'provider' && target === 'programs' ? 'provider-bookings' : target);
           window.scrollTo({ top: 0, behavior: 'smooth' });
         } else if (window.location.pathname === '/' || window.location.pathname === '') {
-          // Ha bejelentkezve nyitjuk meg a weblapot, a programok lapra kerülünk
-          navigate('/programok', { replace: true });
+          // Ha bejelentkezve nyitjuk meg a weblapot: szolgaltatonal a Foglalasok
+          // lap, minden mas szerepnel a programok lap.
+          navigate(role === 'provider' ? '/szolgaltato/foglalasaim' : '/programok', { replace: true });
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }
         loadProgramsAndProviders(true, role);
@@ -1333,7 +1337,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCurrencyFilter('ALL');
   };
 
-  const login = async (email: string, password: string): Promise<{ success: boolean; message: string }> => {
+  // Kartya cde7bd96: a sikeres bejelentkezes utani azonnali redirect-dontesnek
+  // (LoginModal) szuksege van a szerepre MOST, nem akkor amikor a kulon
+  // session-sync effect (syncFromSession) majd aszinkron betolti -- az utobbi
+  // utan futna a redirect, nem elotte.
+  const fetchRoleForUser = async (userId: string): Promise<string | undefined> => {
+    const { data: prof } = await supabase.from('profiles').select('role').eq('user_id', userId).maybeSingle();
+    return (prof as { role?: string } | null)?.role;
+  };
+
+  const login = async (email: string, password: string): Promise<{ success: boolean; message: string; role?: string }> => {
     if (isSupabaseConfigured) {
       const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
       if (error) {
@@ -1345,9 +1358,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
         return { success: false, message: `Hiba a bejelentkezéskor: ${error.message}` };
       }
-      // currentUser/currentView get set by the session-sync effect once the matching
-      // profiles row loads -- we just confirm success here.
-      return { success: true, message: `Sikeres bejelentkezés${data.user?.email ? ' mint ' + data.user.email : ''}!` };
+      const role = data.user ? await fetchRoleForUser(data.user.id) : undefined;
+      return { success: true, message: `Sikeres bejelentkezés${data.user?.email ? ' mint ' + data.user.email : ''}!`, role };
     }
 
     // Dev-only fallback (no Supabase configured): old mock email-only matching.
@@ -1356,7 +1368,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (existingProfile) {
       setCurrentUser(existingProfile);
       setIsAuthenticated(true);
-      return { success: true, message: `Sikeres bejelentkezés mint ${existingProfile.name}!` };
+      return { success: true, message: `Sikeres bejelentkezés mint ${existingProfile.name}!`, role: existingProfile.role };
     }
     const prov = rawProviders.find(p => (p.email || '').toLowerCase() === cleanEmail);
     if (prov) {
@@ -1371,7 +1383,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setRawProfiles(prev => [...prev, newProf]);
       setCurrentUser(newProf);
       setIsAuthenticated(true);
-      return { success: true, message: `Sikeres bejelentkezés mint ${prov.company_name}!` };
+      return { success: true, message: `Sikeres bejelentkezés mint ${prov.company_name}!`, role: 'provider' };
     }
     return { success: false, message: 'Nincs fiók ezzel az e-mail címmel. Kérjük regisztráljon!' };
   };
@@ -1422,7 +1434,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           };
         }
 
-        return new Promise<{ success: boolean; message: string }>((resolve) => {
+        return new Promise<{ success: boolean; message: string; role?: string }>((resolve) => {
           let resolved = false;
 
           const cleanup = () => {
@@ -1436,12 +1448,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 resolved = true;
                 cleanup();
                 try { popup?.close(); } catch {}
-                supabase.auth.getSession().then(({ data: sessData }) => {
+                supabase.auth.getSession().then(async ({ data: sessData }) => {
                   resolve({
                     success: true,
                     message: sessData.session?.user?.email
                       ? `Sikeres Google bejelentkezés: ${sessData.session.user.email}!`
-                      : 'Sikeres Google bejelentkezés!'
+                      : 'Sikeres Google bejelentkezés!',
+                    role: sessData.session?.user?.id ? await fetchRoleForUser(sessData.session.user.id) : undefined,
                   });
                 });
               }
@@ -1462,7 +1475,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     success: true,
                     message: currentSess.session.user.email
                       ? `Sikeres Google bejelentkezés: ${currentSess.session.user.email}!`
-                      : 'Sikeres Google bejelentkezés!'
+                      : 'Sikeres Google bejelentkezés!',
+                    role: await fetchRoleForUser(currentSess.session.user.id),
                   });
                   return;
                 }
@@ -1474,7 +1488,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                   cleanup();
                   const { data: finalSess } = await supabase.auth.getSession();
                   if (finalSess?.session) {
-                    resolve({ success: true, message: 'Sikeres Google bejelentkezés!' });
+                    resolve({ success: true, message: 'Sikeres Google bejelentkezés!', role: await fetchRoleForUser(finalSess.session.user.id) });
                   } else {
                     resolve({ success: false, message: 'A Google bejelentkezési ablak be lett zárva.' });
                   }

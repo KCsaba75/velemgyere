@@ -53,7 +53,15 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
           setInfoMessage(res.message);
         } else {
           if (loginRedirectTo) {
-            setCurrentView(loginRedirectTo);
+            // Kartya cde7bd96: a 'programs' a Fiok-gomb szerep-ismeret elotti,
+            // generikus celpontja -- szolgaltatonal a Foglalasok legyen helyette
+            // az alapertelmezett kezdonezet. 'res.role' a login()/loginWithGoogle()
+            // valaszaban mar megvan MOST, nincs szukseg a kesobbi, aszinkron
+            // session-sync effektre varni (az akkorra mar zarva talalna a modalt).
+            const target = ('role' in res && res.role === 'provider' && loginRedirectTo === 'programs')
+              ? 'provider-bookings'
+              : loginRedirectTo;
+            setCurrentView(target);
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }
           resetAndClose();
