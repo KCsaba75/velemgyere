@@ -447,23 +447,27 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
             </div>
           )}
 
-          {/* Review / cancel actions */}
+          {/* Review / cancel actions -- a szolgaltato nem ertekelheti a sajat
+              programjat, az uj ertekeles-beviteli lehetoseg csak a vendegnek
+              (isCustomerViewer) jelenik meg, lasd kartya 60a16031. */}
           {order.status !== 'cancelled' && (
             <div className="flex flex-wrap items-center gap-2">
-              {existingReview ? (
-                <span className="inline-flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Értékelve ({existingReview.rating}★)</span>
-                </span>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setReviewModalOpen(true)}
-                  className="inline-flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white transition-colors cursor-pointer shadow-xs"
-                >
-                  <Star className="w-3.5 h-3.5 fill-white text-white" />
-                  <span>⭐ Értékelés leadása</span>
-                </button>
+              {!isProviderViewer && (
+                existingReview ? (
+                  <span className="inline-flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Értékelve ({existingReview.rating}★)</span>
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setReviewModalOpen(true)}
+                    className="inline-flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white transition-colors cursor-pointer shadow-xs"
+                  >
+                    <Star className="w-3.5 h-3.5 fill-white text-white" />
+                    <span>⭐ Értékelés leadása</span>
+                  </button>
+                )
               )}
               <button
                 type="button"
