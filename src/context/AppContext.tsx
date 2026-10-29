@@ -1140,6 +1140,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const mergedOrdersMap = new Map<string, Order>();
 
       // 1. First add any real DB orders from Supabase
+      let prunedLocalCache = localCache;
       if (!ordersErr && dbOrders) {
         (dbOrders as Order[]).forEach(o => {
           const key = o.id || o.booking_reference || '';
@@ -1149,10 +1150,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             program: prog || o.program,
           });
         });
+
+        // Reconcile the local cache against this successful fetch: an entry that's
+        // missing here either synced already (handled above) or was deleted/never
+        // existed server-side -- past a short grace window (for a just-created order
+        // the DB write may not have landed yet) it's a ghost that would otherwise
+        // resurface on every load forever. Only prune on a successful fetch, never
+        // on an error/offline one, so genuinely offline-created orders are kept.
+        const dbKeys = new Set((dbOrders as Order[]).map(o => o.id || o.booking_reference || ''));
+        const GRACE_MS = 15 * 60 * 1000;
+        const now = Date.now();
+        prunedLocalCache = localCache.filter(o => {
+          const key = o.id || o.booking_reference || '';
+          if (dbKeys.has(key)) return true;
+          const age = now - new Date(o.created_at || 0).getTime();
+          return Number.isFinite(age) && age >= 0 && age < GRACE_MS;
+        });
+        if (prunedLocalCache.length !== localCache.length && typeof window !== 'undefined' && window.localStorage) {
+          try {
+            localStorage.setItem('vg_manual_orders_cache', JSON.stringify(prunedLocalCache));
+          } catch {}
+        }
       }
 
       // 2. Merge local cache orders (offline or pending DB migration)
-      localCache.forEach(o => {
+      prunedLocalCache.forEach(o => {
         const key = o.id || o.booking_reference || '';
         if (key) {
           const existing = mergedOrdersMap.get(key);
