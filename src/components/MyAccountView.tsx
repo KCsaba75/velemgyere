@@ -26,7 +26,9 @@ import {
   Gift,
   Send,
   Clock,
-  LogOut
+  LogOut,
+  CalendarDays,
+  ChevronDown
 } from 'lucide-react';
 import { GoogleCalendarSyncCard } from './GoogleCalendarSyncCard';
 import { BookingPushNotificationCard } from './BookingPushNotificationCard';
@@ -57,6 +59,15 @@ export const MyAccountView: React.FC = () => {
       return iso;
     }
   };
+
+  // Kanban 398b6049 (Csaba, 2026-10-31): mobilon a 4 nevezett szekcio (Szemelyes
+  // adatok / Fizetes / Naptar szinkron / Kommunikacio) default csukott, egymastol
+  // fuggetlen allapottal -- desktopon (md:block) mindig nyitva, a 62a7f913
+  // (ProviderDashboard Fiokadatok) mintajat kovetve.
+  const [personalOpen, setPersonalOpen] = useState(false);
+  const [paymentOpen, setPaymentOpen] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [communicationOpen, setCommunicationOpen] = useState(false);
 
   // --- Block 1: személyes adatok ---
   const [formName, setFormName] = useState(currentUser.name || '');
@@ -150,11 +161,19 @@ export const MyAccountView: React.FC = () => {
       <div className="space-y-10">
         {/* BLOCK 1: Személyes adatok */}
         <section className="bg-white rounded-2xl border border-stone-200 p-6 space-y-5">
-          <div className="flex items-center gap-2">
-            <User className="w-5 h-5 text-stone-400" />
-            <h2 className="font-display text-lg font-bold text-stone-900">Személyes adatok</h2>
-          </div>
+          <button
+            type="button"
+            onClick={() => setPersonalOpen(open => !open)}
+            className="w-full flex items-center justify-between gap-2 cursor-pointer md:cursor-default"
+          >
+            <div className="flex items-center gap-2">
+              <User className="w-5 h-5 text-stone-400" />
+              <h2 className="font-display text-lg font-bold text-stone-900">Személyes adatok</h2>
+            </div>
+            <ChevronDown className={`w-5 h-5 text-stone-400 md:hidden transition-transform ${personalOpen ? 'rotate-180' : ''}`} />
+          </button>
 
+          <div className={`${personalOpen ? 'block' : 'hidden'} md:block space-y-5`}>
           <form onSubmit={handleProfileSubmit} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
@@ -213,15 +232,24 @@ export const MyAccountView: React.FC = () => {
               <span>{savingProfile ? 'Mentés...' : 'Adatok mentése'}</span>
             </button>
           </form>
+          </div>
         </section>
 
         {/* BLOCK 2: Fizetés */}
         <section className="bg-white rounded-2xl border border-stone-200 p-6 space-y-6">
-          <div className="flex items-center gap-2">
-            <Wallet className="w-5 h-5 text-stone-400" />
-            <h2 className="font-display text-lg font-bold text-stone-900">Fizetés</h2>
-          </div>
+          <button
+            type="button"
+            onClick={() => setPaymentOpen(open => !open)}
+            className="w-full flex items-center justify-between gap-2 cursor-pointer md:cursor-default"
+          >
+            <div className="flex items-center gap-2">
+              <Wallet className="w-5 h-5 text-stone-400" />
+              <h2 className="font-display text-lg font-bold text-stone-900">Fizetés</h2>
+            </div>
+            <ChevronDown className={`w-5 h-5 text-stone-400 md:hidden transition-transform ${paymentOpen ? 'rotate-180' : ''}`} />
+          </button>
 
+          <div className={`${paymentOpen ? 'block' : 'hidden'} md:block space-y-6`}>
           {/* 2a. Kredit pénztárca -- két zsebre bontva forrás szerint (kanban d82d39ba) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             {/* Visszatérítések zseb */}
@@ -359,10 +387,24 @@ export const MyAccountView: React.FC = () => {
               A fenti lista a foglalásaidhoz tartozó, online rendezett kényelmi díjakat mutatja. Letölthető számla egyelőre nem generálódik -- ez is egyeztetés alatt.
             </p>
           </div>
+          </div>
         </section>
 
         {/* BLOCK: Google Naptár Szinkronizáció (Programvadász / Utazó számára) */}
-        <section>
+        <section className="bg-white rounded-2xl border border-stone-200 p-6 space-y-4">
+          <button
+            type="button"
+            onClick={() => setCalendarOpen(open => !open)}
+            className="w-full flex items-center justify-between gap-2 cursor-pointer md:cursor-default"
+          >
+            <div className="flex items-center gap-2">
+              <CalendarDays className="w-5 h-5 text-stone-400" />
+              <h2 className="font-display text-lg font-bold text-stone-900">Naptár szinkronizáció</h2>
+            </div>
+            <ChevronDown className={`w-5 h-5 text-stone-400 md:hidden transition-transform ${calendarOpen ? 'rotate-180' : ''}`} />
+          </button>
+
+          <div className={`${calendarOpen ? 'block' : 'hidden'} md:block`}>
           <GoogleCalendarSyncCard
             userId={currentUser.id || currentUser.user_id || 'visitor'}
             userType="traveler"
@@ -371,6 +413,7 @@ export const MyAccountView: React.FC = () => {
               await updateMyProfile({ google_calendar_sync_enabled: enabled });
             }}
           />
+          </div>
         </section>
 
         {/* BLOCK: Foglalás-chat böngésző push-értesítés (kanban d973bfec) */}
@@ -386,11 +429,19 @@ export const MyAccountView: React.FC = () => {
 
         {/* BLOCK 3: Kommunikáció */}
         <section className="bg-white rounded-2xl border border-stone-200 p-6 space-y-5">
-          <div className="flex items-center gap-2">
-            <Bell className="w-5 h-5 text-stone-400" />
-            <h2 className="font-display text-lg font-bold text-stone-900">Kommunikáció</h2>
-          </div>
+          <button
+            type="button"
+            onClick={() => setCommunicationOpen(open => !open)}
+            className="w-full flex items-center justify-between gap-2 cursor-pointer md:cursor-default"
+          >
+            <div className="flex items-center gap-2">
+              <Bell className="w-5 h-5 text-stone-400" />
+              <h2 className="font-display text-lg font-bold text-stone-900">Kommunikáció</h2>
+            </div>
+            <ChevronDown className={`w-5 h-5 text-stone-400 md:hidden transition-transform ${communicationOpen ? 'rotate-180' : ''}`} />
+          </button>
 
+          <div className={`${communicationOpen ? 'block' : 'hidden'} md:block space-y-5`}>
           <div className="space-y-3">
             <label className="flex items-center justify-between gap-4 p-3.5 rounded-xl border border-stone-200 cursor-pointer hover:bg-stone-50 transition-colors">
               <span className="flex items-center gap-2.5 text-sm text-stone-700">
@@ -448,6 +499,7 @@ export const MyAccountView: React.FC = () => {
             <Save className="w-4 h-4" />
             <span>{savingNotify ? 'Mentés...' : 'Beállítások mentése'}</span>
           </button>
+          </div>
         </section>
 
         {/* BLOCK 4: Fiók végleges törlése */}
