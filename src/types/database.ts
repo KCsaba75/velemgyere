@@ -352,3 +352,16 @@ export interface FavoriteItem {
   added_at: string;
 }
 
+// booking_messages (kanban 2ffb61fa) -- types dropped by the 89842f9 schema.sql
+// regression (2026-10-20), restored here against the live DDL (unchanged table).
+export type BookingMessageSenderRole = 'customer' | 'provider';
+
+export interface BookingMessage {
+  id: string;
+  order_id: string;
+  sender_role: BookingMessageSenderRole;
+  sender_id: string;
+  content: string;
+  created_at: string;
+}
+
