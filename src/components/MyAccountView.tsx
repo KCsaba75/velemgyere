@@ -138,22 +138,21 @@ export const MyAccountView: React.FC = () => {
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14 animate-in fade-in duration-200">
-      <div className="flex items-center gap-4 mb-10">
-        <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-          <User className="w-7 h-7" />
-        </div>
-        <div className="min-w-0">
-          <h1 className="font-display text-2xl sm:text-3xl font-extrabold text-stone-900">
+      {/* Kanban 77d23112: ugyanaz a zold-fekete gradiens-banner mint a ProviderDashboard
+          fejlece (62a7f913 utan), csak a "Verifikalt Partner" badge nelkul. */}
+      <div className="bg-gradient-to-r from-emerald-800 to-stone-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
+        <div className="relative z-10 min-w-0">
+          <h1 className="text-2xl sm:text-3xl font-extrabold font-display tracking-tight">
             Saját fiókom
           </h1>
-          <p className="text-sm text-stone-500 truncate">{currentUser.name} · {currentUser.email}</p>
+          <p className="text-stone-300 text-xs sm:text-sm mt-1 truncate">{currentUser.name} · {currentUser.email}</p>
         </div>
         <button
           type="button"
           onClick={logout}
-          className="ml-auto flex items-center gap-1.5 text-xs font-bold text-stone-500 hover:text-rose-600 bg-white px-3 py-2 rounded-xl border border-stone-200 shadow-xs hover:border-rose-200 hover:bg-rose-50 transition-colors cursor-pointer shrink-0"
+          className="self-start md:self-center px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold flex items-center gap-2 border border-white/20 backdrop-blur-xs transition-colors cursor-pointer shrink-0"
         >
-          <LogOut className="w-3.5 h-3.5" />
+          <LogOut className="w-4 h-4" />
           <span>Kijelentkezés</span>
         </button>
       </div>
