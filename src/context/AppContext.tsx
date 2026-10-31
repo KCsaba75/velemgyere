@@ -790,27 +790,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (pct) setFeePercentage(Number(pct.value) || 0);
           if (min) setFeeMinimumEur(Number(min.value) || 0);
 
-          let rateIsStale = true;
+          // Kanban 289432ed: a korabbi "ha stale, kliens-oldalrol upsert-elj" automatikus
+          // trigger innen torolve -- az "Admins can manage app settings" RLS miatt ez
+          // MINDEN nem-admin usernel (a tobbsegnel) mindig 401/403-ra bukott, az arfolyam
+          // sosem frissult automatikusan elesben. A frissitest most a
+          // supabase/functions/update-eur-huf-rate Edge Function vegzi, service-role-lal,
+          // egy host-crontab hivja naponta. Az admin kezi "frissites most" gombja
+          // (AdminDashboard, fetchAndApplyLiveRate/updateEurHufRate) valtozatlan marad.
           if (rateRow) {
             const currentRate = Number(rateRow.value) || 400;
             setEurHufRate(currentRate);
             if (rateRow.updated_at) {
               setEurHufLastUpdated(rateRow.updated_at);
-              const lastUpdatedTime = new Date(rateRow.updated_at).getTime();
-              const ONE_DAY_MS = 24 * 60 * 60 * 1000;
-              if (!isNaN(lastUpdatedTime) && (Date.now() - lastUpdatedTime < ONE_DAY_MS)) {
-                rateIsStale = false;
-              }
             }
-          }
-
-          // Automatic daily refresh: if rate is stale (>24h) or missing, auto-fetch live API
-          if (rateIsStale) {
-            fetchLiveEurHufRate().then(liveRate => {
-              if (liveRate && liveRate > 0) {
-                updateEurHufRate(liveRate);
-              }
-            }).catch(e => console.warn('Auto exchange rate refresh note:', e));
           }
         }
 
