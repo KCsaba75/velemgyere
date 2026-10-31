@@ -443,6 +443,7 @@ interface AppContextType {
   resetToDefaults: () => void;
   isSupabaseLive: boolean;
   isLoading: boolean;
+  authChecked: boolean;
   // Eleni #244 audit [D]: egy Supabase-hiba korabban csendben nyelve lett, a szuro UI
   // 0 talalatnak tunt ("nincs talalat"-nak nezett ki, pedig a betoltes bukott el).
   // Ez a flag kulonbozteti meg a "ures eredmeny" es a "hiba volt" allapotot a UI-ban.
@@ -636,6 +637,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // anonymous default-visitor placeholder profile). Only meaningful when
   // isSupabaseConfigured -- always false in the no-Supabase dev fallback.
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  // Kanban ac237ca9: true once the INITIAL supabase.auth.getSession() restore has
+  // resolved (found a session or not) -- isAuthenticated starts false on every
+  // fresh page load/full reload, so a direct-URL ProtectedRoute check running
+  // before this resolves would always see "not authenticated" and bounce to "/"
+  // even for an already-logged-in visitor reloading e.g. /sajat-fiokom.
+  const [authChecked, setAuthChecked] = useState(false);
 
   // Active user's favorite folders and items (strictly scoped to currentUser.user_id when authenticated)
   // Deduplicates folders by case-insensitive name so duplicate "Általános kedvencek" folders can never appear in UI
@@ -836,7 +844,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // signup carries no pending_provider metadata, so it falls through to the default
   // branch below and gets a plain role='visitor' profile the same way.
   useEffect(() => {
-    if (!isSupabaseConfigured) return;
+    if (!isSupabaseConfigured) {
+      // No real session to restore in the offline dev fallback -- nothing async
+      // for ProtectedRoute to wait on.
+      setAuthChecked(true);
+      return;
+    }
     let cancelled = false;
 
     function resetToAnonymousVisitor() {
@@ -1101,7 +1114,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
 
-    supabase.auth.getSession().then(({ data }) => syncFromSession(data.session));
+    supabase.auth.getSession().then(async ({ data }) => {
+      await syncFromSession(data.session);
+      if (!cancelled) setAuthChecked(true);
+    });
     const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
       syncFromSession(session);
     });
@@ -3818,6 +3834,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         resetToDefaults,
         isSupabaseLive: isSupabaseConfigured,
         isLoading,
+        authChecked,
         catalogLoadError,
       }}
     >

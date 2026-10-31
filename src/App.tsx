@@ -49,8 +49,16 @@ const RouteFallback: React.FC = () => (
 // 16241c32: gates a route behind auth/role, redirecting home instead of rendering a
 // dashboard with no data a logged-out visitor (or a provider on the admin route)
 // couldn't actually use anyway.
+// Kanban ac237ca9: isAuthenticated starts false on every fresh page load/full reload,
+// before the async session-restore resolves -- redirecting immediately on that false
+// would bounce an already-logged-in visitor away from a direct URL (e.g. reloading
+// /sajat-fiokom) before their session even had a chance to load. Wait for authChecked
+// first; show the same route fallback the lazy-loaded chunks already use meanwhile.
 const ProtectedRoute: React.FC<{ allow: UserRole[]; children: React.ReactNode }> = ({ allow, children }) => {
-  const { isAuthenticated, currentUser } = useApp();
+  const { isAuthenticated, currentUser, authChecked } = useApp();
+  if (!authChecked) {
+    return <RouteFallback />;
+  }
   if (!isAuthenticated || !allow.includes(currentUser.role)) {
     return <Navigate to="/" replace />;
   }
