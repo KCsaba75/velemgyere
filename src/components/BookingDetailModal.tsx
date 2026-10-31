@@ -131,9 +131,11 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
     (r.user_id === currentUser?.id || r.user_id === currentUser?.user_id)
   );
 
+  // Kanban 8ab468bb: w=128 (2x a tenyleges w-16 h-16 renderelt meretnek, retina-elesseg
+  // miatt), nem a korabbi w=600 -- ez a kep sosem jelenik meg 64px-nel nagyobban itt.
   const coverImage = program?.images?.find(img => img.is_cover)?.image_url
     || program?.images?.[0]?.image_url
-    || 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=600&q=80';
+    || 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=128&q=80';
 
   const handleConfirmOrder = async () => {
     setConfirmingOrder(true);

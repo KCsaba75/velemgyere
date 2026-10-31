@@ -68,9 +68,11 @@ export const FavoriteFolderModal: React.FC = () => {
     setIsCreatingNew(false);
   };
 
-  const coverImage = folderModalProgram.images?.find(img => img.is_cover)?.image_url 
-    || folderModalProgram.images?.[0]?.image_url 
-    || 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=600&q=80';
+  // Kanban 8ab468bb: w=128 (2x a tenyleges w-16 h-16 renderelt meretnek, retina-elesseg
+  // miatt), nem a korabbi w=600 -- ez a kep sosem jelenik meg 64px-nel nagyobban itt.
+  const coverImage = folderModalProgram.images?.find(img => img.is_cover)?.image_url
+    || folderModalProgram.images?.[0]?.image_url
+    || 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=128&q=80';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
