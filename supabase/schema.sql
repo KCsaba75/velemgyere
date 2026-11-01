@@ -1907,3 +1907,22 @@ create policy "Admins can manage payout requests"
   on public.payout_requests for update
   using (public.is_admin())
   with check (public.is_admin());
+
+-- ============================================================================
+-- KANBAN e7f38028 (3-4. pont): advisor-WARN lezárva, review, NINCS kódváltozás.
+-- "is_admin() SECURITY DEFINER, anon/authenticated is hívhatja a
+-- /rest/v1/rpc/is_admin végponton" -- igazolva, de NEM alkalmazzuk a naiv
+-- EXECUTE-revoke javítást: is_admin() nincs parannyal, kizárólag a HÍVÓ saját
+-- auth.uid()-jét nézi (anon-nál NULL -> mindig false, authenticated-nél csak a
+-- SAJÁT admin-státuszát adja vissza, amit a profiles tábla self-read policy-ja
+-- amúgy is elérhetővé tesz neki) -- tehát nincs valódi információ-szivárgás más
+-- felhasználóról. Az EXECUTE revoke anon/authenticated-től VISSZAFELE SÜTNE EL:
+-- a kódbázisban kb. 60 RLS policy hívja `public.is_admin()`-t egy
+-- "<feltétel> or public.is_admin()" mintában, TÖBB olyan táblán (regions,
+-- categories, programs, program_images, stb.) ahol a policy anon-ra is
+-- vonatkozik -- a Postgres nem garantalja a bal-jobb short-circuitet "or"-nál,
+-- igy egy revoke utan egy anon lekérdezés "permission denied for function
+-- is_admin"-nal elszállhatna pontosan azokon a soroknál ahol a bal oldali
+-- feltétel (pl. active = true) hamis. Ez produkcio-szeles regresszio lenne egy
+-- WARN-szintu, gyakorlatilag artalmatlan talalat miatt. Dontes: elfogadva,
+-- nem valtoztatunk.
