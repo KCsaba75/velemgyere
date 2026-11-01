@@ -20,6 +20,8 @@ function makeOrder(overrides: Partial<Order> = {}): Order {
     participants_count: 2,
     total_price: 130,
     booking_fee: 13,
+    onsite_amount: 117,
+    currency: 'EUR',
     status: 'confirmed',
     created_at: '2026-10-20T10:00:00Z',
     updated_at: '2026-10-20T10:00:00Z',

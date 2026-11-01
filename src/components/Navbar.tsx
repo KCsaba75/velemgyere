@@ -1,5 +1,5 @@
 import React from 'react';
-import { useApp } from '../context/AppContext';
+import { useApp, getOrderBucket } from '../context/AppContext';
 import {
   ShieldCheck,
   Briefcase,
@@ -69,6 +69,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   };
 
   // Provider szamara a beerkezett foglalasok darabszama (nem a vasarloi orders.length).
+  // Csaba kerese (kanban 23585044): csak az AKTIV (upcoming) foglalasok szamoljanak,
+  // a multbeli/lemondott ne duzzasza fel a menu-badge-et.
   const providerOwnProgramIds = isProvider
     ? new Set(
         programs
@@ -76,9 +78,10 @@ export const Navbar: React.FC<NavbarProps> = ({
           .map(p => p.id)
       )
     : null;
+  const activeOrders = orders.filter(o => getOrderBucket(o, programs) === 'upcoming');
   const providerOwnOrdersCount = isProvider
-    ? orders.filter(o => providerOwnProgramIds!.has(o.program_id) || providerOwnProgramIds!.size === 0).length
-    : orders.length;
+    ? activeOrders.filter(o => providerOwnProgramIds!.has(o.program_id) || providerOwnProgramIds!.size === 0).length
+    : activeOrders.length;
 
   const handleAccountClick = () => {
     if (!isAuthenticated) {

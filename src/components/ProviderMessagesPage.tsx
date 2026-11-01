@@ -5,10 +5,11 @@ import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import { Order, OrderBuyerInfo, Program } from '../types/database';
 import { BookingMessageThread } from './BookingMessageThread';
 import { isBookingMessageWriteWindowOpen } from '../hooks/useBookingMessages';
+import { supabase } from '../lib/supabase';
 
 function formatBookingDateTime(order: Order, program?: Program | null): { dateStr: string; timeStr: string; participantsStr: string } {
-  const rawDate = order.event_date || order.occurrence?.event_date || program?.event_date;
-  const rawTime = order.occurrence?.start_time || program?.start_time;
+  const rawDate = order.event_date || program?.event_date;
+  const rawTime = order.start_time || program?.start_time;
   const participantsStr = order.participants_count ? `${order.participants_count} fő` : '';
 
   let dateStr = 'Időpont nélkül';
@@ -44,11 +45,48 @@ export const ProviderMessagesPage: React.FC = () => {
   );
   const ownProgramIds = new Set(ownPrograms.map(p => p.id));
 
-  const messagableOrders = useMemo(() => {
+  // Minden foglalas, amire a szolgaltato jogosult uzenetet latni/irni --
+  // meg akkor is, ha meg senki nem irt bele (lasd messagableOrders lejjebb,
+  // ami erre epul, de csak a mar elkezdett szalakat jeleniti meg).
+  const candidateOrders = useMemo(() => {
     return orders
       .filter(o => ownProgramIds.has(o.program_id) && !!o.user_id && !o.is_manual)
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   }, [orders, ownProgramIds]);
+
+  const candidateOrderIdsKey = candidateOrders.map(o => o.id).join(',');
+
+  // Kartya 8f9a8418 (Csaba, 2026-10-31): a lista csak azokat a foglalasokat
+  // mutassa, amikben mar van legalabb egy booking_messages bejegyzes.
+  const [orderIdsWithMessages, setOrderIdsWithMessages] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    const ids = candidateOrderIdsKey ? candidateOrderIdsKey.split(',') : [];
+    if (ids.length === 0) {
+      setOrderIdsWithMessages(new Set());
+      return;
+    }
+    let cancelled = false;
+    supabase
+      .from('booking_messages')
+      .select('order_id')
+      .in('order_id', ids)
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) {
+          console.error('Nem sikerult lekerni, mely foglalasokhoz van mar uzenet:', error);
+          return;
+        }
+        setOrderIdsWithMessages(new Set((data || []).map(row => row.order_id as string)));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [candidateOrderIdsKey]);
+
+  const messagableOrders = useMemo(() => {
+    return candidateOrders.filter(o => orderIdsWithMessages.has(o.id));
+  }, [candidateOrders, orderIdsWithMessages]);
 
   const [activeTab, setActiveTab] = useState<'active' | 'closed'>('active');
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
@@ -58,7 +96,7 @@ export const ProviderMessagesPage: React.FC = () => {
   const activeOrders = useMemo(() => {
     return messagableOrders.filter(o => {
       const prog = programs.find(p => p.id === o.program_id);
-      const effectiveDate = o.event_date || o.occurrence?.event_date || prog?.event_date;
+      const effectiveDate = o.event_date || prog?.event_date;
       const isOpen = isBookingMessageWriteWindowOpen(effectiveDate);
       return o.status !== 'cancelled' && isOpen;
     });
@@ -67,7 +105,7 @@ export const ProviderMessagesPage: React.FC = () => {
   const closedOrders = useMemo(() => {
     return messagableOrders.filter(o => {
       const prog = programs.find(p => p.id === o.program_id);
-      const effectiveDate = o.event_date || o.occurrence?.event_date || prog?.event_date;
+      const effectiveDate = o.event_date || prog?.event_date;
       const isOpen = isBookingMessageWriteWindowOpen(effectiveDate);
       return o.status === 'cancelled' || !isOpen;
     });
@@ -299,7 +337,7 @@ export const ProviderMessagesPage: React.FC = () => {
                   senderRole="provider"
                   senderId={currentUser.user_id}
                   otherPartyLabel="az igénybevevő"
-                  canSend={isBookingMessageWriteWindowOpen(selectedOrder.event_date || selectedOrder.occurrence?.event_date || selectedProgram?.event_date)}
+                  canSend={isBookingMessageWriteWindowOpen(selectedOrder.event_date || selectedProgram?.event_date)}
                 />
               </div>
             ) : (

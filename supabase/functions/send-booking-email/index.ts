@@ -9,12 +9,16 @@
 //   the pointless "we received your request" step (kanban 97ca24ba reopen, 2026-10-25:
 //   order VG-2026-113711 was created INSERT-confirmed and got silently no email at all).
 // - UPDATE where status changes from something else TO 'confirmed' -> "visszaigazolva" email.
-// Any other transition (e.g. ->cancelled, or a no-op update) is ignored.
+// - UPDATE where status changes from something else TO 'cancelled', AND the trigger
+//   resolved the cancelling session as the provider (cancelled_by_provider=true, see
+//   20261028000000_order_cancellation_notifications.sql) -> "lemondva" email. A customer
+//   cancelling their own booking does NOT get this (kanban c9cd13f6, Csaba's decision).
+// Any other transition (e.g. a no-op update) is ignored.
 //
 // Sends via the Resend HTTP API (not the SMTP relay used for Supabase Auth emails --
 // this is an application-level send, separate infra, same verified domain).
 
-import { renderPendingEmail, renderConfirmedEmail, type BookingEmailData } from './booking-templates.ts';
+import { renderPendingEmail, renderConfirmedEmail, renderCancelledEmail, type BookingEmailData } from './booking-templates.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -26,6 +30,7 @@ type WebhookPayload = {
   table: string;
   record: Record<string, unknown> | null;
   old_record: Record<string, unknown> | null;
+  cancelled_by_provider?: boolean;
 };
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
@@ -165,13 +170,22 @@ Deno.serve(async (req: Request) => {
   const order = payload.record;
   const oldOrder = payload.old_record;
 
-  let kind: 'pending' | 'confirmed' | null = null;
+  let kind: 'pending' | 'confirmed' | 'cancelled' | null = null;
   if (payload.type === 'INSERT' && order.status === 'pending') {
     kind = 'pending';
   } else if (payload.type === 'INSERT' && order.status === 'confirmed') {
     kind = 'confirmed';
   } else if (payload.type === 'UPDATE' && order.status === 'confirmed' && oldOrder?.status !== 'confirmed') {
     kind = 'confirmed';
+  } else if (payload.type === 'UPDATE' && order.status === 'cancelled' && oldOrder?.status !== 'cancelled') {
+    // Only the provider cancelling someone else's booking gets this email --
+    // a customer cancelling their own booking does not (kanban c9cd13f6,
+    // Csaba's explicit decision). cancelled_by_provider is resolved by the
+    // trigger via auth.uid(), not stored on the row itself.
+    if (!payload.cancelled_by_provider) {
+      return new Response(JSON.stringify({ skipped: 'cancelled by the customer themselves' }), { status: 200 });
+    }
+    kind = 'cancelled';
   }
 
   if (!kind) {
@@ -184,7 +198,8 @@ Deno.serve(async (req: Request) => {
       return new Response(JSON.stringify({ skipped: 'no recipient email resolved' }), { status: 200 });
     }
     const { toEmail, data } = built;
-    const { subject, html } = kind === 'pending' ? renderPendingEmail(data) : renderConfirmedEmail(data);
+    const { subject, html } =
+      kind === 'pending' ? renderPendingEmail(data) : kind === 'confirmed' ? renderConfirmedEmail(data) : renderCancelledEmail(data);
     await sendViaResend(toEmail, subject, html);
     return new Response(JSON.stringify({ sent: true, kind, to: toEmail }), { status: 200 });
   } catch (err) {

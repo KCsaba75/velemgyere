@@ -150,6 +150,8 @@ export function getBookingReference(orderOrId?: { id?: string; booking_reference
     hash = ((hash << 5) - hash) + rawId.charCodeAt(i);
     hash |= 0;
   }
+  const num = Math.abs(hash) % 900000 + 100000;
+  return `VG-${CURRENT_BOOKING_YEAR}-${num}`;
 }
 
 export function getHungarianDateSuffix(dateInput: string): string {
@@ -201,7 +203,7 @@ export type OrderBucket = 'upcoming' | 'past' | 'cancelled';
 
 export function getOrderBucket(order: Order, programs: Program[]): OrderBucket {
   if (order.status === 'cancelled') return 'cancelled';
-  const dateStr = order.event_date || order.occurrence?.event_date || order.program?.event_date || programs.find(p => p.id === order.program_id)?.event_date;
+  const dateStr = order.event_date || order.program?.event_date || programs.find(p => p.id === order.program_id)?.event_date;
   if (!dateStr) return 'upcoming';
   const eventDate = new Date(dateStr);
   if (isNaN(eventDate.getTime())) return 'upcoming';
@@ -248,8 +250,8 @@ interface AppContextType {
   currentUser: Profile;
   currentProvider: Provider | null;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; message: string }>;
-  loginWithGoogle: () => Promise<{ success: boolean; message: string }>;
+  login: (email: string, password: string) => Promise<{ success: boolean; message: string; role?: string }>;
+  loginWithGoogle: () => Promise<{ success: boolean; message: string; role?: string }>;
   logout: () => void;
   registerVisitor: (data: { name: string; email: string; password: string }) => Promise<{ success: boolean; message: string }>;
   requestPasswordReset: (email: string) => Promise<{ success: boolean; message: string }>;
@@ -284,6 +286,8 @@ interface AppContextType {
   programs: Program[];
   providers: Provider[];
   inquiries: Inquiry[];
+  registeredVisitors: Profile[];
+  totalRegisteredVisitors: number;
 
   // Admin: Regions Management
   createRegion: (data: Partial<Region>) => Promise<string>;
@@ -353,6 +357,8 @@ interface AppContextType {
     manual_customer_phone?: string;
     manual_customer_email?: string;
     status?: OrderStatus;
+    event_date?: string | null;
+    start_time?: string | null;
   }) => Promise<{ success: boolean; message: string; orderId?: string }>;
   cancelOrder: (id: string) => Promise<void>;
 
@@ -441,6 +447,7 @@ interface AppContextType {
   resetToDefaults: () => void;
   isSupabaseLive: boolean;
   isLoading: boolean;
+  authChecked: boolean;
   // Eleni #244 audit [D]: egy Supabase-hiba korabban csendben nyelve lett, a szuro UI
   // 0 talalatnak tunt ("nincs talalat"-nak nezett ki, pedig a betoltes bukott el).
   // Ez a flag kulonbozteti meg a "ures eredmeny" es a "hiba volt" allapotot a UI-ban.
@@ -635,6 +642,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // isSupabaseConfigured -- always false in the no-Supabase dev fallback.
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
+  // Kanban ac237ca9: true once the INITIAL supabase.auth.getSession() restore has
+  // resolved (found a session or not) -- isAuthenticated starts false on every
+  // fresh page load/full reload, so a direct-URL ProtectedRoute check running
+  // before this resolves would always see "not authenticated" and bounce to "/"
+  // even for an already-logged-in visitor reloading e.g. /sajat-fiokom.
+  const [authChecked, setAuthChecked] = useState(false);
+
   // Active user's favorite folders and items (strictly scoped to currentUser.user_id when authenticated)
   // Deduplicates folders by case-insensitive name so duplicate "Általános kedvencek" folders can never appear in UI
   const userFavoriteFolders = useMemo<FavoriteFolder[]>(() => {
@@ -780,27 +794,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (pct) setFeePercentage(Number(pct.value) || 0);
           if (min) setFeeMinimumEur(Number(min.value) || 0);
 
-          let rateIsStale = true;
+          // Kanban 289432ed: a korabbi "ha stale, kliens-oldalrol upsert-elj" automatikus
+          // trigger innen torolve -- az "Admins can manage app settings" RLS miatt ez
+          // MINDEN nem-admin usernel (a tobbsegnel) mindig 401/403-ra bukott, az arfolyam
+          // sosem frissult automatikusan elesben. A frissitest most a
+          // supabase/functions/update-eur-huf-rate Edge Function vegzi, service-role-lal,
+          // egy host-crontab hivja naponta. Az admin kezi "frissites most" gombja
+          // (AdminDashboard, fetchAndApplyLiveRate/updateEurHufRate) valtozatlan marad.
           if (rateRow) {
             const currentRate = Number(rateRow.value) || 400;
             setEurHufRate(currentRate);
             if (rateRow.updated_at) {
               setEurHufLastUpdated(rateRow.updated_at);
-              const lastUpdatedTime = new Date(rateRow.updated_at).getTime();
-              const ONE_DAY_MS = 24 * 60 * 60 * 1000;
-              if (!isNaN(lastUpdatedTime) && (Date.now() - lastUpdatedTime < ONE_DAY_MS)) {
-                rateIsStale = false;
-              }
             }
-          }
-
-          // Automatic daily refresh: if rate is stale (>24h) or missing, auto-fetch live API
-          if (rateIsStale) {
-            fetchLiveEurHufRate().then(liveRate => {
-              if (liveRate && liveRate > 0) {
-                updateEurHufRate(liveRate);
-              }
-            }).catch(e => console.warn('Auto exchange rate refresh note:', e));
           }
         }
 
@@ -834,7 +840,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // signup carries no pending_provider metadata, so it falls through to the default
   // branch below and gets a plain role='visitor' profile the same way.
   useEffect(() => {
-    if (!isSupabaseConfigured) return;
+    if (!isSupabaseConfigured) {
+      // No real session to restore in the offline dev fallback -- nothing async
+      // for ProtectedRoute to wait on.
+      setAuthChecked(true);
+      return;
+    }
     let cancelled = false;
 
     function resetToAnonymousVisitor() {
@@ -947,11 +958,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (loginRedirectRef.current) {
           const target = loginRedirectRef.current;
           loginRedirectRef.current = null;
-          setCurrentView(target);
+          // Kartya cde7bd96 (Csaba): a Fiok-gomb meg szerep-ismeret elott allitja be
+          // a generikus 'programs' celpontot (lasd Navbar handleAccountClick) -- ez
+          // szolgaltatonal nem ertelmes default, nala a Foglalasok legyen az.
+          setCurrentView(role === 'provider' && target === 'programs' ? 'provider-bookings' : target);
           window.scrollTo({ top: 0, behavior: 'smooth' });
         } else if (window.location.pathname === '/' || window.location.pathname === '') {
-          // Ha bejelentkezve nyitjuk meg a weblapot, a programok lapra kerülünk
-          navigate('/programok', { replace: true });
+          // Ha bejelentkezve nyitjuk meg a weblapot: szolgaltatonal a Foglalasok
+          // lap, minden mas szerepnel a programok lap.
+          navigate(role === 'provider' ? '/szolgaltato/foglalasaim' : '/programok', { replace: true });
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }
         loadProgramsAndProviders(true, role);
@@ -971,6 +986,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           });
         } else {
           setCurrentProviderFull(null);
+        }
+
+        // Admin KPI (kanban bb108f51): a profiles tabla a mountkori anon RLS
+        // alatt (auth.uid()=null) ures listat ad vissza, es utana soha nem lett
+        // ujra lekerve -- csak a sajat sor kerult be fentebb. Admin bejelentkezes
+        // utan ujra kell kerni, kulonben a vegfelhasznalo-szamlalas (es minden
+        // mas rawProfiles-ra epulo admin-nezet) mindig 0/1-et lat.
+        if (role === 'admin') {
+          supabase.from('profiles').select('*').then(({ data, error }) => {
+            if (cancelled) return;
+            if (error) {
+              console.error('Admin profiles refetch failed:', error);
+              return;
+            }
+            if (data) setRawProfiles(data as Profile[]);
+          });
         }
 
         // Sync user's favorite folders and items if available on Supabase
@@ -1079,7 +1110,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
 
-    supabase.auth.getSession().then(({ data }) => syncFromSession(data.session));
+    supabase.auth.getSession().then(async ({ data }) => {
+      await syncFromSession(data.session);
+      if (!cancelled) setAuthChecked(true);
+    });
     const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
       syncFromSession(session);
     });
@@ -1092,9 +1126,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Orders/credits (kanban 71215856 points 2+5): both RLS-gated to "own rows", so they
   // only make sense once isAuthenticated flips -- reload on login, clear on logout.
-  useEffect(() => {
+  //
+  // This fetch only ran once per (isAuthenticated, rawPrograms) change -- i.e. once at
+  // login and never again for the rest of a long-lived tab's life, with no realtime
+  // subscription on `orders` (unlike booking_messages, which has one for the unread
+  // badge). A status change made elsewhere (another tab/device, the provider cancelling
+  // a booking the customer's tab has had open for days, etc.) was invisible until a
+  // full reload or re-login -- kanban 4a007dc2/c9cd13f6 investigation, 2026-10-28: this
+  // is the likely real explanation for "lemondva, de meg aktivnak latszik" reports that
+  // weren't reproducible as a fresh-session backend issue. Refetch on tab refocus too.
+  const loadOrdersAndFinancials = useCallback(async () => {
     if (!isSupabaseConfigured) return;
-    let cancelled = false;
 
     // Load locally persisted orders cache so manual/external bookings are never lost
     let localCache: Order[] = [];
@@ -1105,72 +1147,106 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       } catch {}
     }
 
-    (async () => {
-      try {
-        const { data: dbOrders, error: ordersErr } = await supabase
-          .from('orders')
-          .select('*')
-          .order('created_at', { ascending: false });
+    try {
+      const { data: dbOrders, error: ordersErr } = await supabase
+        .from('orders')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-        if (cancelled) return;
+      const mergedOrdersMap = new Map<string, Order>();
 
-        const mergedOrdersMap = new Map<string, Order>();
-
-        // 1. First add any real DB orders from Supabase
-        if (!ordersErr && dbOrders) {
-          (dbOrders as Order[]).forEach(o => {
-            const key = o.id || o.booking_reference || '';
-            const prog = rawPrograms.find(p => p.id === o.program_id);
-            mergedOrdersMap.set(key, {
-              ...o,
-              program: prog || o.program,
-            });
-          });
-        }
-
-        // 2. Merge local cache orders (offline or pending DB migration)
-        localCache.forEach(o => {
+      // 1. First add any real DB orders from Supabase
+      let prunedLocalCache = localCache;
+      if (!ordersErr && dbOrders) {
+        (dbOrders as Order[]).forEach(o => {
           const key = o.id || o.booking_reference || '';
-          if (key) {
-            const existing = mergedOrdersMap.get(key);
-            if (!existing) {
-              const prog = rawPrograms.find(p => p.id === o.program_id);
-              mergedOrdersMap.set(key, { ...o, program: prog || o.program });
-            } else if ((o.status === 'confirmed' || o.status === 'cancelled') && existing.status === 'pending') {
-              mergedOrdersMap.set(key, { ...existing, status: o.status });
-            }
-          }
+          const prog = rawPrograms.find(p => p.id === o.program_id);
+          mergedOrdersMap.set(key, {
+            ...o,
+            program: prog || o.program,
+          });
         });
 
-        const combined = Array.from(mergedOrdersMap.values());
-        if (combined.length > 0 || !ordersErr) {
-          setOrders(combined);
-        } else if (localCache.length > 0) {
-          setOrders(localCache);
-        }
-      } catch (err) {
-        console.warn('Orders fetch note:', err);
-        if (!cancelled && localCache.length > 0) {
-          setOrders(localCache);
+        // Reconcile the local cache against this successful fetch: an entry that's
+        // missing here either synced already (handled above) or was deleted/never
+        // existed server-side -- past a short grace window (for a just-created order
+        // the DB write may not have landed yet) it's a ghost that would otherwise
+        // resurface on every load forever. Only prune on a successful fetch, never
+        // on an error/offline one, so genuinely offline-created orders are kept.
+        const dbKeys = new Set((dbOrders as Order[]).map(o => o.id || o.booking_reference || ''));
+        const GRACE_MS = 15 * 60 * 1000;
+        const now = Date.now();
+        prunedLocalCache = localCache.filter(o => {
+          const key = o.id || o.booking_reference || '';
+          if (dbKeys.has(key)) return true;
+          const age = now - new Date(o.created_at || 0).getTime();
+          return Number.isFinite(age) && age >= 0 && age < GRACE_MS;
+        });
+        if (prunedLocalCache.length !== localCache.length && typeof window !== 'undefined' && window.localStorage) {
+          try {
+            localStorage.setItem('vg_manual_orders_cache', JSON.stringify(prunedLocalCache));
+          } catch {}
         }
       }
 
-      // If authenticated, also fetch credits and payouts
-      if (isAuthenticated) {
-        const [creditsRes, payoutsRes] = await Promise.all([
-          supabase.from('credit_transactions').select('*').order('created_at', { ascending: false }),
-          supabase.from('payout_requests').select('*').order('requested_at', { ascending: false }),
-        ]);
-        if (cancelled) return;
-        if (!creditsRes.error && creditsRes.data) setCreditTransactions(creditsRes.data as CreditTransaction[]);
-        if (!payoutsRes.error && payoutsRes.data) setPayoutRequests(payoutsRes.data as PayoutRequest[]);
-      }
-    })();
+      // 2. Merge local cache orders (offline or pending DB migration)
+      prunedLocalCache.forEach(o => {
+        const key = o.id || o.booking_reference || '';
+        if (key) {
+          const existing = mergedOrdersMap.get(key);
+          if (!existing) {
+            const prog = rawPrograms.find(p => p.id === o.program_id);
+            mergedOrdersMap.set(key, { ...o, program: prog || o.program });
+          } else if ((o.status === 'confirmed' || o.status === 'cancelled') && existing.status === 'pending') {
+            mergedOrdersMap.set(key, { ...existing, status: o.status });
+          }
+        }
+      });
 
-    return () => {
-      cancelled = true;
-    };
+      const combined = Array.from(mergedOrdersMap.values());
+      if (combined.length > 0 || !ordersErr) {
+        setOrders(combined);
+      } else if (localCache.length > 0) {
+        setOrders(localCache);
+      }
+    } catch (err) {
+      console.warn('Orders fetch note:', err);
+      if (localCache.length > 0) {
+        setOrders(localCache);
+      }
+    }
+
+    // If authenticated, also fetch credits and payouts
+    if (isAuthenticated) {
+      const [creditsRes, payoutsRes] = await Promise.all([
+        supabase.from('credit_transactions').select('*').order('created_at', { ascending: false }),
+        supabase.from('payout_requests').select('*').order('requested_at', { ascending: false }),
+      ]);
+      if (!creditsRes.error && creditsRes.data) setCreditTransactions(creditsRes.data as CreditTransaction[]);
+      if (!payoutsRes.error && payoutsRes.data) setPayoutRequests(payoutsRes.data as PayoutRequest[]);
+    }
   }, [isAuthenticated, rawPrograms]);
+
+  useEffect(() => {
+    loadOrdersAndFinancials();
+  }, [loadOrdersAndFinancials]);
+
+  // Refetch when the tab regains focus/visibility -- covers a tab left open across a
+  // status change made elsewhere, without needing a full realtime subscription.
+  useEffect(() => {
+    if (!isSupabaseConfigured || typeof document === 'undefined') return;
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        loadOrdersAndFinancials();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+    };
+  }, [loadOrdersAndFinancials]);
 
   // Current provider. Supabase-configured path: currentProviderFull, fetched server-side
   // via get_my_provider_profile(). Fallbacks guarantee the provider dashboard never breaks
@@ -1228,6 +1304,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   });
 
+  // Admin KPI + Programvadaszok ful (kanban bb108f51 / 3129aebc): regisztralt
+  // vegfelhasznalok, NEM a szolgaltatok -- role='visitor' a profiles tablaban,
+  // legujabb regisztracio legfelul. RLS miatt ez csak adminkent lesz teljes
+  // lista (lasd "Users can read own profile" policy), sima programvadasz/
+  // szolgaltato sessionben csak a sajat soruk jon le.
+  const registeredVisitors: Profile[] = rawProfiles
+    .filter(p => p.role === 'visitor')
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  const totalRegisteredVisitors = registeredVisitors.length;
+
   // Orders joined with their program (for display in MyAccountView) -- same
   // local-join style as `programs`/`inquiriesWithDetails` above, rather than a
   // PostgREST embed, to stay consistent with the rest of this file.
@@ -1263,7 +1349,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCurrencyFilter('ALL');
   };
 
-  const login = async (email: string, password: string): Promise<{ success: boolean; message: string }> => {
+  // Kartya cde7bd96: a sikeres bejelentkezes utani azonnali redirect-dontesnek
+  // (LoginModal) szuksege van a szerepre MOST, nem akkor amikor a kulon
+  // session-sync effect (syncFromSession) majd aszinkron betolti -- az utobbi
+  // utan futna a redirect, nem elotte.
+  const fetchRoleForUser = async (userId: string): Promise<string | undefined> => {
+    const { data: prof } = await supabase.from('profiles').select('role').eq('user_id', userId).maybeSingle();
+    return (prof as { role?: string } | null)?.role;
+  };
+
+  const login = async (email: string, password: string): Promise<{ success: boolean; message: string; role?: string }> => {
     if (isSupabaseConfigured) {
       const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
       if (error) {
@@ -1275,9 +1370,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
         return { success: false, message: `Hiba a bejelentkezéskor: ${error.message}` };
       }
-      // currentUser/currentView get set by the session-sync effect once the matching
-      // profiles row loads -- we just confirm success here.
-      return { success: true, message: `Sikeres bejelentkezés${data.user?.email ? ' mint ' + data.user.email : ''}!` };
+      const role = data.user ? await fetchRoleForUser(data.user.id) : undefined;
+      return { success: true, message: `Sikeres bejelentkezés${data.user?.email ? ' mint ' + data.user.email : ''}!`, role };
     }
 
     // Dev-only fallback (no Supabase configured): old mock email-only matching.
@@ -1286,7 +1380,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (existingProfile) {
       setCurrentUser(existingProfile);
       setIsAuthenticated(true);
-      return { success: true, message: `Sikeres bejelentkezés mint ${existingProfile.name}!` };
+      return { success: true, message: `Sikeres bejelentkezés mint ${existingProfile.name}!`, role: existingProfile.role };
     }
     const prov = rawProviders.find(p => (p.email || '').toLowerCase() === cleanEmail);
     if (prov) {
@@ -1301,7 +1395,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setRawProfiles(prev => [...prev, newProf]);
       setCurrentUser(newProf);
       setIsAuthenticated(true);
-      return { success: true, message: `Sikeres bejelentkezés mint ${prov.company_name}!` };
+      return { success: true, message: `Sikeres bejelentkezés mint ${prov.company_name}!`, role: 'provider' };
     }
     return { success: false, message: 'Nincs fiók ezzel az e-mail címmel. Kérjük regisztráljon!' };
   };
@@ -1352,7 +1446,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           };
         }
 
-        return new Promise<{ success: boolean; message: string }>((resolve) => {
+        return new Promise<{ success: boolean; message: string; role?: string }>((resolve) => {
           let resolved = false;
 
           const cleanup = () => {
@@ -1366,12 +1460,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 resolved = true;
                 cleanup();
                 try { popup?.close(); } catch {}
-                supabase.auth.getSession().then(({ data: sessData }) => {
+                supabase.auth.getSession().then(async ({ data: sessData }) => {
                   resolve({
                     success: true,
                     message: sessData.session?.user?.email
                       ? `Sikeres Google bejelentkezés: ${sessData.session.user.email}!`
-                      : 'Sikeres Google bejelentkezés!'
+                      : 'Sikeres Google bejelentkezés!',
+                    role: sessData.session?.user?.id ? await fetchRoleForUser(sessData.session.user.id) : undefined,
                   });
                 });
               }
@@ -1392,7 +1487,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     success: true,
                     message: currentSess.session.user.email
                       ? `Sikeres Google bejelentkezés: ${currentSess.session.user.email}!`
-                      : 'Sikeres Google bejelentkezés!'
+                      : 'Sikeres Google bejelentkezés!',
+                    role: await fetchRoleForUser(currentSess.session.user.id),
                   });
                   return;
                 }
@@ -1404,7 +1500,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                   cleanup();
                   const { data: finalSess } = await supabase.auth.getSession();
                   if (finalSess?.session) {
-                    resolve({ success: true, message: 'Sikeres Google bejelentkezés!' });
+                    resolve({ success: true, message: 'Sikeres Google bejelentkezés!', role: await fetchRoleForUser(finalSess.session.user.id) });
                   } else {
                     resolve({ success: false, message: 'A Google bejelentkezési ablak be lett zárva.' });
                   }
@@ -1926,8 +2022,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       featured: Boolean(data.featured),
     };
 
+    // Kanban VELEMGYERE-KEP-UX: `img.isCover || idx === 0` ORs in idx 0 on EVERY
+    // row regardless of which image the user actually picked as cover -- if they
+    // set a later image as cover, both it AND idx 0 end up is_cover=true (Csaba
+    // screenshot: 2 images tagged "Fő/Borító" at once). Resolve to a single
+    // effective cover index first, then use strict equality per row.
+    const coverIdx = images.findIndex(img => img.isCover);
+    const effectiveCoverIdx = coverIdx === -1 ? 0 : coverIdx;
     const pendingImages = images && images.length > 0
-      ? images.map((img, idx) => ({ image_url: img.url, thumb_url: img.thumbUrl || null, is_cover: img.isCover || idx === 0, sort_order: idx }))
+      ? images.map((img, idx) => ({ image_url: img.url, thumb_url: img.thumbUrl || null, is_cover: idx === effectiveCoverIdx, sort_order: idx }))
       : [{ image_url: 'https://images.unsplash.com/photo-1590523741831-ab7e8b8f9c7f?auto=format&fit=crop&w=1200&q=80', is_cover: true, sort_order: 0 }];
 
     if (isSupabaseConfigured) {
@@ -1993,11 +2096,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // MOST MAR dobnak is hibat, ha legkozelebb barmi hasonlo torik.
         const { error: delErr } = await supabase.from('program_images').delete().eq('program_id', id);
         if (delErr) throw delErr;
+        // Kanban VELEMGYERE-KEP-UX: see the matching comment in createProgram --
+        // `img.isCover || idx === 0` could tag two rows is_cover=true at once.
+        const updateCoverIdx = updatedImages.findIndex(img => img.isCover);
+        const effectiveUpdateCoverIdx = updateCoverIdx === -1 ? 0 : updateCoverIdx;
         const imgRows = updatedImages.map((img, idx) => ({
           program_id: id,
           image_url: img.url,
           thumb_url: img.thumbUrl || null,
-          is_cover: Boolean(img.isCover || idx === 0),
+          is_cover: idx === effectiveUpdateCoverIdx,
           sort_order: idx,
         }));
         const { error: insErr } = await supabase.from('program_images').insert(imgRows);
@@ -2019,11 +2126,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (updatedImages && updatedImages.length > 0) {
       setRawImages(prev => {
         const withoutCurrent = prev.filter(img => img.program_id !== id);
+        const localCoverIdx = updatedImages.findIndex(img => img.isCover);
+        const effectiveLocalCoverIdx = localCoverIdx === -1 ? 0 : localCoverIdx;
         const newImgs: ProgramImage[] = updatedImages.map((img, idx) => ({
           id: `img-${id}-${Date.now()}-${idx}`,
           program_id: id,
           image_url: img.url,
-          is_cover: Boolean(img.isCover || idx === 0),
+          is_cover: idx === effectiveLocalCoverIdx,
           sort_order: idx,
         }));
         return [...newImgs, ...withoutCurrent];
@@ -2395,8 +2504,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const cancelOrder = async (id: string): Promise<void> => {
     if (!isSupabaseConfigured) return;
-    const { error } = await supabase.from('orders').update({ status: 'cancelled' }).eq('id', id);
+    // .select('id') is required here: Postgres/PostgREST returns 204 (no error) even
+    // when RLS silently matches 0 rows (e.g. stale/expired session, order no longer
+    // owned by the current user) -- without checking the returned rows, the UI below
+    // would mark the booking cancelled locally while the DB status never changed.
+    const { data, error } = await supabase.from('orders').update({ status: 'cancelled' }).eq('id', id).select('id');
     if (error) throw error;
+    if (!data || data.length === 0) {
+      throw new Error('A lemondás nem sikerült: a foglalás már nem érhető el ezzel a fiókkal (lehet, hogy lejárt a bejelentkezésed). Jelentkezz be újra és próbáld meg ismét.');
+    }
     setOrders(prev => prev.map(o => (o.id === id ? { ...o, status: 'cancelled' } : o)));
   };
 
@@ -3597,6 +3713,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         programs,
         providers: rawProviders,
         inquiries: inquiriesWithDetails,
+        registeredVisitors,
+        totalRegisteredVisitors,
 
         createRegion,
         updateRegion,
@@ -3712,6 +3830,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         resetToDefaults,
         isSupabaseLive: isSupabaseConfigured,
         isLoading,
+        authChecked,
         catalogLoadError,
       }}
     >

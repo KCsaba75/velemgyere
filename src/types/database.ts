@@ -163,7 +163,9 @@ export interface OccurrenceAvailability {
 
 export type OrderStatus = 'pending' | 'confirmed' | 'cancelled';
 
-export type OnsitePaymentMethod = 'cash' | 'revolut';
+// Kanban d8440929 (Csaba, via Zora, kiegeszites): 'bank_transfer' ("elore
+// utalas") az uj harmadik opcio a korabbi 'cash'/'revolut' mellett.
+export type OnsitePaymentMethod = 'cash' | 'revolut' | 'bank_transfer';
 
 // Forrás: a foglalás származási helye (platform, vagy szolgáltató által rögzített külső)
 export type BookingSource = 'platform' | 'phone' | 'onsite' | 'whatsapp' | 'email' | 'external';
@@ -270,6 +272,7 @@ export interface ProgramImage {
   id: string;
   program_id: string;
   image_url: string;
+  thumb_url?: string | null;
   is_cover: boolean;
   sort_order: number;
 }
@@ -349,5 +352,18 @@ export interface FavoriteItem {
   program_id: string;
   folder_id: string;
   added_at: string;
+}
+
+// booking_messages (kanban 2ffb61fa) -- types dropped by the 89842f9 schema.sql
+// regression (2026-10-20), restored here against the live DDL (unchanged table).
+export type BookingMessageSenderRole = 'customer' | 'provider';
+
+export interface BookingMessage {
+  id: string;
+  order_id: string;
+  sender_role: BookingMessageSenderRole;
+  sender_id: string;
+  content: string;
+  created_at: string;
 }
 

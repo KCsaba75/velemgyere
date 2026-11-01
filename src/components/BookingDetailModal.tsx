@@ -77,6 +77,8 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
   const [copiedId, setCopiedId] = useState(false);
   const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
   const [confirmingOrder, setConfirmingOrder] = useState(false);
+  const [cancellingOrder, setCancellingOrder] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
   const [messagesOpen, setMessagesOpen] = useState(false);
 
   const bookingCode = getBookingReference(order);
@@ -129,9 +131,11 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
     (r.user_id === currentUser?.id || r.user_id === currentUser?.user_id)
   );
 
+  // Kanban 8ab468bb: w=128 (2x a tenyleges w-16 h-16 renderelt meretnek, retina-elesseg
+  // miatt), nem a korabbi w=600 -- ez a kep sosem jelenik meg 64px-nel nagyobban itt.
   const coverImage = program?.images?.find(img => img.is_cover)?.image_url
     || program?.images?.[0]?.image_url
-    || 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=600&q=80';
+    || 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=128&q=80';
 
   const handleConfirmOrder = async () => {
     setConfirmingOrder(true);
@@ -139,6 +143,19 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
       await confirmOrder(order.id);
     } finally {
       setConfirmingOrder(false);
+    }
+  };
+
+  const handleCancelOrder = async () => {
+    setCancellingOrder(true);
+    setCancelError(null);
+    try {
+      await cancelOrder(order.id);
+      setConfirmCancelOpen(false);
+    } catch (err) {
+      setCancelError(err instanceof Error ? err.message : 'A lemondás nem sikerült, próbáld meg újra.');
+    } finally {
+      setCancellingOrder(false);
     }
   };
 
@@ -315,7 +332,7 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
                     senderRole={isProviderViewer ? 'provider' : 'customer'}
                     senderId={currentUser.user_id}
                     otherPartyLabel={isProviderViewer ? 'az igénybevevőnek' : 'a szolgáltatónak'}
-                    canSend={isBookingMessageWriteWindowOpen(order.event_date || order.occurrence?.event_date || program?.event_date)}
+                    canSend={isBookingMessageWriteWindowOpen(order.event_date || program?.event_date)}
                     compact
                   />
                 </div>
@@ -432,27 +449,34 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
             </div>
           )}
 
-          {/* Review / cancel actions */}
+          {/* Review / cancel actions -- a szolgaltato nem ertekelheti a sajat
+              programjat, az uj ertekeles-beviteli lehetoseg csak a vendegnek
+              (isCustomerViewer) jelenik meg, lasd kartya 60a16031. */}
           {order.status !== 'cancelled' && (
             <div className="flex flex-wrap items-center gap-2">
-              {existingReview ? (
-                <span className="inline-flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Értékelve ({existingReview.rating}★)</span>
-                </span>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setReviewModalOpen(true)}
-                  className="inline-flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white transition-colors cursor-pointer shadow-xs"
-                >
-                  <Star className="w-3.5 h-3.5 fill-white text-white" />
-                  <span>⭐ Értékelés leadása</span>
-                </button>
+              {!isProviderViewer && (
+                existingReview ? (
+                  <span className="inline-flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Értékelve ({existingReview.rating}★)</span>
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setReviewModalOpen(true)}
+                    className="inline-flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white transition-colors cursor-pointer shadow-xs"
+                  >
+                    <Star className="w-3.5 h-3.5 fill-white text-white" />
+                    <span>⭐ Értékelés leadása</span>
+                  </button>
+                )
               )}
               <button
                 type="button"
-                onClick={() => setConfirmCancelOpen(true)}
+                onClick={() => {
+                  setCancelError(null);
+                  setConfirmCancelOpen(true);
+                }}
                 className="inline-flex items-center gap-1 text-xs text-stone-500 hover:text-rose-600 font-semibold px-3.5 py-2 rounded-xl border border-stone-200 hover:border-rose-200 hover:bg-rose-50 transition-colors cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" /> Foglalás lemondása
@@ -478,19 +502,19 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
                 <div className="min-w-0 flex-1">
                   <h5 className="font-bold text-stone-900 text-sm leading-snug">{program.title}</h5>
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-[11px] text-stone-500">
-                    {(order.event_date || order.occurrence?.event_date || program.event_date) && (
+                    {(order.event_date || program.event_date) && (
                       <span className="flex items-center gap-1">
                         <Calendar className="w-3 h-3" />
-                        {formatDate(order.event_date || order.occurrence?.event_date || program.event_date!)}
+                        {formatDate(order.event_date || program.event_date!)}
                       </span>
                     )}
                     {program.duration && (
                       <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{program.duration}</span>
                     )}
-                    {(order.start_time || order.occurrence?.start_time || program.start_time || program.end_time) && (
+                    {(order.start_time || program.start_time || program.end_time) && (
                       <span className="flex items-center gap-1">
                         <Clock className="w-3 h-3" />
-                        {order.start_time || order.occurrence?.start_time || program.start_time}
+                        {order.start_time || program.start_time}
                         {program.end_time ? ` - ${program.end_time}` : ''}
                       </span>
                     )}
@@ -603,8 +627,8 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
           programCountry={program?.country}
           programRegionName={program?.region?.name}
           programCategoryName={program?.category?.name}
-          dateFormatted={formatDate(order.event_date || order.occurrence?.event_date || program?.event_date || order.created_at)}
-          startTime={order.start_time || order.occurrence?.start_time || program?.start_time}
+          dateFormatted={formatDate(order.event_date || program?.event_date || order.created_at)}
+          startTime={order.start_time || program?.start_time}
           endTime={program?.end_time}
           duration={program?.duration}
           departureLocation={program?.departure_location}
@@ -651,24 +675,29 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
               </div>
             </div>
 
+            {cancelError && (
+              <p className="text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2.5">
+                {cancelError}
+              </p>
+            )}
+
             <div className="flex items-center justify-end gap-3 pt-2">
               <button
                 type="button"
                 onClick={() => setConfirmCancelOpen(false)}
-                className="px-4 py-2.5 rounded-xl border border-stone-300 text-stone-700 hover:bg-stone-100 text-xs font-semibold transition-colors cursor-pointer"
+                disabled={cancellingOrder}
+                className="px-4 py-2.5 rounded-xl border border-stone-300 text-stone-700 hover:bg-stone-100 text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
               >
                 Mégsem
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setConfirmCancelOpen(false);
-                  cancelOrder(order.id);
-                }}
-                className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 cursor-pointer"
+                onClick={handleCancelOrder}
+                disabled={cancellingOrder}
+                className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 <X className="w-4 h-4" />
-                <span>Lemondás</span>
+                <span>{cancellingOrder ? 'Lemondás...' : 'Lemondás'}</span>
               </button>
             </div>
           </div>

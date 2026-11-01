@@ -40,6 +40,7 @@ interface ProviderBookingsCalendarProps {
 const PAYMENT_METHOD_LABEL: Record<OnsitePaymentMethod, string> = {
   cash: 'Készpénz',
   revolut: 'Revolut',
+  bank_transfer: 'Előre utalás',
 };
 
 const WEEKDAYS = [

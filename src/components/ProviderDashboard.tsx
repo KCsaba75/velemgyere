@@ -12,7 +12,8 @@ import {
   FileText,
   Ticket,
   ExternalLink,
-  Landmark
+  Landmark,
+  ChevronDown
 } from 'lucide-react';
 import { OnsitePaymentMethod } from '../types/database';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
@@ -54,6 +55,10 @@ export const ProviderDashboard: React.FC = () => {
   });
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileMessage, setProfileMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  // Kanban 62a7f913 (Csaba, 2026-10-31): mobilon a Fiókadatok kártya alapértelmezetten
+  // csukott -- a chevron/toggle csak mobil nézeten jelenik meg, desktopon (md:block)
+  // mindig nyitva van, ez a state nem hat rá.
+  const [accountOpen, setAccountOpen] = useState(false);
 
   useEffect(() => {
     if (!currentProvider) return;
@@ -117,9 +122,6 @@ export const ProviderDashboard: React.FC = () => {
           <h1 className="text-2xl sm:text-3xl font-extrabold font-display tracking-tight">
             Üdvözöljük, {currentProvider?.company_name || currentUser.name || 'Partnerünk'}!
           </h1>
-          <p className="text-stone-300 text-xs sm:text-sm mt-1 max-w-xl">
-            A Partner fiókodban tudod szerkeszteni a cégadataidat és kapcsolattartói elérhetőségeidet. A programjaidat és foglalásaidat az alábbi gyorsgombokkal vagy a fejléc menüjéből érheted el.
-          </p>
         </div>
 
         <button
@@ -219,12 +221,21 @@ export const ProviderDashboard: React.FC = () => {
 
       {/* Own profile edit form */}
       <div className="bg-white rounded-3xl border border-stone-200 shadow-sm p-6 sm:p-8 max-w-3xl">
-        <div className="flex items-center justify-between gap-3 mb-1">
+        <button
+          type="button"
+          onClick={() => setAccountOpen(open => !open)}
+          className="w-full flex items-center justify-between gap-3 mb-1 cursor-pointer md:cursor-default"
+        >
           <h3 className="text-lg font-bold text-stone-900 font-display flex items-center gap-2">
             <UserCog className="w-5 h-5 text-emerald-600" />
             <span>Fiókadatok</span>
           </h3>
-        </div>
+          <ChevronDown
+            className={`w-5 h-5 text-stone-400 md:hidden transition-transform ${accountOpen ? 'rotate-180' : ''}`}
+          />
+        </button>
+
+        <div className={`${accountOpen ? 'block' : 'hidden'} md:block`}>
         <p className="text-xs text-stone-500 mb-6">
           Ezek az adatok jelennek meg a felületen a vásárlók és az adminisztrátorok számára.
         </p>
@@ -376,6 +387,7 @@ export const ProviderDashboard: React.FC = () => {
               await updateMyProfile({ push_notifications_enabled: enabled });
             }}
           />
+        </div>
         </div>
       </div>
     </div>

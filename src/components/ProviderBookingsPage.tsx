@@ -51,7 +51,7 @@ export const ProviderBookingsPage: React.FC = () => {
   const [bookingsViewMode, setBookingsViewMode] = useState<'calendar' | 'list'>('list');
   const [providerListTab, setProviderListTab] = useState<OrderBucket>('upcoming');
 
-  const [selectedOrderDetail, setSelectedOrderDetail] = useState<Order | null>(null);
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [rescheduleOrderId, setRescheduleOrderId] = useState<string | null>(null);
   const [confirmingOrderId, setConfirmingOrderId] = useState<string | null>(null);
   const [manualBookingModalOpen, setManualBookingModalOpen] = useState(false);
@@ -78,6 +78,12 @@ export const ProviderBookingsPage: React.FC = () => {
 
   const ownProgramIds = new Set(displayPrograms.map(p => p.id));
   const ownOrders = orders.filter(o => ownProgramIds.has(o.program_id) || ownPrograms.length === 0);
+
+  // Live lookup by id (not a frozen snapshot captured at open-time) -- otherwise the
+  // open modal keeps showing the pre-cancel/pre-confirm status after cancelOrder()/
+  // confirmOrder() updates `orders`, even though the list behind it is already correct
+  // (kanban 4a007dc2 dev-regression: looks like cancelling "did nothing").
+  const selectedOrderDetail = selectedOrderId ? orders.find(o => o.id === selectedOrderId) || null : null;
 
   const [buyerInfos, setBuyerInfos] = useState<Record<string, OrderBuyerInfo>>({});
   const ownOrderIds = ownOrders.map(o => o.id).join(',');
@@ -250,7 +256,7 @@ export const ProviderBookingsPage: React.FC = () => {
             confirmingOrderId={confirmingOrderId}
             onRescheduleOrder={(orderId) => setRescheduleOrderId(orderId)}
             onOpenProgramDetail={openProgramDetail}
-            onSelectOrder={(order) => setSelectedOrderDetail(order)}
+            onSelectOrder={(order) => setSelectedOrderId(order.id)}
             onOpenManualBooking={handleOpenManualBooking}
           />
         ) : (
@@ -348,7 +354,7 @@ export const ProviderBookingsPage: React.FC = () => {
                   return (
                     <div
                       key={order.id}
-                      onClick={() => setSelectedOrderDetail(order)}
+                      onClick={() => setSelectedOrderId(order.id)}
                       className="p-5 hover:bg-stone-50/80 transition-all space-y-3 cursor-pointer group"
                     >
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -472,7 +478,7 @@ export const ProviderBookingsPage: React.FC = () => {
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              setSelectedOrderDetail(order);
+                              setSelectedOrderId(order.id);
                             }}
                             className="px-3 py-1.5 rounded-xl bg-stone-900 hover:bg-emerald-600 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors shrink-0"
                           >
@@ -493,7 +499,7 @@ export const ProviderBookingsPage: React.FC = () => {
       {selectedOrderDetail && (
         <BookingDetailModal
           order={selectedOrderDetail}
-          onClose={() => setSelectedOrderDetail(null)}
+          onClose={() => setSelectedOrderId(null)}
         />
       )}
 
