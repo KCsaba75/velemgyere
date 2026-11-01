@@ -45,6 +45,7 @@ export const AdminDashboard: React.FC = () => {
   const {
     programs,
     providers,
+    categories,
     inquiries,
     registeredVisitors,
     totalRegisteredVisitors,
@@ -170,6 +171,7 @@ export const AdminDashboard: React.FC = () => {
   const activePrograms = programs.filter(p => p.status === 'published').length;
   const pendingPrograms = programs.filter(p => p.status === 'pending_review').length;
   const totalProviders = providers.length;
+  const totalCategories = categories.length;
 
   const filteredPrograms = programs.filter(p => {
     if (programFilter === 'all') return true;
@@ -242,7 +244,7 @@ export const AdminDashboard: React.FC = () => {
       </div>
 
       {/* KPI Metrics */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3.5 mb-8">
         <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-sm">
           <span className="text-[11px] font-bold text-stone-400 uppercase tracking-wider block mb-1">
             Összes program
@@ -264,14 +266,13 @@ export const AdminDashboard: React.FC = () => {
           <div className="text-2xl font-extrabold font-display text-amber-600">{pendingPrograms}</div>
         </div>
 
-        {/* Kanban fca903d9 (Zora korrekcioja): a kategoria- es szolgaltato-kezelo
-            onallo oldalakhoz (8440a9c) sehol nem volt tenyleges kattinthato
-            nav-ut -- a Navbar isAdmin-agai, amik korabban ide navigaltak,
-            elvesztek az AI Studio 418896d "restore" commitjeben. Ezert itt,
-            kozvetlenul a stat-kartyan at nyitjuk a ket admin-oldalt. */}
+        {/* Kanban fca903d9 (Zora 2. kor javitasa): a Regiok kartya az eredeti
+            celjara mutat vissza -- a mar meglevo belso "regions" fulre
+            valt, NEM az admin-categories (Szolgaltatas Tipusok, teljesen
+            mas fogalom) oldalra. */}
         <button
           type="button"
-          onClick={() => setCurrentView('admin-categories')}
+          onClick={() => setActiveTab('regions')}
           className="bg-white p-4 rounded-2xl border border-stone-200 shadow-sm text-left cursor-pointer hover:bg-stone-50 hover:border-stone-300 transition-colors group"
           title="Úticélok és régiók kezelése"
         >
@@ -280,6 +281,23 @@ export const AdminDashboard: React.FC = () => {
             <ChevronRight className="w-3.5 h-3.5 text-stone-300 group-hover:text-stone-500 transition-colors" />
           </span>
           <div className="text-2xl font-extrabold font-display text-stone-900">{regions.length}</div>
+        </button>
+
+        {/* Kanban fca903d9 (Zora 2. kor javitasa): a Szolgaltatas Tipusok
+            (admin-categories, AdminCategoriesPage) onnalo kartyat kap --
+            ez katalogus-szintu kategoria (pl. Reptéri Transzfer, Gasztro),
+            nem azonos a fenti uticel/regio kartyaval. */}
+        <button
+          type="button"
+          onClick={() => setCurrentView('admin-categories')}
+          className="bg-white p-4 rounded-2xl border border-indigo-200 shadow-sm bg-indigo-50/30 text-left cursor-pointer hover:bg-indigo-50 hover:border-indigo-300 transition-colors group"
+          title="Szolgáltatás típusok kezelése"
+        >
+          <span className="text-[11px] font-bold text-indigo-800 uppercase tracking-wider flex items-center justify-between mb-1">
+            <span>Szolgáltatás Típusok</span>
+            <ChevronRight className="w-3.5 h-3.5 text-indigo-300 group-hover:text-indigo-600 transition-colors" />
+          </span>
+          <div className="text-2xl font-extrabold font-display text-indigo-600">{totalCategories}</div>
         </button>
 
         <button
