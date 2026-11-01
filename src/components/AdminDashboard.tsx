@@ -23,7 +23,8 @@ import {
   LogOut,
   Landmark,
   RefreshCw,
-  Users
+  Users,
+  ChevronRight
 } from 'lucide-react';
 import { Region, OnsitePaymentMethod, ReviewStatus } from '../types/database';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
@@ -70,7 +71,8 @@ export const AdminDashboard: React.FC = () => {
     eurHufLastUpdated,
     updateEurHufRate,
     fetchAndApplyLiveRate,
-    logout
+    logout,
+    setCurrentView
   } = useApp();
 
   useDocumentMeta('Adminisztrátori felület', 'Programok, szolgáltatók, foglalások és katalógus-adatok kezelése.');
@@ -262,19 +264,36 @@ export const AdminDashboard: React.FC = () => {
           <div className="text-2xl font-extrabold font-display text-amber-600">{pendingPrograms}</div>
         </div>
 
-        <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-sm">
-          <span className="text-[11px] font-bold text-stone-400 uppercase tracking-wider block mb-1">
-            Úticélok / Régiók
+        {/* Kanban fca903d9 (Zora korrekcioja): a kategoria- es szolgaltato-kezelo
+            onallo oldalakhoz (8440a9c) sehol nem volt tenyleges kattinthato
+            nav-ut -- a Navbar isAdmin-agai, amik korabban ide navigaltak,
+            elvesztek az AI Studio 418896d "restore" commitjeben. Ezert itt,
+            kozvetlenul a stat-kartyan at nyitjuk a ket admin-oldalt. */}
+        <button
+          type="button"
+          onClick={() => setCurrentView('admin-categories')}
+          className="bg-white p-4 rounded-2xl border border-stone-200 shadow-sm text-left cursor-pointer hover:bg-stone-50 hover:border-stone-300 transition-colors group"
+          title="Úticélok és régiók kezelése"
+        >
+          <span className="text-[11px] font-bold text-stone-400 uppercase tracking-wider flex items-center justify-between mb-1">
+            <span>Úticélok / Régiók</span>
+            <ChevronRight className="w-3.5 h-3.5 text-stone-300 group-hover:text-stone-500 transition-colors" />
           </span>
           <div className="text-2xl font-extrabold font-display text-stone-900">{regions.length}</div>
-        </div>
+        </button>
 
-        <div className="bg-white p-4 rounded-2xl border border-purple-200 shadow-sm bg-purple-50/30">
-          <span className="text-[11px] font-bold text-purple-800 uppercase tracking-wider block mb-1">
-            Szolgáltatók
+        <button
+          type="button"
+          onClick={() => setCurrentView('admin-providers')}
+          className="bg-white p-4 rounded-2xl border border-purple-200 shadow-sm bg-purple-50/30 text-left cursor-pointer hover:bg-purple-50 hover:border-purple-300 transition-colors group"
+          title="Szolgáltatók kezelése"
+        >
+          <span className="text-[11px] font-bold text-purple-800 uppercase tracking-wider flex items-center justify-between mb-1">
+            <span>Szolgáltatók</span>
+            <ChevronRight className="w-3.5 h-3.5 text-purple-300 group-hover:text-purple-600 transition-colors" />
           </span>
           <div className="text-2xl font-extrabold font-display text-purple-600">{totalProviders}</div>
-        </div>
+        </button>
 
         <div className="bg-white p-4 rounded-2xl border border-teal-200 shadow-sm bg-teal-50/30">
           <span className="text-[11px] font-bold text-teal-800 uppercase tracking-wider block mb-1">
