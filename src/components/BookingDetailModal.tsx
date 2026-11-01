@@ -332,7 +332,7 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
                     senderRole={isProviderViewer ? 'provider' : 'customer'}
                     senderId={currentUser.user_id}
                     otherPartyLabel={isProviderViewer ? 'az igénybevevőnek' : 'a szolgáltatónak'}
-                    canSend={isBookingMessageWriteWindowOpen(order.event_date || order.occurrence?.event_date || program?.event_date)}
+                    canSend={isBookingMessageWriteWindowOpen(order.event_date || program?.event_date)}
                     compact
                   />
                 </div>
@@ -502,19 +502,19 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
                 <div className="min-w-0 flex-1">
                   <h5 className="font-bold text-stone-900 text-sm leading-snug">{program.title}</h5>
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-[11px] text-stone-500">
-                    {(order.event_date || order.occurrence?.event_date || program.event_date) && (
+                    {(order.event_date || program.event_date) && (
                       <span className="flex items-center gap-1">
                         <Calendar className="w-3 h-3" />
-                        {formatDate(order.event_date || order.occurrence?.event_date || program.event_date!)}
+                        {formatDate(order.event_date || program.event_date!)}
                       </span>
                     )}
                     {program.duration && (
                       <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{program.duration}</span>
                     )}
-                    {(order.start_time || order.occurrence?.start_time || program.start_time || program.end_time) && (
+                    {(order.start_time || program.start_time || program.end_time) && (
                       <span className="flex items-center gap-1">
                         <Clock className="w-3 h-3" />
-                        {order.start_time || order.occurrence?.start_time || program.start_time}
+                        {order.start_time || program.start_time}
                         {program.end_time ? ` - ${program.end_time}` : ''}
                       </span>
                     )}
@@ -627,8 +627,8 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
           programCountry={program?.country}
           programRegionName={program?.region?.name}
           programCategoryName={program?.category?.name}
-          dateFormatted={formatDate(order.event_date || order.occurrence?.event_date || program?.event_date || order.created_at)}
-          startTime={order.start_time || order.occurrence?.start_time || program?.start_time}
+          dateFormatted={formatDate(order.event_date || program?.event_date || order.created_at)}
+          startTime={order.start_time || program?.start_time}
           endTime={program?.end_time}
           duration={program?.duration}
           departureLocation={program?.departure_location}

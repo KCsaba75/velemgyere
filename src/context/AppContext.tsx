@@ -150,6 +150,8 @@ export function getBookingReference(orderOrId?: { id?: string; booking_reference
     hash = ((hash << 5) - hash) + rawId.charCodeAt(i);
     hash |= 0;
   }
+  const num = Math.abs(hash) % 900000 + 100000;
+  return `VG-${CURRENT_BOOKING_YEAR}-${num}`;
 }
 
 export function getHungarianDateSuffix(dateInput: string): string {
@@ -201,7 +203,7 @@ export type OrderBucket = 'upcoming' | 'past' | 'cancelled';
 
 export function getOrderBucket(order: Order, programs: Program[]): OrderBucket {
   if (order.status === 'cancelled') return 'cancelled';
-  const dateStr = order.event_date || order.occurrence?.event_date || order.program?.event_date || programs.find(p => p.id === order.program_id)?.event_date;
+  const dateStr = order.event_date || order.program?.event_date || programs.find(p => p.id === order.program_id)?.event_date;
   if (!dateStr) return 'upcoming';
   const eventDate = new Date(dateStr);
   if (isNaN(eventDate.getTime())) return 'upcoming';
@@ -355,6 +357,8 @@ interface AppContextType {
     manual_customer_phone?: string;
     manual_customer_email?: string;
     status?: OrderStatus;
+    event_date?: string | null;
+    start_time?: string | null;
   }) => Promise<{ success: boolean; message: string; orderId?: string }>;
   cancelOrder: (id: string) => Promise<void>;
 

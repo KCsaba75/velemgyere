@@ -8,8 +8,8 @@ import { isBookingMessageWriteWindowOpen } from '../hooks/useBookingMessages';
 import { supabase } from '../lib/supabase';
 
 function formatBookingDateTime(order: Order, program?: Program | null): { dateStr: string; timeStr: string; participantsStr: string } {
-  const rawDate = order.event_date || order.occurrence?.event_date || program?.event_date;
-  const rawTime = order.occurrence?.start_time || program?.start_time;
+  const rawDate = order.event_date || program?.event_date;
+  const rawTime = order.start_time || program?.start_time;
   const participantsStr = order.participants_count ? `${order.participants_count} fő` : '';
 
   let dateStr = 'Időpont nélkül';
@@ -96,7 +96,7 @@ export const ProviderMessagesPage: React.FC = () => {
   const activeOrders = useMemo(() => {
     return messagableOrders.filter(o => {
       const prog = programs.find(p => p.id === o.program_id);
-      const effectiveDate = o.event_date || o.occurrence?.event_date || prog?.event_date;
+      const effectiveDate = o.event_date || prog?.event_date;
       const isOpen = isBookingMessageWriteWindowOpen(effectiveDate);
       return o.status !== 'cancelled' && isOpen;
     });
@@ -105,7 +105,7 @@ export const ProviderMessagesPage: React.FC = () => {
   const closedOrders = useMemo(() => {
     return messagableOrders.filter(o => {
       const prog = programs.find(p => p.id === o.program_id);
-      const effectiveDate = o.event_date || o.occurrence?.event_date || prog?.event_date;
+      const effectiveDate = o.event_date || prog?.event_date;
       const isOpen = isBookingMessageWriteWindowOpen(effectiveDate);
       return o.status === 'cancelled' || !isOpen;
     });
@@ -337,7 +337,7 @@ export const ProviderMessagesPage: React.FC = () => {
                   senderRole="provider"
                   senderId={currentUser.user_id}
                   otherPartyLabel="az igénybevevő"
-                  canSend={isBookingMessageWriteWindowOpen(selectedOrder.event_date || selectedOrder.occurrence?.event_date || selectedProgram?.event_date)}
+                  canSend={isBookingMessageWriteWindowOpen(selectedOrder.event_date || selectedProgram?.event_date)}
                 />
               </div>
             ) : (
