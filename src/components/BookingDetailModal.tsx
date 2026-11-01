@@ -581,7 +581,7 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
 
               <button
                 type="button"
-                onClick={() => { onClose(); openProgramDetail(program.slug || program.id); }}
+                onClick={() => { onClose(); openProgramDetail(program.id); }}
                 className="text-xs font-bold text-emerald-700 hover:underline flex items-center gap-1 cursor-pointer"
               >
                 <span>Program adatlapjának megnyitása</span>
