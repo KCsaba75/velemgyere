@@ -19,6 +19,15 @@
 // booking -- the trigger itself only fires when it resolved the cancelling
 // session as the provider, so no cancelled_by_provider check is needed here.
 //
+// ALSO handles a third event shape (kanban 248d2841): table='contact_messages'
+// INSERT (send_contact_message_push_webhook, see
+// 20261102020000_contact_message_push_notifications.sql) -- fans out to EVERY
+// admin-role profile, not a single resolved recipient like the two cases
+// above, so it's handled as its own self-contained branch below (builds its
+// own notification and does its own profile/subscription/send loop) rather
+// than being forced into the single-recipientUserId shape the rest of this
+// file shares.
+//
 // The VAPID private key arrives in the webhook payload rather than as an
 // Edge Function secret -- create_edge_function_secret requires a human to
 // enter the value in the Supabase dashboard, so the trigger instead reads it
@@ -52,6 +61,11 @@ type WebhookPayload = {
         program_id: string;
         booking_reference: string | null;
         status: string;
+      }
+    | {
+        id: string;
+        name: string;
+        message: string;
       }
     | null;
   vapid_private_key: string;
@@ -158,6 +172,46 @@ Deno.serve(async (req: Request) => {
       body: 'A szolgáltató lemondta a foglalásod. Nyisd meg a részletekért.',
       url: `/foglalasaim/${order.booking_reference ?? order.id}`,
     });
+  } else if (payload.table === 'contact_messages' && payload.record) {
+    const message = payload.record as { id: string; name: string; message: string };
+    const body = message.message.length > 140 ? `${message.message.slice(0, 137)}...` : message.message;
+    const adminNotificationPayload = JSON.stringify({
+      title: `Kapcsolati üzenet -- ${message.name}`,
+      body,
+      url: '/admin/beallitasok',
+    });
+
+    const admins = await dbQuery<any[]>(
+      `profiles?role=eq.admin&select=user_id,push_notifications_enabled`,
+    );
+
+    webpush.setVapidDetails(payload.vapid_subject, VAPID_PUBLIC_KEY, payload.vapid_private_key);
+
+    let sentTotal = 0;
+    for (const admin of admins) {
+      if (admin.push_notifications_enabled === false) continue;
+      const subs = await dbQuery<any[]>(
+        `push_subscriptions?user_id=eq.${admin.user_id}&select=id,endpoint,p256dh,auth_key`,
+      );
+      for (const sub of subs) {
+        try {
+          await webpush.sendNotification(
+            { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth_key } },
+            adminNotificationPayload,
+          );
+          sentTotal++;
+        } catch (err) {
+          const statusCode = (err as { statusCode?: number })?.statusCode;
+          if (statusCode === 404 || statusCode === 410) {
+            await dbDelete(`push_subscriptions?id=eq.${sub.id}`);
+          } else {
+            console.error('send-booking-push (contact_messages): webpush error', err);
+          }
+        }
+      }
+    }
+
+    return new Response(JSON.stringify({ sent: sentTotal, adminCount: admins.length }), { status: 200 });
   } else {
     return new Response(JSON.stringify({ skipped: 'not a recognized event' }), { status: 200 });
   }

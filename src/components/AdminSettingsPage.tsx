@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { ShieldCheck, RotateCcw, LogOut, Check, RefreshCw, ChevronDown, Send, AlertCircle, MailCheck } from 'lucide-react';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
+import { BookingPushNotificationCard } from './BookingPushNotificationCard';
 
 // Kanban 653c7577 (Csaba, teljes admin-nav atszervezes): a korabbi Admin
 // Vezerlopult "Beallitasok" (dij+arfolyam) es "Erdeklodesek" fulje, plusz a
@@ -11,6 +12,8 @@ import { useDocumentMeta } from '../hooks/useDocumentMeta';
 // kozott (lasd Navbar.tsx admin "Beallitasok" gombja).
 export const AdminSettingsPage: React.FC = () => {
   const {
+    currentUser,
+    updateMyProfile,
     inquiries,
     contactMessages,
     markContactMessageRead,
@@ -370,6 +373,23 @@ export const AdminSettingsPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Push-értesítés kapcsolati üzenetekre (kanban 248d2841, Csaba IGEN) --
+          ugyanaz a komponens/mechanizmus mint a foglalás-chat push-nál
+          (MyAccountView), csak más leíró szöveggel. */}
+      {currentUser.user_id && (
+        <div className="space-y-3">
+          <h3 className="font-display font-bold text-stone-900 text-lg">Push-értesítés</h3>
+          <BookingPushNotificationCard
+            userId={currentUser.user_id}
+            initialEnabled={currentUser.push_notifications_enabled ?? true}
+            description="Azonnali böngésző-értesítés új kapcsolati üzenetről, akkor is, ha nem az oldalon vagy éppen."
+            onSavePreference={async (enabled) => {
+              await updateMyProfile({ push_notifications_enabled: enabled });
+            }}
+          />
+        </div>
+      )}
 
       {/* Kapcsolati üzenetek (kanban 6f9ad755, bővítve msg 3189) -- a sajat-fiokom
           lapon megszunt "Erdeklodeseim" blokk uj, "Kapcsolat / Kerdesem van"
