@@ -73,6 +73,11 @@ export interface Category {
   slug: string;
   icon: string;
   active: boolean;
+  // Kanban 6f9ad755: marks the single category that belongs on the "Utazások"
+  // nav tab instead of "Programok" -- a flag, not the slug, because the slug
+  // for this category differs between dev-sandbox ('utazasok-magyarorszagrol')
+  // and PROD ('magyarorszagrol-indulo-kirandulasok').
+  is_travel_category: boolean;
 }
 
 // Alias for service type
@@ -289,6 +294,24 @@ export interface Inquiry {
   // Joined fields for admin / provider view
   program_title?: string;
   provider_name?: string;
+}
+
+// Kanban 6f9ad755: user -> platform/admin contact message, replacing the dead
+// "Érdeklődéseim" (program inquiry) block in MyAccountView.tsx. Deliberately
+// separate from Inquiry -- that table's program_id/provider_id are NOT NULL,
+// so it can't represent a message with no program/provider context, and
+// reusing it would make a generic contact message show up on a provider's
+// own inquiries dashboard.
+export interface ContactMessage {
+  id: string;
+  user_id?: string;
+  name: string;
+  email: string;
+  message: string;
+  status: 'new' | 'read' | 'resolved';
+  created_at: string;
+  admin_reply?: string;
+  replied_at?: string;
 }
 
 export type TravelType = 'couple' | 'family' | 'friends' | 'solo';

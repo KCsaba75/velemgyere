@@ -22,7 +22,7 @@ export const Footer: React.FC = () => {
             </div>
 
             <p className="text-stone-400 text-xs sm:text-sm max-w-sm leading-relaxed">
-              Kirándulások • Programok • Élmények Magyarország legszebb tájain. Találd meg a következő élményed vagy csatlakozz szervező partnerként!
+              Kirándulások • Programok • Élmények magyar nyelven, külföldön. Találd meg a következő élményed vagy csatlakozz szervező partnerként!
             </p>
           </div>
 
@@ -43,8 +43,8 @@ export const Footer: React.FC = () => {
                 </button>
               </li>
               <li>
-                <button onClick={() => { setCurrentView('categories'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="hover:text-emerald-400 cursor-pointer">
-                  Kategóriák
+                <button onClick={() => { setCurrentView('travel'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="hover:text-emerald-400 cursor-pointer">
+                  Utazások
                 </button>
               </li>
               <li>
@@ -58,7 +58,7 @@ export const Footer: React.FC = () => {
         </div>
 
         <div className="pt-8 border-t border-stone-800 text-xs text-stone-500 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p>© {new Date().getFullYear()} VELEM GYERE – Minden jog fenntartva. Magyarországi Élménykatalógus MVP.</p>
+          <p>© {new Date().getFullYear()} VELEM GYERE – Minden jog fenntartva. Magyar nyelvű külföldi élménykatalógus MVP.</p>
           <p className="text-[11px] text-stone-600">
             Tervezve és felépítve későbbi foglalási és fizetési rendszerrel való bővíthetőségre.
           </p>

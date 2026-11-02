@@ -4,8 +4,6 @@ import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import {
   User,
   MessageSquare,
-  Calendar,
-  Compass,
   Phone,
   Mail,
   Save,
@@ -36,7 +34,6 @@ import { BookingPushNotificationCard } from './BookingPushNotificationCard';
 export const MyAccountView: React.FC = () => {
   const {
     currentUser,
-    inquiries,
     orders,
     refundBalance,
     refundTransactions,
@@ -46,7 +43,7 @@ export const MyAccountView: React.FC = () => {
     requestPayout,
     updateMyProfile,
     deleteMyAccount,
-    setCurrentView,
+    submitContactMessage,
     logout
   } = useApp();
 
@@ -117,6 +114,30 @@ export const MyAccountView: React.FC = () => {
     const result = await deleteMyAccount();
     setDeleteSubmitting(false);
     setDeleteMessage({ type: result.success ? 'success' : 'error', text: result.message });
+  };
+
+  // --- Block: Kapcsolat / Kérdésem van (kanban 6f9ad755, felváltja a holt
+  // "Érdeklődéseim" blokkot -- submitInquiry-nek nincs call site-ja a src-ben,
+  // a program-oldali "Érdekel a program!" modal már a foglalás-folyamatra lett
+  // kiváltva). ---
+  const [contactMessageText, setContactMessageText] = useState('');
+  const [contactSubmitting, setContactSubmitting] = useState(false);
+  const [contactResult, setContactResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  const handleContactSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setContactSubmitting(true);
+    setContactResult(null);
+    const result = await submitContactMessage({
+      name: currentUser.name || '',
+      email: currentUser.email || '',
+      message: contactMessageText,
+    });
+    setContactSubmitting(false);
+    setContactResult(result);
+    if (result.success) {
+      setContactMessageText('');
+    }
   };
 
   // Foglalási díjak, amiket ténylegesen kifizettél (Stripe demo) -- meglévő orders
@@ -520,47 +541,49 @@ export const MyAccountView: React.FC = () => {
           </button>
         </section>
 
-        {/* BLOCK: Érdeklődéseim (meglévő funkció, változatlan) */}
-        <section>
-          <div className="flex items-center gap-2 mb-5">
+        {/* BLOCK: Kapcsolat / Kérdésem van (kanban 6f9ad755) -- felváltja a
+            korábbi, soha ki nem küldhető "Érdeklődéseim" listát. */}
+        <section className="bg-white rounded-2xl border border-stone-200 p-6 space-y-4">
+          <div className="flex items-center gap-2">
             <MessageSquare className="w-5 h-5 text-stone-400" />
             <h2 className="font-display text-lg font-bold text-stone-900">
-              Érdeklődéseim ({inquiries.length})
+              Kapcsolat / Kérdésem van
             </h2>
           </div>
+          <p className="text-sm text-stone-500">
+            Kérdésed vagy véleményed van a platformmal kapcsolatban? Írj nekünk, a csapatunk hamarosan válaszol.
+          </p>
 
-          {inquiries.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-stone-200 p-10 text-center">
-              <Compass className="w-10 h-10 text-stone-300 mx-auto mb-3" />
-              <p className="text-sm text-stone-600 mb-4">
-                Még nem érdeklődtél egyetlen programnál sem.
-              </p>
-              <button
-                onClick={() => { setCurrentView('programs'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                className="bg-stone-900 hover:bg-stone-800 text-white font-semibold px-5 py-2.5 rounded-xl text-sm cursor-pointer"
-              >
-                Böngéssz a programok között
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {inquiries.map(inq => (
-                <div key={inq.id} className="bg-white rounded-2xl border border-stone-200 p-5">
-                  <div className="flex items-start justify-between gap-4 mb-2">
-                    <h3 className="font-bold text-stone-900 text-sm">{inq.program_title || 'Program'}</h3>
-                    <span className="text-[11px] text-stone-400 flex items-center gap-1 shrink-0">
-                      <Calendar className="w-3.5 h-3.5" />
-                      {formatDate(inq.created_at)}
-                    </span>
-                  </div>
-                  <p className="text-xs text-stone-500 mb-2">{inq.provider_name}</p>
-                  {inq.message && (
-                    <p className="text-sm text-stone-700 bg-stone-50 rounded-xl p-3">{inq.message}</p>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
+          <form onSubmit={handleContactSubmit} className="space-y-3">
+            <textarea
+              required
+              rows={4}
+              value={contactMessageText}
+              onChange={(e) => setContactMessageText(e.target.value)}
+              placeholder="Írd le a kérdésed vagy véleményed..."
+              className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3.5 py-2.5 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none"
+            />
+
+            {contactResult && (
+              <div className={`text-xs font-semibold rounded-xl p-3 flex items-center gap-2 ${
+                contactResult.success
+                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                  : 'bg-rose-50 text-rose-700 border border-rose-200'
+              }`}>
+                {contactResult.success ? <Check className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+                <span>{contactResult.message}</span>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={contactSubmitting || !contactMessageText.trim()}
+              className="px-5 py-2.5 bg-stone-900 hover:bg-emerald-600 disabled:opacity-60 text-white font-bold rounded-xl text-sm shadow-sm transition-all cursor-pointer inline-flex items-center gap-2"
+            >
+              <Send className="w-4 h-4" />
+              <span>{contactSubmitting ? 'Küldés...' : 'Üzenet elküldése'}</span>
+            </button>
+          </form>
         </section>
       </div>
 

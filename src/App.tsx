@@ -27,10 +27,15 @@ const ProviderBookingsPage = lazy(() => import('./components/ProviderBookingsPag
 const ProviderReviewsPage = lazy(() => import('./components/ProviderReviewsPage').then(m => ({ default: m.ProviderReviewsPage })));
 const ProviderInquiriesPage = lazy(() => import('./components/ProviderInquiriesPage').then(m => ({ default: m.ProviderInquiriesPage })));
 const ProviderMessagesPage = lazy(() => import('./components/ProviderMessagesPage').then(m => ({ default: m.ProviderMessagesPage })));
-const AdminDashboard = lazy(() => import('./components/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
+// Kanban 653c7577 (Csaba, teljes admin-nav atszervezes): nincs tobbe kozos
+// AdminDashboard hub -- minden admin-alfunkcio onallo top-level route/lazy
+// chunk (lasd Navbar.tsx admin-nav agat es AppContext VIEW_TO_PATH-et).
+const AdminProgramsPage = lazy(() => import('./components/AdminProgramsPage').then(m => ({ default: m.AdminProgramsPage })));
 const AdminCategoriesPage = lazy(() => import('./components/AdminCategoriesPage').then(m => ({ default: m.AdminCategoriesPage })));
-const AdminProvidersPage = lazy(() => import('./components/AdminProvidersPage').then(m => ({ default: m.AdminProvidersPage })));
-const CategoriesView = lazy(() => import('./components/CategoriesView').then(m => ({ default: m.CategoriesView })));
+const AdminUsersPage = lazy(() => import('./components/AdminUsersPage').then(m => ({ default: m.AdminUsersPage })));
+const AdminReviewsPage = lazy(() => import('./components/AdminReviewsPage').then(m => ({ default: m.AdminReviewsPage })));
+const AdminBookingsPage = lazy(() => import('./components/AdminBookingsPage').then(m => ({ default: m.AdminBookingsPage })));
+const AdminSettingsPage = lazy(() => import('./components/AdminSettingsPage').then(m => ({ default: m.AdminSettingsPage })));
 const MyAccountView = lazy(() => import('./components/MyAccountView').then(m => ({ default: m.MyAccountView })));
 const FavoritesView = lazy(() => import('./components/FavoritesView').then(m => ({ default: m.FavoritesView })));
 const BookingsView = lazy(() => import('./components/BookingsView').then(m => ({ default: m.BookingsView })));
@@ -85,9 +90,16 @@ const AppContent: React.FC = () => {
           <Route path="/" element={<HomePage />} />
           <Route path="/programok" element={<ProgramsPage />} />
           <Route path="/programok/:slug" element={<ProgramDetailView />} />
-          <Route path="/kategoriak" element={<CategoriesView />} />
+          {/* Kanban 6f9ad755 (Csaba, 2026-11-02): a "Kategoriak" hub-oldal/nav-cel
+              megszunt -- a bare /kategoriak most mar csak a /programok-ra
+              redirectel. A /kategoriak/:slug deep linkek (korabbi megosztott
+              linkek, esetleges SEO-indexeles) tovabbra is mukodnek -- ha a
+              slug epp a travel-kategoria, a ProgramsPage maga redirectel
+              /utazasok-ra (lasd ProgramsPage.tsx). */}
+          <Route path="/kategoriak" element={<Navigate to="/programok" replace />} />
           <Route path="/kategoriak/:slug" element={<ProgramsPage filterType="category" />} />
           <Route path="/regiok/:slug" element={<ProgramsPage filterType="region" />} />
+          <Route path="/utazasok" element={<ProgramsPage travelOnly />} />
           <Route
             path="/szolgaltatoknak"
             element={
@@ -145,11 +157,15 @@ const AppContent: React.FC = () => {
               </ProtectedRoute>
             }
           />
+          {/* Kanban 653c7577: a bare /admin-nek nincs tobbe sajat hub-tartalma --
+              a Programok az elso targymenu Csaba felsorolasaban, igy az a
+              sensible default landing. */}
+          <Route path="/admin" element={<Navigate to="/admin/programok" replace />} />
           <Route
-            path="/admin"
+            path="/admin/programok"
             element={
               <ProtectedRoute allow={['admin']}>
-                <AdminDashboard />
+                <AdminProgramsPage />
               </ProtectedRoute>
             }
           />
@@ -162,10 +178,37 @@ const AppContent: React.FC = () => {
             }
           />
           <Route
-            path="/admin/szolgaltatok"
+            path="/admin/felhasznalok"
             element={
               <ProtectedRoute allow={['admin']}>
-                <AdminProvidersPage />
+                <AdminUsersPage />
+              </ProtectedRoute>
+            }
+          />
+          {/* Legacy deep-link (a8676c22, korabban AdminProvidersPage) -- a
+              Felhasznalok HUB-ra iranyit, szolgaltatok szegmenssel (default). */}
+          <Route path="/admin/szolgaltatok" element={<Navigate to="/admin/felhasznalok" replace />} />
+          <Route
+            path="/admin/ertekelesek"
+            element={
+              <ProtectedRoute allow={['admin']}>
+                <AdminReviewsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/foglalasok"
+            element={
+              <ProtectedRoute allow={['admin']}>
+                <AdminBookingsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/beallitasok"
+            element={
+              <ProtectedRoute allow={['admin']}>
+                <AdminSettingsPage />
               </ProtectedRoute>
             }
           />

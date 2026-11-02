@@ -10,9 +10,24 @@ interface ProgramListProps {
   // FilterBar (the drawer's owner) is a sibling of this component, not a
   // parent.
   onOpenMobileFilters: () => void;
+  // Kanban 6f9ad755: on "Programok" (and /regiok/:slug), always exclude the
+  // travel category's programs, regardless of selectedCategory -- "Programok"
+  // means everything EXCEPT "Utazások" now.
+  excludeCategorySlug?: string;
+  // Kanban 6f9ad755: /utazasok -- the heading/badge below were hardcoded to
+  // "Külföldi Programkatalógus" copy for every filter combination (region-only
+  // badge aside), which would be actively wrong on the one page about
+  // Hungary-departing trips. Swaps in travel-appropriate copy instead.
+  travelOnly?: boolean;
+  // Kanban 6f9ad755/2bc6d38b: on /utazasok the category is fixed (not a user
+  // choice, see Category.is_travel_category), so it's filtered directly by
+  // this value instead of through selectedCategory/excludeCategorySlug --
+  // see the "Category / Service type filter" block below for why those two
+  // don't apply here.
+  fixedCategorySlug?: string;
 }
 
-export const ProgramList: React.FC<ProgramListProps> = ({ onOpenMobileFilters }) => {
+export const ProgramList: React.FC<ProgramListProps> = ({ onOpenMobileFilters, excludeCategorySlug, travelOnly, fixedCategorySlug }) => {
   const {
     programs,
     regions,
@@ -20,35 +35,60 @@ export const ProgramList: React.FC<ProgramListProps> = ({ onOpenMobileFilters })
     searchQuery,
     selectedRegion,
     setSelectedRegion,
+    travelSelectedRegion,
+    setTravelSelectedRegion,
     selectedCategory,
     selectedLocation,
     selectedDateFrom,
     setSelectedDateFrom,
     selectedDateTo,
     setSelectedDateTo,
+    travelSelectedDateFrom,
+    setTravelSelectedDateFrom,
+    travelSelectedDateTo,
+    setTravelSelectedDateTo,
     selectedDurationType,
+    travelSelectedDurationType,
     maxPrice,
+    travelMaxPrice,
     currencyFilter,
+    travelCurrencyFilter,
     openProgramDetail,
     resetFilters,
+    resetTravelFilters,
     isLoading,
     programOccurrencesDates
   } = useApp();
 
+  // Kanban 2bc6d38b: same slice-picking as FilterBar.tsx -- see the
+  // AppContextType comment on travelSelectedRegion for why. selectedCategory
+  // has no travel counterpart; it's irrelevant here when fixedCategorySlug
+  // is set (travelOnly), see the "Category / Service type filter" block.
+  const activeRegion = travelOnly ? travelSelectedRegion : selectedRegion;
+  const setActiveRegion = travelOnly ? setTravelSelectedRegion : setSelectedRegion;
+  const activeDateFrom = travelOnly ? travelSelectedDateFrom : selectedDateFrom;
+  const setActiveDateFrom = travelOnly ? setTravelSelectedDateFrom : setSelectedDateFrom;
+  const activeDateTo = travelOnly ? travelSelectedDateTo : selectedDateTo;
+  const setActiveDateTo = travelOnly ? setTravelSelectedDateTo : setSelectedDateTo;
+  const activeDurationType = travelOnly ? travelSelectedDurationType : selectedDurationType;
+  const activeMaxPrice = travelOnly ? travelMaxPrice : maxPrice;
+  const activeCurrencyFilter = travelOnly ? travelCurrencyFilter : currencyFilter;
+  const activeResetFilters = travelOnly ? resetTravelFilters : resetFilters;
+
   // Mirrors FilterBar's own hasActiveFilters -- shows a dot on the mobile
   // funnel icon so a filtered view is visible even with the drawer closed.
   const hasActiveFilters = Boolean(
-    selectedRegion ||
-    selectedCategory ||
-    selectedDateFrom ||
-    selectedDateTo ||
-    selectedDurationType !== 'all' ||
-    maxPrice < 150 ||
-    currencyFilter !== 'ALL'
+    activeRegion ||
+    (!travelOnly && selectedCategory) ||
+    activeDateFrom ||
+    activeDateTo ||
+    activeDurationType !== 'all' ||
+    activeMaxPrice < 150 ||
+    activeCurrencyFilter !== 'ALL'
   );
 
   // Active region details
-  const activeRegionObj = regions.find(r => r.slug === selectedRegion);
+  const activeRegionObj = regions.find(r => r.slug === activeRegion);
 
   // Filter logic
   const filteredPrograms = useMemo(() => {
@@ -64,17 +104,33 @@ export const ProgramList: React.FC<ProgramListProps> = ({ onOpenMobileFilters })
       }
 
       // Region filter
-      if (selectedRegion) {
-        if (p.region?.slug !== selectedRegion && p.region_id !== selectedRegion) {
+      if (activeRegion) {
+        if (p.region?.slug !== activeRegion && p.region_id !== activeRegion) {
           // also allow matching country or city name
-          const matchesName = p.location.toLowerCase().includes(selectedRegion.toLowerCase());
+          const matchesName = p.location.toLowerCase().includes(activeRegion.toLowerCase());
           if (!matchesName) return false;
         }
       }
 
-      // Category / Service type filter
-      if (selectedCategory) {
-        if (p.category?.slug !== selectedCategory) {
+      // Category / Service type filter. Kanban 2bc6d38b: /utazasok's category
+      // is fixed (fixedCategorySlug), not a user choice -- selectedCategory
+      // and excludeCategorySlug both belong to the Programok slice and don't
+      // apply there, so this branches on fixedCategorySlug first.
+      if (fixedCategorySlug) {
+        if (p.category?.slug !== fixedCategorySlug) {
+          return false;
+        }
+      } else {
+        if (selectedCategory) {
+          if (p.category?.slug !== selectedCategory) {
+            return false;
+          }
+        }
+
+        // Kanban 6f9ad755: "Programok" always excludes the travel category,
+        // independent of selectedCategory (which can't even select it there --
+        // FilterBar hides the option -- but this stays correct if that ever drifts).
+        if (excludeCategorySlug && p.category?.slug === excludeCategorySlug) {
           return false;
         }
       }
@@ -124,10 +180,10 @@ export const ProgramList: React.FC<ProgramListProps> = ({ onOpenMobileFilters })
       }
 
       // Date from & to
-      if (selectedDateFrom || selectedDateTo) {
+      if (activeDateFrom || activeDateTo) {
         const matchesDate = candidateDates.some((d) => {
-          if (selectedDateFrom && d < selectedDateFrom) return false;
-          if (selectedDateTo && d > selectedDateTo) return false;
+          if (activeDateFrom && d < activeDateFrom) return false;
+          if (activeDateTo && d > activeDateTo) return false;
           return true;
         });
 
@@ -137,16 +193,16 @@ export const ProgramList: React.FC<ProgramListProps> = ({ onOpenMobileFilters })
       }
 
       // Duration type
-      if (selectedDurationType === 'single') {
+      if (activeDurationType === 'single') {
         const isMulti = p.duration.includes('2 nap') || p.duration.includes('3 nap') || p.duration.includes('többnapos');
         if (isMulti) return false;
-      } else if (selectedDurationType === 'multi') {
+      } else if (activeDurationType === 'multi') {
         const isMulti = p.duration.includes('2 nap') || p.duration.includes('3 nap') || p.duration.includes('többnapos');
         if (!isMulti) return false;
       }
 
       // Max price
-      if (p.price > maxPrice) {
+      if (p.price > activeMaxPrice) {
         return false;
       }
 
@@ -161,13 +217,15 @@ export const ProgramList: React.FC<ProgramListProps> = ({ onOpenMobileFilters })
     programs,
     currentUser,
     searchQuery,
-    selectedRegion,
+    activeRegion,
     selectedCategory,
+    excludeCategorySlug,
+    fixedCategorySlug,
     selectedLocation,
-    selectedDateFrom,
-    selectedDateTo,
-    selectedDurationType,
-    maxPrice,
+    activeDateFrom,
+    activeDateTo,
+    activeDurationType,
+    activeMaxPrice,
     programOccurrencesDates
   ]);
 
@@ -179,7 +237,7 @@ export const ProgramList: React.FC<ProgramListProps> = ({ onOpenMobileFilters })
           <div>
             <div className="flex items-center gap-1.5 mb-0.5">
               <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
-                Külföldi Programkatalógus
+                {travelOnly ? 'Magyarországról Induló Utazások' : 'Külföldi Programkatalógus'}
               </span>
               {activeRegionObj && (
                 <span className="text-[10px] font-bold text-stone-700 bg-stone-100 px-2 py-0.5 rounded-md flex items-center gap-1">
@@ -189,7 +247,7 @@ export const ProgramList: React.FC<ProgramListProps> = ({ onOpenMobileFilters })
               )}
             </div>
             <h1 className="text-lg font-extrabold font-display text-stone-900 tracking-tight">
-              Kirándulások & Élmények
+              {travelOnly ? 'Utazások Magyarországról' : 'Kirándulások & Élmények'}
             </h1>
           </div>
 
@@ -208,8 +266,8 @@ export const ProgramList: React.FC<ProgramListProps> = ({ onOpenMobileFilters })
                 <MapPin className="w-4 h-4" />
               </div>
               <select
-                value={selectedRegion || ''}
-                onChange={(e) => setSelectedRegion(e.target.value || null)}
+                value={activeRegion || ''}
+                onChange={(e) => setActiveRegion(e.target.value || null)}
                 className="w-full pl-9 pr-8 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-bold text-stone-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer appearance-none truncate"
               >
                 <option value="">Hová utazol? (Összes úticél)</option>
@@ -253,12 +311,12 @@ export const ProgramList: React.FC<ProgramListProps> = ({ onOpenMobileFilters })
               </label>
               <input
                 type="date"
-                value={selectedDateFrom}
+                value={activeDateFrom}
                 onChange={(e) => {
                   const val = e.target.value;
-                  setSelectedDateFrom(val);
-                  if (selectedDateTo && val && val > selectedDateTo) {
-                    setSelectedDateTo('');
+                  setActiveDateFrom(val);
+                  if (activeDateTo && val && val > activeDateTo) {
+                    setActiveDateTo('');
                   }
                 }}
                 className="w-full text-xs bg-stone-50 border border-stone-200 rounded-xl px-2.5 py-1.5 text-stone-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
@@ -272,9 +330,9 @@ export const ProgramList: React.FC<ProgramListProps> = ({ onOpenMobileFilters })
               </label>
               <input
                 type="date"
-                value={selectedDateTo}
-                min={selectedDateFrom || undefined}
-                onChange={(e) => setSelectedDateTo(e.target.value)}
+                value={activeDateTo}
+                min={activeDateFrom || undefined}
+                onChange={(e) => setActiveDateTo(e.target.value)}
                 className="w-full text-xs bg-stone-50 border border-stone-200 rounded-xl px-2.5 py-1.5 text-stone-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
               />
             </div>
@@ -286,7 +344,7 @@ export const ProgramList: React.FC<ProgramListProps> = ({ onOpenMobileFilters })
           {hasActiveFilters && (
             <button
               type="button"
-              onClick={resetFilters}
+              onClick={activeResetFilters}
               className="w-full flex items-center justify-center gap-1.5 text-xs text-rose-600 hover:text-rose-700 font-semibold py-1 cursor-pointer"
             >
               <RotateCcw className="w-3.5 h-3.5" />
@@ -301,7 +359,7 @@ export const ProgramList: React.FC<ProgramListProps> = ({ onOpenMobileFilters })
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="text-xs font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-lg">
-              Külföldi Magyar Programkatalógus
+              {travelOnly ? 'Magyarországról Induló Utazások' : 'Külföldi Magyar Programkatalógus'}
             </span>
             {activeRegionObj && (
               <span className="text-xs font-bold text-stone-700 bg-stone-100 px-2.5 py-0.5 rounded-lg flex items-center gap-1.5">
@@ -311,10 +369,12 @@ export const ProgramList: React.FC<ProgramListProps> = ({ onOpenMobileFilters })
             )}
           </div>
           <h2 className="text-2xl sm:text-3xl font-extrabold font-display text-stone-900 tracking-tight">
-            Magyar Nyelvű Kirándulások, Élmények & Transzferek
+            {travelOnly ? 'Utazások Magyarországról' : 'Magyar Nyelvű Kirándulások, Élmények & Transzferek'}
           </h2>
           <p className="text-sm text-stone-500 mt-1">
-            Közvetlen kapcsolat helyi magyar idegenvezetőkkel és tapasztalt túraszervezőkkel
+            {travelOnly
+              ? 'Magyarországról induló, szervezett kirándulások és utazások.'
+              : 'Közvetlen kapcsolat helyi magyar idegenvezetőkkel és tapasztalt túraszervezőkkel'}
           </p>
         </div>
 
@@ -368,7 +428,7 @@ export const ProgramList: React.FC<ProgramListProps> = ({ onOpenMobileFilters })
             Próbáld meg másik úticél vagy szolgáltatási típus kiválasztásával, vagy állítsd vissza az alapértelmezett szűrőket!
           </p>
           <button
-            onClick={resetFilters}
+            onClick={activeResetFilters}
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm transition-colors cursor-pointer shadow-sm"
           >
             <RotateCcw className="w-4 h-4" />

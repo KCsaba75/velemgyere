@@ -1,33 +1,23 @@
 -- =========================================================================
--- Velem Gyere – Adatbázis Feltöltő Szkript (UUID kompatibilis)
--- Futtasd le a Supabase SQL Editorban a programok feltöltéséhez!
+-- DEPRECATED / DANGEROUS -- NE FUTTASD. KANBAN acd2bfcd (2026-11-01).
+--
+-- Ez a fajl eredetileg a Supabase SQL Editorban (postgres szuperuserkent,
+-- ami magatol megkerüli az RLS-t) futott, de a "2. Kategóriák beszúrása"
+-- elotti blokk 6 táblán allow_all_* ("using(true) with check(true)")
+-- policy-kra cserélte a valódi RLS szabályokat. Ha ezt a blokkot valaha
+-- egy friss/production env felépítésekor valaki lefuttatja, azt hívé hogy
+-- egy sima seed-script, CSENDBEN kiírtja a valódi RLS-védelmet a
+-- regions/categories/providers/programs/program_images/inquiries táblákon.
+-- Elesben verifikálva, hogy ez SOHA nem futott le (providers.phone még
+-- 42501-et ad anon-nak, app_settings UPDATE még csendben 0 sort érint).
+--
+-- A veszélyes RLS-gyengítő blokk EL VAN TÁVOLÍTVA ebből a fájlból -- az
+-- alábbi INSERT-ek önmagukban ártalmatlanok (superuser/SQL Editor alatt
+-- RLS-t amúgy sem érintenek), de a fájl neve és ez a fejléc szándékosan
+-- rossz hírű, hogy senki ne futtassa el gondolkodás nélkül. Legitim
+-- demo/seed célra lásd e2e/fixtures/seed-local.sql mintáját (RLS-érintés
+-- nélküli, lokális Supabase CLI stack-re való verzió).
 -- =========================================================================
-
--- 1. Engedékeny RLS szabályok (hogy a weboldal azonnal írhasson és olvashasson)
-alter table public.regions enable row level security;
-alter table public.categories enable row level security;
-alter table public.providers enable row level security;
-alter table public.programs enable row level security;
-alter table public.program_images enable row level security;
-alter table public.inquiries enable row level security;
-
-drop policy if exists "allow_all_regions" on public.regions;
-create policy "allow_all_regions" on public.regions for all using (true) with check (true);
-
-drop policy if exists "allow_all_categories" on public.categories;
-create policy "allow_all_categories" on public.categories for all using (true) with check (true);
-
-drop policy if exists "allow_all_providers" on public.providers;
-create policy "allow_all_providers" on public.providers for all using (true) with check (true);
-
-drop policy if exists "allow_all_programs" on public.programs;
-create policy "allow_all_programs" on public.programs for all using (true) with check (true);
-
-drop policy if exists "allow_all_images" on public.program_images;
-create policy "allow_all_images" on public.program_images for all using (true) with check (true);
-
-drop policy if exists "allow_all_inquiries" on public.inquiries;
-create policy "allow_all_inquiries" on public.inquiries for all using (true) with check (true);
 
 -- 2. Kategóriák beszúrása
 insert into public.categories (id, name, slug, icon, active) values

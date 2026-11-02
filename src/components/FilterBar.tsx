@@ -21,13 +21,26 @@ interface FilterBarProps {
   // unaffected by this state.
   mobileOpen: boolean;
   onCloseMobile: () => void;
+  // Kanban 6f9ad755: on "Programok" (and /regiok/:slug), hide the travel
+  // category from this dropdown entirely -- it's a separate top-level nav
+  // target ("Utazások"), not a filter choice within Programok.
+  hideCategorySlug?: string;
+  // Kanban 6f9ad755: on /utazasok there's exactly one category in scope, so
+  // the "Szolgáltatás Típusa" selector itself is pointless -- hide it.
+  hideCategoryFilter?: boolean;
+  // Kanban 2bc6d38b: Utazások reads/writes its OWN independent filter slice
+  // (travelSelectedRegion/travelMaxPrice/... in AppContext), not the
+  // Programok one -- see the AppContextType comment there for why.
+  travelOnly?: boolean;
 }
 
-export const FilterBar: React.FC<FilterBarProps> = ({ mobileOpen, onCloseMobile }) => {
+export const FilterBar: React.FC<FilterBarProps> = ({ mobileOpen, onCloseMobile, hideCategorySlug, hideCategoryFilter, travelOnly }) => {
   const {
     regions,
     selectedRegion,
     setSelectedRegion,
+    travelSelectedRegion,
+    setTravelSelectedRegion,
     categories,
     selectedCategory,
     setSelectedCategory,
@@ -35,23 +48,51 @@ export const FilterBar: React.FC<FilterBarProps> = ({ mobileOpen, onCloseMobile 
     setSelectedDateFrom,
     selectedDateTo,
     setSelectedDateTo,
+    travelSelectedDateFrom,
+    setTravelSelectedDateFrom,
+    travelSelectedDateTo,
+    setTravelSelectedDateTo,
     selectedDurationType,
     setSelectedDurationType,
+    travelSelectedDurationType,
+    setTravelSelectedDurationType,
     maxPrice,
     setMaxPrice,
+    travelMaxPrice,
+    setTravelMaxPrice,
     currencyFilter,
     setCurrencyFilter,
+    travelCurrencyFilter,
+    setTravelCurrencyFilter,
     resetFilters,
+    resetTravelFilters,
   } = useApp();
 
+  // Kanban 2bc6d38b: pick the active slice once, use the same names below --
+  // selectedCategory has no travel counterpart (see AppContextType comment),
+  // it's irrelevant here anyway since hideCategoryFilter is always true
+  // together with travelOnly (set by ProgramsPage).
+  const activeRegion = travelOnly ? travelSelectedRegion : selectedRegion;
+  const setActiveRegion = travelOnly ? setTravelSelectedRegion : setSelectedRegion;
+  const activeDateFrom = travelOnly ? travelSelectedDateFrom : selectedDateFrom;
+  const setActiveDateFrom = travelOnly ? setTravelSelectedDateFrom : setSelectedDateFrom;
+  const activeDateTo = travelOnly ? travelSelectedDateTo : selectedDateTo;
+  const setActiveDateTo = travelOnly ? setTravelSelectedDateTo : setSelectedDateTo;
+  const activeDurationType = travelOnly ? travelSelectedDurationType : selectedDurationType;
+  const setActiveDurationType = travelOnly ? setTravelSelectedDurationType : setSelectedDurationType;
+  const activeMaxPrice = travelOnly ? travelMaxPrice : maxPrice;
+  const setActiveMaxPrice = travelOnly ? setTravelMaxPrice : setMaxPrice;
+  const activeCurrencyFilter = travelOnly ? travelCurrencyFilter : currencyFilter;
+  const activeResetFilters = travelOnly ? resetTravelFilters : resetFilters;
+
   const hasActiveFilters = Boolean(
-    selectedRegion ||
-    selectedCategory ||
-    selectedDateFrom ||
-    selectedDateTo ||
-    selectedDurationType !== 'all' ||
-    maxPrice < 150 ||
-    currencyFilter !== 'ALL'
+    activeRegion ||
+    (!travelOnly && selectedCategory) ||
+    activeDateFrom ||
+    activeDateTo ||
+    activeDurationType !== 'all' ||
+    activeMaxPrice < 150 ||
+    activeCurrencyFilter !== 'ALL'
   );
 
   // Same control set rendered both in the desktop inline card and in the
@@ -65,8 +106,8 @@ export const FilterBar: React.FC<FilterBarProps> = ({ mobileOpen, onCloseMobile 
             <span>Úticél / Régió</span>
           </label>
           <select
-            value={selectedRegion || ''}
-            onChange={(e) => setSelectedRegion(e.target.value || null)}
+            value={activeRegion || ''}
+            onChange={(e) => setActiveRegion(e.target.value || null)}
             className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
           >
             <option value="">Összes desztináció</option>
@@ -79,24 +120,26 @@ export const FilterBar: React.FC<FilterBarProps> = ({ mobileOpen, onCloseMobile 
         </div>
 
         {/* 2. Szolgáltatás típusa */}
-        <div className="col-span-2 sm:col-span-1">
-          <label className="block text-xs font-bold text-stone-700 mb-1.5 flex items-center gap-1">
-            <Layers className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Szolgáltatás Típusa</span>
-          </label>
-          <select
-            value={selectedCategory || ''}
-            onChange={(e) => setSelectedCategory(e.target.value || null)}
-            className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
-          >
-            <option value="">Összes típus (Kirándulás, Transzfer...)</option>
-            {categories.filter(c => c.active).map((cat) => (
-              <option key={cat.id} value={cat.slug}>
-                {cat.name}
-              </option>
-            ))}
-          </select>
-        </div>
+        {!hideCategoryFilter && (
+          <div className="col-span-2 sm:col-span-1">
+            <label className="block text-xs font-bold text-stone-700 mb-1.5 flex items-center gap-1">
+              <Layers className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Szolgáltatás Típusa</span>
+            </label>
+            <select
+              value={selectedCategory || ''}
+              onChange={(e) => setSelectedCategory(e.target.value || null)}
+              className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+            >
+              <option value="">Összes típus (Kirándulás, Transzfer...)</option>
+              {categories.filter(c => c.active && c.slug !== hideCategorySlug).map((cat) => (
+                <option key={cat.id} value={cat.slug}>
+                  {cat.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* 3. Dátumtól */}
         <div className="col-span-1">
@@ -106,12 +149,12 @@ export const FilterBar: React.FC<FilterBarProps> = ({ mobileOpen, onCloseMobile 
           </label>
           <input
             type="date"
-            value={selectedDateFrom}
+            value={activeDateFrom}
             onChange={(e) => {
               const val = e.target.value;
-              setSelectedDateFrom(val);
-              if (selectedDateTo && val && val > selectedDateTo) {
-                setSelectedDateTo('');
+              setActiveDateFrom(val);
+              if (activeDateTo && val && val > activeDateTo) {
+                setActiveDateTo('');
               }
             }}
             className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
@@ -126,9 +169,9 @@ export const FilterBar: React.FC<FilterBarProps> = ({ mobileOpen, onCloseMobile 
           </label>
           <input
             type="date"
-            value={selectedDateTo}
-            min={selectedDateFrom || undefined}
-            onChange={(e) => setSelectedDateTo(e.target.value)}
+            value={activeDateTo}
+            min={activeDateFrom || undefined}
+            onChange={(e) => setActiveDateTo(e.target.value)}
             className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
           />
         </div>
@@ -141,9 +184,9 @@ export const FilterBar: React.FC<FilterBarProps> = ({ mobileOpen, onCloseMobile 
           </label>
           <div className="grid grid-cols-3 gap-1 p-1 bg-stone-100 rounded-xl">
             <button
-              onClick={() => setSelectedDurationType('all')}
+              onClick={() => setActiveDurationType('all')}
               className={`text-xs py-1.5 rounded-lg font-medium transition-colors cursor-pointer ${
-                selectedDurationType === 'all'
+                activeDurationType === 'all'
                   ? 'bg-white text-stone-900 shadow-sm font-bold'
                   : 'text-stone-600 hover:text-stone-900'
               }`}
@@ -151,9 +194,9 @@ export const FilterBar: React.FC<FilterBarProps> = ({ mobileOpen, onCloseMobile 
               Mind
             </button>
             <button
-              onClick={() => setSelectedDurationType('single')}
+              onClick={() => setActiveDurationType('single')}
               className={`text-xs py-1.5 rounded-lg font-medium transition-colors cursor-pointer ${
-                selectedDurationType === 'single'
+                activeDurationType === 'single'
                   ? 'bg-white text-stone-900 shadow-sm font-bold'
                   : 'text-stone-600 hover:text-stone-900'
               }`}
@@ -161,9 +204,9 @@ export const FilterBar: React.FC<FilterBarProps> = ({ mobileOpen, onCloseMobile 
               Egynapos
             </button>
             <button
-              onClick={() => setSelectedDurationType('multi')}
+              onClick={() => setActiveDurationType('multi')}
               className={`text-xs py-1.5 rounded-lg font-medium transition-colors cursor-pointer ${
-                selectedDurationType === 'multi'
+                activeDurationType === 'multi'
                   ? 'bg-white text-stone-900 shadow-sm font-bold'
                   : 'text-stone-600 hover:text-stone-900'
               }`}
@@ -179,7 +222,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({ mobileOpen, onCloseMobile 
             <div className="flex items-center justify-between text-xs text-stone-600 mb-1">
               <span className="font-bold">Maximális részvételi díj:</span>
               <span className="font-extrabold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-lg">
-                {maxPrice} EUR / fő
+                {activeMaxPrice} EUR / fő
               </span>
             </div>
             <input
@@ -187,8 +230,8 @@ export const FilterBar: React.FC<FilterBarProps> = ({ mobileOpen, onCloseMobile 
               min="20"
               max="200"
               step="5"
-              value={maxPrice}
-              onChange={(e) => setMaxPrice(Number(e.target.value))}
+              value={activeMaxPrice}
+              onChange={(e) => setActiveMaxPrice(Number(e.target.value))}
               className="w-full accent-emerald-600 cursor-pointer"
             />
           </div>
@@ -212,12 +255,12 @@ export const FilterBar: React.FC<FilterBarProps> = ({ mobileOpen, onCloseMobile 
         <div className="flex items-center justify-between gap-3 mb-4">
           <div className="flex items-center gap-2 text-stone-900 font-bold font-display text-base sm:text-lg">
             <Filter className="w-5 h-5 text-emerald-600" />
-            <span>Szűrés: Külföldi Programok & Transzferek</span>
+            <span>{travelOnly ? 'Szűrés: Utazások Magyarországról' : 'Szűrés: Külföldi Programok & Transzferek'}</span>
           </div>
 
           {hasActiveFilters && (
             <button
-              onClick={resetFilters}
+              onClick={activeResetFilters}
               className="text-xs text-rose-600 hover:text-rose-700 font-semibold flex items-center gap-1 hover:underline cursor-pointer"
             >
               <RotateCcw className="w-3.5 h-3.5" />
@@ -260,7 +303,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({ mobileOpen, onCloseMobile 
               {hasActiveFilters ? (
                 <button
                   type="button"
-                  onClick={resetFilters}
+                  onClick={activeResetFilters}
                   className="text-xs text-rose-600 hover:text-rose-700 font-semibold flex items-center gap-1 cursor-pointer"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />

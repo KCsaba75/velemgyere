@@ -8,6 +8,7 @@ import {
   Program,
   ProgramImage,
   Inquiry,
+  ContactMessage,
   ProgramStatus,
   ProviderStatus,
   Order,
@@ -53,7 +54,11 @@ import { fetchLiveEurHufRate } from '../lib/exchangeRate';
 const VIEW_TO_PATH: Record<string, string> = {
   home: '/',
   programs: '/programok',
-  categories: '/kategoriak',
+  // Kanban 6f9ad755 (Csaba, 2026-11-02): a korabbi "Kategoriak" hub-oldal/nav-cel
+  // megszunt -- a /kategoriak most mar csak a /programok-ra redirectel (lasd
+  // App.tsx). Helyette onallo "Utazasok" nav-cel, fixen a travel-kategoriara
+  // szurve (lasd categories[].is_travel_category).
+  travel: '/utazasok',
   favorites: '/kedvencek',
   bookings: '/foglalasaim',
   'provider-landing': '/szolgaltatoknak',
@@ -71,26 +76,41 @@ const VIEW_TO_PATH: Record<string, string> = {
   // Kanban 5d6bb3d4 (Csaba, via Zora): a szolgaltatoi navbar "Kedvencek"
   // helyere kerulo uj "Uzenet" placeholder menupont, onallo top-level oldal.
   'provider-messages': '/szolgaltato/uzeneteim',
-  'admin-dashboard': '/admin',
-  // Kanban daa1ed70 (Csaba, via Zora): admin-nav "Kategoriak" deep-link a
-  // kategoria-kezelo fulre, kulon path -- nem query-param, mert ez a
-  // view/path mapping csak pathname-et ismer (lasd pathToView).
+  // Kanban 653c7577 (Csaba, teljes admin-nav atszervezes): minden admin
+  // alfunkcio onallo top-level oldal/nav-cel lett, nincs tobbe kozos
+  // "Admin Vezerlopult" hub -- lasd AdminProgramsPage/AdminCategoriesPage/
+  // AdminUsersPage/AdminReviewsPage/AdminBookingsPage/AdminSettingsPage.
+  'admin-programs': '/admin/programok',
+  // Kanban daa1ed70 (Csaba, via Zora), bovitve 653c7577-ben: a Kategoriak
+  // cel most egy HUB -- belso szegmentvalasztoval Desztinaciok/Regiok VS
+  // Szolgaltatas Tipusok kozott, nem kulon route a ket alreszhez.
   'admin-categories': '/admin/kategoriak',
-  // Kanban a8676c22 (Csaba, via Zora): admin-nav "Foglalasok" deep-link a
-  // szolgaltato-kezelo fulre, ugyanazon elv szerint mint admin-categories.
-  'admin-providers': '/admin/szolgaltatok',
+  // Kanban 653c7577: Felhasznalok HUB -- belso szegmentvalasztoval
+  // Szolgaltatok VS Programvadaszok kozott. Felvaltja a korabbi kulon
+  // 'admin-providers' (/admin/szolgaltatok) celt (a8676c22).
+  'admin-users': '/admin/felhasznalok',
+  'admin-reviews': '/admin/ertekelesek',
+  'admin-bookings': '/admin/foglalasok',
+  // A korabbi admin-hub "Beallitasok" (dij+arfolyam) es "Erdeklodesek" fulje,
+  // plusz a kijelentkezes/tesztadat-reset -- ezeknek nincs sajat targymenuje
+  // Csaba 6-pontos listajaban, igy egy lecsupaszitott oldalon maradnak,
+  // amit a Navbar egy kis fogaskerek-ikonja nyit (nem foglal helyet az 5
+  // fix targymenu-gomb kozott).
+  'admin-settings': '/admin/beallitasok',
   'my-account': '/sajat-fiokom',
 };
 
 function pathToView(pathname: string): string {
   if (pathname.startsWith('/programok')) return 'programs';
+  // Kanban 6f9ad755: /utazasok is its own fixed-category nav target, separate
+  // from /programok.
+  if (pathname.startsWith('/utazasok')) return 'travel';
   // /kategoriak/:slug and /regiok/:slug (kanban 4c966bc5) render ProgramsPage --
   // the same filtered catalog view as /programok -- not CategoriesView, so the
-  // navbar should highlight "Programok" there. Only the bare /kategoriak index
-  // (the category/region tile browser, no slug) is the actual "categories" view;
-  // there is no bare /regiok route at all (always has a slug).
-  if (pathname.startsWith('/kategoriak/') || pathname.startsWith('/regiok/')) return 'programs';
-  if (pathname.startsWith('/kategoriak')) return 'categories';
+  // navbar should highlight "Programok" there. The bare /kategoriak index no
+  // longer has its own view (kanban 6f9ad755 retired the hub page, it now just
+  // redirects to /programok, see App.tsx) -- falls through to 'programs' too.
+  if (pathname.startsWith('/kategoriak') || pathname.startsWith('/regiok/')) return 'programs';
   if (pathname.startsWith('/kedvencek')) return 'favorites';
   if (pathname.startsWith('/foglalasaim')) return 'bookings';
   if (pathname.startsWith('/szolgaltatoknak')) return 'provider-landing';
@@ -100,11 +120,20 @@ function pathToView(pathname: string): string {
   if (pathname.startsWith('/szolgaltato/erdeklodeseim')) return 'provider-inquiries';
   if (pathname.startsWith('/szolgaltato/uzeneteim')) return 'provider-messages';
   if (pathname.startsWith('/szolgaltato/dashboard')) return 'provider-dashboard';
-  // a specifikusabb /admin/kategoriak check az altalanos /admin ELOTT kell,
+  // a specifikusabb /admin/xxx checkek az altalanos /admin ELOTT kellenek,
   // kulonben a prefix-match sosem jutna el ide.
   if (pathname.startsWith('/admin/kategoriak')) return 'admin-categories';
-  if (pathname.startsWith('/admin/szolgaltatok')) return 'admin-providers';
-  if (pathname.startsWith('/admin')) return 'admin-dashboard';
+  if (pathname.startsWith('/admin/felhasznalok')) return 'admin-users';
+  if (pathname.startsWith('/admin/ertekelesek')) return 'admin-reviews';
+  if (pathname.startsWith('/admin/foglalasok')) return 'admin-bookings';
+  if (pathname.startsWith('/admin/beallitasok')) return 'admin-settings';
+  // Legacy /admin/szolgaltatok deep-link (a8676c22, elotte 'admin-providers'
+  // celkent) -- a Felhasznalok HUB-ra mutat, szolgaltatok szegmenssel.
+  if (pathname.startsWith('/admin/szolgaltatok')) return 'admin-users';
+  // Barmilyen tovabbi/legacy /admin* path (beleertve a bare /admin-et,
+  // amit App.tsx egy <Navigate> reszen keresztul /admin/programok-ra iranyit
+  // at) a Programok celre esik vissza.
+  if (pathname.startsWith('/admin')) return 'admin-programs';
   if (pathname.startsWith('/sajat-fiokom')) return 'my-account';
   return 'home';
 }
@@ -246,6 +275,28 @@ interface AppContextType {
   setCurrencyFilter: (curr: 'ALL' | 'EUR' | 'Ft') => void;
   resetFilters: () => void;
 
+  // Kanban 2bc6d38b (Csaba, 2026-11-02): "Utazások" (ProgramsPage travelOnly)
+  // gets its own INDEPENDENT filter slice, so filtering on Programok doesn't
+  // leak into Utazások and back -- without touching the 2026-10-12 decision
+  // (kanban 79568288) that filter state persists across navigation within a
+  // page, only cleared by "Szűrők törlése". That rule still applies to EACH
+  // slice separately. selectedCategory has no travel counterpart -- the
+  // travel page's category is fixed (categories[].is_travel_category), never
+  // user-selectable, so there's nothing to persist independently there.
+  travelSelectedRegion: string | null;
+  setTravelSelectedRegion: (slug: string | null) => void;
+  travelSelectedDateFrom: string;
+  setTravelSelectedDateFrom: (date: string) => void;
+  travelSelectedDateTo: string;
+  setTravelSelectedDateTo: (date: string) => void;
+  travelSelectedDurationType: 'all' | 'single' | 'multi';
+  setTravelSelectedDurationType: (type: 'all' | 'single' | 'multi') => void;
+  travelMaxPrice: number;
+  setTravelMaxPrice: (price: number) => void;
+  travelCurrencyFilter: 'ALL' | 'EUR' | 'Ft';
+  setTravelCurrencyFilter: (curr: 'ALL' | 'EUR' | 'Ft') => void;
+  resetTravelFilters: () => void;
+
   // Auth / Role
   currentUser: Profile;
   currentProvider: Provider | null;
@@ -286,6 +337,7 @@ interface AppContextType {
   programs: Program[];
   providers: Provider[];
   inquiries: Inquiry[];
+  contactMessages: ContactMessage[];
   registeredVisitors: Profile[];
   totalRegisteredVisitors: number;
 
@@ -338,6 +390,13 @@ interface AppContextType {
     phone?: string;
     message?: string;
   }) => Promise<void>;
+
+  // Kanban 6f9ad755: generic user -> platform/admin contact message,
+  // replacing the dead "Érdeklődéseim" block in MyAccountView.tsx.
+  submitContactMessage: (data: { name: string; email: string; message: string }) => Promise<{ success: boolean; message: string }>;
+  // Kanban 6f9ad755 bővítés (Csaba, msg 3189): admin "Üzenetek" panel.
+  markContactMessageRead: (id: string) => Promise<void>;
+  replyToContactMessage: (id: string, replyText: string) => Promise<{ success: boolean; message: string }>;
 
   // Orders (kanban 71215856 point 2): logged-in-only reservation records,
   // NOT a real payment/booking yet -- see schema.sql comment on public.orders.
@@ -574,6 +633,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [maxPrice, setMaxPrice] = useState<number>(150); // Default for EUR abroad prices
   const [currencyFilter, setCurrencyFilter] = useState<'ALL' | 'EUR' | 'Ft'>('ALL');
 
+  // Kanban 2bc6d38b: independent filter slice for "Utazások" (travelOnly) --
+  // see the AppContextType comment above for why. No travel-specific
+  // selectedCategory: the travel page's category is fixed, not a user choice.
+  const [travelSelectedRegion, setTravelSelectedRegion] = useState<string | null>(null);
+  const [travelSelectedDateFrom, setTravelSelectedDateFrom] = useState<string>('');
+  const [travelSelectedDateTo, setTravelSelectedDateTo] = useState<string>('');
+  const [travelSelectedDurationType, setTravelSelectedDurationType] = useState<'all' | 'single' | 'multi'>('all');
+  const [travelMaxPrice, setTravelMaxPrice] = useState<number>(150);
+  const [travelCurrencyFilter, setTravelCurrencyFilter] = useState<'ALL' | 'EUR' | 'Ft'>('ALL');
+
   // Dynamic collections from Supabase (sole persistent source of truth - local storage removed)
   const [regions, setRegions] = useState<Region[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -582,6 +651,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [rawPrograms, setRawPrograms] = useState<Program[]>([]);
   const [rawImages, setRawImages] = useState<ProgramImage[]>([]);
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
+  // Kanban 6f9ad755: admin-only (RLS) -- a non-admin session's query just comes
+  // back empty, no error, same shape as the inquiries fetch above.
+  const [contactMessages, setContactMessages] = useState<ContactMessage[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [rawFavoriteFolders, setRawFavoriteFolders] = useState<FavoriteFolder[]>([]);
@@ -765,6 +837,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           profilesRes,
           imagesRes,
           inquiriesRes,
+          contactMessagesRes,
           reviewsRes,
           settingsRes,
         ] = await Promise.all([
@@ -773,6 +846,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           supabase.from('profiles').select('*'),
           supabase.from('program_images').select('*'),
           supabase.from('inquiries').select('*'),
+          supabase.from('contact_messages').select('*').order('created_at', { ascending: false }),
           supabase.from('reviews').select('*').order('created_at', { ascending: false }),
           supabase.from('app_settings').select('*').in('key', ['fee_percentage', 'fee_minimum_eur', 'eur_huf_rate']),
         ]);
@@ -784,6 +858,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (profilesRes.data) setRawProfiles(profilesRes.data as Profile[]);
         if (imagesRes.data) setRawImages(imagesRes.data as ProgramImage[]);
         if (inquiriesRes.data) setInquiries(inquiriesRes.data as Inquiry[]);
+        if (contactMessagesRes.data) setContactMessages(contactMessagesRes.data as ContactMessage[]);
         if (reviewsRes.data) setReviews(reviewsRes.data as Review[]);
 
         if (!settingsRes.error && settingsRes.data) {
@@ -1347,6 +1422,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSelectedDurationType('all');
     setMaxPrice(150);
     setCurrencyFilter('ALL');
+  };
+
+  // Kanban 2bc6d38b: "Szűrők törlése" on /utazasok -- mirrors resetFilters
+  // but only touches the travel slice (no category to clear, it's fixed).
+  const resetTravelFilters = () => {
+    setSearchQuery('');
+    setTravelSelectedRegion(null);
+    setTravelSelectedDateFrom('');
+    setTravelSelectedDateTo('');
+    setTravelSelectedDurationType('all');
+    setTravelMaxPrice(150);
+    setTravelCurrencyFilter('ALL');
   };
 
   // Kartya cde7bd96: a sikeres bejelentkezes utani azonnali redirect-dontesnek
@@ -1942,6 +2029,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       slug,
       icon: data.icon || 'Compass',
       active: data.active ?? true,
+      // Kanban 6f9ad755: a travel-kategoria egyetlen, migraciosan fixen
+      // kijelolt sor -- az admin "uj szolgaltatas-tipus" urlapja sosem allitja
+      // ezt true-ra.
+      is_travel_category: false,
     };
 
     if (isSupabaseConfigured) {
@@ -2282,6 +2373,86 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     setInquiries(prev => [newInquiry, ...prev]);
+  };
+
+  // Kanban 6f9ad755: generic user -> platform/admin contact message. Lives only
+  // in MyAccountView (already-authenticated context), so unlike submitInquiry
+  // this doesn't need an anonymous-visitor path.
+  const submitContactMessage = async (data: {
+    name: string;
+    email: string;
+    message: string;
+  }): Promise<{ success: boolean; message: string }> => {
+    if (!data.message.trim()) {
+      return { success: false, message: 'Írj be egy üzenetet, mielőtt elküldöd.' };
+    }
+    if (!isSupabaseConfigured) {
+      return { success: false, message: 'Az üzenetküldés csak éles (Supabase-sel összekötött) környezetben érhető el.' };
+    }
+
+    const { error } = await supabase.from('contact_messages').insert({
+      user_id: currentUser.user_id || null,
+      name: data.name,
+      email: data.email,
+      message: data.message.trim(),
+    });
+
+    if (error) {
+      console.error('submitContactMessage failed:', error);
+      return { success: false, message: `Üzenet küldése sikertelen: ${error.message}` };
+    }
+
+    return { success: true, message: 'Üzeneted elküldve! Hamarosan válaszolunk.' };
+  };
+
+  // Kanban 6f9ad755 bővítés (Csaba, msg 3189): admin kinyit egy "még olvasatlan"
+  // sort az Üzenetek panelen -- csak akkor ír, ha még 'new' (ne írja felül
+  // 'resolved'-re egy már megválaszolt sor state-jét egy újra-megnyitással).
+  const markContactMessageRead = async (id: string): Promise<void> => {
+    const msg = contactMessages.find(m => m.id === id);
+    if (!msg || msg.status !== 'new') return;
+
+    setContactMessages(prev => prev.map(m => (m.id === id ? { ...m, status: 'read' } : m)));
+
+    if (isSupabaseConfigured) {
+      const { error } = await supabase.from('contact_messages').update({ status: 'read' }).eq('id', id);
+      if (error) console.error('markContactMessageRead failed:', error);
+    }
+  };
+
+  // Kanban 6f9ad755 bővítés: a send-contact-reply Edge Function végzi az
+  // email-küldést (Resend) ÉS a DB-írást (admin_reply/replied_at/status) egy
+  // helyen -- a caller saját JWT-jét supabase-js automatikusan továbbítja, az
+  // is_admin() RLS dönt arról, hogy a hívó valóban admin-e.
+  const replyToContactMessage = async (id: string, replyText: string): Promise<{ success: boolean; message: string }> => {
+    if (!replyText.trim()) {
+      return { success: false, message: 'Írj be egy választ, mielőtt elküldöd.' };
+    }
+    if (!isSupabaseConfigured) {
+      return { success: false, message: 'A válaszküldés csak éles (Supabase-sel összekötött) környezetben érhető el.' };
+    }
+
+    const { data, error } = await supabase.functions.invoke('send-contact-reply', {
+      body: { messageId: id, replyText: replyText.trim() },
+    });
+
+    if (error) {
+      console.error('replyToContactMessage failed:', error);
+      return { success: false, message: 'Hiba történt a válasz elküldése során.' };
+    }
+    if (!data?.sent) {
+      return { success: false, message: data?.error || 'Hiba történt a válasz elküldése során.' };
+    }
+
+    setContactMessages(prev =>
+      prev.map(m =>
+        m.id === id
+          ? { ...m, status: 'resolved', admin_reply: replyText.trim(), replied_at: new Date().toISOString() }
+          : m,
+      ),
+    );
+
+    return { success: true, message: 'Válasz elküldve.' };
   };
 
   // Orders (point 2): a logged-in-only reservation record, NOT a real payment yet --
@@ -3541,6 +3712,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, [isAuthenticated, currentUser.user_id]);
 
+  // Kanban 6f9ad755: contact_messages is admin-only to READ (RLS is_admin()),
+  // unlike the legacy `inquiries` table (publicly readable, so its one-time
+  // mount-time fetch above happens to already work for everyone). The big
+  // mount-time Promise.all above runs ONCE (`[]` deps, before any session
+  // exists) -- an anon-role fetch of an admin-gated table always comes back
+  // empty, and nothing there re-runs after sign-in. Without this dedicated
+  // effect, an admin who was already on the page before logging in would
+  // never see a contact message, no matter how long they waited.
+  useEffect(() => {
+    if (!isSupabaseConfigured || !isAuthenticated || currentUser.role !== 'admin') return;
+    let cancelled = false;
+    supabase
+      .from('contact_messages')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) {
+          console.error('contact_messages admin refetch failed:', error);
+          return;
+        }
+        if (data) setContactMessages(data as ContactMessage[]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, currentUser.role]);
+
   const getFolderPrograms = (folderId: string): Program[] => {
     if (!isAuthenticated || !currentUser?.user_id) return [];
     if (folderId === 'all') {
@@ -3645,6 +3844,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         profilesRes,
         imagesRes,
         inquiriesRes,
+        contactMessagesRes,
         reviewsRes,
       ] = await Promise.all([
         supabase.from('regions').select('*'),
@@ -3652,6 +3852,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         supabase.from('profiles').select('*'),
         supabase.from('program_images').select('*'),
         supabase.from('inquiries').select('*'),
+        supabase.from('contact_messages').select('*').order('created_at', { ascending: false }),
         supabase.from('reviews').select('*').order('created_at', { ascending: false }),
       ]);
       if (regionsRes.data) setRegions(regionsRes.data as Region[]);
@@ -3659,6 +3860,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (profilesRes.data) setRawProfiles(profilesRes.data as Profile[]);
       if (imagesRes.data) setRawImages(imagesRes.data as ProgramImage[]);
       if (inquiriesRes.data) setInquiries(inquiriesRes.data as Inquiry[]);
+      if (contactMessagesRes.data) setContactMessages(contactMessagesRes.data as ContactMessage[]);
       if (reviewsRes.data) setReviews(reviewsRes.data as Review[]);
       loadProgramsAndProviders(isAuthenticated, currentUser.role);
     }
@@ -3694,6 +3896,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setCurrencyFilter,
         resetFilters,
 
+        travelSelectedRegion,
+        setTravelSelectedRegion,
+        travelSelectedDateFrom,
+        setTravelSelectedDateFrom,
+        travelSelectedDateTo,
+        setTravelSelectedDateTo,
+        travelSelectedDurationType,
+        setTravelSelectedDurationType,
+        travelMaxPrice,
+        setTravelMaxPrice,
+        travelCurrencyFilter,
+        setTravelCurrencyFilter,
+        resetTravelFilters,
+
         currentUser,
         currentProvider,
         isAuthenticated,
@@ -3713,6 +3929,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         programs,
         providers: rawProviders,
         inquiries: inquiriesWithDetails,
+        contactMessages,
+        markContactMessageRead,
+        replyToContactMessage,
         registeredVisitors,
         totalRegisteredVisitors,
 
@@ -3740,6 +3959,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateProviderProfile,
 
         submitInquiry,
+        submitContactMessage,
 
         orders: ordersWithProgram,
         createOrder,

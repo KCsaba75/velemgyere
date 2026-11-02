@@ -6,12 +6,17 @@ interface BookingPushNotificationCardProps {
   userId: string;
   initialEnabled: boolean;
   onSavePreference: (enabled: boolean) => Promise<void> | void;
+  // Kanban 248d2841: reused as-is on AdminSettingsPage for the new contact-
+  // message push opt-in -- same underlying mechanism (push_subscriptions +
+  // profiles.push_notifications_enabled), just a different event to describe.
+  description?: string;
 }
 
 export const BookingPushNotificationCard: React.FC<BookingPushNotificationCardProps> = ({
   userId,
   initialEnabled,
   onSavePreference,
+  description = 'Azonnali értesítés új foglalás-chat üzenetről, akkor is, ha nem az oldalon vagy éppen.',
 }) => {
   const [enabled, setEnabled] = useState<boolean>(initialEnabled);
   const [saving, setSaving] = useState(false);
@@ -68,7 +73,7 @@ export const BookingPushNotificationCard: React.FC<BookingPushNotificationCardPr
               )}
             </div>
             <p className="text-xs sm:text-sm text-stone-500 mt-0.5">
-              Azonnali értesítés új foglalás-chat üzenetről, akkor is, ha nem az oldalon vagy éppen.
+              {description}
             </p>
           </div>
         </div>
