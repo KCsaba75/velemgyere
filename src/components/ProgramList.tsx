@@ -10,9 +10,18 @@ interface ProgramListProps {
   // FilterBar (the drawer's owner) is a sibling of this component, not a
   // parent.
   onOpenMobileFilters: () => void;
+  // Kanban 6f9ad755: on "Programok" (and /regiok/:slug), always exclude the
+  // travel category's programs, regardless of selectedCategory -- "Programok"
+  // means everything EXCEPT "Utazások" now.
+  excludeCategorySlug?: string;
+  // Kanban 6f9ad755: /utazasok -- the heading/badge below were hardcoded to
+  // "Külföldi Programkatalógus" copy for every filter combination (region-only
+  // badge aside), which would be actively wrong on the one page about
+  // Hungary-departing trips. Swaps in travel-appropriate copy instead.
+  travelOnly?: boolean;
 }
 
-export const ProgramList: React.FC<ProgramListProps> = ({ onOpenMobileFilters }) => {
+export const ProgramList: React.FC<ProgramListProps> = ({ onOpenMobileFilters, excludeCategorySlug, travelOnly }) => {
   const {
     programs,
     regions,
@@ -77,6 +86,13 @@ export const ProgramList: React.FC<ProgramListProps> = ({ onOpenMobileFilters })
         if (p.category?.slug !== selectedCategory) {
           return false;
         }
+      }
+
+      // Kanban 6f9ad755: "Programok" always excludes the travel category,
+      // independent of selectedCategory (which can't even select it there --
+      // FilterBar hides the option -- but this stays correct if that ever drifts).
+      if (excludeCategorySlug && p.category?.slug === excludeCategorySlug) {
+        return false;
       }
 
       // Search query
@@ -163,6 +179,7 @@ export const ProgramList: React.FC<ProgramListProps> = ({ onOpenMobileFilters })
     searchQuery,
     selectedRegion,
     selectedCategory,
+    excludeCategorySlug,
     selectedLocation,
     selectedDateFrom,
     selectedDateTo,
@@ -179,7 +196,7 @@ export const ProgramList: React.FC<ProgramListProps> = ({ onOpenMobileFilters })
           <div>
             <div className="flex items-center gap-1.5 mb-0.5">
               <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
-                Külföldi Programkatalógus
+                {travelOnly ? 'Magyarországról Induló Utazások' : 'Külföldi Programkatalógus'}
               </span>
               {activeRegionObj && (
                 <span className="text-[10px] font-bold text-stone-700 bg-stone-100 px-2 py-0.5 rounded-md flex items-center gap-1">
@@ -189,7 +206,7 @@ export const ProgramList: React.FC<ProgramListProps> = ({ onOpenMobileFilters })
               )}
             </div>
             <h1 className="text-lg font-extrabold font-display text-stone-900 tracking-tight">
-              Kirándulások & Élmények
+              {travelOnly ? 'Utazások Magyarországról' : 'Kirándulások & Élmények'}
             </h1>
           </div>
 
@@ -301,7 +318,7 @@ export const ProgramList: React.FC<ProgramListProps> = ({ onOpenMobileFilters })
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="text-xs font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-lg">
-              Külföldi Magyar Programkatalógus
+              {travelOnly ? 'Magyarországról Induló Utazások' : 'Külföldi Magyar Programkatalógus'}
             </span>
             {activeRegionObj && (
               <span className="text-xs font-bold text-stone-700 bg-stone-100 px-2.5 py-0.5 rounded-lg flex items-center gap-1.5">
@@ -311,10 +328,12 @@ export const ProgramList: React.FC<ProgramListProps> = ({ onOpenMobileFilters })
             )}
           </div>
           <h2 className="text-2xl sm:text-3xl font-extrabold font-display text-stone-900 tracking-tight">
-            Magyar Nyelvű Kirándulások, Élmények & Transzferek
+            {travelOnly ? 'Utazások Magyarországról' : 'Magyar Nyelvű Kirándulások, Élmények & Transzferek'}
           </h2>
           <p className="text-sm text-stone-500 mt-1">
-            Közvetlen kapcsolat helyi magyar idegenvezetőkkel és tapasztalt túraszervezőkkel
+            {travelOnly
+              ? 'Magyarországról induló, szervezett kirándulások és utazások.'
+              : 'Közvetlen kapcsolat helyi magyar idegenvezetőkkel és tapasztalt túraszervezőkkel'}
           </p>
         </div>
 

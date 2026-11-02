@@ -21,9 +21,16 @@ interface FilterBarProps {
   // unaffected by this state.
   mobileOpen: boolean;
   onCloseMobile: () => void;
+  // Kanban 6f9ad755: on "Programok" (and /regiok/:slug), hide the travel
+  // category from this dropdown entirely -- it's a separate top-level nav
+  // target ("Utazások"), not a filter choice within Programok.
+  hideCategorySlug?: string;
+  // Kanban 6f9ad755: on /utazasok there's exactly one category in scope, so
+  // the "Szolgáltatás Típusa" selector itself is pointless -- hide it.
+  hideCategoryFilter?: boolean;
 }
 
-export const FilterBar: React.FC<FilterBarProps> = ({ mobileOpen, onCloseMobile }) => {
+export const FilterBar: React.FC<FilterBarProps> = ({ mobileOpen, onCloseMobile, hideCategorySlug, hideCategoryFilter }) => {
   const {
     regions,
     selectedRegion,
@@ -79,24 +86,26 @@ export const FilterBar: React.FC<FilterBarProps> = ({ mobileOpen, onCloseMobile 
         </div>
 
         {/* 2. Szolgáltatás típusa */}
-        <div className="col-span-2 sm:col-span-1">
-          <label className="block text-xs font-bold text-stone-700 mb-1.5 flex items-center gap-1">
-            <Layers className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Szolgáltatás Típusa</span>
-          </label>
-          <select
-            value={selectedCategory || ''}
-            onChange={(e) => setSelectedCategory(e.target.value || null)}
-            className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
-          >
-            <option value="">Összes típus (Kirándulás, Transzfer...)</option>
-            {categories.filter(c => c.active).map((cat) => (
-              <option key={cat.id} value={cat.slug}>
-                {cat.name}
-              </option>
-            ))}
-          </select>
-        </div>
+        {!hideCategoryFilter && (
+          <div className="col-span-2 sm:col-span-1">
+            <label className="block text-xs font-bold text-stone-700 mb-1.5 flex items-center gap-1">
+              <Layers className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Szolgáltatás Típusa</span>
+            </label>
+            <select
+              value={selectedCategory || ''}
+              onChange={(e) => setSelectedCategory(e.target.value || null)}
+              className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+            >
+              <option value="">Összes típus (Kirándulás, Transzfer...)</option>
+              {categories.filter(c => c.active && c.slug !== hideCategorySlug).map((cat) => (
+                <option key={cat.id} value={cat.slug}>
+                  {cat.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* 3. Dátumtól */}
         <div className="col-span-1">

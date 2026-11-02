@@ -12,6 +12,7 @@ import { useDocumentMeta } from '../hooks/useDocumentMeta';
 export const AdminSettingsPage: React.FC = () => {
   const {
     inquiries,
+    contactMessages,
     resetToDefaults,
     feePercentage,
     feeMinimumEur,
@@ -336,6 +337,48 @@ export const AdminSettingsPage: React.FC = () => {
               );
             })}
           </div>
+        </div>
+      </div>
+
+      {/* Kapcsolati üzenetek (kanban 6f9ad755) -- a sajat-fiokom lapon megszunt
+          "Erdeklodeseim" blokk uj, "Kapcsolat / Kerdesem van" uzenetkuldo
+          formjanak az ADMIN-oldali olvaso nezete. */}
+      <div className="space-y-3">
+        <h3 className="font-display font-bold text-stone-900 text-lg">Kapcsolati üzenetek</h3>
+        <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden shadow-sm">
+          <div className="p-4 bg-stone-50 border-b border-stone-100 text-xs font-bold text-stone-500 uppercase tracking-wider">
+            Felhasználóktól beérkezett üzenetek ({contactMessages.length})
+          </div>
+
+          {contactMessages.length === 0 ? (
+            <div className="p-5 text-sm text-stone-500">Még nem érkezett kapcsolati üzenet.</div>
+          ) : (
+            <div className="divide-y divide-stone-100">
+              {contactMessages.map((msg) => {
+                const formattedDate = new Date(msg.created_at).toLocaleString('hu-HU', {
+                  year: 'numeric',
+                  month: 'short',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                });
+                return (
+                  <div key={msg.id} className="p-5 hover:bg-stone-50/50 transition-colors space-y-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 text-xs text-stone-700">
+                        <span>👤 <strong className="text-stone-900">{msg.name}</strong></span>
+                        <span>• <a href={`mailto:${msg.email}`} className="text-emerald-700 hover:underline font-semibold">{msg.email}</a></span>
+                      </div>
+                      <span className="text-xs text-stone-400">{formattedDate}</span>
+                    </div>
+                    <div className="bg-stone-50 p-3.5 rounded-xl border border-stone-100 text-sm text-stone-800">
+                      {msg.message}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     </div>

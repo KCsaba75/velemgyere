@@ -9,6 +9,7 @@ import {
   Ticket,
   Compass,
   LayoutGrid,
+  Plane,
   Star,
   MessageSquare,
   Users,
@@ -128,9 +129,11 @@ export const Navbar: React.FC<NavbarProps> = ({
   const isBookingsActive = isProvider ? currentView === 'provider-bookings' : currentView === 'bookings';
 
   // Kanban 5d6bb3d4 (Csaba, via Zora): szolgaltatokent a globalis
-  // "Kategoriak"/"Kedvencek" nav-elemek az ertekeleseim / a
-  // uzenet-fulre mutatnak, nem a publikus kategoria-bongezore / kedvenc-listara.
-  const isCategoriesOrReviewsActive = isProvider ? currentView === 'provider-reviews' : currentView === 'categories';
+  // "Utazasok"/"Kedvencek" nav-elemek az ertekeleseim / a
+  // uzenet-fulre mutatnak, nem a publikus utazasok-katalogusra / kedvenc-listara.
+  // Kanban 6f9ad755: a korabbi "Kategoriak" cel helyett "Utazasok" (fix
+  // travel-kategoria), ugyanaz a nav-slot/pozicio.
+  const isTravelOrReviewsActive = isProvider ? currentView === 'provider-reviews' : currentView === 'travel';
   const isFavoritesOrMessagesActive = isProvider ? currentView === 'provider-messages' : currentView === 'favorites';
 
   // Kanban ce0aeeef (Csaba, via Zora): kiemelve, hogy a Foglalasaim/Uzenet
@@ -310,12 +313,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                     {isProvider ? 'Programjaim' : 'Programok'}
                   </button>
                   <button
-                    onClick={() => navigateTo(isProvider ? 'provider-reviews' : 'categories')}
+                    onClick={() => navigateTo(isProvider ? 'provider-reviews' : 'travel')}
                     className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
-                      isCategoriesOrReviewsActive ? 'text-emerald-700 bg-emerald-50/80 font-bold' : 'text-stone-700 hover:text-stone-900 hover:bg-stone-100'
+                      isTravelOrReviewsActive ? 'text-emerald-700 bg-emerald-50/80 font-bold' : 'text-stone-700 hover:text-stone-900 hover:bg-stone-100'
                     }`}
                   >
-                    {isProvider ? 'Értékeléseim' : 'Kategóriák'}
+                    {isProvider ? 'Értékeléseim' : 'Utazások'}
                   </button>
                   {isProvider && desktopBookingsButton}
                   {desktopFavoritesOrMessagesButton}
@@ -455,22 +458,22 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span className="text-[11px] leading-tight mt-1 truncate">{isProvider ? 'Programjaim' : 'Programok'}</span>
               </button>
 
-              {/* 2. Kategóriák (szolgáltatóként: Értékeléseim) */}
+              {/* 2. Utazások (szolgáltatóként: Értékeléseim) */}
               <button
                 type="button"
-                onClick={() => navigateTo(isProvider ? 'provider-reviews' : 'categories')}
+                onClick={() => navigateTo(isProvider ? 'provider-reviews' : 'travel')}
                 className={`flex flex-col items-center justify-center py-1.5 px-0.5 transition-colors cursor-pointer min-w-0 ${
-                  isCategoriesOrReviewsActive
+                  isTravelOrReviewsActive
                     ? 'text-emerald-700 font-bold'
                     : 'text-stone-500 hover:text-stone-800 font-medium'
                 }`}
               >
                 {isProvider ? (
-                  <Star className={`w-5 h-5 transition-transform ${isCategoriesOrReviewsActive ? 'scale-110 stroke-[2.4]' : 'stroke-[1.8]'}`} />
+                  <Star className={`w-5 h-5 transition-transform ${isTravelOrReviewsActive ? 'scale-110 stroke-[2.4]' : 'stroke-[1.8]'}`} />
                 ) : (
-                  <LayoutGrid className={`w-5 h-5 transition-transform ${isCategoriesOrReviewsActive ? 'scale-110 stroke-[2.4]' : 'stroke-[1.8]'}`} />
+                  <Plane className={`w-5 h-5 transition-transform ${isTravelOrReviewsActive ? 'scale-110 stroke-[2.4]' : 'stroke-[1.8]'}`} />
                 )}
-                <span className="text-[11px] leading-tight mt-1 truncate">{isProvider ? 'Értékeléseim' : 'Kategóriák'}</span>
+                <span className="text-[11px] leading-tight mt-1 truncate">{isProvider ? 'Értékeléseim' : 'Utazások'}</span>
               </button>
 
               {/* 3-4. Kedvencek/Foglalások */}

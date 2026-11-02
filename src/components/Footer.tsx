@@ -43,8 +43,8 @@ export const Footer: React.FC = () => {
                 </button>
               </li>
               <li>
-                <button onClick={() => { setCurrentView('categories'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="hover:text-emerald-400 cursor-pointer">
-                  Kategóriák
+                <button onClick={() => { setCurrentView('travel'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="hover:text-emerald-400 cursor-pointer">
+                  Utazások
                 </button>
               </li>
               <li>

@@ -132,14 +132,13 @@ function staticRoutes() {
         canonical: `${SITE_URL}/programok`,
       },
     },
-    {
-      path: '/kategoriak',
-      seo: {
-        title: 'Kategóriák | Velem Gyere',
-        description: 'Fedezd fel a programokat kategória szerint -- városnézés, túra, transzfer és más élmények.',
-        canonical: `${SITE_URL}/kategoriak`,
-      },
-    },
+    // Kanban 6f9ad755 (Csaba, 2026-11-02): a korabbi "/kategoriak" hub-oldal
+    // megszunt (most csak kliens-oldalon redirectel /programok-ra -- egy
+    // redirectelo oldalnak nincs mit prerenderelni/indexelni, lasd lejjebb a
+    // requiredStatic listaban is), helyette "/utazasok" -- az a DINAMIKUS
+    // route-ok kozott kapja meg a sajat SEO-jat lejjebb (travelSeo), mert a
+    // nevet/leirasat a tenyleges travel-kategoriabol (is_travel_category)
+    // tudjuk csak kitolteni.
   ];
 }
 
@@ -165,7 +164,10 @@ async function fetchPrograms(supabase) {
 }
 
 async function fetchCategories(supabase) {
-  const { data, error } = await supabase.from('categories').select('slug, name').eq('active', true);
+  const { data, error } = await supabase
+    .from('categories')
+    .select('slug, name, is_travel_category')
+    .eq('active', true);
   if (error) throw new Error(`Failed to fetch categories: ${error.message}`);
   return data || [];
 }
@@ -230,6 +232,24 @@ function categorySeo(category) {
   };
 }
 
+// Kanban 6f9ad755: /utazasok -- fixed to whichever category has
+// is_travel_category=true (the slug itself differs between environments,
+// see is_travel_category comment in src/types/database.ts). Deliberately its
+// own canonical URL, not a /kategoriak/<slug> one -- that old path now just
+// redirects here client-side (ProgramsPage.tsx), so it isn't prerendered at
+// all (see the categories loop in main() skipping this category).
+function travelSeo(category) {
+  const url = `${SITE_URL}/utazasok`;
+  return {
+    path: '/utazasok',
+    seo: {
+      title: `${category.name} | Velem Gyere`,
+      description: `Magyar nyelvű, Magyarországról induló utazások és kirándulások: ${category.name.toLowerCase()}.`,
+      canonical: url,
+    },
+  };
+}
+
 function regionSeo(region) {
   if (!region.slug) return null;
   const url = `${SITE_URL}/regiok/${region.slug}`;
@@ -277,12 +297,31 @@ async function main() {
       dynamicCount++;
     }
   }
-  for (const category of categories) {
+  // Kanban 6f9ad755: the travel category gets its own canonical route
+  // (/utazasok, via travelSeo) instead of the generic /kategoriak/<slug> --
+  // skip it in the normal category loop so it isn't prerendered twice under
+  // two different URLs.
+  const travelCategory = categories.find((c) => c.is_travel_category);
+  const nonTravelCategories = categories.filter((c) => !c.is_travel_category);
+
+  for (const category of nonTravelCategories) {
     const route = categorySeo(category);
     if (route) {
       allRoutes.push(route);
       dynamicCount++;
     }
+  }
+  if (travelCategory) {
+    allRoutes.push(travelSeo(travelCategory));
+    dynamicCount++;
+  } else {
+    // Not fatal -- PROD doesn't have is_travel_category set yet as of
+    // 2026-11-02 (kanban 6f9ad755 built/tested in dev-sandbox only so far;
+    // the one-time `UPDATE categories SET is_travel_category = true WHERE
+    // slug = '<prod travel category slug>'` is a manual pre-promotion step).
+    // The live /utazasok route still works via the SPA fallback either way,
+    // it just won't have its own prerendered HTML/SEO until that step runs.
+    console.warn('Prerender warning: no category has is_travel_category=true -- /utazasok will not get a dedicated prerendered page.');
   }
   for (const region of regions) {
     const route = regionSeo(region);
@@ -309,7 +348,7 @@ async function main() {
 
   console.log(`Prerender complete: ${written} routes written (${dynamicCount} dynamic), ${failed} failed.`);
 
-  const requiredStatic = ['/', '/programok', '/kategoriak'];
+  const requiredStatic = ['/', '/programok'];
   const missing = [];
   for (const p of requiredStatic) {
     if (!staticPaths.includes(p)) continue;

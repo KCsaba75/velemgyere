@@ -8,6 +8,7 @@ import {
   Program,
   ProgramImage,
   Inquiry,
+  ContactMessage,
   ProgramStatus,
   ProviderStatus,
   Order,
@@ -53,7 +54,11 @@ import { fetchLiveEurHufRate } from '../lib/exchangeRate';
 const VIEW_TO_PATH: Record<string, string> = {
   home: '/',
   programs: '/programok',
-  categories: '/kategoriak',
+  // Kanban 6f9ad755 (Csaba, 2026-11-02): a korabbi "Kategoriak" hub-oldal/nav-cel
+  // megszunt -- a /kategoriak most mar csak a /programok-ra redirectel (lasd
+  // App.tsx). Helyette onallo "Utazasok" nav-cel, fixen a travel-kategoriara
+  // szurve (lasd categories[].is_travel_category).
+  travel: '/utazasok',
   favorites: '/kedvencek',
   bookings: '/foglalasaim',
   'provider-landing': '/szolgaltatoknak',
@@ -97,13 +102,15 @@ const VIEW_TO_PATH: Record<string, string> = {
 
 function pathToView(pathname: string): string {
   if (pathname.startsWith('/programok')) return 'programs';
+  // Kanban 6f9ad755: /utazasok is its own fixed-category nav target, separate
+  // from /programok.
+  if (pathname.startsWith('/utazasok')) return 'travel';
   // /kategoriak/:slug and /regiok/:slug (kanban 4c966bc5) render ProgramsPage --
   // the same filtered catalog view as /programok -- not CategoriesView, so the
-  // navbar should highlight "Programok" there. Only the bare /kategoriak index
-  // (the category/region tile browser, no slug) is the actual "categories" view;
-  // there is no bare /regiok route at all (always has a slug).
-  if (pathname.startsWith('/kategoriak/') || pathname.startsWith('/regiok/')) return 'programs';
-  if (pathname.startsWith('/kategoriak')) return 'categories';
+  // navbar should highlight "Programok" there. The bare /kategoriak index no
+  // longer has its own view (kanban 6f9ad755 retired the hub page, it now just
+  // redirects to /programok, see App.tsx) -- falls through to 'programs' too.
+  if (pathname.startsWith('/kategoriak') || pathname.startsWith('/regiok/')) return 'programs';
   if (pathname.startsWith('/kedvencek')) return 'favorites';
   if (pathname.startsWith('/foglalasaim')) return 'bookings';
   if (pathname.startsWith('/szolgaltatoknak')) return 'provider-landing';
@@ -308,6 +315,7 @@ interface AppContextType {
   programs: Program[];
   providers: Provider[];
   inquiries: Inquiry[];
+  contactMessages: ContactMessage[];
   registeredVisitors: Profile[];
   totalRegisteredVisitors: number;
 
@@ -360,6 +368,10 @@ interface AppContextType {
     phone?: string;
     message?: string;
   }) => Promise<void>;
+
+  // Kanban 6f9ad755: generic user -> platform/admin contact message,
+  // replacing the dead "Érdeklődéseim" block in MyAccountView.tsx.
+  submitContactMessage: (data: { name: string; email: string; message: string }) => Promise<{ success: boolean; message: string }>;
 
   // Orders (kanban 71215856 point 2): logged-in-only reservation records,
   // NOT a real payment/booking yet -- see schema.sql comment on public.orders.
@@ -604,6 +616,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [rawPrograms, setRawPrograms] = useState<Program[]>([]);
   const [rawImages, setRawImages] = useState<ProgramImage[]>([]);
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
+  // Kanban 6f9ad755: admin-only (RLS) -- a non-admin session's query just comes
+  // back empty, no error, same shape as the inquiries fetch above.
+  const [contactMessages, setContactMessages] = useState<ContactMessage[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [rawFavoriteFolders, setRawFavoriteFolders] = useState<FavoriteFolder[]>([]);
@@ -787,6 +802,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           profilesRes,
           imagesRes,
           inquiriesRes,
+          contactMessagesRes,
           reviewsRes,
           settingsRes,
         ] = await Promise.all([
@@ -795,6 +811,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           supabase.from('profiles').select('*'),
           supabase.from('program_images').select('*'),
           supabase.from('inquiries').select('*'),
+          supabase.from('contact_messages').select('*').order('created_at', { ascending: false }),
           supabase.from('reviews').select('*').order('created_at', { ascending: false }),
           supabase.from('app_settings').select('*').in('key', ['fee_percentage', 'fee_minimum_eur', 'eur_huf_rate']),
         ]);
@@ -806,6 +823,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (profilesRes.data) setRawProfiles(profilesRes.data as Profile[]);
         if (imagesRes.data) setRawImages(imagesRes.data as ProgramImage[]);
         if (inquiriesRes.data) setInquiries(inquiriesRes.data as Inquiry[]);
+        if (contactMessagesRes.data) setContactMessages(contactMessagesRes.data as ContactMessage[]);
         if (reviewsRes.data) setReviews(reviewsRes.data as Review[]);
 
         if (!settingsRes.error && settingsRes.data) {
@@ -1964,6 +1982,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       slug,
       icon: data.icon || 'Compass',
       active: data.active ?? true,
+      // Kanban 6f9ad755: a travel-kategoria egyetlen, migraciosan fixen
+      // kijelolt sor -- az admin "uj szolgaltatas-tipus" urlapja sosem allitja
+      // ezt true-ra.
+      is_travel_category: false,
     };
 
     if (isSupabaseConfigured) {
@@ -2304,6 +2326,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     setInquiries(prev => [newInquiry, ...prev]);
+  };
+
+  // Kanban 6f9ad755: generic user -> platform/admin contact message. Lives only
+  // in MyAccountView (already-authenticated context), so unlike submitInquiry
+  // this doesn't need an anonymous-visitor path.
+  const submitContactMessage = async (data: {
+    name: string;
+    email: string;
+    message: string;
+  }): Promise<{ success: boolean; message: string }> => {
+    if (!data.message.trim()) {
+      return { success: false, message: 'Írj be egy üzenetet, mielőtt elküldöd.' };
+    }
+    if (!isSupabaseConfigured) {
+      return { success: false, message: 'Az üzenetküldés csak éles (Supabase-sel összekötött) környezetben érhető el.' };
+    }
+
+    const { error } = await supabase.from('contact_messages').insert({
+      user_id: currentUser.user_id || null,
+      name: data.name,
+      email: data.email,
+      message: data.message.trim(),
+    });
+
+    if (error) {
+      console.error('submitContactMessage failed:', error);
+      return { success: false, message: `Üzenet küldése sikertelen: ${error.message}` };
+    }
+
+    return { success: true, message: 'Üzeneted elküldve! Hamarosan válaszolunk.' };
   };
 
   // Orders (point 2): a logged-in-only reservation record, NOT a real payment yet --
@@ -3667,6 +3719,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         profilesRes,
         imagesRes,
         inquiriesRes,
+        contactMessagesRes,
         reviewsRes,
       ] = await Promise.all([
         supabase.from('regions').select('*'),
@@ -3674,6 +3727,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         supabase.from('profiles').select('*'),
         supabase.from('program_images').select('*'),
         supabase.from('inquiries').select('*'),
+        supabase.from('contact_messages').select('*').order('created_at', { ascending: false }),
         supabase.from('reviews').select('*').order('created_at', { ascending: false }),
       ]);
       if (regionsRes.data) setRegions(regionsRes.data as Region[]);
@@ -3681,6 +3735,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (profilesRes.data) setRawProfiles(profilesRes.data as Profile[]);
       if (imagesRes.data) setRawImages(imagesRes.data as ProgramImage[]);
       if (inquiriesRes.data) setInquiries(inquiriesRes.data as Inquiry[]);
+      if (contactMessagesRes.data) setContactMessages(contactMessagesRes.data as ContactMessage[]);
       if (reviewsRes.data) setReviews(reviewsRes.data as Review[]);
       loadProgramsAndProviders(isAuthenticated, currentUser.role);
     }
@@ -3735,6 +3790,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         programs,
         providers: rawProviders,
         inquiries: inquiriesWithDetails,
+        contactMessages,
         registeredVisitors,
         totalRegisteredVisitors,
 
@@ -3762,6 +3818,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateProviderProfile,
 
         submitInquiry,
+        submitContactMessage,
 
         orders: ordersWithProgram,
         createOrder,

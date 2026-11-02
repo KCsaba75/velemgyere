@@ -36,7 +36,6 @@ const AdminUsersPage = lazy(() => import('./components/AdminUsersPage').then(m =
 const AdminReviewsPage = lazy(() => import('./components/AdminReviewsPage').then(m => ({ default: m.AdminReviewsPage })));
 const AdminBookingsPage = lazy(() => import('./components/AdminBookingsPage').then(m => ({ default: m.AdminBookingsPage })));
 const AdminSettingsPage = lazy(() => import('./components/AdminSettingsPage').then(m => ({ default: m.AdminSettingsPage })));
-const CategoriesView = lazy(() => import('./components/CategoriesView').then(m => ({ default: m.CategoriesView })));
 const MyAccountView = lazy(() => import('./components/MyAccountView').then(m => ({ default: m.MyAccountView })));
 const FavoritesView = lazy(() => import('./components/FavoritesView').then(m => ({ default: m.FavoritesView })));
 const BookingsView = lazy(() => import('./components/BookingsView').then(m => ({ default: m.BookingsView })));
@@ -91,9 +90,16 @@ const AppContent: React.FC = () => {
           <Route path="/" element={<HomePage />} />
           <Route path="/programok" element={<ProgramsPage />} />
           <Route path="/programok/:slug" element={<ProgramDetailView />} />
-          <Route path="/kategoriak" element={<CategoriesView />} />
+          {/* Kanban 6f9ad755 (Csaba, 2026-11-02): a "Kategoriak" hub-oldal/nav-cel
+              megszunt -- a bare /kategoriak most mar csak a /programok-ra
+              redirectel. A /kategoriak/:slug deep linkek (korabbi megosztott
+              linkek, esetleges SEO-indexeles) tovabbra is mukodnek -- ha a
+              slug epp a travel-kategoria, a ProgramsPage maga redirectel
+              /utazasok-ra (lasd ProgramsPage.tsx). */}
+          <Route path="/kategoriak" element={<Navigate to="/programok" replace />} />
           <Route path="/kategoriak/:slug" element={<ProgramsPage filterType="category" />} />
           <Route path="/regiok/:slug" element={<ProgramsPage filterType="region" />} />
+          <Route path="/utazasok" element={<ProgramsPage travelOnly />} />
           <Route
             path="/szolgaltatoknak"
             element={
