@@ -20,9 +20,16 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
     unreadBookingMessageCounts,
     totalUnreadBookingMessageCount,
     markBookingThreadRead,
+    // Kanban 6f9ad755 bővítés (Csaba, msg 3189): admin in-app értesítés uj
+    // kapcsolati uzenetre.
+    contactMessages,
     openLoginModal,
     setCurrentView
   } = useApp();
+
+  const isAdmin = currentUser?.role === 'admin';
+  const unreadContactMessages = isAdmin ? contactMessages.filter(m => m.status === 'new') : [];
+  const badgeCount = totalUnreadBookingMessageCount + unreadContactMessages.length;
 
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -95,20 +102,20 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
         className={`relative p-2 rounded-xl transition-all cursor-pointer flex items-center justify-center ${
           isOpen
             ? 'bg-emerald-50 text-emerald-700 ring-2 ring-emerald-500/20'
-            : totalUnreadBookingMessageCount > 0
+            : badgeCount > 0
             ? 'text-stone-800 bg-stone-100/90 hover:bg-stone-200/80'
             : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100'
         }`}
-        title="Értesítések – Szolgáltatói üzenetek"
-        aria-label={`Értesítések (${totalUnreadBookingMessageCount} új üzenet)`}
+        title="Értesítések"
+        aria-label={`Értesítések (${badgeCount} új üzenet)`}
         aria-expanded={isOpen}
       >
         <Bell className="w-5 h-5 transition-transform group-hover:scale-105" />
 
-        {totalUnreadBookingMessageCount > 0 && (
+        {badgeCount > 0 && (
           <>
             <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-rose-500 text-white text-[10px] font-extrabold flex items-center justify-center px-1 leading-none shadow-xs border-2 border-white">
-              {totalUnreadBookingMessageCount > 9 ? '9+' : totalUnreadBookingMessageCount}
+              {badgeCount > 9 ? '9+' : badgeCount}
             </span>
             <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-rose-400 opacity-60 animate-ping pointer-events-none" />
           </>
@@ -126,15 +133,46 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
               </div>
               <h3 className="font-bold text-sm text-stone-900">Értesítések</h3>
             </div>
-            {totalUnreadBookingMessageCount > 0 ? (
+            {badgeCount > 0 ? (
               <span className="text-[11px] font-extrabold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
-                {totalUnreadBookingMessageCount} új üzenet
+                {badgeCount} új üzenet
               </span>
             ) : (
               <span className="text-[11px] text-stone-400 font-medium">Nincs új üzenet</span>
             )}
           </div>
+
+          {/* Kanban 6f9ad755 bővítés: admin-specifikus kapcsolati üzenetek
+              szekció, a booking-üzenetektől külön, a lista tetején. */}
+          {isAdmin && unreadContactMessages.length > 0 && (
+            <div className="divide-y divide-stone-100 border-b border-stone-100">
+              {unreadContactMessages.map((msg) => (
+                <button
+                  key={msg.id}
+                  type="button"
+                  onClick={() => {
+                    setIsOpen(false);
+                    setCurrentView('admin-settings');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className="w-full text-left p-3.5 hover:bg-emerald-50/50 transition-colors flex items-start gap-3 cursor-pointer group"
+                >
+                  <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0 mt-0.5 group-hover:scale-105 transition-transform shadow-xs">
+                    <MessageSquare className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold text-stone-900 truncate">Kapcsolati üzenet -- {msg.name}</p>
+                    <p className="text-[11px] text-stone-500 truncate">{msg.message}</p>
+                    <p className="text-[11px] text-emerald-700 font-medium mt-1 flex items-center gap-1">
+                      <span>Megnyitás a Beállításokban</span>
+                      <ChevronRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+                    </p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* List content */}
           <div className="max-h-[340px] overflow-y-auto divide-y divide-stone-100">

@@ -372,6 +372,9 @@ interface AppContextType {
   // Kanban 6f9ad755: generic user -> platform/admin contact message,
   // replacing the dead "Érdeklődéseim" block in MyAccountView.tsx.
   submitContactMessage: (data: { name: string; email: string; message: string }) => Promise<{ success: boolean; message: string }>;
+  // Kanban 6f9ad755 bővítés (Csaba, msg 3189): admin "Üzenetek" panel.
+  markContactMessageRead: (id: string) => Promise<void>;
+  replyToContactMessage: (id: string, replyText: string) => Promise<{ success: boolean; message: string }>;
 
   // Orders (kanban 71215856 point 2): logged-in-only reservation records,
   // NOT a real payment/booking yet -- see schema.sql comment on public.orders.
@@ -2358,6 +2361,56 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return { success: true, message: 'Üzeneted elküldve! Hamarosan válaszolunk.' };
   };
 
+  // Kanban 6f9ad755 bővítés (Csaba, msg 3189): admin kinyit egy "még olvasatlan"
+  // sort az Üzenetek panelen -- csak akkor ír, ha még 'new' (ne írja felül
+  // 'resolved'-re egy már megválaszolt sor state-jét egy újra-megnyitással).
+  const markContactMessageRead = async (id: string): Promise<void> => {
+    const msg = contactMessages.find(m => m.id === id);
+    if (!msg || msg.status !== 'new') return;
+
+    setContactMessages(prev => prev.map(m => (m.id === id ? { ...m, status: 'read' } : m)));
+
+    if (isSupabaseConfigured) {
+      const { error } = await supabase.from('contact_messages').update({ status: 'read' }).eq('id', id);
+      if (error) console.error('markContactMessageRead failed:', error);
+    }
+  };
+
+  // Kanban 6f9ad755 bővítés: a send-contact-reply Edge Function végzi az
+  // email-küldést (Resend) ÉS a DB-írást (admin_reply/replied_at/status) egy
+  // helyen -- a caller saját JWT-jét supabase-js automatikusan továbbítja, az
+  // is_admin() RLS dönt arról, hogy a hívó valóban admin-e.
+  const replyToContactMessage = async (id: string, replyText: string): Promise<{ success: boolean; message: string }> => {
+    if (!replyText.trim()) {
+      return { success: false, message: 'Írj be egy választ, mielőtt elküldöd.' };
+    }
+    if (!isSupabaseConfigured) {
+      return { success: false, message: 'A válaszküldés csak éles (Supabase-sel összekötött) környezetben érhető el.' };
+    }
+
+    const { data, error } = await supabase.functions.invoke('send-contact-reply', {
+      body: { messageId: id, replyText: replyText.trim() },
+    });
+
+    if (error) {
+      console.error('replyToContactMessage failed:', error);
+      return { success: false, message: 'Hiba történt a válasz elküldése során.' };
+    }
+    if (!data?.sent) {
+      return { success: false, message: data?.error || 'Hiba történt a válasz elküldése során.' };
+    }
+
+    setContactMessages(prev =>
+      prev.map(m =>
+        m.id === id
+          ? { ...m, status: 'resolved', admin_reply: replyText.trim(), replied_at: new Date().toISOString() }
+          : m,
+      ),
+    );
+
+    return { success: true, message: 'Válasz elküldve.' };
+  };
+
   // Orders (point 2): a logged-in-only reservation record, NOT a real payment yet --
   // see the public.orders comment in schema.sql. The capacity trigger on the DB side
   // (enforce_order_capacity) rejects the insert if the program is full; that error
@@ -3615,6 +3668,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, [isAuthenticated, currentUser.user_id]);
 
+  // Kanban 6f9ad755: contact_messages is admin-only to READ (RLS is_admin()),
+  // unlike the legacy `inquiries` table (publicly readable, so its one-time
+  // mount-time fetch above happens to already work for everyone). The big
+  // mount-time Promise.all above runs ONCE (`[]` deps, before any session
+  // exists) -- an anon-role fetch of an admin-gated table always comes back
+  // empty, and nothing there re-runs after sign-in. Without this dedicated
+  // effect, an admin who was already on the page before logging in would
+  // never see a contact message, no matter how long they waited.
+  useEffect(() => {
+    if (!isSupabaseConfigured || !isAuthenticated || currentUser.role !== 'admin') return;
+    let cancelled = false;
+    supabase
+      .from('contact_messages')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) {
+          console.error('contact_messages admin refetch failed:', error);
+          return;
+        }
+        if (data) setContactMessages(data as ContactMessage[]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, currentUser.role]);
+
   const getFolderPrograms = (folderId: string): Program[] => {
     if (!isAuthenticated || !currentUser?.user_id) return [];
     if (folderId === 'all') {
@@ -3791,6 +3872,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         providers: rawProviders,
         inquiries: inquiriesWithDetails,
         contactMessages,
+        markContactMessageRead,
+        replyToContactMessage,
         registeredVisitors,
         totalRegisteredVisitors,
 

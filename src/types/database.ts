@@ -310,6 +310,8 @@ export interface ContactMessage {
   message: string;
   status: 'new' | 'read' | 'resolved';
   created_at: string;
+  admin_reply?: string;
+  replied_at?: string;
 }
 
 export type TravelType = 'couple' | 'family' | 'friends' | 'solo';

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { ShieldCheck, RotateCcw, LogOut, Check, RefreshCw } from 'lucide-react';
+import { ShieldCheck, RotateCcw, LogOut, Check, RefreshCw, ChevronDown, Send, AlertCircle, MailCheck } from 'lucide-react';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
 
 // Kanban 653c7577 (Csaba, teljes admin-nav atszervezes): a korabbi Admin
@@ -13,6 +13,8 @@ export const AdminSettingsPage: React.FC = () => {
   const {
     inquiries,
     contactMessages,
+    markContactMessageRead,
+    replyToContactMessage,
     resetToDefaults,
     feePercentage,
     feeMinimumEur,
@@ -32,6 +34,35 @@ export const AdminSettingsPage: React.FC = () => {
   const [feeMinimumEurDraft, setFeeMinimumEurDraft] = useState(String(feeMinimumEur));
   const [feeSettingsSaving, setFeeSettingsSaving] = useState(false);
   const [feeSettingsSaved, setFeeSettingsSaved] = useState(false);
+
+  // Kapcsolati üzenetek panel (kanban 6f9ad755 bővítés, Csaba msg 3189): egyszerre
+  // csak egy sor van kinyitva, a válasz-draft is csak az éppen kinyitott sorhoz él.
+  const [expandedMessageId, setExpandedMessageId] = useState<string | null>(null);
+  const [replyDraft, setReplyDraft] = useState('');
+  const [replySubmitting, setReplySubmitting] = useState(false);
+  const [replyResult, setReplyResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  const handleToggleMessage = (id: string) => {
+    if (expandedMessageId === id) {
+      setExpandedMessageId(null);
+      return;
+    }
+    setExpandedMessageId(id);
+    setReplyDraft('');
+    setReplyResult(null);
+    markContactMessageRead(id);
+  };
+
+  const handleSendReply = async (id: string) => {
+    setReplySubmitting(true);
+    setReplyResult(null);
+    const result = await replyToContactMessage(id, replyDraft);
+    setReplySubmitting(false);
+    setReplyResult(result);
+    if (result.success) {
+      setReplyDraft('');
+    }
+  };
 
   const handleSaveFeeSettings = async () => {
     // Kanban 84b90320 2. kor (Zora talalata): a mezok most focus-kor ureskent-tartasra
@@ -340,14 +371,22 @@ export const AdminSettingsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Kapcsolati üzenetek (kanban 6f9ad755) -- a sajat-fiokom lapon megszunt
-          "Erdeklodeseim" blokk uj, "Kapcsolat / Kerdesem van" uzenetkuldo
-          formjanak az ADMIN-oldali olvaso nezete. */}
+      {/* Kapcsolati üzenetek (kanban 6f9ad755, bővítve msg 3189) -- a sajat-fiokom
+          lapon megszunt "Erdeklodeseim" blokk uj, "Kapcsolat / Kerdesem van"
+          uzenetkuldo formjanak az ADMIN-oldali olvaso+valaszolo nezete.
+          Kinyithato sor (olvasashoz, status 'new'->'read'), es egy valasz-urlap
+          (send-contact-reply Edge Function -- email a felhasznalonak +
+          status->'resolved'). */}
       <div className="space-y-3">
         <h3 className="font-display font-bold text-stone-900 text-lg">Kapcsolati üzenetek</h3>
         <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden shadow-sm">
-          <div className="p-4 bg-stone-50 border-b border-stone-100 text-xs font-bold text-stone-500 uppercase tracking-wider">
-            Felhasználóktól beérkezett üzenetek ({contactMessages.length})
+          <div className="p-4 bg-stone-50 border-b border-stone-100 text-xs font-bold text-stone-500 uppercase tracking-wider flex items-center justify-between">
+            <span>Felhasználóktól beérkezett üzenetek ({contactMessages.length})</span>
+            {contactMessages.some(m => m.status === 'new') && (
+              <span className="text-[10px] font-extrabold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full">
+                {contactMessages.filter(m => m.status === 'new').length} új
+              </span>
+            )}
           </div>
 
           {contactMessages.length === 0 ? (
@@ -362,18 +401,80 @@ export const AdminSettingsPage: React.FC = () => {
                   hour: '2-digit',
                   minute: '2-digit'
                 });
+                const isExpanded = expandedMessageId === msg.id;
                 return (
-                  <div key={msg.id} className="p-5 hover:bg-stone-50/50 transition-colors space-y-2">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 text-xs text-stone-700">
-                        <span>👤 <strong className="text-stone-900">{msg.name}</strong></span>
-                        <span>• <a href={`mailto:${msg.email}`} className="text-emerald-700 hover:underline font-semibold">{msg.email}</a></span>
+                  <div key={msg.id} className={isExpanded ? 'bg-emerald-50/30' : ''}>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleMessage(msg.id)}
+                      className="w-full text-left p-5 hover:bg-stone-50/50 transition-colors space-y-1.5 cursor-pointer"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 text-xs text-stone-700">
+                          {msg.status === 'new' && <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />}
+                          <span>👤 <strong className="text-stone-900">{msg.name}</strong></span>
+                          <span className="text-stone-400">• {msg.email}</span>
+                          {msg.status === 'resolved' && (
+                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-full flex items-center gap-1">
+                              <MailCheck className="w-3 h-3" /> Megválaszolva
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-xs text-stone-400">{formattedDate}</span>
+                          <ChevronDown className={`w-4 h-4 text-stone-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                        </div>
                       </div>
-                      <span className="text-xs text-stone-400">{formattedDate}</span>
-                    </div>
-                    <div className="bg-stone-50 p-3.5 rounded-xl border border-stone-100 text-sm text-stone-800">
-                      {msg.message}
-                    </div>
+                      <p className="text-sm text-stone-700 truncate">{msg.message}</p>
+                    </button>
+
+                    {isExpanded && (
+                      <div className="px-5 pb-5 space-y-3">
+                        <div className="bg-white p-3.5 rounded-xl border border-stone-200 text-sm text-stone-800">
+                          {msg.message}
+                        </div>
+
+                        {msg.admin_reply && (
+                          <div className="bg-emerald-50 p-3.5 rounded-xl border border-emerald-200 text-sm text-emerald-900">
+                            <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider block mb-1">
+                              A válaszod ({msg.replied_at ? new Date(msg.replied_at).toLocaleString('hu-HU') : ''}):
+                            </span>
+                            {msg.admin_reply}
+                          </div>
+                        )}
+
+                        <div className="space-y-2">
+                          <textarea
+                            rows={3}
+                            value={replyDraft}
+                            onChange={(e) => setReplyDraft(e.target.value)}
+                            placeholder={msg.admin_reply ? 'Újabb válasz küldése...' : 'Válasz írása (emailben kimegy a felhasználónak)...'}
+                            className="w-full text-sm bg-white border border-stone-300 rounded-xl px-3.5 py-2.5 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none"
+                          />
+
+                          {replyResult && (
+                            <div className={`text-xs font-semibold rounded-xl p-2.5 flex items-center gap-2 ${
+                              replyResult.success
+                                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                                : 'bg-rose-50 text-rose-700 border border-rose-200'
+                            }`}>
+                              {replyResult.success ? <Check className="w-3.5 h-3.5" /> : <AlertCircle className="w-3.5 h-3.5" />}
+                              <span>{replyResult.message}</span>
+                            </div>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => handleSendReply(msg.id)}
+                            disabled={replySubmitting || !replyDraft.trim()}
+                            className="px-4 py-2 bg-stone-900 hover:bg-emerald-600 disabled:opacity-60 text-white font-bold rounded-xl text-xs shadow-sm transition-all cursor-pointer inline-flex items-center gap-1.5"
+                          >
+                            <Send className="w-3.5 h-3.5" />
+                            <span>{replySubmitting ? 'Küldés...' : 'Válasz küldése emailben'}</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
