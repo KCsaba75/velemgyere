@@ -275,6 +275,28 @@ interface AppContextType {
   setCurrencyFilter: (curr: 'ALL' | 'EUR' | 'Ft') => void;
   resetFilters: () => void;
 
+  // Kanban 2bc6d38b (Csaba, 2026-11-02): "Utazások" (ProgramsPage travelOnly)
+  // gets its own INDEPENDENT filter slice, so filtering on Programok doesn't
+  // leak into Utazások and back -- without touching the 2026-10-12 decision
+  // (kanban 79568288) that filter state persists across navigation within a
+  // page, only cleared by "Szűrők törlése". That rule still applies to EACH
+  // slice separately. selectedCategory has no travel counterpart -- the
+  // travel page's category is fixed (categories[].is_travel_category), never
+  // user-selectable, so there's nothing to persist independently there.
+  travelSelectedRegion: string | null;
+  setTravelSelectedRegion: (slug: string | null) => void;
+  travelSelectedDateFrom: string;
+  setTravelSelectedDateFrom: (date: string) => void;
+  travelSelectedDateTo: string;
+  setTravelSelectedDateTo: (date: string) => void;
+  travelSelectedDurationType: 'all' | 'single' | 'multi';
+  setTravelSelectedDurationType: (type: 'all' | 'single' | 'multi') => void;
+  travelMaxPrice: number;
+  setTravelMaxPrice: (price: number) => void;
+  travelCurrencyFilter: 'ALL' | 'EUR' | 'Ft';
+  setTravelCurrencyFilter: (curr: 'ALL' | 'EUR' | 'Ft') => void;
+  resetTravelFilters: () => void;
+
   // Auth / Role
   currentUser: Profile;
   currentProvider: Provider | null;
@@ -610,6 +632,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [selectedDurationType, setSelectedDurationType] = useState<'all' | 'single' | 'multi'>('all');
   const [maxPrice, setMaxPrice] = useState<number>(150); // Default for EUR abroad prices
   const [currencyFilter, setCurrencyFilter] = useState<'ALL' | 'EUR' | 'Ft'>('ALL');
+
+  // Kanban 2bc6d38b: independent filter slice for "Utazások" (travelOnly) --
+  // see the AppContextType comment above for why. No travel-specific
+  // selectedCategory: the travel page's category is fixed, not a user choice.
+  const [travelSelectedRegion, setTravelSelectedRegion] = useState<string | null>(null);
+  const [travelSelectedDateFrom, setTravelSelectedDateFrom] = useState<string>('');
+  const [travelSelectedDateTo, setTravelSelectedDateTo] = useState<string>('');
+  const [travelSelectedDurationType, setTravelSelectedDurationType] = useState<'all' | 'single' | 'multi'>('all');
+  const [travelMaxPrice, setTravelMaxPrice] = useState<number>(150);
+  const [travelCurrencyFilter, setTravelCurrencyFilter] = useState<'ALL' | 'EUR' | 'Ft'>('ALL');
 
   // Dynamic collections from Supabase (sole persistent source of truth - local storage removed)
   const [regions, setRegions] = useState<Region[]>([]);
@@ -1390,6 +1422,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSelectedDurationType('all');
     setMaxPrice(150);
     setCurrencyFilter('ALL');
+  };
+
+  // Kanban 2bc6d38b: "Szűrők törlése" on /utazasok -- mirrors resetFilters
+  // but only touches the travel slice (no category to clear, it's fixed).
+  const resetTravelFilters = () => {
+    setSearchQuery('');
+    setTravelSelectedRegion(null);
+    setTravelSelectedDateFrom('');
+    setTravelSelectedDateTo('');
+    setTravelSelectedDurationType('all');
+    setTravelMaxPrice(150);
+    setTravelCurrencyFilter('ALL');
   };
 
   // Kartya cde7bd96: a sikeres bejelentkezes utani azonnali redirect-dontesnek
@@ -3851,6 +3895,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         currencyFilter,
         setCurrencyFilter,
         resetFilters,
+
+        travelSelectedRegion,
+        setTravelSelectedRegion,
+        travelSelectedDateFrom,
+        setTravelSelectedDateFrom,
+        travelSelectedDateTo,
+        setTravelSelectedDateTo,
+        travelSelectedDurationType,
+        setTravelSelectedDurationType,
+        travelMaxPrice,
+        setTravelMaxPrice,
+        travelCurrencyFilter,
+        setTravelCurrencyFilter,
+        resetTravelFilters,
 
         currentUser,
         currentProvider,

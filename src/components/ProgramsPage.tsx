@@ -43,16 +43,20 @@ export const ProgramsPage: React.FC<ProgramsPageProps> = ({ filterType, travelOn
 
   const isTravelSlugDeepLink = !travelOnly && filterType === 'category' && !!travelCategory && slug === travelCategory.slug;
 
+  // Kanban 2bc6d38b: travelOnly has NOTHING to sync from a URL param (unlike
+  // filterType='category'/'region', which read :slug) -- its filter state
+  // lives entirely in the independent travel slice below and persists on
+  // its own across remounts, so no effect touches it here. Writing the
+  // Programok slice's selectedCategory to the travel category's slug (the
+  // old behavior) was itself the bug this card fixes: it left Programok's
+  // OWN selectedCategory pointing at a category Programok's excludeCategorySlug
+  // then immediately filtered back out, silently zeroing the Programok list
+  // after any visit to Utazások.
   useEffect(() => {
-    if (isTravelSlugDeepLink) {
-      // Redirecting below -- don't also touch filter state for a page that
-      // won't render.
+    if (isTravelSlugDeepLink || travelOnly) {
       return;
     }
-    if (travelOnly) {
-      setSelectedCategory(travelCategory?.slug || null);
-      setSelectedRegion(null);
-    } else if (filterType === 'category') {
+    if (filterType === 'category') {
       setSelectedCategory(slug || null);
       setSelectedRegion(null);
     } else if (filterType === 'region') {
@@ -60,7 +64,7 @@ export const ProgramsPage: React.FC<ProgramsPageProps> = ({ filterType, travelOn
       setSelectedCategory(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterType, slug, travelOnly, travelCategory?.slug, isTravelSlugDeepLink]);
+  }, [filterType, slug, travelOnly, isTravelSlugDeepLink]);
 
   const category = filterType === 'category' ? categories.find(c => c.slug === slug) : undefined;
   const region = filterType === 'region' ? regions.find(r => r.slug === slug) : undefined;
@@ -100,8 +104,14 @@ export const ProgramsPage: React.FC<ProgramsPageProps> = ({ filterType, travelOn
         onCloseMobile={() => setMobileFiltersOpen(false)}
         hideCategorySlug={excludeCategorySlug}
         hideCategoryFilter={travelOnly}
+        travelOnly={travelOnly}
       />
-      <ProgramList onOpenMobileFilters={() => setMobileFiltersOpen(true)} excludeCategorySlug={excludeCategorySlug} travelOnly={travelOnly} />
+      <ProgramList
+        onOpenMobileFilters={() => setMobileFiltersOpen(true)}
+        excludeCategorySlug={excludeCategorySlug}
+        travelOnly={travelOnly}
+        fixedCategorySlug={travelOnly ? travelCategory?.slug : undefined}
+      />
     </div>
   );
 };
