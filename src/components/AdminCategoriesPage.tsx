@@ -5,6 +5,7 @@ import { CategoryIcon, AVAILABLE_SERVICE_ICONS } from './CategoryIcon';
 import { CountryFlag } from './CountryFlag';
 import { Category } from '../types/database';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
+import { EUROPEAN_COUNTRIES, countryCodeToFlagEmoji } from '../data/europeanCountries';
 
 // Kanban fb32ec4b (Csaba korrekcioja a daa1ed70/a8676c22 deep-linkre): a
 // Szolgaltatas Tipusok kezeles kikerult az admin Fiok (AdminDashboard tab-sor)
@@ -83,10 +84,27 @@ export const AdminCategoriesPage: React.FC = () => {
   // -- Desztinációk / Régiók (korábban AdminDashboard 'regions' füle) --
   const [addRegionModalOpen, setAddRegionModalOpen] = useState(false);
   const [newRegionCountry, setNewRegionCountry] = useState('');
+  const [newRegionFlagCode, setNewRegionFlagCode] = useState('');
   const [newRegionName, setNewRegionName] = useState('');
   const [newRegionEmoji, setNewRegionEmoji] = useState('✈️');
   const [newRegionDesc, setNewRegionDesc] = useState('');
   const [newRegionImage, setNewRegionImage] = useState('');
+
+  // Kanban 3337748c: a zaszlo-mezo korabban szabad szoveges emoji-beiras volt
+  // (hiba-forras: elgepelt/hianyos regional-indicator par -> nem jelenik meg
+  // flag kent). Most Europa osszes orszagabol legordulo valasztas, a zaszlo
+  // emoji a kodbol szamitva, igy mindig ervenyes.
+  const handleFlagCountrySelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const code = e.target.value;
+    setNewRegionFlagCode(code);
+    if (!code) return;
+
+    const country = EUROPEAN_COUNTRIES.find((c) => c.code === code);
+    setNewRegionEmoji(countryCodeToFlagEmoji(code));
+    if (country && !newRegionCountry.trim()) {
+      setNewRegionCountry(country.nameHu);
+    }
+  };
 
   const handleCreateRegionSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,6 +120,7 @@ export const AdminCategoriesPage: React.FC = () => {
     });
 
     setNewRegionCountry('');
+    setNewRegionFlagCode('');
     setNewRegionName('');
     setNewRegionEmoji('✈️');
     setNewRegionDesc('');
@@ -331,15 +350,25 @@ export const AdminCategoriesPage: React.FC = () => {
 
                 <div>
                   <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
-                    Zászló Emoji
+                    Zászló
                   </label>
-                  <input
-                    type="text"
-                    value={newRegionEmoji}
-                    onChange={(e) => setNewRegionEmoji(e.target.value)}
-                    placeholder="Pl. 🇬🇷 vagy 🇵🇹"
-                    className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3.5 py-2.5 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-center text-lg"
-                  />
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={newRegionFlagCode}
+                      onChange={handleFlagCountrySelect}
+                      className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3.5 py-2.5 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+                    >
+                      <option value="">Válassz országot...</option>
+                      {EUROPEAN_COUNTRIES.map((c) => (
+                        <option key={c.code} value={c.code}>
+                          {countryCodeToFlagEmoji(c.code)} {c.nameHu}
+                        </option>
+                      ))}
+                    </select>
+                    {newRegionFlagCode && (
+                      <CountryFlag code={newRegionFlagCode} size="lg" className="w-8 h-5.5 rounded shadow shrink-0" />
+                    )}
+                  </div>
                 </div>
               </div>
 
