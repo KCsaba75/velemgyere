@@ -71,14 +71,27 @@ const VIEW_TO_PATH: Record<string, string> = {
   // Kanban 5d6bb3d4 (Csaba, via Zora): a szolgaltatoi navbar "Kedvencek"
   // helyere kerulo uj "Uzenet" placeholder menupont, onallo top-level oldal.
   'provider-messages': '/szolgaltato/uzeneteim',
-  'admin-dashboard': '/admin',
-  // Kanban daa1ed70 (Csaba, via Zora): admin-nav "Kategoriak" deep-link a
-  // kategoria-kezelo fulre, kulon path -- nem query-param, mert ez a
-  // view/path mapping csak pathname-et ismer (lasd pathToView).
+  // Kanban 653c7577 (Csaba, teljes admin-nav atszervezes): minden admin
+  // alfunkcio onallo top-level oldal/nav-cel lett, nincs tobbe kozos
+  // "Admin Vezerlopult" hub -- lasd AdminProgramsPage/AdminCategoriesPage/
+  // AdminUsersPage/AdminReviewsPage/AdminBookingsPage/AdminSettingsPage.
+  'admin-programs': '/admin/programok',
+  // Kanban daa1ed70 (Csaba, via Zora), bovitve 653c7577-ben: a Kategoriak
+  // cel most egy HUB -- belso szegmentvalasztoval Desztinaciok/Regiok VS
+  // Szolgaltatas Tipusok kozott, nem kulon route a ket alreszhez.
   'admin-categories': '/admin/kategoriak',
-  // Kanban a8676c22 (Csaba, via Zora): admin-nav "Foglalasok" deep-link a
-  // szolgaltato-kezelo fulre, ugyanazon elv szerint mint admin-categories.
-  'admin-providers': '/admin/szolgaltatok',
+  // Kanban 653c7577: Felhasznalok HUB -- belso szegmentvalasztoval
+  // Szolgaltatok VS Programvadaszok kozott. Felvaltja a korabbi kulon
+  // 'admin-providers' (/admin/szolgaltatok) celt (a8676c22).
+  'admin-users': '/admin/felhasznalok',
+  'admin-reviews': '/admin/ertekelesek',
+  'admin-bookings': '/admin/foglalasok',
+  // A korabbi admin-hub "Beallitasok" (dij+arfolyam) es "Erdeklodesek" fulje,
+  // plusz a kijelentkezes/tesztadat-reset -- ezeknek nincs sajat targymenuje
+  // Csaba 6-pontos listajaban, igy egy lecsupaszitott oldalon maradnak,
+  // amit a Navbar egy kis fogaskerek-ikonja nyit (nem foglal helyet az 5
+  // fix targymenu-gomb kozott).
+  'admin-settings': '/admin/beallitasok',
   'my-account': '/sajat-fiokom',
 };
 
@@ -100,11 +113,20 @@ function pathToView(pathname: string): string {
   if (pathname.startsWith('/szolgaltato/erdeklodeseim')) return 'provider-inquiries';
   if (pathname.startsWith('/szolgaltato/uzeneteim')) return 'provider-messages';
   if (pathname.startsWith('/szolgaltato/dashboard')) return 'provider-dashboard';
-  // a specifikusabb /admin/kategoriak check az altalanos /admin ELOTT kell,
+  // a specifikusabb /admin/xxx checkek az altalanos /admin ELOTT kellenek,
   // kulonben a prefix-match sosem jutna el ide.
   if (pathname.startsWith('/admin/kategoriak')) return 'admin-categories';
-  if (pathname.startsWith('/admin/szolgaltatok')) return 'admin-providers';
-  if (pathname.startsWith('/admin')) return 'admin-dashboard';
+  if (pathname.startsWith('/admin/felhasznalok')) return 'admin-users';
+  if (pathname.startsWith('/admin/ertekelesek')) return 'admin-reviews';
+  if (pathname.startsWith('/admin/foglalasok')) return 'admin-bookings';
+  if (pathname.startsWith('/admin/beallitasok')) return 'admin-settings';
+  // Legacy /admin/szolgaltatok deep-link (a8676c22, elotte 'admin-providers'
+  // celkent) -- a Felhasznalok HUB-ra mutat, szolgaltatok szegmenssel.
+  if (pathname.startsWith('/admin/szolgaltatok')) return 'admin-users';
+  // Barmilyen tovabbi/legacy /admin* path (beleertve a bare /admin-et,
+  // amit App.tsx egy <Navigate> reszen keresztul /admin/programok-ra iranyit
+  // at) a Programok celre esik vissza.
+  if (pathname.startsWith('/admin')) return 'admin-programs';
   if (pathname.startsWith('/sajat-fiokom')) return 'my-account';
   return 'home';
 }

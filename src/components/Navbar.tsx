@@ -1,7 +1,6 @@
 import React from 'react';
 import { useApp, getOrderBucket } from '../context/AppContext';
 import {
-  ShieldCheck,
   Briefcase,
   User,
   PlusCircle,
@@ -12,6 +11,8 @@ import {
   LayoutGrid,
   Star,
   MessageSquare,
+  Users,
+  Settings as SettingsIcon,
   X
 } from 'lucide-react';
 
@@ -43,12 +44,33 @@ export const Navbar: React.FC<NavbarProps> = ({
   } = useApp();
 
   const isProvider = currentUser.role === 'provider';
+  const isAdmin = currentUser.role === 'admin';
   const [selectedNotificationOrder, setSelectedNotificationOrder] = React.useState<Order | null>(null);
 
   const navigateTo = (view: string) => {
     setCurrentView(view);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  // Kanban 653c7577 (Csaba, teljes admin-nav atszervezes): adminkent nincs
+  // tobbe kozos "Admin Vezerlopult" hub -- minden admin-alfunkcio onallo
+  // targymenu. Csaba vegso mobil-nav dontese (2026-11-02, Telegram msg 7924)
+  // szerint ez 5 FIX gomb, ugyanaz desktopon es mobilon -- a Kategoriak es a
+  // Felhasznalok cel egy-egy HUB oldalra mutat, ami BELSO szegmentvaltoval
+  // kulonbozteti meg a ket-ket alreszt (AdminCategoriesPage/AdminUsersPage),
+  // nem kulon nav-gombbal. Igy nem kell a 6 eredeti celt egy fix 5-oszlopos
+  // mobil sorba zsufolni.
+  const ADMIN_NAV_ITEMS: ReadonlyArray<{
+    view: string;
+    label: string;
+    icon: React.ComponentType<{ className?: string }>;
+  }> = [
+    { view: 'admin-programs', label: 'Programok', icon: Compass },
+    { view: 'admin-categories', label: 'Kategóriák', icon: LayoutGrid },
+    { view: 'admin-users', label: 'Felhasználók', icon: Users },
+    { view: 'admin-reviews', label: 'Értékelések', icon: Star },
+    { view: 'admin-bookings', label: 'Foglalások', icon: Ticket },
+  ];
 
   // Kanban 5a3a8dd8 (Csaba, 10-17 pontositas): providerkent a globalis
   // "Programok"/"Foglalások" nav-elemek a sajat program-kezelesre / beerkezett
@@ -87,7 +109,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     if (!isAuthenticated) {
       openLoginModal(undefined, 'programs');
     } else if (currentUser.role === 'admin') {
-      navigateTo('admin-dashboard');
+      navigateTo('admin-programs');
     } else if (currentUser.role === 'provider') {
       navigateTo('provider-dashboard');
     } else {
@@ -215,7 +237,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   const isAccountActive =
     currentUser.role === 'admin'
-      ? currentView === 'admin-dashboard'
+      ? currentView === 'admin-programs'
       : currentUser.role === 'provider'
       ? currentView === 'provider-dashboard'
       : currentView === 'my-account';
@@ -264,25 +286,42 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             {/* Desktop Navigation Links */}
             <nav className="hidden md:flex items-center gap-1 lg:gap-2 shrink-0">
-              <button
-                onClick={handleProgramsNavClick}
-                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
-                  isProgramsNavActive ? 'text-emerald-700 bg-emerald-50/80 font-bold' : 'text-stone-700 hover:text-stone-900 hover:bg-stone-100'
-                }`}
-              >
-                {isProvider ? 'Programjaim' : 'Programok'}
-              </button>
-              <button
-                onClick={() => navigateTo(isProvider ? 'provider-reviews' : 'categories')}
-                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
-                  isCategoriesOrReviewsActive ? 'text-emerald-700 bg-emerald-50/80 font-bold' : 'text-stone-700 hover:text-stone-900 hover:bg-stone-100'
-                }`}
-              >
-                {isProvider ? 'Értékeléseim' : 'Kategóriák'}
-              </button>
-              {isProvider && desktopBookingsButton}
-              {desktopFavoritesOrMessagesButton}
-              {!isProvider && desktopBookingsButton}
+              {isAdmin ? (
+                ADMIN_NAV_ITEMS.map(({ view, label, icon: Icon }) => (
+                  <button
+                    key={view}
+                    onClick={() => navigateTo(view)}
+                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
+                      currentView === view ? 'text-emerald-700 bg-emerald-50/80 font-bold' : 'text-stone-700 hover:text-stone-900 hover:bg-stone-100'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    <span>{label}</span>
+                  </button>
+                ))
+              ) : (
+                <>
+                  <button
+                    onClick={handleProgramsNavClick}
+                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+                      isProgramsNavActive ? 'text-emerald-700 bg-emerald-50/80 font-bold' : 'text-stone-700 hover:text-stone-900 hover:bg-stone-100'
+                    }`}
+                  >
+                    {isProvider ? 'Programjaim' : 'Programok'}
+                  </button>
+                  <button
+                    onClick={() => navigateTo(isProvider ? 'provider-reviews' : 'categories')}
+                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+                      isCategoriesOrReviewsActive ? 'text-emerald-700 bg-emerald-50/80 font-bold' : 'text-stone-700 hover:text-stone-900 hover:bg-stone-100'
+                    }`}
+                  >
+                    {isProvider ? 'Értékeléseim' : 'Kategóriák'}
+                  </button>
+                  {isProvider && desktopBookingsButton}
+                  {desktopFavoritesOrMessagesButton}
+                  {!isProvider && desktopBookingsButton}
+                </>
+              )}
             </nav>
 
             {/* Desktop Action Buttons */}
@@ -290,12 +329,21 @@ export const Navbar: React.FC<NavbarProps> = ({
               {/* Értesítési csengő */}
               <NotificationBell onSelectOrder={setSelectedNotificationOrder} />
               {currentUser.role === 'admin' ? (
+                // Kanban 653c7577: a korabbi "Admin Vezerlopult" gomb helyett
+                // egy kis fogaskerek-ikon -- a Beallitasok/Erdeklodesek/
+                // kijelentkezes/tesztadat-reset nem kap sajat targymenut
+                // Csaba 6-pontos listajaban, igy nem foglal helyet az 5 fix
+                // targymenu-gomb kozott (ADMIN_NAV_ITEMS, lasd feljebb).
                 <button
-                  onClick={() => navigateTo('admin-dashboard')}
-                  className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-medium text-sm flex items-center gap-2 shadow-sm transition-colors cursor-pointer"
+                  onClick={() => navigateTo('admin-settings')}
+                  className={`p-2.5 rounded-xl border transition-colors cursor-pointer ${
+                    currentView === 'admin-settings'
+                      ? 'bg-amber-50 border-amber-300 text-amber-700'
+                      : 'border-stone-300 text-stone-500 hover:bg-stone-100 hover:text-stone-800'
+                  }`}
+                  title="Admin beállítások, érdeklődések, kijelentkezés"
                 >
-                  <ShieldCheck className="w-4 h-4" />
-                  Admin Vezérlőpult
+                  <SettingsIcon className="w-4 h-4" />
                 </button>
               ) : currentUser.role === 'provider' ? (
                 <div className="flex items-center gap-2">
@@ -348,6 +396,19 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <span>Új</span>
                 </button>
               )}
+              {isAdmin && (
+                <button
+                  onClick={() => navigateTo('admin-settings')}
+                  className={`p-2 rounded-lg border transition-colors cursor-pointer ${
+                    currentView === 'admin-settings'
+                      ? 'bg-amber-50 border-amber-300 text-amber-700'
+                      : 'border-stone-200 text-stone-500 hover:bg-stone-100'
+                  }`}
+                  title="Admin beállítások, érdeklődések, kijelentkezés"
+                >
+                  <SettingsIcon className="w-4 h-4" />
+                </button>
+              )}
               <NotificationBell onSelectOrder={setSelectedNotificationOrder} />
             </div>
           </div>
@@ -361,74 +422,89 @@ export const Navbar: React.FC<NavbarProps> = ({
         style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
       >
         <div className="grid grid-cols-5 h-16 max-w-lg mx-auto px-1 items-stretch">
-          {/* 1. Programok */}
-          <button
-            type="button"
-            onClick={handleProgramsNavClick}
-            className={`flex flex-col items-center justify-center py-1.5 px-0.5 transition-colors cursor-pointer min-w-0 ${
-              isProgramsNavActive
-                ? 'text-emerald-700 font-bold'
-                : 'text-stone-500 hover:text-stone-800 font-medium'
-            }`}
-          >
-            <Compass className={`w-5 h-5 transition-transform ${isProgramsNavActive ? 'scale-110 stroke-[2.4]' : 'stroke-[1.8]'}`} />
-            <span className="text-[11px] leading-tight mt-1 truncate">{isProvider ? 'Programjaim' : 'Programok'}</span>
-          </button>
+          {isAdmin ? (
+            ADMIN_NAV_ITEMS.map(({ view, label, icon: Icon }) => {
+              const active = currentView === view;
+              return (
+                <button
+                  key={view}
+                  type="button"
+                  onClick={() => navigateTo(view)}
+                  className={`flex flex-col items-center justify-center py-1.5 px-0.5 transition-colors cursor-pointer min-w-0 ${
+                    active ? 'text-emerald-700 font-bold' : 'text-stone-500 hover:text-stone-800 font-medium'
+                  }`}
+                >
+                  <Icon className={`w-5 h-5 transition-transform ${active ? 'scale-110 stroke-[2.4]' : 'stroke-[1.8]'}`} />
+                  <span className="text-[11px] leading-tight mt-1 truncate">{label}</span>
+                </button>
+              );
+            })
+          ) : (
+            <>
+              {/* 1. Programok */}
+              <button
+                type="button"
+                onClick={handleProgramsNavClick}
+                className={`flex flex-col items-center justify-center py-1.5 px-0.5 transition-colors cursor-pointer min-w-0 ${
+                  isProgramsNavActive
+                    ? 'text-emerald-700 font-bold'
+                    : 'text-stone-500 hover:text-stone-800 font-medium'
+                }`}
+              >
+                <Compass className={`w-5 h-5 transition-transform ${isProgramsNavActive ? 'scale-110 stroke-[2.4]' : 'stroke-[1.8]'}`} />
+                <span className="text-[11px] leading-tight mt-1 truncate">{isProvider ? 'Programjaim' : 'Programok'}</span>
+              </button>
 
-          {/* 2. Kategóriák (szolgáltatóként: Értékeléseim) */}
-          <button
-            type="button"
-            onClick={() => navigateTo(isProvider ? 'provider-reviews' : 'categories')}
-            className={`flex flex-col items-center justify-center py-1.5 px-0.5 transition-colors cursor-pointer min-w-0 ${
-              isCategoriesOrReviewsActive
-                ? 'text-emerald-700 font-bold'
-                : 'text-stone-500 hover:text-stone-800 font-medium'
-            }`}
-          >
-            {isProvider ? (
-              <Star className={`w-5 h-5 transition-transform ${isCategoriesOrReviewsActive ? 'scale-110 stroke-[2.4]' : 'stroke-[1.8]'}`} />
-            ) : (
-              <LayoutGrid className={`w-5 h-5 transition-transform ${isCategoriesOrReviewsActive ? 'scale-110 stroke-[2.4]' : 'stroke-[1.8]'}`} />
-            )}
-            <span className="text-[11px] leading-tight mt-1 truncate">{isProvider ? 'Értékeléseim' : 'Kategóriák'}</span>
-          </button>
+              {/* 2. Kategóriák (szolgáltatóként: Értékeléseim) */}
+              <button
+                type="button"
+                onClick={() => navigateTo(isProvider ? 'provider-reviews' : 'categories')}
+                className={`flex flex-col items-center justify-center py-1.5 px-0.5 transition-colors cursor-pointer min-w-0 ${
+                  isCategoriesOrReviewsActive
+                    ? 'text-emerald-700 font-bold'
+                    : 'text-stone-500 hover:text-stone-800 font-medium'
+                }`}
+              >
+                {isProvider ? (
+                  <Star className={`w-5 h-5 transition-transform ${isCategoriesOrReviewsActive ? 'scale-110 stroke-[2.4]' : 'stroke-[1.8]'}`} />
+                ) : (
+                  <LayoutGrid className={`w-5 h-5 transition-transform ${isCategoriesOrReviewsActive ? 'scale-110 stroke-[2.4]' : 'stroke-[1.8]'}`} />
+                )}
+                <span className="text-[11px] leading-tight mt-1 truncate">{isProvider ? 'Értékeléseim' : 'Kategóriák'}</span>
+              </button>
 
-          {/* 3-4. Kedvencek/Foglalások */}
-          {isProvider && mobileBookingsButton}
-          {mobileFavoritesOrMessagesButton}
-          {!isProvider && mobileBookingsButton}
+              {/* 3-4. Kedvencek/Foglalások */}
+              {isProvider && mobileBookingsButton}
+              {mobileFavoritesOrMessagesButton}
+              {!isProvider && mobileBookingsButton}
 
-          {/* 5. fiókom */}
-          <button
-            type="button"
-            onClick={handleAccountClick}
-            className={`flex flex-col items-center justify-center py-1.5 px-0.5 transition-colors cursor-pointer min-w-0 ${
-              isAccountActive
-                ? 'text-emerald-700 font-bold'
-                : 'text-stone-500 hover:text-stone-800 font-medium'
-            }`}
-          >
-            <div className="relative flex items-center justify-center">
-              {currentUser.role === 'admin' ? (
-                <ShieldCheck className={`w-5 h-5 ${isAccountActive ? 'text-amber-600 stroke-[2.4]' : 'stroke-[1.8]'}`} />
-              ) : currentUser.role === 'provider' ? (
-                <Briefcase className={`w-5 h-5 ${isAccountActive ? 'text-emerald-700 stroke-[2.4]' : 'stroke-[1.8]'}`} />
-              ) : isAuthenticated ? (
-                <div className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center text-[10px] font-bold">
-                  {(currentUser.name || currentUser.email || 'U').charAt(0).toUpperCase()}
+              {/* 5. fiókom */}
+              <button
+                type="button"
+                onClick={handleAccountClick}
+                className={`flex flex-col items-center justify-center py-1.5 px-0.5 transition-colors cursor-pointer min-w-0 ${
+                  isAccountActive
+                    ? 'text-emerald-700 font-bold'
+                    : 'text-stone-500 hover:text-stone-800 font-medium'
+                }`}
+              >
+                <div className="relative flex items-center justify-center">
+                  {currentUser.role === 'provider' ? (
+                    <Briefcase className={`w-5 h-5 ${isAccountActive ? 'text-emerald-700 stroke-[2.4]' : 'stroke-[1.8]'}`} />
+                  ) : isAuthenticated ? (
+                    <div className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center text-[10px] font-bold">
+                      {(currentUser.name || currentUser.email || 'U').charAt(0).toUpperCase()}
+                    </div>
+                  ) : (
+                    <User className={`w-5 h-5 ${isAccountActive ? 'stroke-[2.4]' : 'stroke-[1.8]'}`} />
+                  )}
                 </div>
-              ) : (
-                <User className={`w-5 h-5 ${isAccountActive ? 'stroke-[2.4]' : 'stroke-[1.8]'}`} />
-              )}
-            </div>
-            <span className="text-[11px] leading-tight mt-1 truncate">
-              {currentUser.role === 'admin'
-                ? 'Admin'
-                : currentUser.role === 'provider'
-                ? 'Partner'
-                : 'Fiókom'}
-            </span>
-          </button>
+                <span className="text-[11px] leading-tight mt-1 truncate">
+                  {currentUser.role === 'provider' ? 'Partner' : 'Fiókom'}
+                </span>
+              </button>
+            </>
+          )}
         </div>
       </nav>
 
