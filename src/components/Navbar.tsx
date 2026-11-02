@@ -9,7 +9,7 @@ import {
   Ticket,
   Compass,
   LayoutGrid,
-  Plane,
+  Bus,
   Star,
   MessageSquare,
   Users,
@@ -306,19 +306,21 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <>
                   <button
                     onClick={handleProgramsNavClick}
-                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
                       isProgramsNavActive ? 'text-emerald-700 bg-emerald-50/80 font-bold' : 'text-stone-700 hover:text-stone-900 hover:bg-stone-100'
                     }`}
                   >
-                    {isProvider ? 'Programjaim' : 'Programok'}
+                    <Compass className="w-4 h-4" />
+                    <span>{isProvider ? 'Programjaim' : 'Programok'}</span>
                   </button>
                   <button
                     onClick={() => navigateTo(isProvider ? 'provider-reviews' : 'travel')}
-                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
                       isTravelOrReviewsActive ? 'text-emerald-700 bg-emerald-50/80 font-bold' : 'text-stone-700 hover:text-stone-900 hover:bg-stone-100'
                     }`}
                   >
-                    {isProvider ? 'Értékeléseim' : 'Utazások'}
+                    {isProvider ? <Star className="w-4 h-4" /> : <Bus className="w-4 h-4" />}
+                    <span>{isProvider ? 'Értékeléseim' : 'Utazások'}</span>
                   </button>
                   {isProvider && desktopBookingsButton}
                   {desktopFavoritesOrMessagesButton}
@@ -471,7 +473,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 {isProvider ? (
                   <Star className={`w-5 h-5 transition-transform ${isTravelOrReviewsActive ? 'scale-110 stroke-[2.4]' : 'stroke-[1.8]'}`} />
                 ) : (
-                  <Plane className={`w-5 h-5 transition-transform ${isTravelOrReviewsActive ? 'scale-110 stroke-[2.4]' : 'stroke-[1.8]'}`} />
+                  <Bus className={`w-5 h-5 transition-transform ${isTravelOrReviewsActive ? 'scale-110 stroke-[2.4]' : 'stroke-[1.8]'}`} />
                 )}
                 <span className="text-[11px] leading-tight mt-1 truncate">{isProvider ? 'Értékeléseim' : 'Utazások'}</span>
               </button>
