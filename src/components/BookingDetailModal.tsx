@@ -79,6 +79,7 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
   const [confirmingOrder, setConfirmingOrder] = useState(false);
   const [cancellingOrder, setCancellingOrder] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
+  const [confirmError, setConfirmError] = useState<string | null>(null);
   const [messagesOpen, setMessagesOpen] = useState(false);
 
   const bookingCode = getBookingReference(order);
@@ -139,8 +140,11 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
 
   const handleConfirmOrder = async () => {
     setConfirmingOrder(true);
+    setConfirmError(null);
     try {
       await confirmOrder(order.id);
+    } catch (err) {
+      setConfirmError(err instanceof Error ? err.message : 'A visszaigazolás nem sikerült, próbáld meg újra.');
     } finally {
       setConfirmingOrder(false);
     }
@@ -216,6 +220,12 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   <span>{confirmingOrder ? 'Visszaigazolás...' : 'Foglalás visszaigazolása'}</span>
                 </button>
+              )}
+
+              {confirmError && (
+                <p className="w-full text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2.5">
+                  {confirmError}
+                </p>
               )}
 
               {order.source && order.source !== 'platform' && (
