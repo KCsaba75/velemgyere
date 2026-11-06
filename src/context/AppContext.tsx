@@ -454,8 +454,8 @@ interface AppContextType {
   createPriceTier: (programId: string, tier: { min_participants: number; max_participants?: number | null; total_price: number }) => Promise<void>;
   deletePriceTier: (id: string) => Promise<void>;
 
-  // Admin approval + privacy-gated contact lookups (kanban fbf552b2 points 3/4/5).
-  confirmOrder: (id: string) => Promise<{ success: boolean; message: string }>;
+  // Provider self-confirm (kanban 4501beef) + admin approval fallback.
+  confirmOrder: (id: string) => Promise<void>;
   getProviderContactForOrder: (orderId: string) => Promise<OrderProviderContact | null>;
   getOrderBuyerInfo: (orderId: string) => Promise<OrderBuyerInfo | null>;
 
@@ -2872,30 +2872,56 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (error) throw error;
   };
 
-  // Admin-only "szimulált fizetés-teljesülés" (kanban fbf552b2 point 4): the confirm_order
-  // RPC re-checks is_admin() server-side (the direct-table-update path to 'confirmed' was
-  // closed off for everyone else, see schema.sql) and flips pending -> confirmed. On
-  // success, re-reads the row so the caller's local `orders` state picks up the new
-  // status immediately without a full reload.
-  const confirmOrder = async (id: string): Promise<{ success: boolean; message: string }> => {
-    // Optimistic UI state update so user sees instant confirmation
-    setOrders(prev => prev.map(o => (o.id === id ? { ...o, status: 'confirmed' } : o)));
-
+  // Provider self-confirm (kanban 4501beef, direct table update under the
+  // "Providers can confirm pending orders for their programs" RLS policy +
+  // orders_enforce_status_transition trigger) with an admin-only RPC fallback
+  // (confirm_order re-checks is_admin() server-side) for the legacy "szimulált
+  // fizetés-teljesülés" path.
+  //
+  // .select('id') after the direct update is required: PostgREST returns success
+  // (no error) even when RLS/the trigger silently matches 0 rows (stale/expired
+  // session, order not actually owned by the caller) -- mirrors cancelOrder()'s
+  // fix for the identical bug class (kanban 4a007dc2). Without the row-count check
+  // AND without surfacing the RPC fallback's error, confirmOrder() always returned
+  // success:true regardless of the real outcome, and the optimistic state update
+  // ran unconditionally before either DB call -- so the UI showed "confirmed" even
+  // when nothing changed in the DB (kanban c19af777).
+  const confirmOrder = async (id: string): Promise<void> => {
     if (!isSupabaseConfigured) {
-      return { success: true, message: 'Foglalás sikeresen visszaigazolva!' };
+      setOrders(prev => prev.map(o => (o.id === id ? { ...o, status: 'confirmed' } : o)));
+      return;
     }
 
-    // Try direct table update first
-    const { error: directError } = await supabase.from('orders').update({ status: 'confirmed' }).eq('id', id);
+    const { data, error: directError } = await supabase
+      .from('orders')
+      .update({ status: 'confirmed' })
+      .eq('id', id)
+      .select('id');
+
+    if (!directError && data && data.length > 0) {
+      setOrders(prev => prev.map(o => (o.id === id ? { ...o, status: 'confirmed' } : o)));
+      return;
+    }
+
     if (directError) {
       console.warn('Direct order confirm notice, attempting RPC fallback:', directError);
-      const { error: rpcError } = await supabase.rpc('confirm_order', { p_order_id: id });
-      if (rpcError) {
-        console.error('RPC confirm_order error:', rpcError);
-      }
     }
 
-    return { success: true, message: 'Foglalás sikeresen visszaigazolva!' };
+    const { error: rpcError } = await supabase.rpc('confirm_order', { p_order_id: id });
+    // confirm_order() returns void even on a 0-row no-op (e.g. the order wasn't
+    // 'pending' any more) -- re-read the row instead of trusting an absent error,
+    // otherwise this fallback would reintroduce the exact "always success" bug
+    // on the RPC path alone.
+    const { data: verifyRow } = rpcError
+      ? { data: null }
+      : await supabase.from('orders').select('status').eq('id', id).maybeSingle();
+
+    if (rpcError || !verifyRow || verifyRow.status !== 'confirmed') {
+      if (rpcError) console.error('RPC confirm_order error:', rpcError);
+      throw new Error('A visszaigazolás nem sikerült: a foglalás nem érhető el ezzel a fiókkal, vagy nincs "függő" állapotban. Jelentkezz be újra és próbáld meg ismét.');
+    }
+
+    setOrders(prev => prev.map(o => (o.id === id ? { ...o, status: 'confirmed' } : o)));
   };
 
   // Buyer-side (kanban fbf552b2 point 3+5a): the provider's contact details, resolvable

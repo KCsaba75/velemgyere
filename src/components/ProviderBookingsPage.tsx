@@ -54,6 +54,7 @@ export const ProviderBookingsPage: React.FC = () => {
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [rescheduleOrderId, setRescheduleOrderId] = useState<string | null>(null);
   const [confirmingOrderId, setConfirmingOrderId] = useState<string | null>(null);
+  const [confirmErrorByOrderId, setConfirmErrorByOrderId] = useState<Record<string, string>>({});
   const [manualBookingModalOpen, setManualBookingModalOpen] = useState(false);
   const [manualBookingProgramId, setManualBookingProgramId] = useState<string | undefined>(undefined);
 
@@ -64,8 +65,17 @@ export const ProviderBookingsPage: React.FC = () => {
 
   const handleConfirmOrder = async (id: string) => {
     setConfirmingOrderId(id);
+    setConfirmErrorByOrderId(prev => {
+      const { [id]: _removed, ...rest } = prev;
+      return rest;
+    });
     try {
       await confirmOrder(id);
+    } catch (err) {
+      setConfirmErrorByOrderId(prev => ({
+        ...prev,
+        [id]: err instanceof Error ? err.message : 'A visszaigazolás nem sikerült, próbáld meg újra.',
+      }));
     } finally {
       setConfirmingOrderId(null);
     }
@@ -486,6 +496,11 @@ export const ProviderBookingsPage: React.FC = () => {
                             <span>Megtekintés</span>
                           </button>
                         </div>
+                        {confirmErrorByOrderId[order.id] && (
+                          <p className="w-full text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2.5 mt-2">
+                            {confirmErrorByOrderId[order.id]}
+                          </p>
+                        )}
                       </div>
                     </div>
                   );
