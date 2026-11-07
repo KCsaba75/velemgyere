@@ -2,11 +2,7 @@ import React, { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useDocumentMeta } from '../../hooks/useDocumentMeta';
-import { FaqContent } from '../../types/pageContent';
-
-const DRAFT_FAQ_ITEMS = [
-  { question: 'Ez egy placeholder kérdés -- az admin tölti majd ki a valódi GYIK-et.', answer: 'Hamarosan itt olvashatod a válaszokat a leggyakoribb kérdésekre.' },
-];
+import { DRAFT_FAQ_ITEMS, FaqContent } from '../../types/pageContent';
 
 export const FaqPage: React.FC = () => {
   const { pages } = useApp();

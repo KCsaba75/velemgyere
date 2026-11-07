@@ -2,7 +2,7 @@ import React from 'react';
 import { Compass, Briefcase } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useDocumentMeta } from '../../hooks/useDocumentMeta';
-import { HowItWorksContent } from '../../types/pageContent';
+import { DRAFT_HOW_IT_WORKS, HowItWorksContent } from '../../types/pageContent';
 
 // Kanban 71915a0a (4a. pont): a kozosajandek.hu "Nektek"/"A vendegeknek"
 // ketfele-nezopont mintajara -- itt "programvadasz" (utazo) vs "szolgaltato".
@@ -14,10 +14,8 @@ export const HowItWorksPage: React.FC = () => {
 
   useDocumentMeta(title, 'Hogyan működik a Velem Gyere, programvadászként és szolgáltatóként is.');
 
-  const visitorText = content.visitorText?.trim()
-    || 'Hamarosan itt olvashatod, hogyan találd meg és foglald le a programokat -- addig is köszönjük a türelmet!';
-  const providerText = content.providerText?.trim()
-    || 'Hamarosan itt olvashatod, hogyan hirdesd meg a programjaidat szolgáltatóként -- addig is köszönjük a türelmet!';
+  const visitorText = content.visitorText?.trim() || DRAFT_HOW_IT_WORKS.visitorText!;
+  const providerText = content.providerText?.trim() || DRAFT_HOW_IT_WORKS.providerText!;
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-16">

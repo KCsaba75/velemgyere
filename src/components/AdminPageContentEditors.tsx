@@ -3,7 +3,7 @@ import { Check, Loader2, Plus, Trash2, Upload } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { supabase } from '../lib/supabase';
 import { uploadSiteContentImage } from '../lib/imageUpload';
-import { FaqItem, HowItWorksContent } from '../types/pageContent';
+import { DRAFT_FAQ_ITEMS, DRAFT_FALLBACKS, DRAFT_HOW_IT_WORKS, FaqItem, HowItWorksContent } from '../types/pageContent';
 
 // Kanban 71915a0a (4-6. pont): admin-szerkeszto kartyak a 7 uj publikus
 // aloldalhoz (Platform + Ugyfelszolgalat). Minden kartya ugyanazt a
@@ -143,8 +143,12 @@ export const SimpleTextPageEditorCard: React.FC<{
           rows={6}
           value={bodyDraft}
           onChange={(e) => setBodyDraft(e.target.value)}
+          placeholder={DRAFT_FALLBACKS[slug] || ''}
           className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2.5 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-y"
         />
+        {!bodyDraft.trim() && (
+          <p className="text-[11px] text-stone-400">Üresen a szürke minta-szöveg jelenik meg a nyilvános oldalon (draft-jelzéssel), amíg ide nem írsz tartalmat.</p>
+        )}
       </div>
       {withImage && (
         <ImageUploadField slug={slug} label="Kép" imageUrl={imageDraft} onChange={setImageDraft} />
@@ -204,6 +208,7 @@ export const ContactPageEditorCard: React.FC = () => {
           rows={4}
           value={bodyDraft}
           onChange={(e) => setBodyDraft(e.target.value)}
+          placeholder={DRAFT_FALLBACKS.contact}
           className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2.5 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-y"
         />
       </div>
@@ -288,6 +293,7 @@ export const HowItWorksEditorCard: React.FC = () => {
             rows={5}
             value={draft.visitorText || ''}
             onChange={(e) => set('visitorText', e.target.value)}
+            placeholder={DRAFT_HOW_IT_WORKS.visitorText}
             className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2.5 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-y"
           />
           <ImageUploadField slug="how-it-works" label="Kép" imageUrl={draft.visitorImageUrl || ''} onChange={(url) => set('visitorImageUrl', url)} />
@@ -305,6 +311,7 @@ export const HowItWorksEditorCard: React.FC = () => {
             rows={5}
             value={draft.providerText || ''}
             onChange={(e) => set('providerText', e.target.value)}
+            placeholder={DRAFT_HOW_IT_WORKS.providerText}
             className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2.5 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-y"
           />
           <ImageUploadField slug="how-it-works" label="Kép" imageUrl={draft.providerImageUrl || ''} onChange={(url) => set('providerImageUrl', url)} />
@@ -359,6 +366,12 @@ export const FaqEditorCard: React.FC = () => {
           className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
         />
       </div>
+
+      {items.length === 0 && (
+        <p className="text-[11px] text-stone-400">
+          Jelenleg nincs felvett kérdés -- a nyilvános oldalon egy minta-kérdés jelenik meg ("{DRAFT_FAQ_ITEMS[0].question}"), amíg legalább egyet nem adsz hozzá.
+        </p>
+      )}
 
       <div className="space-y-3">
         {items.map((item, idx) => (
