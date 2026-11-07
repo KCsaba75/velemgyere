@@ -26,6 +26,8 @@ export const AdminSettingsPage: React.FC = () => {
     eurHufLastUpdated,
     updateEurHufRate,
     fetchAndApplyLiveRate,
+    socialLinks,
+    updateSocialLinks,
     logout,
   } = useApp();
 
@@ -109,6 +111,32 @@ export const AdminSettingsPage: React.FC = () => {
       setTimeout(() => setEurRateSaved(false), 2500);
     } finally {
       setEurRateSaving(false);
+    }
+  };
+
+  // Kanban 71915a0a (1-3. pont): lablec FB/Instagram/TikTok URL-jeinek admin
+  // szerkesztese, ugyanaz a draft-input-majd-mentes minta mint a dij/arfolyam
+  // kartyaknal fent.
+  const [socialLinksDraft, setSocialLinksDraft] = useState(socialLinks);
+  const [socialLinksSaving, setSocialLinksSaving] = useState(false);
+  const [socialLinksSaved, setSocialLinksSaved] = useState(false);
+
+  React.useEffect(() => {
+    setSocialLinksDraft(socialLinks);
+  }, [socialLinks]);
+
+  const handleSaveSocialLinks = async () => {
+    setSocialLinksSaving(true);
+    try {
+      await updateSocialLinks({
+        facebook: socialLinksDraft.facebook.trim(),
+        instagram: socialLinksDraft.instagram.trim(),
+        tiktok: socialLinksDraft.tiktok.trim(),
+      });
+      setSocialLinksSaved(true);
+      setTimeout(() => setSocialLinksSaved(false), 2500);
+    } finally {
+      setSocialLinksSaving(false);
     }
   };
 
@@ -318,6 +346,60 @@ export const AdminSettingsPage: React.FC = () => {
               )}
             </p>
           </div>
+        </div>
+      </div>
+
+      {/* Közösségi média linkek (lábléc, kanban 71915a0a) */}
+      <div className="bg-white rounded-2xl border border-stone-200 p-6 space-y-4">
+        <h3 className="font-display font-bold text-stone-900 text-lg">Közösségi média linkek (lábléc)</h3>
+        <p className="text-sm text-stone-600">
+          A lábléc bal oldalán megjelenő ikonok URL-je. Üresen hagyva az adott platform ikonja nem jelenik meg a láblécben.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-stone-700 uppercase tracking-wider">Facebook</label>
+            <input
+              type="url"
+              value={socialLinksDraft.facebook}
+              onChange={(e) => setSocialLinksDraft({ ...socialLinksDraft, facebook: e.target.value })}
+              placeholder="https://facebook.com/..."
+              className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-stone-700 uppercase tracking-wider">Instagram</label>
+            <input
+              type="url"
+              value={socialLinksDraft.instagram}
+              onChange={(e) => setSocialLinksDraft({ ...socialLinksDraft, instagram: e.target.value })}
+              placeholder="https://instagram.com/..."
+              className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-stone-700 uppercase tracking-wider">TikTok</label>
+            <input
+              type="url"
+              value={socialLinksDraft.tiktok}
+              onChange={(e) => setSocialLinksDraft({ ...socialLinksDraft, tiktok: e.target.value })}
+              placeholder="https://tiktok.com/@..."
+              className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleSaveSocialLinks}
+            disabled={socialLinksSaving}
+            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-4 rounded-xl text-sm cursor-pointer disabled:opacity-60"
+          >
+            {socialLinksSaving ? 'Mentés...' : 'Mentés'}
+          </button>
+          {socialLinksSaved && (
+            <span className="text-xs font-bold text-emerald-700 flex items-center gap-1">
+              <Check className="w-3.5 h-3.5" /> Mentve
+            </span>
+          )}
         </div>
       </div>
 

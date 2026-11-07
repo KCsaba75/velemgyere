@@ -1,8 +1,26 @@
 import React from 'react';
+import { Facebook, Instagram } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
+// Lucide nem tartalmaz TikTok-ikont (nem brand-logo keszlet), ezert sajat,
+// a lucide stroke-stilusahoz igazodo inline SVG kell -- lasd kanban 71915a0a.
+const TikTokIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+    <path d="M16.6 5.82c-1.01-.88-1.6-2.15-1.6-3.57h-3.09v12.4a2.59 2.59 0 1 1-2.6-2.6c.21 0 .42.02.6.06V8.9a5.7 5.7 0 0 0-.6-.03 5.74 5.74 0 0 0-5.74 5.74A5.74 5.74 0 0 0 9.31 20.3a5.74 5.74 0 0 0 5.74-5.74V9.01a7.3 7.3 0 0 0 4.3 1.38V7.3a4.27 4.27 0 0 1-2.75-1.48Z" />
+  </svg>
+);
+
+const SOCIAL_LINKS: { key: 'facebook' | 'instagram' | 'tiktok'; label: string; Icon: React.FC<{ className?: string }> }[] = [
+  { key: 'facebook', label: 'Facebook', Icon: Facebook },
+  { key: 'instagram', label: 'Instagram', Icon: Instagram },
+  { key: 'tiktok', label: 'TikTok', Icon: TikTokIcon },
+];
+
 export const Footer: React.FC = () => {
-  const { setCurrentView } = useApp();
+  const { setCurrentView, socialLinks } = useApp();
+  // Csak a kitoltott (admin altal beallitott) linkekhez jelenik meg ikon --
+  // ures URL-nel nincs ertelme egy sehova sem mutato gombot mutatni.
+  const activeSocialLinks = SOCIAL_LINKS.filter(({ key }) => socialLinks[key]?.trim());
 
   return (
     <footer className="bg-stone-900 text-stone-300 border-t border-stone-800 pt-16 pb-12 mt-20">
@@ -24,6 +42,24 @@ export const Footer: React.FC = () => {
             <p className="text-stone-400 text-xs sm:text-sm max-w-sm leading-relaxed">
               Kirándulások • Programok • Élmények magyar nyelven, külföldön. Találd meg a következő élményed vagy csatlakozz szervező partnerként!
             </p>
+
+            {activeSocialLinks.length > 0 && (
+              <div className="flex items-center gap-3 pt-1">
+                {activeSocialLinks.map(({ key, label, Icon }) => (
+                  <a
+                    key={key}
+                    href={socialLinks[key]}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={label}
+                    title={label}
+                    className="w-9 h-9 flex items-center justify-center rounded-full border border-stone-700 text-stone-300 hover:text-emerald-400 hover:border-emerald-400 transition-colors cursor-pointer"
+                  >
+                    <Icon className="w-4 h-4" />
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Quick links */}

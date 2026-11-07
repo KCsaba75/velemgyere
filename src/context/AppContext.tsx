@@ -496,6 +496,11 @@ interface AppContextType {
   eurHufLastUpdated: string | null;
   updateEurHufRate: (rate: number) => Promise<void>;
   fetchAndApplyLiveRate: () => Promise<number | null>;
+  // Kanban 71915a0a: lablec kozossegi media linkek (FB/Instagram/TikTok),
+  // admin-szerkesztheto URL-ek a social_links tablaban (nem app_settings,
+  // mert annak value oszlopa numeric).
+  socialLinks: { facebook: string; instagram: string; tiktok: string };
+  updateSocialLinks: (links: { facebook: string; instagram: string; tiktok: string }) => Promise<void>;
   // Display-only helpers mirroring the server's compute_booking_fee/orders trigger
   // formula -- a program's stored `price` is the NET amount the provider receives,
   // the catalog/detail views must show the buyer-facing TOTAL (net+fee).
@@ -696,6 +701,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [feePercentage, setFeePercentage] = useState<number>(0);
   const [feeMinimumEur, setFeeMinimumEur] = useState<number>(0);
   const [eurHufRate, setEurHufRate] = useState<number>(400);
+  const [socialLinks, setSocialLinks] = useState<{ facebook: string; instagram: string; tiktok: string }>({
+    facebook: '', instagram: '', tiktok: '',
+  });
   const [eurHufLastUpdated, setEurHufLastUpdated] = useState<string | null>(null);
 
   // Current active user profile (derived from Supabase Auth session)
@@ -840,6 +848,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           contactMessagesRes,
           reviewsRes,
           settingsRes,
+          socialLinksRes,
         ] = await Promise.all([
           supabase.from('regions').select('*'),
           supabase.from('categories').select('*'),
@@ -849,6 +858,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           supabase.from('contact_messages').select('*').order('created_at', { ascending: false }),
           supabase.from('reviews').select('*').order('created_at', { ascending: false }),
           supabase.from('app_settings').select('*').in('key', ['fee_percentage', 'fee_minimum_eur', 'eur_huf_rate']),
+          supabase.from('social_links').select('*'),
         ]);
 
         if (cancelled) return;
@@ -883,6 +893,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               setEurHufLastUpdated(rateRow.updated_at);
             }
           }
+        }
+
+        if (!socialLinksRes.error && socialLinksRes.data) {
+          const rows = socialLinksRes.data as { platform: string; url: string }[];
+          setSocialLinks(prev => ({
+            facebook: rows.find(r => r.platform === 'facebook')?.url ?? prev.facebook,
+            instagram: rows.find(r => r.platform === 'instagram')?.url ?? prev.instagram,
+            tiktok: rows.find(r => r.platform === 'tiktok')?.url ?? prev.tiktok,
+          }));
         }
 
         if (regionsRes.error || categoriesRes.error) {
@@ -2982,6 +3001,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     ], { onConflict: 'key' });
   }, []);
 
+  // Admin-only (enforced by the "Admins can manage social links" RLS policy) --
+  // updates the footer's FB/Instagram/TikTok URLs. Empty string hides the icon
+  // in the footer (see Footer.tsx).
+  const updateSocialLinks = async (links: { facebook: string; instagram: string; tiktok: string }): Promise<void> => {
+    setSocialLinks(links);
+    if (!isSupabaseConfigured) return;
+    const nowIso = new Date().toISOString();
+    const { error } = await supabase.from('social_links').upsert([
+      { platform: 'facebook', url: links.facebook, updated_at: nowIso },
+      { platform: 'instagram', url: links.instagram, updated_at: nowIso },
+      { platform: 'tiktok', url: links.tiktok, updated_at: nowIso },
+    ], { onConflict: 'platform' });
+    if (error) throw error;
+  };
+
   const fetchAndApplyLiveRate = useCallback(async (): Promise<number | null> => {
     const liveRate = await fetchLiveEurHufRate();
     if (liveRate && liveRate > 0) {
@@ -4024,6 +4058,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         fetchAndApplyLiveRate,
         computeBookingFee,
         computeTotalPrice,
+        socialLinks,
+        updateSocialLinks,
 
         // Reviews system
         reviews,
