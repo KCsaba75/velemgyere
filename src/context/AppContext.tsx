@@ -30,6 +30,7 @@ import {
   FavoriteItem,
   ProgramPriceTier
 } from '../types/database';
+import { PageRecord } from '../types/pageContent';
 import { 
   INITIAL_CATEGORIES, 
   INITIAL_REGIONS,
@@ -98,6 +99,16 @@ const VIEW_TO_PATH: Record<string, string> = {
   // fix targymenu-gomb kozott).
   'admin-settings': '/admin/beallitasok',
   'my-account': '/sajat-fiokom',
+  // Kanban 71915a0a (4-6. pont): "Platform" (how-it-works/about-us/pricing) +
+  // "Ugyfelszolgalat" (faq/contact/terms/privacy) uj publikus aloldalak,
+  // admin-szerkesztheto tartalommal (lasd public.pages tabla).
+  'how-it-works': '/hogyan-mukodik',
+  'about-us': '/rolunk',
+  pricing: '/arazas-es-fizetes',
+  faq: '/gyik',
+  contact: '/kapcsolat',
+  terms: '/aszf',
+  privacy: '/adatkezeles',
 };
 
 function pathToView(pathname: string): string {
@@ -135,6 +146,13 @@ function pathToView(pathname: string): string {
   // at) a Programok celre esik vissza.
   if (pathname.startsWith('/admin')) return 'admin-programs';
   if (pathname.startsWith('/sajat-fiokom')) return 'my-account';
+  if (pathname.startsWith('/hogyan-mukodik')) return 'how-it-works';
+  if (pathname.startsWith('/rolunk')) return 'about-us';
+  if (pathname.startsWith('/arazas-es-fizetes')) return 'pricing';
+  if (pathname.startsWith('/gyik')) return 'faq';
+  if (pathname.startsWith('/kapcsolat')) return 'contact';
+  if (pathname.startsWith('/aszf')) return 'terms';
+  if (pathname.startsWith('/adatkezeles')) return 'privacy';
   return 'home';
 }
 
@@ -501,6 +519,12 @@ interface AppContextType {
   // mert annak value oszlopa numeric).
   socialLinks: { facebook: string; instagram: string; tiktok: string };
   updateSocialLinks: (links: { facebook: string; instagram: string; tiktok: string }) => Promise<void>;
+  // Kanban 71915a0a (4-6. pont): admin-szerkesztheto tartalom a 7 uj publikus
+  // aloldalhoz (Platform + Ugyfelszolgalat). A content alakja oldalankent mas
+  // (lasd src/types/pageContent.ts), ezert jsonb/Record<string, unknown> --
+  // nem kulon oszlop oldalankent.
+  pages: Record<string, PageRecord>;
+  updatePageContent: (slug: string, data: { title: string; content: Record<string, unknown> }) => Promise<void>;
   // Display-only helpers mirroring the server's compute_booking_fee/orders trigger
   // formula -- a program's stored `price` is the NET amount the provider receives,
   // the catalog/detail views must show the buyer-facing TOTAL (net+fee).
@@ -704,6 +728,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [socialLinks, setSocialLinks] = useState<{ facebook: string; instagram: string; tiktok: string }>({
     facebook: '', instagram: '', tiktok: '',
   });
+  const [pages, setPages] = useState<Record<string, PageRecord>>({});
   const [eurHufLastUpdated, setEurHufLastUpdated] = useState<string | null>(null);
 
   // Current active user profile (derived from Supabase Auth session)
@@ -849,6 +874,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           reviewsRes,
           settingsRes,
           socialLinksRes,
+          pagesRes,
         ] = await Promise.all([
           supabase.from('regions').select('*'),
           supabase.from('categories').select('*'),
@@ -859,6 +885,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           supabase.from('reviews').select('*').order('created_at', { ascending: false }),
           supabase.from('app_settings').select('*').in('key', ['fee_percentage', 'fee_minimum_eur', 'eur_huf_rate']),
           supabase.from('social_links').select('*'),
+          supabase.from('pages').select('*'),
         ]);
 
         if (cancelled) return;
@@ -902,6 +929,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             instagram: rows.find(r => r.platform === 'instagram')?.url ?? prev.instagram,
             tiktok: rows.find(r => r.platform === 'tiktok')?.url ?? prev.tiktok,
           }));
+        }
+
+        if (!pagesRes.error && pagesRes.data) {
+          const rows = pagesRes.data as PageRecord[];
+          const bySlug: Record<string, PageRecord> = {};
+          for (const row of rows) bySlug[row.slug] = row;
+          setPages(bySlug);
         }
 
         if (regionsRes.error || categoriesRes.error) {
@@ -3016,6 +3050,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (error) throw error;
   };
 
+  // Admin-only (enforced by the "Admins can manage pages" RLS policy) -- upsert
+  // egy publikus aloldal (Platform/Ugyfelszolgalat) cimet+tartalmat.
+  const updatePageContent = async (slug: string, data: { title: string; content: Record<string, unknown> }): Promise<void> => {
+    setPages(prev => ({ ...prev, [slug]: { slug, title: data.title, content: data.content } }));
+    if (!isSupabaseConfigured) return;
+    const nowIso = new Date().toISOString();
+    const { error } = await supabase.from('pages').upsert([
+      { slug, title: data.title, content: data.content, updated_at: nowIso },
+    ], { onConflict: 'slug' });
+    if (error) throw error;
+  };
+
   const fetchAndApplyLiveRate = useCallback(async (): Promise<number | null> => {
     const liveRate = await fetchLiveEurHufRate();
     if (liveRate && liveRate > 0) {
@@ -4060,6 +4106,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         computeTotalPrice,
         socialLinks,
         updateSocialLinks,
+        pages,
+        updatePageContent,
 
         // Reviews system
         reviews,

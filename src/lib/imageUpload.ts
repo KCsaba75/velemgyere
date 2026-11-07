@@ -95,3 +95,27 @@ export async function uploadProgramImage(
 
   return { url: fullUrl, thumbUrl };
 }
+
+// Kanban 71915a0a (4-6. pont): a Platform/Ugyfelszolgalat aloldalak (Rolunk,
+// Hogyan mukodik, stb.) admin-feltoltott kepeihez -- sajat, site-szintu bucket
+// (nem program-images, az szolgaltato-tulajdonu tartalomra ertelmezett, lasd
+// supabase/migrations/20261107010000_page_content.sql). Csak egyetlen,
+// teljes-meretu WebP-t general (nincs lista-nezet thumbnail ezekhez a kepekhez).
+export const SITE_CONTENT_IMAGES_BUCKET = 'site-content-images';
+
+export async function uploadSiteContentImage(
+  supabase: SupabaseClient,
+  slug: string,
+  file: File
+): Promise<string> {
+  const img = await loadImage(file);
+  const blob = await resizeToWebp(img, FULL_MAX_WIDTH, WEBP_QUALITY);
+  const path = `${slug}/${crypto.randomUUID()}.webp`;
+
+  const { error } = await supabase.storage
+    .from(SITE_CONTENT_IMAGES_BUCKET)
+    .upload(path, blob, { contentType: 'image/webp' });
+  if (error) throw error;
+
+  return supabase.storage.from(SITE_CONTENT_IMAGES_BUCKET).getPublicUrl(path).data.publicUrl;
+}

@@ -25,9 +25,9 @@ export const Footer: React.FC = () => {
   return (
     <footer className="bg-stone-900 text-stone-300 border-t border-stone-800 pt-16 pb-12 mt-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-8 mb-12">
           {/* Brand info */}
-          <div className="md:col-span-2 space-y-4">
+          <div className="sm:col-span-2 space-y-4">
             {/* The logo file has a white background (not transparent) -- a plain white
                 badge behind it is a deliberate, legible way to place it on the dark
                 footer instead of a jarring un-intentional-looking white box. */}
@@ -86,6 +86,59 @@ export const Footer: React.FC = () => {
               <li>
                 <button onClick={() => { setCurrentView('provider-landing'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="hover:text-emerald-400 cursor-pointer">
                   Szolgáltatóknak
+                </button>
+              </li>
+            </ul>
+          </div>
+
+          {/* Platform (kanban 71915a0a, 4. pont) */}
+          <div className="space-y-3">
+            <h5 className="font-bold text-white text-xs uppercase tracking-wider">
+              Platform
+            </h5>
+            <ul className="space-y-2 text-xs text-stone-400">
+              <li>
+                <button onClick={() => { setCurrentView('how-it-works'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="hover:text-emerald-400 cursor-pointer">
+                  Hogyan működik?
+                </button>
+              </li>
+              <li>
+                <button onClick={() => { setCurrentView('about-us'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="hover:text-emerald-400 cursor-pointer">
+                  Rólunk
+                </button>
+              </li>
+              <li>
+                <button onClick={() => { setCurrentView('pricing'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="hover:text-emerald-400 cursor-pointer">
+                  Árazás és fizetés
+                </button>
+              </li>
+            </ul>
+          </div>
+
+          {/* Ugyfelszolgalat (kanban 71915a0a, 5. pont) */}
+          <div className="space-y-3">
+            <h5 className="font-bold text-white text-xs uppercase tracking-wider">
+              Ügyfélszolgálat
+            </h5>
+            <ul className="space-y-2 text-xs text-stone-400">
+              <li>
+                <button onClick={() => { setCurrentView('faq'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="hover:text-emerald-400 cursor-pointer">
+                  Gyakran ismételt kérdések
+                </button>
+              </li>
+              <li>
+                <button onClick={() => { setCurrentView('contact'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="hover:text-emerald-400 cursor-pointer">
+                  Kapcsolat
+                </button>
+              </li>
+              <li>
+                <button onClick={() => { setCurrentView('terms'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="hover:text-emerald-400 cursor-pointer">
+                  ÁSZF
+                </button>
+              </li>
+              <li>
+                <button onClick={() => { setCurrentView('privacy'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="hover:text-emerald-400 cursor-pointer">
+                  Adatkezelési tájékoztató
                 </button>
               </li>
             </ul>

@@ -3,6 +3,7 @@ import { useApp } from '../context/AppContext';
 import { ShieldCheck, RotateCcw, LogOut, Check, RefreshCw, ChevronDown, Send, AlertCircle, MailCheck } from 'lucide-react';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import { BookingPushNotificationCard } from './BookingPushNotificationCard';
+import { SimpleTextPageEditorCard, ContactPageEditorCard, HowItWorksEditorCard, FaqEditorCard } from './AdminPageContentEditors';
 
 // Kanban 653c7577 (Csaba, teljes admin-nav atszervezes): a korabbi Admin
 // Vezerlopult "Beallitasok" (dij+arfolyam) es "Erdeklodesek" fulje, plusz a
@@ -401,6 +402,23 @@ export const AdminSettingsPage: React.FC = () => {
             </span>
           )}
         </div>
+      </div>
+
+      {/* Platform + Ugyfelszolgalat aloldalak tartalma (kanban 71915a0a, 4-6. pont) */}
+      <div className="space-y-4">
+        <div>
+          <h3 className="font-display font-bold text-stone-900 text-lg">Oldalak tartalma (Platform / Ügyfélszolgálat)</h3>
+          <p className="text-sm text-stone-600">
+            A lábléc Platform és Ügyfélszolgálat oszlopaiban elérhető 7 aloldal szövege és képe itt szerkeszthető.
+          </p>
+        </div>
+        <HowItWorksEditorCard />
+        <SimpleTextPageEditorCard slug="about-us" cardTitle="Rólunk" defaultTitle="Rólunk" withImage />
+        <SimpleTextPageEditorCard slug="pricing" cardTitle="Árazás és fizetés" defaultTitle="Árazás és fizetés" />
+        <FaqEditorCard />
+        <ContactPageEditorCard />
+        <SimpleTextPageEditorCard slug="terms" cardTitle="Általános Szerződési Feltételek" defaultTitle="Általános Szerződési Feltételek" legalWarning />
+        <SimpleTextPageEditorCard slug="privacy" cardTitle="Adatkezelési Tájékoztató" defaultTitle="Adatkezelési Tájékoztató" legalWarning />
       </div>
 
       {/* Érdeklődések */}

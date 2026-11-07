@@ -41,6 +41,15 @@ const FavoritesView = lazy(() => import('./components/FavoritesView').then(m => 
 const BookingsView = lazy(() => import('./components/BookingsView').then(m => ({ default: m.BookingsView })));
 const AuthCallback = lazy(() => import('./components/AuthCallback').then(m => ({ default: m.AuthCallback })));
 const ResetPasswordPage = lazy(() => import('./components/ResetPasswordPage').then(m => ({ default: m.ResetPasswordPage })));
+// Kanban 71915a0a (4-6. pont): uj "Platform" + "Ugyfelszolgalat" publikus
+// aloldalak, admin-szerkesztheto tartalommal (lasd AppContext `pages`).
+const HowItWorksPage = lazy(() => import('./components/pages/HowItWorksPage').then(m => ({ default: m.HowItWorksPage })));
+const AboutUsPage = lazy(() => import('./components/pages/AboutUsPage').then(m => ({ default: m.AboutUsPage })));
+const PricingInfoPage = lazy(() => import('./components/pages/PricingInfoPage').then(m => ({ default: m.PricingInfoPage })));
+const FaqPage = lazy(() => import('./components/pages/FaqPage').then(m => ({ default: m.FaqPage })));
+const ContactInfoPage = lazy(() => import('./components/pages/ContactInfoPage').then(m => ({ default: m.ContactInfoPage })));
+const TermsPage = lazy(() => import('./components/pages/TermsPage').then(m => ({ default: m.TermsPage })));
+const PrivacyPage = lazy(() => import('./components/pages/PrivacyPage').then(m => ({ default: m.PrivacyPage })));
 
 // Rovid, nem-zavaro fallback a chunk-betoltes ideje alatt (tipikusan szazmasodperces
 // nagysagrend egy mar megnyitott kapcsolat utan) -- ugyanaz a Loader2 minta, amit az
@@ -224,6 +233,13 @@ const AppContent: React.FC = () => {
           <Route path="/foglalasaim" element={<BookingsView />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/jelszo-visszaallitas" element={<ResetPasswordPage />} />
+          <Route path="/hogyan-mukodik" element={<HowItWorksPage />} />
+          <Route path="/rolunk" element={<AboutUsPage />} />
+          <Route path="/arazas-es-fizetes" element={<PricingInfoPage />} />
+          <Route path="/gyik" element={<FaqPage />} />
+          <Route path="/kapcsolat" element={<ContactInfoPage />} />
+          <Route path="/aszf" element={<TermsPage />} />
+          <Route path="/adatkezeles" element={<PrivacyPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         </Suspense>
