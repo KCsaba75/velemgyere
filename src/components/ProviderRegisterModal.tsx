@@ -89,7 +89,7 @@ export const ProviderRegisterModal: React.FC<ProviderRegisterModalProps> = ({ is
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 text-xs text-amber-900 mb-6 flex items-start gap-2.5">
               <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
               <p>
-                A regisztrációt követően fiókod <span className="font-semibold underline">pending</span> (függőben lévő) státuszba kerül. A katalógus adminisztrátora ellenőrzi és hagyja jóvá adataidat a programok publikálásához.
+                A regisztráció elküldése után egy <span className="font-semibold underline">megerősítő linket</span> kapsz e-mailben -- ennek megnyitásával a fiókod rögtön aktívvá válik. Minden egyes feltöltött programodat egyedileg ellenőrzi és hagyja jóvá a katalógus adminisztrátora, mielőtt a nagyközönség elé kerülne.
               </p>
             </div>
 

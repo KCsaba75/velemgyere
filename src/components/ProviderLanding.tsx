@@ -128,41 +128,97 @@ export const ProviderLanding: React.FC<ProviderLandingProps> = ({
           </div>
         </div>
 
-        {/* Step-by-step workflow */}
+        {/* Step-by-step workflow (kanban 8d5443ca: kozosajandek.hu dual-perspective minta --
+            minden lepesnel a szolgaltato konkret feladata ES a latogato-oldali hatas is latszik) */}
         <div className="mt-16 bg-stone-100 rounded-3xl p-8 sm:p-12 border border-stone-200">
-          <h3 className="text-xl sm:text-2xl font-bold font-display text-stone-900 text-center mb-8">
-            Hogyan működik a folyamat?
-          </h3>
+          <div className="text-center max-w-2xl mx-auto mb-10">
+            <h3 className="text-xl sm:text-2xl font-bold font-display text-stone-900 mb-2">
+              Hogyan működik a folyamat?
+            </h3>
+            <p className="text-sm text-stone-500">
+              Lépésről lépésre, pontosan mi a feladatod -- és mi történik emiatt a látogatók oldalán.
+            </p>
+          </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-center">
-            <div className="space-y-2">
-              <div className="w-10 h-10 rounded-full bg-emerald-600 text-white font-extrabold font-display flex items-center justify-center mx-auto text-lg">
+          <div className="space-y-5 max-w-3xl mx-auto">
+            <div className="bg-white rounded-2xl border border-stone-200 p-5 sm:p-6 flex gap-4">
+              <div className="w-9 h-9 shrink-0 rounded-full bg-emerald-600 text-white font-extrabold font-display flex items-center justify-center text-base">
                 1
               </div>
-              <h4 className="font-bold text-stone-900 text-base">Regisztráció</h4>
-              <p className="text-xs sm:text-sm text-stone-600">
-                Add meg céged vagy vállalkozásod adatait. Fiókod adminisztrátori jóváhagyásra kerül.
-              </p>
+              <div className="space-y-1.5">
+                <h4 className="font-bold text-stone-900 text-base">Regisztráció és fiók aktiválása</h4>
+                <p className="text-sm text-stone-600 leading-relaxed">
+                  Add meg céged/vállalkozásod nevét, egy kapcsolattartót, e-mail-címet és telefonszámot, rövid bemutatkozást a tevékenységedről, és jelöld ki, milyen fizetési módokat fogadsz el helyszínen. A regisztráció elküldése után egy megerősítő linket kapsz e-mailben -- ennek megnyitásával a fiókod rögtön aktívvá válik, nincs külön admin-várakozás a belépéshez.
+                </p>
+                <p className="text-xs text-stone-400 flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5" />
+                  A látogatók oldalán: még semmi -- ez a lépés a háttérben zajlik, rólad még nem látnak semmit a katalógusban.
+                </p>
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <div className="w-10 h-10 rounded-full bg-emerald-600 text-white font-extrabold font-display flex items-center justify-center mx-auto text-lg">
+            <div className="bg-white rounded-2xl border border-stone-200 p-5 sm:p-6 flex gap-4">
+              <div className="w-9 h-9 shrink-0 rounded-full bg-emerald-600 text-white font-extrabold font-display flex items-center justify-center text-base">
                 2
               </div>
-              <h4 className="font-bold text-stone-900 text-base">Programfeltöltés</h4>
-              <p className="text-xs sm:text-sm text-stone-600">
-                Töltsd fel programod részleteit, képeit, árait, mit tartalmaz és a pontos helyszíneket.
-              </p>
+              <div className="space-y-1.5">
+                <h4 className="font-bold text-stone-900 text-base">Program feltöltése</h4>
+                <p className="text-sm text-stone-600 leading-relaxed">
+                  A szolgáltatói dashboardon tölts fel annyi programot, amennyit szeretnél: cím, kategória, ország/régió, nyelv, időtartam, pontos dátum és időpont, indulási hely és helyszín, rövid és részletes leírás, ár, maximális létszám, mit tartalmaz / mi nem tartalmaz lista, és legalább egy fénykép (ebből egyet borítóképnek kijelölve).
+                </p>
+                <p className="text-xs text-stone-400 flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5" />
+                  A látogatók oldalán: még semmi -- az új program ebben a lépésben csak vázlat (draft), kizárólag te látod a saját dashboardodon.
+                </p>
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <div className="w-10 h-10 rounded-full bg-emerald-600 text-white font-extrabold font-display flex items-center justify-center mx-auto text-lg">
-                3
+            <div className="bg-white rounded-2xl border border-stone-200 p-5 sm:p-6 flex gap-4">
+              <div className="w-9 h-9 shrink-0 rounded-full bg-emerald-600 text-white font-extrabold font-display flex items-center justify-center text-base">
+                <CheckCircle2 className="w-5 h-5" />
               </div>
-              <h4 className="font-bold text-stone-900 text-base">Fogadd az érdeklődőket</h4>
-              <p className="text-xs sm:text-sm text-stone-600">
-                A jóváhagyott program megjelenik a nagyközönség előtt és fogadhatod a beérkező megkereséseket.
-              </p>
+              <div className="space-y-1.5">
+                <h4 className="font-bold text-stone-900 text-base">Admin-ellenőrzés</h4>
+                <p className="text-sm text-stone-600 leading-relaxed">
+                  Minden új (vagy módosított) programot a katalógus adminisztrátora átnéz -- a leírást, az árat és a képeket -- mielőtt az nyilvánosan megjelenne. Ha valamit pontosítani kell, jelezzük feléd, mielőtt jóváhagyjuk.
+                </p>
+                <p className="text-xs text-stone-400 flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5" />
+                  A látogatók oldalán: még semmi -- ez a minőségbiztosítási lépés, ezért nem a te fiókod, hanem minden egyes program egyedileg kerül jóváhagyásra.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-stone-200 p-5 sm:p-6 flex gap-4">
+              <div className="w-9 h-9 shrink-0 rounded-full bg-emerald-600 text-white font-extrabold font-display flex items-center justify-center text-base">
+                <CalendarCheck className="w-5 h-5" />
+              </div>
+              <div className="space-y-1.5">
+                <h4 className="font-bold text-stone-900 text-base">Megjelenés a katalógusban</h4>
+                <p className="text-sm text-stone-600 leading-relaxed">
+                  A jóváhagyott program azonnal megjelenik a nyilvános Velem Gyere katalógusban, kereshetővé és böngészhetővé válik mindenki számára.
+                </p>
+                <p className="text-xs text-stone-400 flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5" />
+                  A látogatók oldalán: pontosan ekkor találkoznak először a programoddal -- a megadott kép, ár és leírás alapján döntik el, hogy érdeklődnek-e.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-stone-200 p-5 sm:p-6 flex gap-4">
+              <div className="w-9 h-9 shrink-0 rounded-full bg-emerald-600 text-white font-extrabold font-display flex items-center justify-center text-base">
+                5
+              </div>
+              <div className="space-y-1.5">
+                <h4 className="font-bold text-stone-900 text-base">Érdeklődések fogadása</h4>
+                <p className="text-sm text-stone-600 leading-relaxed">
+                  Az érdeklődők közvetlenül a nálad megadott elérhetőségre küldik a megkeresésüket, névvel, telefonszámmal és egyedi üzenettel -- ezeket a szolgáltatói dashboardodon is nyomon követed.
+                </p>
+                <p className="text-xs text-stone-400 flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5" />
+                  A látogatók oldalán: ők küldik az első üzenetet -- közvetítői díj nélkül, közvetlenül veled veszik fel a kapcsolatot.
+                </p>
+              </div>
             </div>
           </div>
         </div>
