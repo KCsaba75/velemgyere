@@ -114,12 +114,19 @@ export const ProviderBookingsPage: React.FC = () => {
   }, [ownOrderIds]);
 
   const [occurrencesMap, setOccurrencesMap] = useState<Record<string, ProgramOccurrence>>({});
+  const ownProgramIdsStr = ownPrograms.map(p => p.id).join(',');
 
+  // Kanban 6209fcae: a naptar-nezetnek MINDEN sajat program osszes alkalmara
+  // (nyitott es lezart, foglalassal vagy nelkule) szuksege van a "foglalhato
+  // nap" jelzeshez -- nem csak a mar meglevo rendelesekhez tartozo occurrence-okra,
+  // mint korabban (lasd ProviderProgramsPage azonos mintaja a manual-booking
+  // datumvalasztohoz).
   useEffect(() => {
-    const ordersWithOcc = ownOrders.filter(o => o.occurrence_id);
-    if (ordersWithOcc.length === 0) return;
-
-    const programIds = Array.from(new Set(ordersWithOcc.map(o => o.program_id)));
+    const programIds = ownProgramIdsStr ? ownProgramIdsStr.split(',') : [];
+    if (programIds.length === 0) {
+      setOccurrencesMap({});
+      return;
+    }
     let cancelled = false;
 
     Promise.all(programIds.map(pid => getProgramOccurrences(pid)))
@@ -129,7 +136,7 @@ export const ProviderBookingsPage: React.FC = () => {
         results.flat().forEach(occ => {
           map[occ.id] = occ;
         });
-        setOccurrencesMap(prev => ({ ...prev, ...map }));
+        setOccurrencesMap(map);
       })
       .catch(err => {
         console.warn('Occurrences load notice:', err);
@@ -138,7 +145,7 @@ export const ProviderBookingsPage: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [ownOrderIds, getProgramOccurrences]);
+  }, [ownProgramIdsStr, getProgramOccurrences]);
 
   // Categorize orders into upcoming, past, and cancelled buckets
   const bucketCounts = useMemo(() => {

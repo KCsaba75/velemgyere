@@ -18,7 +18,8 @@ import {
   Filter,
   Eye,
   Phone,
-  ExternalLink
+  ExternalLink,
+  CalendarCheck
 } from 'lucide-react';
 import { Order, Program, ProgramOccurrence, OrderBuyerInfo, OnsitePaymentMethod } from '../types/database';
 import { formatPrice, getBookingReference } from '../context/AppContext';
@@ -162,6 +163,63 @@ export const ProviderBookingsCalendar: React.FC<ProviderBookingsCalendarProps> =
     });
     return map;
   }, [filteredOrders]);
+
+  // Kanban 6209fcae (1-2. pont): a jovobeli napok, amikor tenylegesen foglalhato
+  // valamelyik (a szuronek megfelelo) sajat program -- occurrence-es programnal
+  // nyitott+jovobeli alkalom, occurrence nelkuli programnal a program.event_date
+  // fallback (lasd ProgramDetailView azonos logikaja). A "betelt" (full) jelzes
+  // a mar betoltott `orders`-bol szamolt foglalt letszamot veti a kapacitas
+  // ellen -- nem fuggetlen RPC-hivas, a mar amugy is betoltott adatbol szarmazik.
+  const bookableByDate = useMemo(() => {
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${padZero(today.getMonth() + 1)}-${padZero(today.getDate())}`;
+
+    const relevantPrograms = selectedProgramId === 'all'
+      ? programs
+      : programs.filter(p => p.id === selectedProgramId);
+
+    const bookedParticipants = (predicate: (o: Order) => boolean): number =>
+      orders
+        .filter(o => o.status !== 'cancelled' && predicate(o))
+        .reduce((sum, o) => sum + (o.participants_count || 0), 0);
+
+    const map = new Map<string, Array<{ programId: string; programTitle: string; full: boolean }>>();
+
+    const addEntry = (dateStr: string, program: Program, full: boolean) => {
+      const list = map.get(dateStr) || [];
+      if (!list.some(l => l.programId === program.id)) {
+        list.push({ programId: program.id, programTitle: program.title, full });
+        map.set(dateStr, list);
+      }
+    };
+
+    relevantPrograms.forEach(program => {
+      const programOccurrences = Object.values(occurrencesMap).filter(o => o.program_id === program.id);
+
+      if (programOccurrences.length > 0) {
+        programOccurrences
+          .filter(occ => occ.status === 'open')
+          .forEach(occ => {
+            const dateStr = occ.event_date.includes('T') ? occ.event_date.split('T')[0] : occ.event_date;
+            if (dateStr < todayStr) return;
+            const maxCap = occ.max_participants ?? program.max_participants ?? null;
+            const booked = bookedParticipants(o => o.occurrence_id === occ.id);
+            const full = maxCap != null && booked >= maxCap;
+            addEntry(dateStr, program, full);
+          });
+      } else if (program.event_date) {
+        const dateStr = program.event_date.includes('T') ? program.event_date.split('T')[0] : program.event_date;
+        if (dateStr >= todayStr) {
+          const maxCap = program.max_participants ?? null;
+          const booked = bookedParticipants(o => o.program_id === program.id && !o.occurrence_id);
+          const full = maxCap != null && booked >= maxCap;
+          addEntry(dateStr, program, full);
+        }
+      }
+    });
+
+    return map;
+  }, [programs, occurrencesMap, orders, selectedProgramId]);
 
   // Default selected date: find first day with bookings in the current view, or today
   const [selectedDateStr, setSelectedDateStr] = useState<string>(() => {
@@ -527,6 +585,9 @@ export const ProviderBookingsCalendar: React.FC<ProviderBookingsCalendarProps> =
               const dayBookings = ordersByDate.get(dayItem.dateStr) || [];
               const hasBookings = dayBookings.length > 0;
               const hasPending = dayBookings.some(b => b.order.status === 'pending');
+              const dayBookable = bookableByDate.get(dayItem.dateStr) || [];
+              const hasBookable = dayBookable.length > 0;
+              const anyAvailableBookable = dayBookable.some(b => !b.full);
               const isSelected = dayItem.dateStr === selectedDateStr;
 
               return (
@@ -538,6 +599,8 @@ export const ProviderBookingsCalendar: React.FC<ProviderBookingsCalendarProps> =
                       ? 'bg-stone-50/60 text-stone-400'
                       : isSelected
                       ? 'bg-emerald-50/40 ring-2 ring-emerald-600 ring-inset z-10'
+                      : !hasBookings && hasBookable
+                      ? 'bg-emerald-50/25 hover:bg-emerald-50/50 text-stone-800'
                       : 'bg-white hover:bg-stone-50/80 text-stone-800'
                   }`}
                 >
@@ -576,6 +639,23 @@ export const ProviderBookingsCalendar: React.FC<ProviderBookingsCalendarProps> =
                           {dayBookings.length}
                         </span>
                       </div>
+                    )}
+
+                    {/* Foglalhato nap jelzes (6209fcae/2. pont) -- csak ha meg nincs
+                        foglalas azon a napon, kulonben a fenti szam-badge mar jelez */}
+                    {!hasBookings && hasBookable && (
+                      <span
+                        className={`inline-flex items-center justify-center w-4 h-4 rounded-full ${
+                          anyAvailableBookable
+                            ? 'bg-emerald-100 text-emerald-700'
+                            : 'bg-stone-100 text-stone-400'
+                        }`}
+                        title={dayBookable
+                          .map(b => `${b.programTitle}${b.full ? ' (betelt)' : ''}`)
+                          .join(', ')}
+                      >
+                        <CalendarCheck className="w-2.5 h-2.5" />
+                      </span>
                     )}
                   </div>
 
@@ -630,6 +710,31 @@ export const ProviderBookingsCalendar: React.FC<ProviderBookingsCalendarProps> =
                           +{dayBookings.length - 2} további
                         </div>
                       )}
+
+                      {/* Foglalhato programok jelzese ures napon (6209fcae/1-2. pont) */}
+                      {!hasBookings && hasBookable && (
+                        <div className="flex flex-wrap gap-1">
+                          {dayBookable.slice(0, 2).map((b, bIdx) => (
+                            <span
+                              key={bIdx}
+                              className={`text-[10px] font-semibold px-1.5 py-0.5 rounded truncate border leading-tight inline-flex items-center gap-1 max-w-full ${
+                                b.full
+                                  ? 'bg-stone-100 border-stone-200 text-stone-400'
+                                  : 'bg-emerald-50/70 border-emerald-200 text-emerald-800'
+                              }`}
+                              title={`${b.programTitle} -- ${b.full ? 'betelt' : 'foglalható'}`}
+                            >
+                              <CalendarCheck className="w-2.5 h-2.5 shrink-0" />
+                              <span className="truncate">{b.programTitle}</span>
+                            </span>
+                          ))}
+                          {dayBookable.length > 2 && (
+                            <span className="text-[9px] font-bold text-stone-400 pl-1">
+                              +{dayBookable.length - 2}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -651,6 +756,10 @@ export const ProviderBookingsCalendar: React.FC<ProviderBookingsCalendarProps> =
               <span className="inline-flex items-center gap-1.5">
                 <span className="w-2.5 h-2.5 rounded-full bg-stone-300" />
                 <span>Lemondva</span>
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <CalendarCheck className="w-3 h-3 text-emerald-600" />
+                <span>Foglalható</span>
               </span>
             </div>
 
