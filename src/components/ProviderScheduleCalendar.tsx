@@ -690,6 +690,8 @@ const MonthDayCell: React.FC<MonthDayCellProps> = ({ dayItem, isSelected, items,
           ? 'bg-stone-50/60 text-stone-400'
           : isSelected
           ? 'bg-emerald-50/40 ring-2 ring-emerald-600 ring-inset z-10'
+          : dayItem.isToday
+          ? 'bg-emerald-50/50 ring-1 ring-emerald-300 ring-inset hover:bg-emerald-50/70'
           : 'bg-white hover:bg-stone-50/80 text-stone-800'
       }`}
     >

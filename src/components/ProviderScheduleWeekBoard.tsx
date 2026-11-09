@@ -302,7 +302,11 @@ const DayColumn: React.FC<DayColumnProps> = ({
     <div
       ref={setNodeRef}
       className={`rounded-2xl border p-2.5 space-y-2 min-h-[160px] transition-colors ${
-        isOver ? 'border-emerald-400 bg-emerald-50/60' : 'border-stone-200 bg-white'
+        isOver
+          ? 'border-emerald-400 bg-emerald-50/60'
+          : isToday
+          ? 'border-emerald-300 bg-emerald-50/30'
+          : 'border-stone-200 bg-white'
       }`}
     >
       <div className="flex items-center justify-between px-0.5">
@@ -310,8 +314,9 @@ const DayColumn: React.FC<DayColumnProps> = ({
           <span className={`text-[11px] font-bold uppercase tracking-wide block ${isToday ? 'text-emerald-700' : 'text-stone-500'}`}>
             {label}
           </span>
-          <span className="text-xs font-semibold text-stone-700">
+          <span className={`inline-flex items-center gap-1.5 text-xs font-semibold ${isToday ? 'text-emerald-800' : 'text-stone-700'}`}>
             {date.toLocaleDateString('hu-HU', { month: 'short', day: 'numeric' })}
+            {isToday && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" aria-hidden="true" />}
           </span>
         </div>
         <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full shrink-0 ${
