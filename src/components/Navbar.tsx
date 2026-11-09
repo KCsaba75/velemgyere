@@ -14,6 +14,7 @@ import {
   MessageSquare,
   Users,
   Settings as SettingsIcon,
+  CalendarRange,
   X
 } from 'lucide-react';
 
@@ -83,7 +84,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   const handleBookingsClick = () => {
     if (isProvider) {
-      navigateTo('provider-bookings');
+      // Kanban 4230d70e (C2 dontes, Csaba): ez a nav-slot a provider szamara
+      // most az Iranyitopultra mutat (foglalasok+idopontok egy helyen), nem
+      // a kulon Foglalasok-listara -- az tovabbra is elerheto deep-linken.
+      navigateTo('provider-schedule');
     } else if (!isAuthenticated) {
       openLoginModal('A foglalásaid megtekintéséhez kérjük jelentkezz be a saját fiókodba!');
     } else {
@@ -126,7 +130,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   };
 
   const isProgramsNavActive = isProvider ? currentView === 'provider-programs' : currentView === 'programs';
-  const isBookingsActive = isProvider ? currentView === 'provider-bookings' : currentView === 'bookings';
+  const isBookingsActive = isProvider ? currentView === 'provider-schedule' : currentView === 'bookings';
 
   // Kanban 5d6bb3d4 (Csaba, via Zora): szolgaltatokent a globalis
   // "Utazasok"/"Kedvencek" nav-elemek az ertekeleseim / a
@@ -138,6 +142,8 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   // Kanban ce0aeeef (Csaba, via Zora): kiemelve, hogy a Foglalasaim/Uzenet
   // gombok sorrendje szolgaltatokent felcserelt legyen a desktop navban
+  // Kanban 4230d70e (C2 dontes): providerkent ez a slot most az Iranyitopultra
+  // mutat (CalendarRange ikon), a vasarloi "Foglalasaim" ag valtozatlan.
   const desktopBookingsButton = (
     <button
       key="bookings"
@@ -146,8 +152,12 @@ export const Navbar: React.FC<NavbarProps> = ({
         isBookingsActive ? 'text-emerald-700 bg-emerald-50/80 font-bold' : 'text-stone-700 hover:text-stone-900 hover:bg-stone-100'
       }`}
     >
-      <Ticket className={`w-4 h-4 ${isAuthenticated && providerOwnOrdersCount > 0 ? 'text-emerald-600' : 'text-stone-400'}`} />
-      <span>{isProvider ? 'Foglalások' : 'Foglalásaim'}</span>
+      {isProvider ? (
+        <CalendarRange className={`w-4 h-4 ${isAuthenticated && providerOwnOrdersCount > 0 ? 'text-emerald-600' : 'text-stone-400'}`} />
+      ) : (
+        <Ticket className={`w-4 h-4 ${isAuthenticated && providerOwnOrdersCount > 0 ? 'text-emerald-600' : 'text-stone-400'}`} />
+      )}
+      <span>{isProvider ? 'Irányítópult' : 'Foglalásaim'}</span>
       {isAuthenticated && providerOwnOrdersCount > 0 && (
         <span className="bg-emerald-600 text-white text-[11px] font-extrabold px-1.5 py-0.5 rounded-full leading-none">
           {providerOwnOrdersCount}
@@ -194,14 +204,18 @@ export const Navbar: React.FC<NavbarProps> = ({
       }`}
     >
       <div className="relative flex items-center justify-center">
-        <Ticket className={`w-5 h-5 transition-transform ${isBookingsActive ? 'scale-110 stroke-[2.4] text-emerald-700' : 'stroke-[1.8]'}`} />
+        {isProvider ? (
+          <CalendarRange className={`w-5 h-5 transition-transform ${isBookingsActive ? 'scale-110 stroke-[2.4] text-emerald-700' : 'stroke-[1.8]'}`} />
+        ) : (
+          <Ticket className={`w-5 h-5 transition-transform ${isBookingsActive ? 'scale-110 stroke-[2.4] text-emerald-700' : 'stroke-[1.8]'}`} />
+        )}
         {isAuthenticated && providerOwnOrdersCount > 0 && (
           <span className="absolute -top-1.5 -right-2.5 bg-emerald-600 text-white text-[9px] font-extrabold px-1.5 min-w-[15px] h-3.5 rounded-full flex items-center justify-center leading-none shadow-xs">
             {providerOwnOrdersCount > 99 ? '99+' : providerOwnOrdersCount}
           </span>
         )}
       </div>
-      <span className="text-[11px] leading-tight mt-1 truncate">{isProvider ? 'Foglalások' : 'Foglalásaim'}</span>
+      <span className="text-[11px] leading-tight mt-1 truncate">{isProvider ? 'Irányítópult' : 'Foglalásaim'}</span>
     </button>
   );
 

@@ -13,7 +13,8 @@ import {
   Ticket,
   ExternalLink,
   Landmark,
-  ChevronDown
+  ChevronDown,
+  CalendarRange
 } from 'lucide-react';
 import { OnsitePaymentMethod } from '../types/database';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
@@ -134,7 +135,28 @@ export const ProviderDashboard: React.FC = () => {
       </div>
 
       {/* Quick navigation cards (top-level pages extracted from former tabs) */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4">
+        {/* Kanban 4230d70e (C2 dontes): az Iranyitopult vette at a fo nav-slotot
+            a Foglalasaim helyett -- itt, a Partner fiok gyorslinkjei kozt, a
+            Foglalasaim kartya marad (deep-link), plusz ez az uj kartya. */}
+        <button
+          type="button"
+          onClick={() => setCurrentView('provider-schedule')}
+          className="bg-white py-3 px-4 rounded-2xl border border-stone-200 shadow-xs hover:border-emerald-300 hover:shadow-md transition-all text-left min-w-0 cursor-pointer group"
+          title="Irányítópult (program-ütemező, önálló oldal)"
+        >
+          <div className="flex items-center justify-between gap-1 mb-1">
+            <span className="text-xs font-bold text-stone-500 uppercase tracking-wider flex items-center gap-1.5 truncate">
+              <CalendarRange className="w-4 h-4 text-emerald-600 shrink-0" />
+              Irányítópult
+            </span>
+          </div>
+          <div className="text-xs text-stone-400 truncate flex items-center gap-1 mt-1 group-hover:text-emerald-700">
+            <span>Megnyitás</span>
+            <ExternalLink className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+          </div>
+        </button>
+
         <button
           type="button"
           onClick={() => setCurrentView('provider-programs')}

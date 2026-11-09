@@ -69,6 +69,11 @@ const VIEW_TO_PATH: Record<string, string> = {
   // fiok alatti belso fulek tovabb.
   'provider-programs': '/szolgaltato/programjaim',
   'provider-bookings': '/szolgaltato/foglalasaim',
+  // Kanban 4230d70e (Csaba, C pont C2 dontes): a Navbar Foglalasok/Foglalasaim
+  // nav-slotjat a provider szamara ez a cel valtja -- a /foglalasaim lap
+  // tovabbra is elerheto (deep-link, direkt URL), csak mar nincs sajat
+  // nav-gombja.
+  'provider-schedule': '/szolgaltato/iranyitopult',
   // Kanban 5a3a8dd8 (Csaba, 10-17 masodik pontositas): az Ertekelesek es az
   // Erdeklodesek fulek is onallo top-level oldalak lettek, ugyanugy mint a
   // Programok/Foglalasok -- elerheto a Partner fiok oldal gyorslinkjeiből.
@@ -126,6 +131,7 @@ function pathToView(pathname: string): string {
   if (pathname.startsWith('/foglalasaim')) return 'bookings';
   if (pathname.startsWith('/szolgaltatoknak')) return 'provider-landing';
   if (pathname.startsWith('/szolgaltato/programjaim')) return 'provider-programs';
+  if (pathname.startsWith('/szolgaltato/iranyitopult')) return 'provider-schedule';
   if (pathname.startsWith('/szolgaltato/foglalasaim')) return 'provider-bookings';
   if (pathname.startsWith('/szolgaltato/ertekeleseim')) return 'provider-reviews';
   if (pathname.startsWith('/szolgaltato/erdeklodeseim')) return 'provider-inquiries';
@@ -1088,13 +1094,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           loginRedirectRef.current = null;
           // Kartya cde7bd96 (Csaba): a Fiok-gomb meg szerep-ismeret elott allitja be
           // a generikus 'programs' celpontot (lasd Navbar handleAccountClick) -- ez
-          // szolgaltatonal nem ertelmes default, nala a Foglalasok legyen az.
-          setCurrentView(role === 'provider' && target === 'programs' ? 'provider-bookings' : target);
+          // szolgaltatonal nem ertelmes default. Kanban 4230d70e (C2 dontes) ota az
+          // Iranyitopult az alapertelmezett, nem a kulon Foglalasok lista.
+          setCurrentView(role === 'provider' && target === 'programs' ? 'provider-schedule' : target);
           window.scrollTo({ top: 0, behavior: 'smooth' });
         } else if (window.location.pathname === '/' || window.location.pathname === '') {
-          // Ha bejelentkezve nyitjuk meg a weblapot: szolgaltatonal a Foglalasok
-          // lap, minden mas szerepnel a programok lap.
-          navigate(role === 'provider' ? '/szolgaltato/foglalasaim' : '/programok', { replace: true });
+          // Ha bejelentkezve nyitjuk meg a weblapot: szolgaltatonal az Iranyitopult,
+          // minden mas szerepnel a programok lap.
+          navigate(role === 'provider' ? '/szolgaltato/iranyitopult' : '/programok', { replace: true });
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }
         loadProgramsAndProviders(true, role);
