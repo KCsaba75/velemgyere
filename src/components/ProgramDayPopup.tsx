@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { X, MapPin, Clock, Users, Phone, Mail, Loader2 } from 'lucide-react';
 import { Order, OrderBuyerInfo, Program, ProgramOccurrence } from '../types/database';
+import { BookingDetailModal } from './BookingDetailModal';
 
 interface ProgramDayPopupProps {
   occurrence: ProgramOccurrence;
@@ -17,9 +18,15 @@ interface ProgramDayPopupProps {
 // kozott, hogy ne duplikalodjon -- egy programra/idopontra kattintva adja meg
 // ezt a reszletet. Tisztan info+lista, athelyezes/torles/kulso-foglalas
 // szandekosan a meglevo inline panelben marad (Zora dontese, msg 3361/2).
+// Kanban c4a1f9e2: egy sorra kattintva a teljes BookingDetailModal nyilik
+// (ugyanaz a modal, mint a Lista-nezet fulon), sajat lokalis selectedOrderId-
+// vel a popupon belul -- csak a megtekintes keruelt be, athelyezes/lemondas
+// tovabbra sem innen erheto el (szandekos, lasd fentebb).
 export const ProgramDayPopup: React.FC<ProgramDayPopupProps> = ({ occurrence, program, orders, getOrderBuyerInfo, onClose }) => {
   const dayOrders = orders.filter(o => o.occurrence_id === occurrence.id);
   const [buyerInfos, setBuyerInfos] = useState<Record<string, OrderBuyerInfo>>({});
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const selectedOrder = selectedOrderId ? dayOrders.find(o => o.id === selectedOrderId) || null : null;
 
   useEffect(() => {
     let cancelled = false;
@@ -40,6 +47,7 @@ export const ProgramDayPopup: React.FC<ProgramDayPopupProps> = ({ occurrence, pr
     .reduce((sum, o) => sum + (o.participants_count || 0), 0);
 
   return (
+    <>
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150 overflow-y-auto">
       <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-stone-200 relative my-8 animate-in zoom-in-95 duration-200 max-h-[85vh] overflow-y-auto">
         <button
@@ -82,7 +90,11 @@ export const ProgramDayPopup: React.FC<ProgramDayPopupProps> = ({ occurrence, pr
               const buyer = buyerInfos[order.id];
               const name = order.manual_customer_name || buyer?.name;
               return (
-                <div key={order.id} className="p-3.5 flex items-start justify-between gap-3 text-sm">
+                <div
+                  key={order.id}
+                  onClick={() => setSelectedOrderId(order.id)}
+                  className="p-3.5 flex items-start justify-between gap-3 text-sm cursor-pointer hover:bg-stone-50/80 transition-colors"
+                >
                   <div className="min-w-0">
                     <p className="font-semibold text-stone-800 truncate flex items-center gap-1.5">
                       {name || (
@@ -121,5 +133,13 @@ export const ProgramDayPopup: React.FC<ProgramDayPopupProps> = ({ occurrence, pr
         )}
       </div>
     </div>
+
+    {selectedOrder && (
+      <BookingDetailModal
+        order={selectedOrder}
+        onClose={() => setSelectedOrderId(null)}
+      />
+    )}
+    </>
   );
 };
