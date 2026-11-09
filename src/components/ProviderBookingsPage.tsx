@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useApp, formatPrice, getBookingReference, getOrderBucket, OrderBucket } from '../context/AppContext';
 import {
   Calendar,
@@ -47,8 +48,18 @@ export const ProviderBookingsPage: React.FC = () => {
 
   useDocumentMeta('Foglalásaim -- Szolgáltatói Dashboard', 'A programjaidra érkezett foglalások kezelése és visszaigazolása.');
 
-  // Alapértelmezett nézet: 'list' (Lista nézet)
-  const [bookingsViewMode, setBookingsViewMode] = useState<'calendar' | 'list'>('list');
+  // Kanban 6209fcae (4. pont): a naptar "Megnyitas uj lapon" gombja ezekkel a
+  // query parameterekkel nyit -- a celzott program+nap kombinacio a naptar
+  // nezetben ertelmes (a lista nezet nem programra/napra szurt), ezert ha
+  // datum erkezik, a naptar nezet a belepesi alapertelmezett, nem a lista.
+  const [searchParams] = useSearchParams();
+  const deepLinkProgramId = searchParams.get('program') || undefined;
+  const deepLinkDateStr = searchParams.get('datum') || undefined;
+
+  // Alapértelmezett nézet: 'list' (Lista nézet), kiveve deep-link eseten
+  const [bookingsViewMode, setBookingsViewMode] = useState<'calendar' | 'list'>(
+    deepLinkDateStr ? 'calendar' : 'list'
+  );
   const [providerListTab, setProviderListTab] = useState<OrderBucket>('upcoming');
 
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
@@ -275,6 +286,8 @@ export const ProviderBookingsPage: React.FC = () => {
             onOpenProgramDetail={openProgramDetail}
             onSelectOrder={(order) => setSelectedOrderId(order.id)}
             onOpenManualBooking={handleOpenManualBooking}
+            initialProgramId={deepLinkProgramId}
+            initialDateStr={deepLinkDateStr}
           />
         ) : (
           <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden shadow-sm">

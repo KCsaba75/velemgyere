@@ -36,6 +36,11 @@ interface ProviderBookingsCalendarProps {
   onOpenProgramDetail?: (slug: string) => void;
   onSelectOrder?: (order: Order) => void;
   onOpenManualBooking?: (programId?: string) => void;
+  // Kanban 6209fcae (4. pont): program+nap deep-link erkezes eseten (uj lapon
+  // nyitott URL ?program=&datum=) ezekkel kell nyitnia a program-szurot es a
+  // kijelolt napot/honapot, nem a legkozelebbi foglalasra-ugras alapertelmezettel.
+  initialProgramId?: string;
+  initialDateStr?: string;
 }
 
 const PAYMENT_METHOD_LABEL: Record<OnsitePaymentMethod, string> = {
@@ -80,6 +85,8 @@ export const ProviderBookingsCalendar: React.FC<ProviderBookingsCalendarProps> =
   onOpenProgramDetail,
   onSelectOrder,
   onOpenManualBooking,
+  initialProgramId,
+  initialDateStr,
 }) => {
   // Programs map
   const programMap = useMemo(() => {
@@ -105,8 +112,22 @@ export const ProviderBookingsCalendar: React.FC<ProviderBookingsCalendarProps> =
     });
   }, [orders, programMap, occurrencesMap]);
 
-  // Initial month determination: find nearest or current booking date, or current date
+  // Initial month determination: deep-linked date wins, otherwise find nearest
+  // or current booking date, or current date
   const initialDate = useMemo(() => {
+    // Kanban 6209fcae (4. pont): a deep-link celja pont a megadott nap
+    // megjelenitese -- ne a legkozelebbi foglalasra ugorjon helyette.
+    if (initialDateStr) {
+      const parts = initialDateStr.split('-');
+      if (parts.length === 3) {
+        const y = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10) - 1;
+        if (!isNaN(y) && !isNaN(m)) {
+          return new Date(y, m, 1);
+        }
+      }
+    }
+
     const today = new Date();
     // Check if there are bookings in the current month or upcoming
     const todayStr = `${today.getFullYear()}-${padZero(today.getMonth() + 1)}-${padZero(today.getDate())}`;
@@ -130,13 +151,17 @@ export const ProviderBookingsCalendar: React.FC<ProviderBookingsCalendarProps> =
     }
 
     return new Date(today.getFullYear(), today.getMonth(), 1);
-  }, [enrichedOrders]);
+  }, [enrichedOrders, initialDateStr]);
 
   const [currentYear, setCurrentYear] = useState<number>(() => initialDate.getFullYear());
   const [currentMonth, setCurrentMonth] = useState<number>(() => initialDate.getMonth()); // 0-indexed
 
-  // Filters
-  const [selectedProgramId, setSelectedProgramId] = useState<string>('all');
+  // Filters -- kanban 6209fcae (4. pont): deep-linkelt program-id csak akkor
+  // nyer, ha valoban a sajat programjaim kozott van (ismeretlen/idegen id a
+  // "Minden program" alapertelmezesre esik vissza).
+  const [selectedProgramId, setSelectedProgramId] = useState<string>(() =>
+    initialProgramId && programs.some(p => p.id === initialProgramId) ? initialProgramId : 'all'
+  );
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<'all' | 'confirmed' | 'pending' | 'cancelled'>('all');
 
   // Filtered orders
@@ -221,8 +246,9 @@ export const ProviderBookingsCalendar: React.FC<ProviderBookingsCalendarProps> =
     return map;
   }, [programs, occurrencesMap, orders, selectedProgramId]);
 
-  // Default selected date: find first day with bookings in the current view, or today
+  // Default selected date: deep-linked date wins, otherwise today
   const [selectedDateStr, setSelectedDateStr] = useState<string>(() => {
+    if (initialDateStr) return initialDateStr;
     const today = new Date();
     const todayStr = `${today.getFullYear()}-${padZero(today.getMonth() + 1)}-${padZero(today.getDate())}`;
     return todayStr;
@@ -776,18 +802,40 @@ export const ProviderBookingsCalendar: React.FC<ProviderBookingsCalendarProps> =
         <div className="lg:col-span-5 space-y-4">
           <div className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden">
             {/* Header with selected date */}
-            <div className="p-4 sm:p-5 bg-stone-900 text-white flex items-center justify-between">
-              <div>
+            <div className="p-4 sm:p-5 bg-stone-900 text-white flex items-center justify-between gap-2">
+              <div className="min-w-0">
                 <span className="text-xs font-medium text-emerald-400 block uppercase tracking-wider">
                   Kiválasztott Nap
                 </span>
-                <h4 className="font-display text-base sm:text-lg font-bold capitalize">
+                <h4 className="font-display text-base sm:text-lg font-bold capitalize truncate">
                   {formattedSelectedDate}
                 </h4>
               </div>
-              <span className="text-xs font-bold bg-white/10 px-3 py-1 rounded-full border border-white/10">
-                {selectedDateOrders.length} foglalás
-              </span>
+              <div className="flex items-center gap-2 shrink-0">
+                {/* Kanban 6209fcae (4. pont): a kivalasztott program+nap kombinacio
+                    (selectedProgramId szuro + selectedDateStr) deep-linkkent uj
+                    lapon -- a meglevo oldalpanel marad a fo nezet, ez csak az
+                    onallo megnyitas/megosztas lehetosege. */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const params = new URLSearchParams();
+                    if (selectedProgramId !== 'all') {
+                      params.set('program', selectedProgramId);
+                    }
+                    params.set('datum', selectedDateStr);
+                    window.open(`/szolgaltato/foglalasaim?${params.toString()}`, '_blank', 'noopener,noreferrer');
+                  }}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg text-[11px] font-bold border border-white/10 transition-colors cursor-pointer"
+                  title="A kiválasztott program és nap foglalásai új lapon"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Megnyitás új lapon</span>
+                </button>
+                <span className="text-xs font-bold bg-white/10 px-3 py-1 rounded-full border border-white/10 whitespace-nowrap">
+                  {selectedDateOrders.length} foglalás
+                </span>
+              </div>
             </div>
 
             {/* List of bookings on the selected date */}
