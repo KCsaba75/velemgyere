@@ -16,12 +16,14 @@ import {
   Save,
   X,
 } from 'lucide-react';
-import { Order, Program, ProgramOccurrence } from '../types/database';
+import { Order, OrderBuyerInfo, Program, ProgramOccurrence } from '../types/database';
+import { ProgramDayPopup } from './ProgramDayPopup';
 
 interface ProviderScheduleCalendarProps {
   programs: Program[];
   occurrencesMap: Record<string, ProgramOccurrence>;
   orders: Order[];
+  getOrderBuyerInfo: (orderId: string) => Promise<OrderBuyerInfo | null>;
   onOpenManualBooking?: (programId?: string) => void;
   onEditProgram?: (program: Program) => void;
   onCreateOccurrence: (
@@ -59,6 +61,7 @@ export const ProviderScheduleCalendar: React.FC<ProviderScheduleCalendarProps> =
   programs,
   occurrencesMap,
   orders,
+  getOrderBuyerInfo,
   onOpenManualBooking,
   onEditProgram,
   onCreateOccurrence,
@@ -70,6 +73,7 @@ export const ProviderScheduleCalendar: React.FC<ProviderScheduleCalendarProps> =
   const [currentMonth, setCurrentMonth] = useState<number>(today.getMonth());
   const [selectedDateStr, setSelectedDateStr] = useState<string>(todayStr());
   const [selectedProgramId, setSelectedProgramId] = useState<string>('all');
+  const [dayPopupOccurrence, setDayPopupOccurrence] = useState<ProgramOccurrence | null>(null);
 
   const [movingOccurrenceId, setMovingOccurrenceId] = useState<string | null>(null);
   const [moveDate, setMoveDate] = useState('');
@@ -334,6 +338,7 @@ export const ProviderScheduleCalendar: React.FC<ProviderScheduleCalendarProps> =
               return (
                 <div
                   key={index}
+                  data-testid={`day-cell-${dayItem.dateStr}`}
                   onClick={() => setSelectedDateStr(dayItem.dateStr)}
                   className={`min-h-[72px] sm:min-h-[105px] p-1.5 sm:p-2 transition-all cursor-pointer relative flex flex-col justify-between ${
                     !dayItem.isCurrentMonth
@@ -457,7 +462,14 @@ export const ProviderScheduleCalendar: React.FC<ProviderScheduleCalendarProps> =
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div>
-                            <h5 className="font-bold text-stone-900 text-sm sm:text-base">{program?.title || 'Program'}</h5>
+                            <button
+                              type="button"
+                              onClick={() => setDayPopupOccurrence(occ)}
+                              className="font-bold text-stone-900 text-sm sm:text-base text-left hover:text-emerald-700 hover:underline cursor-pointer"
+                              title="Program összefoglaló és a napi foglalások"
+                            >
+                              {program?.title || 'Program'}
+                            </button>
                             <div className="flex flex-wrap items-center gap-2 text-xs text-stone-600 mt-1">
                               {occ.start_time && (
                                 <span className="inline-flex items-center gap-1 bg-white px-2 py-1 rounded-lg border border-stone-200">
@@ -643,6 +655,16 @@ export const ProviderScheduleCalendar: React.FC<ProviderScheduleCalendarProps> =
           </div>
         </div>
       </div>
+
+      {dayPopupOccurrence && (
+        <ProgramDayPopup
+          occurrence={dayPopupOccurrence}
+          program={programMap.get(dayPopupOccurrence.program_id)}
+          orders={orders}
+          getOrderBuyerInfo={getOrderBuyerInfo}
+          onClose={() => setDayPopupOccurrence(null)}
+        />
+      )}
     </div>
   );
 };

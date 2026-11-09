@@ -30,7 +30,7 @@ import { CategoryIcon } from './CategoryIcon';
 import { CountryFlag } from './CountryFlag';
 import { ProgramReviewsSection } from './ProgramReviewsSection';
 import { BookingCheckoutModal } from './BookingCheckoutModal';
-import { NewProgramModal } from './NewProgramModal';
+import { ProgramEditorModal } from './ProgramEditorModal';
 import { ProgramAvailability, OnsitePaymentMethod, OccurrenceAvailability, ProgramPriceTier } from '../types/database';
 
 export const ProgramDetailView: React.FC = () => {
@@ -1027,7 +1027,7 @@ export const ProgramDetailView: React.FC = () => {
       )}
 
       {program && (
-        <NewProgramModal
+        <ProgramEditorModal
           isOpen={isEditModalOpen}
           programToEdit={program}
           onClose={() => setIsEditModalOpen(false)}

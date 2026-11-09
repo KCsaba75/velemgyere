@@ -6,7 +6,7 @@ import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import { ProviderScheduleCalendar } from './ProviderScheduleCalendar';
 import { ProviderScheduleWeekBoard } from './ProviderScheduleWeekBoard';
 import { ManualBookingModal } from './ManualBookingModal';
-import { NewProgramModal } from './NewProgramModal';
+import { ProgramEditorModal } from './ProgramEditorModal';
 
 // Kanban 4230d70e (Csaba, 1-6. pont): uj szolgaltatoi "Iranyitopult" -- havi
 // naptarnezet occurrence-centrikusan (nem foglalas-centrikusan, mint a
@@ -28,6 +28,7 @@ export const ProviderScheduleDashboardPage: React.FC = () => {
     createOccurrences,
     updateOccurrence,
     deleteOccurrence,
+    getOrderBuyerInfo,
     setCurrentView,
   } = useApp();
 
@@ -148,6 +149,7 @@ export const ProviderScheduleDashboardPage: React.FC = () => {
           programs={displayPrograms}
           occurrencesMap={occurrencesMap}
           orders={ownOrders}
+          getOrderBuyerInfo={getOrderBuyerInfo}
           onOpenManualBooking={handleOpenManualBooking}
           onEditProgram={setEditingProgram}
           onCreateOccurrence={handleCreateOccurrence}
@@ -159,6 +161,7 @@ export const ProviderScheduleDashboardPage: React.FC = () => {
           programs={displayPrograms}
           occurrencesMap={occurrencesMap}
           orders={ownOrders}
+          getOrderBuyerInfo={getOrderBuyerInfo}
           onCreateOccurrence={handleCreateOccurrence}
           onMoveOccurrence={handleMoveOccurrence}
           onDeleteOccurrence={handleDeleteOccurrence}
@@ -171,7 +174,7 @@ export const ProviderScheduleDashboardPage: React.FC = () => {
         initialProgramId={manualBookingProgramId}
       />
 
-      <NewProgramModal
+      <ProgramEditorModal
         isOpen={Boolean(editingProgram)}
         programToEdit={editingProgram}
         onClose={() => setEditingProgram(null)}

@@ -22,12 +22,14 @@ import {
   X,
   AlertCircle,
 } from 'lucide-react';
-import { Order, Program, ProgramOccurrence } from '../types/database';
+import { Order, OrderBuyerInfo, Program, ProgramOccurrence } from '../types/database';
+import { ProgramDayPopup } from './ProgramDayPopup';
 
 interface ProviderScheduleWeekBoardProps {
   programs: Program[];
   occurrencesMap: Record<string, ProgramOccurrence>;
   orders: Order[];
+  getOrderBuyerInfo: (orderId: string) => Promise<OrderBuyerInfo | null>;
   onCreateOccurrence: (
     programId: string,
     dateStr: string,
@@ -71,6 +73,7 @@ export const ProviderScheduleWeekBoard: React.FC<ProviderScheduleWeekBoardProps>
   programs,
   occurrencesMap,
   orders,
+  getOrderBuyerInfo,
   onCreateOccurrence,
   onMoveOccurrence,
   onDeleteOccurrence,
@@ -78,6 +81,7 @@ export const ProviderScheduleWeekBoard: React.FC<ProviderScheduleWeekBoardProps>
   const [weekStart, setWeekStart] = useState<Date>(() => mondayOf(new Date()));
   const [selectedProgramId, setSelectedProgramId] = useState<string>('all');
   const [dragError, setDragError] = useState<string | null>(null);
+  const [dayPopupOccurrence, setDayPopupOccurrence] = useState<ProgramOccurrence | null>(null);
 
   const [movingOccurrenceId, setMovingOccurrenceId] = useState<string | null>(null);
   const [moveDate, setMoveDate] = useState('');
@@ -305,10 +309,21 @@ export const ProviderScheduleWeekBoard: React.FC<ProviderScheduleWeekBoardProps>
               onSaveCopy={saveCopy}
               deletingOccurrenceId={deletingOccurrenceId}
               onDelete={handleDelete}
+              onOpenPopup={setDayPopupOccurrence}
             />
           ))}
         </div>
       </DndContext>
+
+      {dayPopupOccurrence && (
+        <ProgramDayPopup
+          occurrence={dayPopupOccurrence}
+          program={programMap.get(dayPopupOccurrence.program_id)}
+          orders={orders}
+          getOrderBuyerInfo={getOrderBuyerInfo}
+          onClose={() => setDayPopupOccurrence(null)}
+        />
+      )}
     </div>
   );
 };
@@ -342,6 +357,7 @@ interface DayColumnProps {
   onSaveCopy: (occ: ProgramOccurrence, targetDate: string) => void;
   deletingOccurrenceId: string | null;
   onDelete: (occurrenceId: string) => void;
+  onOpenPopup: (occ: ProgramOccurrence) => void;
 }
 
 const DayColumn: React.FC<DayColumnProps> = ({
@@ -349,7 +365,7 @@ const DayColumn: React.FC<DayColumnProps> = ({
   movingOccurrenceId, moveDate, moveStartTime, moveEndTime, moveSaving, moveError,
   onStartMove, onCancelMove, onChangeMoveDate, onChangeMoveStartTime, onChangeMoveEndTime, onSaveMove,
   copyingOccurrenceId, copyDate, copySaving, copyError, onStartCopy, onCancelCopy, onChangeCopyDate, onSaveCopy,
-  deletingOccurrenceId, onDelete,
+  deletingOccurrenceId, onDelete, onOpenPopup,
 }) => {
   const { setNodeRef, isOver } = useDroppable({ id: dateStr });
   const isToday = toDateStr(new Date()) === dateStr;
@@ -407,6 +423,7 @@ const DayColumn: React.FC<DayColumnProps> = ({
             onSaveCopy={(target) => onSaveCopy(occ, target)}
             isDeleting={deletingOccurrenceId === occ.id}
             onDelete={() => onDelete(occ.id)}
+            onOpenPopup={() => onOpenPopup(occ)}
           />
         ))}
 
@@ -447,13 +464,14 @@ interface OccurrenceCardProps {
   onSaveCopy: (targetDate: string) => void;
   isDeleting: boolean;
   onDelete: () => void;
+  onOpenPopup: () => void;
 }
 
 const OccurrenceCard: React.FC<OccurrenceCardProps> = ({
   occ, program, booked, isMoving, moveDate, moveStartTime, moveEndTime, moveSaving, moveError,
   onStartMove, onCancelMove, onChangeMoveDate, onChangeMoveStartTime, onChangeMoveEndTime, onSaveMove,
   isCopying, copyDate, copySaving, copyError, weekDays, onStartCopy, onCancelCopy, onChangeCopyDate, onSaveCopy,
-  isDeleting, onDelete,
+  isDeleting, onDelete, onOpenPopup,
 }) => {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: occ.id });
   const maxCap = occ.max_participants ?? program?.max_participants ?? null;
@@ -536,7 +554,14 @@ const OccurrenceCard: React.FC<OccurrenceCardProps> = ({
           <GripVertical className="w-3.5 h-3.5" />
         </button>
         <div className="min-w-0 flex-1">
-          <p className="font-bold text-stone-900 leading-tight truncate">{program?.title || 'Program'}</p>
+          <button
+            type="button"
+            onClick={onOpenPopup}
+            className="font-bold text-stone-900 leading-tight truncate text-left hover:text-emerald-700 hover:underline cursor-pointer block w-full"
+            title="Program összefoglaló és a napi foglalások"
+          >
+            {program?.title || 'Program'}
+          </button>
           <div className="flex flex-wrap items-center gap-1.5 mt-1 text-[10px] text-stone-600">
             {occ.start_time && (
               <span className="inline-flex items-center gap-0.5">

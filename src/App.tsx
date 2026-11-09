@@ -5,7 +5,7 @@ import { AppProvider, useApp } from './context/AppContext';
 import { Navbar } from './components/Navbar';
 import { LoginModal } from './components/LoginModal';
 import { ProviderRegisterModal } from './components/ProviderRegisterModal';
-import { NewProgramModal } from './components/NewProgramModal';
+import { ProgramEditorModal } from './components/ProgramEditorModal';
 import { Footer } from './components/Footer';
 import { FavoriteFolderModal } from './components/FavoriteFolderModal';
 import { FavoriteToast } from './components/FavoriteToast';
@@ -272,7 +272,7 @@ const AppContent: React.FC = () => {
         onClose={() => setRegisterModalOpen(false)}
       />
 
-      <NewProgramModal
+      <ProgramEditorModal
         isOpen={newProgramModalOpen}
         onClose={() => setNewProgramModalOpen(false)}
       />

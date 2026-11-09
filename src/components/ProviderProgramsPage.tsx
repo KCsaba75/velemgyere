@@ -20,9 +20,7 @@ import {
 } from 'lucide-react';
 import { Program, ProgramStatus, ProgramOccurrence } from '../types/database';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
-import { ProgramOccurrencesModal } from './ProgramOccurrencesModal';
-import { ProgramPricingModal } from './ProgramPricingModal';
-import { NewProgramModal } from './NewProgramModal';
+import { ProgramEditorModal } from './ProgramEditorModal';
 import { ManualBookingModal } from './ManualBookingModal';
 
 // Kanban 5a3a8dd8 (Csaba, 10-17): a szolgaltato sajat programjainak kezelese
@@ -50,8 +48,7 @@ export const ProviderProgramsPage: React.FC<ProviderProgramsPageProps> = ({ onOp
 
   const [statusFilter, setStatusFilter] = useState<string>('published');
   const [editingProgram, setEditingProgram] = useState<Program | null>(null);
-  const [occurrencesModalProgram, setOccurrencesModalProgram] = useState<Program | null>(null);
-  const [pricingModalProgram, setPricingModalProgram] = useState<Program | null>(null);
+  const [editorInitialTab, setEditorInitialTab] = useState<'basic' | 'pricing' | 'occurrences'>('basic');
   const [manualBookingModalOpen, setManualBookingModalOpen] = useState(false);
   const [manualBookingProgramId, setManualBookingProgramId] = useState<string | undefined>(undefined);
 
@@ -295,7 +292,7 @@ export const ProviderProgramsPage: React.FC<ProviderProgramsPageProps> = ({ onOp
                         </button>
 
                         <button
-                          onClick={() => setEditingProgram(prog)}
+                          onClick={() => { setEditingProgram(prog); setEditorInitialTab('basic'); }}
                           className="px-3 py-2 sm:py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 hover:bg-emerald-100 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                           title="Összes adat szerkesztése (publikált és piszkozat állapotban is)"
                         >
@@ -304,7 +301,7 @@ export const ProviderProgramsPage: React.FC<ProviderProgramsPageProps> = ({ onOp
                         </button>
 
                         <button
-                          onClick={() => setOccurrencesModalProgram(prog)}
+                          onClick={() => { setEditingProgram(prog); setEditorInitialTab('occurrences'); }}
                           className="px-3 py-2 sm:py-1.5 rounded-xl border border-stone-200 text-stone-700 hover:bg-stone-100 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                           title="Időpontok kezelése"
                         >
@@ -322,7 +319,7 @@ export const ProviderProgramsPage: React.FC<ProviderProgramsPageProps> = ({ onOp
                         </button>
 
                         <button
-                          onClick={() => setPricingModalProgram(prog)}
+                          onClick={() => { setEditingProgram(prog); setEditorInitialTab('pricing'); }}
                           className="px-3 py-2 sm:py-1.5 rounded-xl border border-stone-200 text-stone-700 hover:bg-stone-100 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                           title="Árazás kezelése"
                         >
@@ -418,17 +415,10 @@ export const ProviderProgramsPage: React.FC<ProviderProgramsPageProps> = ({ onOp
         )}
       </div>
 
-      <ProgramOccurrencesModal
-        program={occurrencesModalProgram}
-        onClose={() => setOccurrencesModalProgram(null)}
-      />
-      <ProgramPricingModal
-        program={pricingModalProgram}
-        onClose={() => setPricingModalProgram(null)}
-      />
-      <NewProgramModal
+      <ProgramEditorModal
         isOpen={Boolean(editingProgram)}
         programToEdit={editingProgram}
+        initialTab={editorInitialTab}
         onClose={() => setEditingProgram(null)}
       />
       <ManualBookingModal
