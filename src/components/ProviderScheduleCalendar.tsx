@@ -83,6 +83,12 @@ export const ProviderScheduleCalendar: React.FC<ProviderScheduleCalendarProps> =
   const [selectedDateStr, setSelectedDateStr] = useState<string>(todayStr());
   const [selectedProgramId, setSelectedProgramId] = useState<string>('all');
   const [dayPopupOccurrence, setDayPopupOccurrence] = useState<ProgramOccurrence | null>(null);
+  // Kanban c2c66884: a korabbi, mindig lathato "Kivalasztott Nap" oldalpanel
+  // most popup-ra valt (desktopon ES mobilon is), ugyanazzal a modal-UI
+  // stilussal mint a ProgramDayPopup -- Zora/Csaba dontese (msg 3390), hogy a
+  // meglevo lista+muveletek logikat nem kell ujrairni, csak a megjelenitest
+  // kell popup-ositani.
+  const [dayDetailOpen, setDayDetailOpen] = useState(false);
 
   const {
     sensors,
@@ -204,6 +210,7 @@ export const ProviderScheduleCalendar: React.FC<ProviderScheduleCalendarProps> =
     setCurrentYear(today.getFullYear());
     setCurrentMonth(today.getMonth());
     setSelectedDateStr(todayStr());
+    setDayDetailOpen(true);
   };
 
   const monthName = useMemo(() => {
@@ -310,49 +317,51 @@ export const ProviderScheduleCalendar: React.FC<ProviderScheduleCalendarProps> =
         </div>
       )}
 
-      {/* Calendar + day panel */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        <div className="lg:col-span-7 bg-white rounded-2xl border border-stone-200 overflow-hidden shadow-sm">
-          <div className="grid grid-cols-7 bg-stone-100 border-b border-stone-200 text-center py-2.5">
-            {WEEKDAYS.map((day, idx) => (
-              <div key={idx} className="text-xs font-bold text-stone-600">
-                <span className="sm:hidden">{day.short}</span>
-                <span className="hidden sm:inline">{day.label}</span>
-              </div>
-            ))}
-          </div>
-
-          <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-            <div className="grid grid-cols-7 divide-x divide-y divide-stone-100 border-b border-stone-200">
-              {calendarDays.map((dayItem, index) => (
-                <MonthDayCell
-                  key={index}
-                  dayItem={dayItem}
-                  isSelected={dayItem.dateStr === selectedDateStr}
-                  items={occurrencesByDate.get(dayItem.dateStr) || []}
-                  onSelect={() => setSelectedDateStr(dayItem.dateStr)}
-                  onOpenPopup={setDayPopupOccurrence}
-                />
-              ))}
+      {/* Calendar */}
+      <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden shadow-sm">
+        <div className="grid grid-cols-7 bg-stone-100 border-b border-stone-200 text-center py-2.5">
+          {WEEKDAYS.map((day, idx) => (
+            <div key={idx} className="text-xs font-bold text-stone-600">
+              <span className="sm:hidden">{day.short}</span>
+              <span className="hidden sm:inline">{day.label}</span>
             </div>
-          </DndContext>
-
-          <div className="p-3 bg-stone-50 border-t border-stone-100 flex flex-wrap items-center gap-4 text-xs text-stone-500">
-            <span className="inline-flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-              <span>Nyitott időpont</span>
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-stone-300" />
-              <span>Lemondva</span>
-            </span>
-          </div>
+          ))}
         </div>
 
-        {/* Day panel */}
-        <div className="lg:col-span-5 space-y-4">
-          <div className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden">
-            <div className="p-4 sm:p-5 bg-stone-900 text-white flex items-center justify-between gap-2">
+        <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+          <div className="grid grid-cols-7 divide-x divide-y divide-stone-100 border-b border-stone-200">
+            {calendarDays.map((dayItem, index) => (
+              <MonthDayCell
+                key={index}
+                dayItem={dayItem}
+                isSelected={dayDetailOpen && dayItem.dateStr === selectedDateStr}
+                items={occurrencesByDate.get(dayItem.dateStr) || []}
+                onSelect={() => { setSelectedDateStr(dayItem.dateStr); setDayDetailOpen(true); }}
+                onOpenPopup={setDayPopupOccurrence}
+              />
+            ))}
+          </div>
+        </DndContext>
+
+        <div className="p-3 bg-stone-50 border-t border-stone-100 flex flex-wrap items-center gap-4 text-xs text-stone-500">
+          <span className="inline-flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+            <span>Nyitott időpont</span>
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-stone-300" />
+            <span>Lemondva</span>
+          </span>
+        </div>
+      </div>
+
+      {/* Kanban c2c66884: nap-reszlet popup (ugyanaz a modal-UI stilus mint a
+          ProgramDayPopup -- fix backdrop, kozepre igazitott kartya, X bezaras),
+          a korabbi mindig-lathato oldalpanel helyett. */}
+      {dayDetailOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-2xl w-full shadow-2xl border border-stone-200 relative my-8 animate-in zoom-in-95 duration-200 max-h-[85vh] overflow-y-auto">
+            <div className="p-4 sm:p-5 bg-stone-900 text-white flex items-center justify-between gap-2 rounded-t-3xl">
               <div className="min-w-0">
                 <span className="text-xs font-medium text-emerald-400 block uppercase tracking-wider">Kiválasztott Nap</span>
                 <h4 className="font-display text-base sm:text-lg font-bold capitalize truncate">{formattedSelectedDate}</h4>
@@ -370,6 +379,14 @@ export const ProviderScheduleCalendar: React.FC<ProviderScheduleCalendarProps> =
                 <span className="text-xs font-bold bg-white/10 px-3 py-1 rounded-full border border-white/10 whitespace-nowrap">
                   {selectedDateOccurrences.length} időpont
                 </span>
+                <button
+                  type="button"
+                  onClick={() => setDayDetailOpen(false)}
+                  className="text-white/70 hover:text-white p-1.5 rounded-xl hover:bg-white/10 transition-colors cursor-pointer"
+                  aria-label="Bezárás"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
             </div>
 
@@ -623,7 +640,7 @@ export const ProviderScheduleCalendar: React.FC<ProviderScheduleCalendarProps> =
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {dayPopupOccurrence && (
         <ProgramDayPopup
@@ -647,12 +664,14 @@ interface MonthDayCellProps {
   onOpenPopup: (occ: ProgramOccurrence) => void;
 }
 
-// Kanban f1b8d7a3: a honap-cella MOST mar droppable (@dnd-kit), hogy a
+// Kanban f1b8d7a3: a honap-cella droppable (@dnd-kit), hogy a
 // MonthOccurrenceChip-ek huzassal athelyezhetok legyenek ide, ugyanazzal a
-// mechanikaval mint a ProviderScheduleWeekBoard DayColumn-ja. Mobilon (sm:hidden)
-// valtozatlanul csak szines pontok maradnak -- Zora dontese (msg 3380, 3. pont):
-// nincs valodi erintos drag mobil honap-nezetben, ott a kivalasztott-nap oldalpanel
-// adja a muveleteket, mint eddig is.
+// mechanikaval mint a ProviderScheduleWeekBoard DayColumn-ja.
+// Kanban c2c66884 (Csaba korrekcioja, Zora/Csaba dontese msg 3390): mobilon
+// MAR NEM szines pontok -- ugyanaz a kompakt kartya-komponens (MonthOccurrenceChip)
+// jelenik meg, mint desktopon, igy a korabbi (msg 3380, 3. pont) "nincs mobil
+// drag" dontes felulirva: a grip-fogantyu mobilon is aktiv marad, mert ez pontosan
+// a mar bevalt desktop kartya-komponens ujrahasznositasa, nem uj mobil-dizajn.
 const MonthDayCell: React.FC<MonthDayCellProps> = ({ dayItem, isSelected, items, onSelect, onOpenPopup }) => {
   const { setNodeRef, isOver } = useDroppable({ id: dayItem.dateStr });
   const hasOccurrences = items.length > 0;
@@ -664,7 +683,7 @@ const MonthDayCell: React.FC<MonthDayCellProps> = ({ dayItem, isSelected, items,
       ref={setNodeRef}
       data-testid={`day-cell-${dayItem.dateStr}`}
       onClick={onSelect}
-      className={`min-h-[72px] sm:min-h-[105px] p-1.5 sm:p-2 transition-all cursor-pointer relative flex flex-col justify-between ${
+      className={`min-h-[96px] sm:min-h-[105px] p-1.5 sm:p-2 transition-all cursor-pointer relative flex flex-col justify-between ${
         isOver
           ? 'bg-emerald-50/70 ring-2 ring-emerald-400 ring-inset z-10'
           : !dayItem.isCurrentMonth
@@ -696,27 +715,17 @@ const MonthDayCell: React.FC<MonthDayCellProps> = ({ dayItem, isSelected, items,
       </div>
 
       <div className="mt-1 space-y-1">
-        <div className="sm:hidden flex flex-wrap gap-1 mt-1">
-          {items.slice(0, 3).map((item, bIdx) => (
-            <span
-              key={bIdx}
-              className={`w-2 h-2 rounded-full ${item.occ.status === 'cancelled' ? 'bg-stone-300' : 'bg-emerald-500'}`}
-            />
-          ))}
-        </div>
-        <div className="hidden sm:block space-y-1">
-          {visibleItems.map((item) => (
-            <MonthOccurrenceChip
-              key={item.occ.id}
-              occ={item.occ}
-              program={item.program}
-              onOpenPopup={() => onOpenPopup(item.occ)}
-            />
-          ))}
-          {overflowCount > 0 && (
-            <div className="text-[9px] font-bold text-stone-500 pl-1">+{overflowCount} további</div>
-          )}
-        </div>
+        {visibleItems.map((item) => (
+          <MonthOccurrenceChip
+            key={item.occ.id}
+            occ={item.occ}
+            program={item.program}
+            onOpenPopup={() => onOpenPopup(item.occ)}
+          />
+        ))}
+        {overflowCount > 0 && (
+          <div className="text-[9px] font-bold text-stone-500 pl-1">+{overflowCount} további</div>
+        )}
       </div>
     </div>
   );
@@ -729,9 +738,9 @@ interface MonthOccurrenceChipProps {
 }
 
 // Kompakt, huzhato varians a ProviderScheduleWeekBoard OccurrenceCard-jahoz kepest --
-// a honap-cella (~150px szeles, 72-105px magas) nem fer el a teljes kartyat, csak
+// a honap-cella (~150px szeles, 96-105px magas) nem fer el a teljes kartyat, csak
 // egy sor: kis drag-handle + ido+cim. Masolas/pontos-datum-athelyezes/torles a
-// kivalasztott-nap oldalpanelen marad (ott mar megvan, nem duplikalt itt).
+// kivalasztott-nap popupon marad (ott mar megvan, nem duplikalt itt).
 const MonthOccurrenceChip: React.FC<MonthOccurrenceChipProps> = ({ occ, program, onOpenPopup }) => {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: occ.id });
 
