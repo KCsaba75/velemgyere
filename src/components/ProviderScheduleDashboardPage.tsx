@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Briefcase, CalendarRange } from 'lucide-react';
+import { Briefcase, CalendarRange, LayoutGrid, Columns3 } from 'lucide-react';
 import { Program, ProgramOccurrence } from '../types/database';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import { ProviderScheduleCalendar } from './ProviderScheduleCalendar';
+import { ProviderScheduleWeekBoard } from './ProviderScheduleWeekBoard';
 import { ManualBookingModal } from './ManualBookingModal';
 import { NewProgramModal } from './NewProgramModal';
 
@@ -11,10 +12,12 @@ import { NewProgramModal } from './NewProgramModal';
 // naptarnezet occurrence-centrikusan (nem foglalas-centrikusan, mint a
 // ProviderBookingsCalendar), uj idopont felvetele + meglevo idopont athelyezese
 // + kulso foglalas hozzaadasa (ManualBookingModal ujrahasznositva) egy helyen.
-// A/B dontes (Zora, msg 3344): athelyezes gomb/form (nem drag-and-drop), uj
-// idopont inline quick-add form. C (mobil also-nav elhelyezes) meg nyitott,
-// ezert ez a komponens csak a /szolgaltato/iranyitopult route-on all, a
-// Navbar-ba meg NEM lett bekotve.
+// C (mobil also-nav elhelyezes): KESZ, lasd Navbar.tsx.
+// Athelyezes mechanizmus (Csaba Trello-referenciakepe, kanban 3348/3349/3355):
+// het-nezet (ProviderScheduleWeekBoard, @dnd-kit/core, huzassal athelyezes +
+// masolo-ikon uj idopont-masolashoz) a honap-nezet (ProviderScheduleCalendar,
+// valtozatlan, gomb/form athelyezes) MELLETT, nezet-valtoval -- a honap-nezet
+// NEM dragolhato (tul sok/kicsi cella), csak a het-nezet.
 export const ProviderScheduleDashboardPage: React.FC = () => {
   const {
     currentUser,
@@ -33,6 +36,7 @@ export const ProviderScheduleDashboardPage: React.FC = () => {
   const [manualBookingModalOpen, setManualBookingModalOpen] = useState(false);
   const [manualBookingProgramId, setManualBookingProgramId] = useState<string | undefined>(undefined);
   const [editingProgram, setEditingProgram] = useState<Program | null>(null);
+  const [viewMode, setViewMode] = useState<'month' | 'week'>('month');
 
   const ownPrograms = programs.filter(
     (p) => p.provider_id === currentProvider?.id || (currentUser.role === 'admin' ? true : false)
@@ -103,27 +107,63 @@ export const ProviderScheduleDashboardPage: React.FC = () => {
             Programjaid havi ütemezése: időpont felvétele, áthelyezése és külső foglalás egy helyen.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setCurrentView('provider-dashboard')}
-          className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-bold text-stone-700 hover:text-stone-900 bg-white px-2.5 sm:px-4 py-2 sm:py-3 rounded-xl sm:rounded-2xl border border-stone-200 hover:bg-stone-50 transition-colors cursor-pointer w-full sm:w-auto"
-          title="Vissza a Partner fiókhoz"
-        >
-          <Briefcase className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-stone-500" />
-          <span className="truncate">Partner fiók</span>
-        </button>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="inline-flex items-center p-1 bg-stone-100 rounded-xl text-xs font-semibold text-stone-600 border border-stone-200/80 shrink-0">
+            <button
+              type="button"
+              onClick={() => setViewMode('month')}
+              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                viewMode === 'month' ? 'bg-white text-stone-900 font-bold shadow-xs' : 'text-stone-600 hover:text-stone-900'
+              }`}
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              <span>Havi nézet</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('week')}
+              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                viewMode === 'week' ? 'bg-white text-stone-900 font-bold shadow-xs' : 'text-stone-600 hover:text-stone-900'
+              }`}
+              title="Heti nézet: időpontok húzással áthelyezhetők"
+            >
+              <Columns3 className="w-3.5 h-3.5" />
+              <span>Hét nézet</span>
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={() => setCurrentView('provider-dashboard')}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-bold text-stone-700 hover:text-stone-900 bg-white px-2.5 sm:px-4 py-2 sm:py-3 rounded-xl sm:rounded-2xl border border-stone-200 hover:bg-stone-50 transition-colors cursor-pointer"
+            title="Vissza a Partner fiókhoz"
+          >
+            <Briefcase className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-stone-500" />
+            <span className="truncate">Partner fiók</span>
+          </button>
+        </div>
       </div>
 
-      <ProviderScheduleCalendar
-        programs={displayPrograms}
-        occurrencesMap={occurrencesMap}
-        orders={ownOrders}
-        onOpenManualBooking={handleOpenManualBooking}
-        onEditProgram={setEditingProgram}
-        onCreateOccurrence={handleCreateOccurrence}
-        onMoveOccurrence={handleMoveOccurrence}
-        onDeleteOccurrence={handleDeleteOccurrence}
-      />
+      {viewMode === 'month' ? (
+        <ProviderScheduleCalendar
+          programs={displayPrograms}
+          occurrencesMap={occurrencesMap}
+          orders={ownOrders}
+          onOpenManualBooking={handleOpenManualBooking}
+          onEditProgram={setEditingProgram}
+          onCreateOccurrence={handleCreateOccurrence}
+          onMoveOccurrence={handleMoveOccurrence}
+          onDeleteOccurrence={handleDeleteOccurrence}
+        />
+      ) : (
+        <ProviderScheduleWeekBoard
+          programs={displayPrograms}
+          occurrencesMap={occurrencesMap}
+          orders={ownOrders}
+          onCreateOccurrence={handleCreateOccurrence}
+          onMoveOccurrence={handleMoveOccurrence}
+          onDeleteOccurrence={handleDeleteOccurrence}
+        />
+      )}
 
       <ManualBookingModal
         isOpen={manualBookingModalOpen}
