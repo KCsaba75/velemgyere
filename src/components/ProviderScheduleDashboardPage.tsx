@@ -1,12 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Briefcase, CalendarRange, LayoutGrid, Columns3 } from 'lucide-react';
-import { Program, ProgramOccurrence } from '../types/database';
+import { Briefcase, CalendarRange, LayoutGrid, Columns3, List } from 'lucide-react';
+import { Program, ProgramOccurrence, OrderBuyerInfo } from '../types/database';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import { ProviderScheduleCalendar } from './ProviderScheduleCalendar';
 import { ProviderScheduleWeekBoard } from './ProviderScheduleWeekBoard';
+import { ProviderBookingsListView } from './ProviderBookingsListView';
 import { ManualBookingModal } from './ManualBookingModal';
 import { ProgramEditorModal } from './ProgramEditorModal';
+import { BookingDetailModal } from './BookingDetailModal';
+import { RescheduleOrderModal } from './RescheduleOrderModal';
 
 // Kanban 4230d70e (Csaba, 1-6. pont): uj szolgaltatoi "Iranyitopult" -- havi
 // naptarnezet occurrence-centrikusan (nem foglalas-centrikusan, mint a
@@ -29,6 +32,7 @@ export const ProviderScheduleDashboardPage: React.FC = () => {
     updateOccurrence,
     deleteOccurrence,
     getOrderBuyerInfo,
+    confirmOrder,
     setCurrentView,
   } = useApp();
 
@@ -37,7 +41,17 @@ export const ProviderScheduleDashboardPage: React.FC = () => {
   const [manualBookingModalOpen, setManualBookingModalOpen] = useState(false);
   const [manualBookingProgramId, setManualBookingProgramId] = useState<string | undefined>(undefined);
   const [editingProgram, setEditingProgram] = useState<Program | null>(null);
-  const [viewMode, setViewMode] = useState<'month' | 'week'>('month');
+  const [viewMode, setViewMode] = useState<'month' | 'week' | 'list'>('month');
+
+  // 88b27fc8: a regi "Foglalasaim" Lista nezet harmadik nezet-modkent, a
+  // ProviderBookingsPage-zel kozos ProviderBookingsListView-t hasznalva --
+  // ehhez ugyanaz a confirm/reschedule/reszletek allapot+modal-keszlet kell,
+  // mint a Havi/Het nezetnek a kulso foglalas rogzitesehez.
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [rescheduleOrderId, setRescheduleOrderId] = useState<string | null>(null);
+  const [confirmingOrderId, setConfirmingOrderId] = useState<string | null>(null);
+  const [confirmErrorByOrderId, setConfirmErrorByOrderId] = useState<Record<string, string>>({});
+  const [buyerInfos, setBuyerInfos] = useState<Record<string, OrderBuyerInfo>>({});
 
   const ownPrograms = programs.filter(
     (p) => p.provider_id === currentProvider?.id || (currentUser.role === 'admin' ? true : false)
@@ -68,6 +82,45 @@ export const ProviderScheduleDashboardPage: React.FC = () => {
     reloadOccurrences().catch(err => console.warn('Occurrences load notice:', err));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ownProgramIdsStr]);
+
+  const ownOrderIds = ownOrders.map(o => o.id).join(',');
+
+  useEffect(() => {
+    const ids = ownOrderIds ? ownOrderIds.split(',') : [];
+    let cancelled = false;
+    ids.forEach(id => {
+      getOrderBuyerInfo(id).then(info => {
+        if (cancelled || !info) return;
+        setBuyerInfos(prev => ({ ...prev, [id]: info }));
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ownOrderIds]);
+
+  // Live lookup by id, not a frozen snapshot -- lasd 4a007dc2 (cancel/confirm
+  // utan a mar nyitott modal regi statust mutatna, ha pillanatkepet tartana).
+  const selectedOrderDetail = selectedOrderId ? orders.find(o => o.id === selectedOrderId) || null : null;
+
+  const handleConfirmOrder = async (id: string) => {
+    setConfirmingOrderId(id);
+    setConfirmErrorByOrderId(prev => {
+      const { [id]: _removed, ...rest } = prev;
+      return rest;
+    });
+    try {
+      await confirmOrder(id);
+    } catch (err) {
+      setConfirmErrorByOrderId(prev => ({
+        ...prev,
+        [id]: err instanceof Error ? err.message : 'A visszaigazolás nem sikerült, próbáld meg újra.',
+      }));
+    } finally {
+      setConfirmingOrderId(null);
+    }
+  };
 
   const handleOpenManualBooking = (progId?: string) => {
     setManualBookingProgramId(progId);
@@ -131,6 +184,17 @@ export const ProviderScheduleDashboardPage: React.FC = () => {
               <Columns3 className="w-3.5 h-3.5" />
               <span>Hét nézet</span>
             </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('list')}
+              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                viewMode === 'list' ? 'bg-white text-stone-900 font-bold shadow-xs' : 'text-stone-600 hover:text-stone-900'
+              }`}
+              title="Lista nézet: foglalások aktuális/korábbi/lemondott szűrővel"
+            >
+              <List className="w-3.5 h-3.5" />
+              <span>Lista nézet</span>
+            </button>
           </div>
           <button
             type="button"
@@ -156,7 +220,7 @@ export const ProviderScheduleDashboardPage: React.FC = () => {
           onMoveOccurrence={handleMoveOccurrence}
           onDeleteOccurrence={handleDeleteOccurrence}
         />
-      ) : (
+      ) : viewMode === 'week' ? (
         <ProviderScheduleWeekBoard
           programs={displayPrograms}
           occurrencesMap={occurrencesMap}
@@ -165,6 +229,18 @@ export const ProviderScheduleDashboardPage: React.FC = () => {
           onCreateOccurrence={handleCreateOccurrence}
           onMoveOccurrence={handleMoveOccurrence}
           onDeleteOccurrence={handleDeleteOccurrence}
+        />
+      ) : (
+        <ProviderBookingsListView
+          orders={ownOrders}
+          programs={displayPrograms}
+          buyerInfos={buyerInfos}
+          occurrencesMap={occurrencesMap}
+          confirmingOrderId={confirmingOrderId}
+          confirmErrorByOrderId={confirmErrorByOrderId}
+          onConfirmOrder={handleConfirmOrder}
+          onRescheduleOrder={(orderId) => setRescheduleOrderId(orderId)}
+          onSelectOrder={(orderId) => setSelectedOrderId(orderId)}
         />
       )}
 
@@ -179,6 +255,20 @@ export const ProviderScheduleDashboardPage: React.FC = () => {
         programToEdit={editingProgram}
         onClose={() => setEditingProgram(null)}
       />
+
+      {selectedOrderDetail && (
+        <BookingDetailModal
+          order={selectedOrderDetail}
+          onClose={() => setSelectedOrderId(null)}
+        />
+      )}
+
+      {rescheduleOrderId && (
+        <RescheduleOrderModal
+          orderId={rescheduleOrderId}
+          onClose={() => setRescheduleOrderId(null)}
+        />
+      )}
     </div>
   );
 };
