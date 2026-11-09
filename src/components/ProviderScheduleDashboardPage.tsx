@@ -40,6 +40,9 @@ export const ProviderScheduleDashboardPage: React.FC = () => {
 
   const [manualBookingModalOpen, setManualBookingModalOpen] = useState(false);
   const [manualBookingProgramId, setManualBookingProgramId] = useState<string | undefined>(undefined);
+  // Kanban c4a1f9e2 kiegeszites: a ProgramDayPopup-bol nyitott kulso foglalasnal
+  // az idopont mar ismert, elore ki kell tolteni a ManualBookingModal-ban.
+  const [manualBookingOccurrenceId, setManualBookingOccurrenceId] = useState<string | undefined>(undefined);
   const [editingProgram, setEditingProgram] = useState<Program | null>(null);
   const [viewMode, setViewMode] = useState<'month' | 'week' | 'list'>('month');
 
@@ -122,8 +125,9 @@ export const ProviderScheduleDashboardPage: React.FC = () => {
     }
   };
 
-  const handleOpenManualBooking = (progId?: string) => {
+  const handleOpenManualBooking = (progId?: string, occurrenceId?: string) => {
     setManualBookingProgramId(progId);
+    setManualBookingOccurrenceId(occurrenceId);
     setManualBookingModalOpen(true);
   };
 
@@ -229,6 +233,7 @@ export const ProviderScheduleDashboardPage: React.FC = () => {
           onCreateOccurrence={handleCreateOccurrence}
           onMoveOccurrence={handleMoveOccurrence}
           onDeleteOccurrence={handleDeleteOccurrence}
+          onOpenManualBooking={handleOpenManualBooking}
         />
       ) : (
         <ProviderBookingsListView
@@ -248,6 +253,9 @@ export const ProviderScheduleDashboardPage: React.FC = () => {
         isOpen={manualBookingModalOpen}
         onClose={() => setManualBookingModalOpen(false)}
         initialProgramId={manualBookingProgramId}
+        initialOccurrenceId={manualBookingOccurrenceId}
+        programs={displayPrograms}
+        occurrencesMap={occurrencesMap}
       />
 
       <ProgramEditorModal

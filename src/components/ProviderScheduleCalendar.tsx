@@ -24,7 +24,7 @@ interface ProviderScheduleCalendarProps {
   occurrencesMap: Record<string, ProgramOccurrence>;
   orders: Order[];
   getOrderBuyerInfo: (orderId: string) => Promise<OrderBuyerInfo | null>;
-  onOpenManualBooking?: (programId?: string) => void;
+  onOpenManualBooking?: (programId?: string, occurrenceId?: string) => void;
   onEditProgram?: (program: Program) => void;
   onCreateOccurrence: (
     programId: string,
@@ -663,6 +663,7 @@ export const ProviderScheduleCalendar: React.FC<ProviderScheduleCalendarProps> =
           orders={orders}
           getOrderBuyerInfo={getOrderBuyerInfo}
           onClose={() => setDayPopupOccurrence(null)}
+          onOpenManualBooking={onOpenManualBooking}
         />
       )}
     </div>

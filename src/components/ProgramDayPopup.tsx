@@ -9,6 +9,11 @@ interface ProgramDayPopupProps {
   orders: Order[];
   getOrderBuyerInfo: (orderId: string) => Promise<OrderBuyerInfo | null>;
   onClose: () => void;
+  // Kanban c4a1f9e2 kiegeszites: kulso foglalas felvetele erre a mar kivalasztott
+  // idopontra -- ugyanaz a fuggveny, amit az inline panel "Kulso foglalas" gombja
+  // is hiv, csak most mar occurrenceId-vel is, hogy a ManualBookingModal elore
+  // kitoltve nyiljon (lasd ManualBookingModal initialOccurrenceId).
+  onOpenManualBooking?: (programId: string, occurrenceId: string) => void;
 }
 
 // Kanban 70afbb5a point 1: a naptar (havi- es heti-nezet is) korabban csak a
@@ -16,13 +21,13 @@ interface ProgramDayPopupProps {
 // tenyleges foglalas-lista (ki, mennyi fovel, milyen allapotban) csak a
 // Foglalasaim oldalon volt lathato. Ez a popup -- kozos a ket naptar-nezet
 // kozott, hogy ne duplikalodjon -- egy programra/idopontra kattintva adja meg
-// ezt a reszletet. Tisztan info+lista, athelyezes/torles/kulso-foglalas
-// szandekosan a meglevo inline panelben marad (Zora dontese, msg 3361/2).
+// ezt a reszletet.
 // Kanban c4a1f9e2: egy sorra kattintva a teljes BookingDetailModal nyilik
 // (ugyanaz a modal, mint a Lista-nezet fulon), sajat lokalis selectedOrderId-
-// vel a popupon belul -- csak a megtekintes keruelt be, athelyezes/lemondas
-// tovabbra sem innen erheto el (szandekos, lasd fentebb).
-export const ProgramDayPopup: React.FC<ProgramDayPopupProps> = ({ occurrence, program, orders, getOrderBuyerInfo, onClose }) => {
+// vel a popupon belul. Athelyezes/lemondas tovabbra is csak az inline panelbol
+// erheto el (azokhoz mar nyitva van a program-kartya), DE kulso foglalas
+// felvetele a popupbol is engedelyezve van, ha van meg szabad hely.
+export const ProgramDayPopup: React.FC<ProgramDayPopupProps> = ({ occurrence, program, orders, getOrderBuyerInfo, onClose, onOpenManualBooking }) => {
   const dayOrders = orders.filter(o => o.occurrence_id === occurrence.id);
   const [buyerInfos, setBuyerInfos] = useState<Record<string, OrderBuyerInfo>>({});
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
@@ -45,6 +50,12 @@ export const ProgramDayPopup: React.FC<ProgramDayPopupProps> = ({ occurrence, pr
   const totalParticipants = dayOrders
     .filter(o => o.status !== 'cancelled')
     .reduce((sum, o) => sum + (o.participants_count || 0), 0);
+
+  // Kanban c4a1f9e2 kiegeszites: ugyanaz a kapacitas-logika, mint a
+  // ProviderScheduleCalendar inline panel "isFull" szamitasa -- csak akkor
+  // ajanljuk fel a kulso foglalast, ha van meg szabad hely.
+  const maxCap = occurrence.max_participants ?? program?.max_participants ?? null;
+  const isFull = maxCap != null && totalParticipants >= maxCap;
 
   return (
     <>
@@ -78,9 +89,22 @@ export const ProgramDayPopup: React.FC<ProgramDayPopupProps> = ({ occurrence, pr
           </div>
         </div>
 
-        <h4 className="text-xs font-bold text-stone-700 uppercase tracking-wider mb-3">
-          Foglalások ({dayOrders.length})
-        </h4>
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <h4 className="text-xs font-bold text-stone-700 uppercase tracking-wider">
+            Foglalások ({dayOrders.length})
+          </h4>
+          {onOpenManualBooking && program && !isFull && (
+            <button
+              type="button"
+              onClick={() => onOpenManualBooking(program.id, occurrence.id)}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold shadow-xs transition-colors cursor-pointer"
+              title="Új telefonos, személyes vagy egyéb külső foglalás erre az időpontra"
+            >
+              <Phone className="w-3.5 h-3.5" />
+              <span>Külső foglalás</span>
+            </button>
+          )}
+        </div>
 
         {dayOrders.length === 0 ? (
           <div className="text-center py-8 text-stone-400 text-sm">Erre az időpontra még nincs foglalás.</div>

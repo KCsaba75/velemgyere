@@ -28,6 +28,10 @@ interface ManualBookingModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialProgramId?: string;
+  // Kanban c4a1f9e2: ha a hivo (pl. ProgramDayPopup) mar egy konkret idopontrol
+  // nyitja a formot, ne kelljen ujra kivalasztani -- csak akkor ervenyesul, ha
+  // az occurrencesMap tartalmazza (kulonben 'custom'-ra esik vissza).
+  initialOccurrenceId?: string;
   programs?: Program[];
   occurrencesMap?: Record<string, ProgramOccurrence>;
   onCreated?: (order: Order) => void;
@@ -45,6 +49,7 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
   isOpen,
   onClose,
   initialProgramId,
+  initialOccurrenceId,
   programs: propsPrograms,
   occurrencesMap = {},
   onCreated,
@@ -99,6 +104,19 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
       setSelectedProgramId(availablePrograms[0].id);
     }
   }, [initialProgramId, availablePrograms, selectedProgramId]);
+
+  // Kanban c4a1f9e2: ha a hivo mar egy konkret idopontot adott at (es az szerepel
+  // az occurrencesMap-ben), ne kelljen ujra kivalasztani -- egyebkent (korabbi
+  // hivok, pl. az inline "Kulso foglalas" gomb) a regi 'custom' alapertelmezes marad.
+  useEffect(() => {
+    if (!isOpen) return;
+    if (initialOccurrenceId && occurrencesMap[initialOccurrenceId]) {
+      setSelectedOccurrenceId(initialOccurrenceId);
+    } else {
+      setSelectedOccurrenceId('custom');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, initialOccurrenceId]);
 
   // Calculated default price
   const basePricePerPerson = currentProgram?.price || 0;

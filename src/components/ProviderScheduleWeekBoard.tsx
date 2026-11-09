@@ -40,6 +40,8 @@ interface ProviderScheduleWeekBoardProps {
     updates: { event_date: string; start_time?: string | null; end_time?: string | null }
   ) => Promise<void>;
   onDeleteOccurrence: (occurrenceId: string) => Promise<void>;
+  // Kanban c4a1f9e2 kiegeszites: lasd ProviderScheduleCalendar azonos propja.
+  onOpenManualBooking?: (programId?: string, occurrenceId?: string) => void;
 }
 
 const WEEKDAY_LABELS = ['Hétfő', 'Kedd', 'Szerda', 'Csütörtök', 'Péntek', 'Szombat', 'Vasárnap'];
@@ -77,6 +79,7 @@ export const ProviderScheduleWeekBoard: React.FC<ProviderScheduleWeekBoardProps>
   onCreateOccurrence,
   onMoveOccurrence,
   onDeleteOccurrence,
+  onOpenManualBooking,
 }) => {
   const [weekStart, setWeekStart] = useState<Date>(() => mondayOf(new Date()));
   const [selectedProgramId, setSelectedProgramId] = useState<string>('all');
@@ -322,6 +325,7 @@ export const ProviderScheduleWeekBoard: React.FC<ProviderScheduleWeekBoardProps>
           orders={orders}
           getOrderBuyerInfo={getOrderBuyerInfo}
           onClose={() => setDayPopupOccurrence(null)}
+          onOpenManualBooking={onOpenManualBooking}
         />
       )}
     </div>
