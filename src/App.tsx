@@ -24,6 +24,7 @@ const ProviderLanding = lazy(() => import('./components/ProviderLanding').then(m
 const ProviderDashboard = lazy(() => import('./components/ProviderDashboard').then(m => ({ default: m.ProviderDashboard })));
 const ProviderProgramsPage = lazy(() => import('./components/ProviderProgramsPage').then(m => ({ default: m.ProviderProgramsPage })));
 const ProviderBookingsPage = lazy(() => import('./components/ProviderBookingsPage').then(m => ({ default: m.ProviderBookingsPage })));
+const ProviderScheduleDashboardPage = lazy(() => import('./components/ProviderScheduleDashboardPage').then(m => ({ default: m.ProviderScheduleDashboardPage })));
 const ProviderReviewsPage = lazy(() => import('./components/ProviderReviewsPage').then(m => ({ default: m.ProviderReviewsPage })));
 const ProviderInquiriesPage = lazy(() => import('./components/ProviderInquiriesPage').then(m => ({ default: m.ProviderInquiriesPage })));
 const ProviderMessagesPage = lazy(() => import('./components/ProviderMessagesPage').then(m => ({ default: m.ProviderMessagesPage })));
@@ -139,6 +140,18 @@ const AppContent: React.FC = () => {
             element={
               <ProtectedRoute allow={['provider', 'admin']}>
                 <ProviderBookingsPage />
+              </ProtectedRoute>
+            }
+          />
+          {/* Kanban 4230d70e: uj program-utemezo Iranyitopult -- a /szolgaltato/dashboard
+              mar foglalt (kanban 5a3a8dd8 ota csak Fiokadatok), ezert uj route. A
+              menupont (Navbar) bekotese meg nyitott kerdes (C pont, Csaba dontese), a
+              route magaban addig is testelheto direkt URL-lel. */}
+          <Route
+            path="/szolgaltato/iranyitopult"
+            element={
+              <ProtectedRoute allow={['provider', 'admin']}>
+                <ProviderScheduleDashboardPage />
               </ProtectedRoute>
             }
           />
