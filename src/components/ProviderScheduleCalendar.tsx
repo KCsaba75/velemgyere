@@ -1,5 +1,10 @@
 import React, { useMemo, useState } from 'react';
 import {
+  DndContext,
+  useDraggable,
+  useDroppable,
+} from '@dnd-kit/core';
+import {
   ChevronLeft,
   ChevronRight,
   CalendarDays,
@@ -15,9 +20,13 @@ import {
   CalendarPlus,
   Save,
   X,
+  Copy,
+  GripVertical,
+  AlertCircle,
 } from 'lucide-react';
 import { Order, OrderBuyerInfo, Program, ProgramOccurrence } from '../types/database';
 import { ProgramDayPopup } from './ProgramDayPopup';
+import { useOccurrenceScheduling } from '../hooks/useOccurrenceScheduling';
 
 interface ProviderScheduleCalendarProps {
   programs: Program[];
@@ -75,12 +84,34 @@ export const ProviderScheduleCalendar: React.FC<ProviderScheduleCalendarProps> =
   const [selectedProgramId, setSelectedProgramId] = useState<string>('all');
   const [dayPopupOccurrence, setDayPopupOccurrence] = useState<ProgramOccurrence | null>(null);
 
-  const [movingOccurrenceId, setMovingOccurrenceId] = useState<string | null>(null);
-  const [moveDate, setMoveDate] = useState('');
-  const [moveStartTime, setMoveStartTime] = useState('');
-  const [moveEndTime, setMoveEndTime] = useState('');
-  const [moveSaving, setMoveSaving] = useState(false);
-  const [moveError, setMoveError] = useState<string | null>(null);
+  const {
+    sensors,
+    dragError,
+    setDragError,
+    handleDragEnd,
+    movingOccurrenceId,
+    moveDate,
+    moveStartTime,
+    moveEndTime,
+    moveSaving,
+    moveError,
+    startMove,
+    cancelMove,
+    saveMove,
+    setMoveDate,
+    setMoveStartTime,
+    setMoveEndTime,
+    copyingOccurrenceId,
+    copyDate,
+    copySaving,
+    copyError,
+    startCopy,
+    cancelCopy,
+    saveCopy,
+    setCopyDate,
+    deletingOccurrenceId,
+    handleDelete,
+  } = useOccurrenceScheduling(occurrencesMap, onMoveOccurrence, onCreateOccurrence, onDeleteOccurrence);
 
   const [addingOccurrence, setAddingOccurrence] = useState(false);
   const [addProgramId, setAddProgramId] = useState<string>('');
@@ -88,9 +119,6 @@ export const ProviderScheduleCalendar: React.FC<ProviderScheduleCalendarProps> =
   const [addEndTime, setAddEndTime] = useState('');
   const [addSaving, setAddSaving] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
-
-  const [deletingOccurrenceId, setDeletingOccurrenceId] = useState<string | null>(null);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const programMap = useMemo(() => {
     const map = new Map<string, Program>();
@@ -203,38 +231,6 @@ export const ProviderScheduleCalendar: React.FC<ProviderScheduleCalendarProps> =
     window.open(`/szolgaltato/foglalasaim?${params.toString()}`, '_blank', 'noopener,noreferrer');
   };
 
-  const startMove = (occ: ProgramOccurrence) => {
-    setMovingOccurrenceId(occ.id);
-    const dateStr = occ.event_date.includes('T') ? occ.event_date.split('T')[0] : occ.event_date;
-    setMoveDate(dateStr);
-    setMoveStartTime(occ.start_time || '');
-    setMoveEndTime(occ.end_time || '');
-    setMoveError(null);
-  };
-
-  const cancelMove = () => {
-    setMovingOccurrenceId(null);
-    setMoveError(null);
-  };
-
-  const saveMove = async () => {
-    if (!movingOccurrenceId || !moveDate) return;
-    setMoveSaving(true);
-    setMoveError(null);
-    try {
-      await onMoveOccurrence(movingOccurrenceId, {
-        event_date: moveDate,
-        start_time: moveStartTime || null,
-        end_time: moveEndTime || null,
-      });
-      setMovingOccurrenceId(null);
-    } catch (err) {
-      setMoveError(err instanceof Error ? err.message : 'Az áthelyezés nem sikerült.');
-    } finally {
-      setMoveSaving(false);
-    }
-  };
-
   const openAddOccurrence = () => {
     setAddingOccurrence(true);
     setAddProgramId(selectedProgramId !== 'all' ? selectedProgramId : (programs[0]?.id || ''));
@@ -260,19 +256,6 @@ export const ProviderScheduleCalendar: React.FC<ProviderScheduleCalendarProps> =
       setAddError(err instanceof Error ? err.message : 'Az időpont felvétele nem sikerült.');
     } finally {
       setAddSaving(false);
-    }
-  };
-
-  const handleDelete = async (occurrenceId: string) => {
-    if (!window.confirm('Biztosan törlöd ezt az időpontot? Ha van hozzá foglalás, a törlés nem fog sikerülni.')) return;
-    setDeletingOccurrenceId(occurrenceId);
-    setDeleteError(null);
-    try {
-      await onDeleteOccurrence(occurrenceId);
-    } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : 'A törlés nem sikerült.');
-    } finally {
-      setDeletingOccurrenceId(null);
     }
   };
 
@@ -317,6 +300,16 @@ export const ProviderScheduleCalendar: React.FC<ProviderScheduleCalendarProps> =
         </div>
       </div>
 
+      {dragError && (
+        <div className="flex items-start gap-2 text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2.5">
+          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+          <span className="flex-1">{dragError}</span>
+          <button type="button" onClick={() => setDragError(null)} className="text-rose-500 hover:text-rose-800 cursor-pointer shrink-0">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* Calendar + day panel */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         <div className="lg:col-span-7 bg-white rounded-2xl border border-stone-200 overflow-hidden shadow-sm">
@@ -329,79 +322,20 @@ export const ProviderScheduleCalendar: React.FC<ProviderScheduleCalendarProps> =
             ))}
           </div>
 
-          <div className="grid grid-cols-7 divide-x divide-y divide-stone-100 border-b border-stone-200">
-            {calendarDays.map((dayItem, index) => {
-              const dayOccurrences = occurrencesByDate.get(dayItem.dateStr) || [];
-              const hasOccurrences = dayOccurrences.length > 0;
-              const isSelected = dayItem.dateStr === selectedDateStr;
-
-              return (
-                <div
+          <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+            <div className="grid grid-cols-7 divide-x divide-y divide-stone-100 border-b border-stone-200">
+              {calendarDays.map((dayItem, index) => (
+                <MonthDayCell
                   key={index}
-                  data-testid={`day-cell-${dayItem.dateStr}`}
-                  onClick={() => setSelectedDateStr(dayItem.dateStr)}
-                  className={`min-h-[72px] sm:min-h-[105px] p-1.5 sm:p-2 transition-all cursor-pointer relative flex flex-col justify-between ${
-                    !dayItem.isCurrentMonth
-                      ? 'bg-stone-50/60 text-stone-400'
-                      : isSelected
-                      ? 'bg-emerald-50/40 ring-2 ring-emerald-600 ring-inset z-10'
-                      : 'bg-white hover:bg-stone-50/80 text-stone-800'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span
-                      className={`text-xs sm:text-sm font-bold inline-flex items-center justify-center w-6 h-6 rounded-full ${
-                        dayItem.isToday
-                          ? 'bg-stone-900 text-white font-extrabold shadow-xs'
-                          : isSelected && dayItem.isCurrentMonth
-                          ? 'text-emerald-700 font-extrabold'
-                          : !dayItem.isCurrentMonth
-                          ? 'text-stone-400'
-                          : 'text-stone-700'
-                      }`}
-                    >
-                      {dayItem.dayNumber}
-                    </span>
-                    {hasOccurrences && (
-                      <span className="text-[10px] font-extrabold px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-200">
-                        {dayOccurrences.length}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="mt-1 space-y-1">
-                    <div className="sm:hidden flex flex-wrap gap-1 mt-1">
-                      {dayOccurrences.slice(0, 3).map((item, bIdx) => (
-                        <span
-                          key={bIdx}
-                          className={`w-2 h-2 rounded-full ${item.occ.status === 'cancelled' ? 'bg-stone-300' : 'bg-emerald-500'}`}
-                        />
-                      ))}
-                    </div>
-                    <div className="hidden sm:block space-y-1">
-                      {dayOccurrences.slice(0, 2).map((item, bIdx) => (
-                        <div
-                          key={bIdx}
-                          className={`text-[10px] font-semibold px-1.5 py-0.5 rounded truncate border leading-tight ${
-                            item.occ.status === 'cancelled'
-                              ? 'bg-stone-100 border-stone-200 text-stone-400'
-                              : 'bg-emerald-50 border-emerald-200 text-emerald-900'
-                          }`}
-                          title={`${item.program?.title || 'Program'}${item.occ.start_time ? ` - ${item.occ.start_time}` : ''}`}
-                        >
-                          {item.occ.start_time && <span className="font-bold mr-1">{item.occ.start_time}</span>}
-                          <span>{item.program?.title || 'Program'}</span>
-                        </div>
-                      ))}
-                      {dayOccurrences.length > 2 && (
-                        <div className="text-[9px] font-bold text-stone-500 pl-1">+{dayOccurrences.length - 2} további</div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                  dayItem={dayItem}
+                  isSelected={dayItem.dateStr === selectedDateStr}
+                  items={occurrencesByDate.get(dayItem.dateStr) || []}
+                  onSelect={() => setSelectedDateStr(dayItem.dateStr)}
+                  onOpenPopup={setDayPopupOccurrence}
+                />
+              ))}
+            </div>
+          </DndContext>
 
           <div className="p-3 bg-stone-50 border-t border-stone-100 flex flex-wrap items-center gap-4 text-xs text-stone-500">
             <span className="inline-flex items-center gap-1.5">
@@ -440,9 +374,6 @@ export const ProviderScheduleCalendar: React.FC<ProviderScheduleCalendarProps> =
             </div>
 
             <div className="p-4 sm:p-5 space-y-3">
-              {deleteError && (
-                <p className="text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2.5">{deleteError}</p>
-              )}
 
               {selectedDateOccurrences.length > 0 ? (
                 <div className="space-y-3">
@@ -451,6 +382,7 @@ export const ProviderScheduleCalendar: React.FC<ProviderScheduleCalendarProps> =
                     const maxCap = occ.max_participants ?? program?.max_participants ?? null;
                     const isFull = maxCap != null && booked >= maxCap;
                     const isMoving = movingOccurrenceId === occ.id;
+                    const isCopying = copyingOccurrenceId === occ.id;
                     const isDeleting = deletingOccurrenceId === occ.id;
 
                     return (
@@ -547,6 +479,35 @@ export const ProviderScheduleCalendar: React.FC<ProviderScheduleCalendarProps> =
                               </button>
                             </div>
                           </div>
+                        ) : isCopying ? (
+                          <div className="bg-white rounded-xl p-3 border border-sky-200 space-y-2">
+                            {copyError && <p className="text-xs font-semibold text-rose-700">{copyError}</p>}
+                            <p className="text-xs font-bold text-stone-700">Másolás melyik napra?</p>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="date"
+                                value={copyDate}
+                                onChange={e => setCopyDate(e.target.value)}
+                                className="px-2 py-1.5 rounded-lg border border-stone-300 text-xs flex-1"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => saveCopy(occ, copyDate)}
+                                disabled={copySaving || !copyDate}
+                                className="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-60 shrink-0"
+                              >
+                                {copySaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Copy className="w-3.5 h-3.5" />}
+                                <span>Másolás</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={cancelCopy}
+                                className="px-3 py-1.5 rounded-lg border border-stone-300 text-stone-700 text-xs font-bold flex items-center gap-1.5 cursor-pointer shrink-0"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
                         ) : (
                           <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-stone-200/60">
                             <button
@@ -556,6 +517,14 @@ export const ProviderScheduleCalendar: React.FC<ProviderScheduleCalendarProps> =
                             >
                               <CalendarDays className="w-3.5 h-3.5 text-stone-500" />
                               <span>Áthelyezés</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => startCopy(occ)}
+                              className="px-3 py-1.5 rounded-xl border border-sky-200 bg-sky-50 hover:bg-sky-100 text-sky-700 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
+                            >
+                              <Copy className="w-3.5 h-3.5" />
+                              <span>Másolás</span>
                             </button>
                             {onOpenManualBooking && (
                               <button
@@ -666,6 +635,139 @@ export const ProviderScheduleCalendar: React.FC<ProviderScheduleCalendarProps> =
           onOpenManualBooking={onOpenManualBooking}
         />
       )}
+    </div>
+  );
+};
+
+interface MonthDayCellProps {
+  dayItem: { dateStr: string; dayNumber: number; isCurrentMonth: boolean; isToday: boolean };
+  isSelected: boolean;
+  items: Array<{ occ: ProgramOccurrence; program: Program | undefined }>;
+  onSelect: () => void;
+  onOpenPopup: (occ: ProgramOccurrence) => void;
+}
+
+// Kanban f1b8d7a3: a honap-cella MOST mar droppable (@dnd-kit), hogy a
+// MonthOccurrenceChip-ek huzassal athelyezhetok legyenek ide, ugyanazzal a
+// mechanikaval mint a ProviderScheduleWeekBoard DayColumn-ja. Mobilon (sm:hidden)
+// valtozatlanul csak szines pontok maradnak -- Zora dontese (msg 3380, 3. pont):
+// nincs valodi erintos drag mobil honap-nezetben, ott a kivalasztott-nap oldalpanel
+// adja a muveleteket, mint eddig is.
+const MonthDayCell: React.FC<MonthDayCellProps> = ({ dayItem, isSelected, items, onSelect, onOpenPopup }) => {
+  const { setNodeRef, isOver } = useDroppable({ id: dayItem.dateStr });
+  const hasOccurrences = items.length > 0;
+  const visibleItems = items.slice(0, 2);
+  const overflowCount = items.length - visibleItems.length;
+
+  return (
+    <div
+      ref={setNodeRef}
+      data-testid={`day-cell-${dayItem.dateStr}`}
+      onClick={onSelect}
+      className={`min-h-[72px] sm:min-h-[105px] p-1.5 sm:p-2 transition-all cursor-pointer relative flex flex-col justify-between ${
+        isOver
+          ? 'bg-emerald-50/70 ring-2 ring-emerald-400 ring-inset z-10'
+          : !dayItem.isCurrentMonth
+          ? 'bg-stone-50/60 text-stone-400'
+          : isSelected
+          ? 'bg-emerald-50/40 ring-2 ring-emerald-600 ring-inset z-10'
+          : 'bg-white hover:bg-stone-50/80 text-stone-800'
+      }`}
+    >
+      <div className="flex items-center justify-between">
+        <span
+          className={`text-xs sm:text-sm font-bold inline-flex items-center justify-center w-6 h-6 rounded-full ${
+            dayItem.isToday
+              ? 'bg-stone-900 text-white font-extrabold shadow-xs'
+              : isSelected && dayItem.isCurrentMonth
+              ? 'text-emerald-700 font-extrabold'
+              : !dayItem.isCurrentMonth
+              ? 'text-stone-400'
+              : 'text-stone-700'
+          }`}
+        >
+          {dayItem.dayNumber}
+        </span>
+        {hasOccurrences && (
+          <span className="text-[10px] font-extrabold px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-200">
+            {items.length}
+          </span>
+        )}
+      </div>
+
+      <div className="mt-1 space-y-1">
+        <div className="sm:hidden flex flex-wrap gap-1 mt-1">
+          {items.slice(0, 3).map((item, bIdx) => (
+            <span
+              key={bIdx}
+              className={`w-2 h-2 rounded-full ${item.occ.status === 'cancelled' ? 'bg-stone-300' : 'bg-emerald-500'}`}
+            />
+          ))}
+        </div>
+        <div className="hidden sm:block space-y-1">
+          {visibleItems.map((item) => (
+            <MonthOccurrenceChip
+              key={item.occ.id}
+              occ={item.occ}
+              program={item.program}
+              onOpenPopup={() => onOpenPopup(item.occ)}
+            />
+          ))}
+          {overflowCount > 0 && (
+            <div className="text-[9px] font-bold text-stone-500 pl-1">+{overflowCount} további</div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+interface MonthOccurrenceChipProps {
+  occ: ProgramOccurrence;
+  program: Program | undefined;
+  onOpenPopup: () => void;
+}
+
+// Kompakt, huzhato varians a ProviderScheduleWeekBoard OccurrenceCard-jahoz kepest --
+// a honap-cella (~150px szeles, 72-105px magas) nem fer el a teljes kartyat, csak
+// egy sor: kis drag-handle + ido+cim. Masolas/pontos-datum-athelyezes/torles a
+// kivalasztott-nap oldalpanelen marad (ott mar megvan, nem duplikalt itt).
+const MonthOccurrenceChip: React.FC<MonthOccurrenceChipProps> = ({ occ, program, onOpenPopup }) => {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: occ.id });
+
+  const style: React.CSSProperties = transform
+    ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, zIndex: 50, opacity: isDragging ? 0.85 : 1 }
+    : {};
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center gap-1 text-[10px] font-semibold rounded px-1 py-0.5 border leading-tight touch-none ${
+        occ.status === 'cancelled'
+          ? 'bg-stone-100 border-stone-200 text-stone-400'
+          : 'bg-emerald-50 border-emerald-200 text-emerald-900'
+      }`}
+    >
+      <button
+        type="button"
+        {...attributes}
+        {...listeners}
+        onClick={(e) => e.stopPropagation()}
+        className="p-0 text-emerald-700/50 hover:text-emerald-900 cursor-grab active:cursor-grabbing shrink-0 touch-none"
+        title="Húzással áthelyezhető másik napra"
+      >
+        <GripVertical className="w-2.5 h-2.5" />
+      </button>
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onOpenPopup(); }}
+        className="truncate text-left flex-1 min-w-0 cursor-pointer hover:underline"
+        title={`${program?.title || 'Program'}${occ.start_time ? ` - ${occ.start_time}` : ''}`}
+      >
+        {occ.start_time && <span className="font-bold mr-1">{occ.start_time}</span>}
+        <span>{program?.title || 'Program'}</span>
+      </button>
     </div>
   );
 };

@@ -1,12 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import {
   DndContext,
-  PointerSensor,
   useDraggable,
   useDroppable,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
 } from '@dnd-kit/core';
 import {
   ChevronLeft,
@@ -24,6 +20,7 @@ import {
 } from 'lucide-react';
 import { Order, OrderBuyerInfo, Program, ProgramOccurrence } from '../types/database';
 import { ProgramDayPopup } from './ProgramDayPopup';
+import { useOccurrenceScheduling } from '../hooks/useOccurrenceScheduling';
 
 interface ProviderScheduleWeekBoardProps {
   programs: Program[];
@@ -83,24 +80,36 @@ export const ProviderScheduleWeekBoard: React.FC<ProviderScheduleWeekBoardProps>
 }) => {
   const [weekStart, setWeekStart] = useState<Date>(() => mondayOf(new Date()));
   const [selectedProgramId, setSelectedProgramId] = useState<string>('all');
-  const [dragError, setDragError] = useState<string | null>(null);
   const [dayPopupOccurrence, setDayPopupOccurrence] = useState<ProgramOccurrence | null>(null);
 
-  const [movingOccurrenceId, setMovingOccurrenceId] = useState<string | null>(null);
-  const [moveDate, setMoveDate] = useState('');
-  const [moveStartTime, setMoveStartTime] = useState('');
-  const [moveEndTime, setMoveEndTime] = useState('');
-  const [moveSaving, setMoveSaving] = useState(false);
-  const [moveError, setMoveError] = useState<string | null>(null);
-
-  const [copyingOccurrenceId, setCopyingOccurrenceId] = useState<string | null>(null);
-  const [copyDate, setCopyDate] = useState('');
-  const [copySaving, setCopySaving] = useState(false);
-  const [copyError, setCopyError] = useState<string | null>(null);
-
-  const [deletingOccurrenceId, setDeletingOccurrenceId] = useState<string | null>(null);
-
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+  const {
+    sensors,
+    dragError,
+    setDragError,
+    handleDragEnd,
+    movingOccurrenceId,
+    moveDate,
+    moveStartTime,
+    moveEndTime,
+    moveSaving,
+    moveError,
+    startMove,
+    cancelMove: onCancelMove,
+    saveMove,
+    setMoveDate,
+    setMoveStartTime,
+    setMoveEndTime,
+    copyingOccurrenceId,
+    copyDate,
+    copySaving,
+    copyError,
+    startCopy,
+    cancelCopy: onCancelCopy,
+    saveCopy,
+    setCopyDate,
+    deletingOccurrenceId,
+    handleDelete,
+  } = useOccurrenceScheduling(occurrencesMap, onMoveOccurrence, onCreateOccurrence, onDeleteOccurrence);
 
   const programMap = useMemo(() => {
     const map = new Map<string, Program>();
@@ -149,91 +158,6 @@ export const ProviderScheduleWeekBoard: React.FC<ProviderScheduleWeekBoardProps>
   const handlePrevWeek = () => setWeekStart(prev => { const d = new Date(prev); d.setDate(d.getDate() - 7); return d; });
   const handleNextWeek = () => setWeekStart(prev => { const d = new Date(prev); d.setDate(d.getDate() + 7); return d; });
   const handleThisWeek = () => setWeekStart(mondayOf(new Date()));
-
-  const handleDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over) return;
-    const occurrenceId = String(active.id);
-    const targetDate = String(over.id);
-    const occ = occurrencesMap[occurrenceId];
-    if (!occ) return;
-    const currentDate = occ.event_date.includes('T') ? occ.event_date.split('T')[0] : occ.event_date;
-    if (currentDate === targetDate) return;
-
-    setDragError(null);
-    try {
-      await onMoveOccurrence(occurrenceId, {
-        event_date: targetDate,
-        start_time: occ.start_time || null,
-        end_time: occ.end_time || null,
-      });
-    } catch (err) {
-      setDragError(err instanceof Error ? err.message : 'Az áthelyezés nem sikerült (húzással).');
-    }
-  };
-
-  const startMove = (occ: ProgramOccurrence) => {
-    setMovingOccurrenceId(occ.id);
-    const dateStr = occ.event_date.includes('T') ? occ.event_date.split('T')[0] : occ.event_date;
-    setMoveDate(dateStr);
-    setMoveStartTime(occ.start_time || '');
-    setMoveEndTime(occ.end_time || '');
-    setMoveError(null);
-  };
-
-  const saveMove = async () => {
-    if (!movingOccurrenceId || !moveDate) return;
-    setMoveSaving(true);
-    setMoveError(null);
-    try {
-      await onMoveOccurrence(movingOccurrenceId, {
-        event_date: moveDate,
-        start_time: moveStartTime || null,
-        end_time: moveEndTime || null,
-      });
-      setMovingOccurrenceId(null);
-    } catch (err) {
-      setMoveError(err instanceof Error ? err.message : 'Az áthelyezés nem sikerült.');
-    } finally {
-      setMoveSaving(false);
-    }
-  };
-
-  const startCopy = (occ: ProgramOccurrence) => {
-    setCopyingOccurrenceId(occ.id);
-    setCopyDate('');
-    setCopyError(null);
-  };
-
-  const saveCopy = async (occ: ProgramOccurrence, targetDate: string) => {
-    if (!targetDate) return;
-    setCopySaving(true);
-    setCopyError(null);
-    try {
-      await onCreateOccurrence(occ.program_id, targetDate, {
-        start_time: occ.start_time || null,
-        end_time: occ.end_time || null,
-        max_participants: occ.max_participants ?? null,
-      });
-      setCopyingOccurrenceId(null);
-    } catch (err) {
-      setCopyError(err instanceof Error ? err.message : 'A másolás nem sikerült.');
-    } finally {
-      setCopySaving(false);
-    }
-  };
-
-  const handleDelete = async (occurrenceId: string) => {
-    if (!window.confirm('Biztosan törlöd ezt az időpontot? Ha van hozzá foglalás, a törlés nem fog sikerülni.')) return;
-    setDeletingOccurrenceId(occurrenceId);
-    try {
-      await onDeleteOccurrence(occurrenceId);
-    } catch (err) {
-      setDragError(err instanceof Error ? err.message : 'A törlés nem sikerült.');
-    } finally {
-      setDeletingOccurrenceId(null);
-    }
-  };
 
   return (
     <div className="space-y-4">
@@ -297,7 +221,7 @@ export const ProviderScheduleWeekBoard: React.FC<ProviderScheduleWeekBoardProps>
               moveSaving={moveSaving}
               moveError={moveError}
               onStartMove={startMove}
-              onCancelMove={() => { setMovingOccurrenceId(null); setMoveError(null); }}
+              onCancelMove={onCancelMove}
               onChangeMoveDate={setMoveDate}
               onChangeMoveStartTime={setMoveStartTime}
               onChangeMoveEndTime={setMoveEndTime}
@@ -307,7 +231,7 @@ export const ProviderScheduleWeekBoard: React.FC<ProviderScheduleWeekBoardProps>
               copySaving={copySaving}
               copyError={copyError}
               onStartCopy={startCopy}
-              onCancelCopy={() => { setCopyingOccurrenceId(null); setCopyError(null); }}
+              onCancelCopy={onCancelCopy}
               onChangeCopyDate={setCopyDate}
               onSaveCopy={saveCopy}
               deletingOccurrenceId={deletingOccurrenceId}
