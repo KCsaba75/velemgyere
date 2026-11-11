@@ -93,11 +93,23 @@ export const ProviderScheduleCalendar: React.FC<ProviderScheduleCalendarProps> =
   // kell popup-ositani.
   const [dayDetailOpen, setDayDetailOpen] = useState(false);
 
+  const bookedCountByOccurrence = useMemo(() => {
+    const map = new Map<string, number>();
+    orders
+      .filter(o => o.status !== 'cancelled' && o.occurrence_id)
+      .forEach(o => {
+        map.set(o.occurrence_id!, (map.get(o.occurrence_id!) || 0) + (o.participants_count || 0));
+      });
+    return map;
+  }, [orders]);
+
   const {
     sensors,
     dragError,
     setDragError,
     handleDragEnd,
+    lastDragMove,
+    undoLastDragMove,
     movingOccurrenceId,
     moveDate,
     moveStartTime,
@@ -120,7 +132,7 @@ export const ProviderScheduleCalendar: React.FC<ProviderScheduleCalendarProps> =
     setCopyDate,
     deletingOccurrenceId,
     handleDelete,
-  } = useOccurrenceScheduling(occurrencesMap, onMoveOccurrence, onCreateOccurrence, onDeleteOccurrence);
+  } = useOccurrenceScheduling(occurrencesMap, onMoveOccurrence, onCreateOccurrence, onDeleteOccurrence, bookedCountByOccurrence);
 
   // Kanban 803361a4 #3: a Torles FK miatt mindig elbukik, ha van foglalas --
   // ilyenkor a lemondas (status='cancelled') az ut, kulon allapot/hiba-kezelessel.
@@ -170,16 +182,6 @@ export const ProviderScheduleCalendar: React.FC<ProviderScheduleCalendarProps> =
     programs.forEach(p => map.set(p.id, p));
     return map;
   }, [programs]);
-
-  const bookedCountByOccurrence = useMemo(() => {
-    const map = new Map<string, number>();
-    orders
-      .filter(o => o.status !== 'cancelled' && o.occurrence_id)
-      .forEach(o => {
-        map.set(o.occurrence_id!, (map.get(o.occurrence_id!) || 0) + (o.participants_count || 0));
-      });
-    return map;
-  }, [orders]);
 
   // Occurrence-centrikus csoportositas nap szerint -- a meglevo ProviderBookingsCalendar
   // foglalas-centrikus (ordersByDate), ez itt program-idopont-centrikus: minden
@@ -352,6 +354,19 @@ export const ProviderScheduleCalendar: React.FC<ProviderScheduleCalendarProps> =
           <span className="flex-1">{dragError}</span>
           <button type="button" onClick={() => setDragError(null)} className="text-rose-500 hover:text-rose-800 cursor-pointer shrink-0">
             <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
+      {lastDragMove && (
+        <div className="flex items-center gap-2 text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2.5">
+          <span className="flex-1">Áthelyezve.</span>
+          <button
+            type="button"
+            onClick={undoLastDragMove}
+            className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold cursor-pointer shrink-0"
+          >
+            Visszavonás
           </button>
         </div>
       )}

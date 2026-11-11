@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   type DragEndEvent,
@@ -10,19 +11,39 @@ import { ProgramOccurrence } from '../types/database';
 type MoveUpdates = { event_date: string; start_time?: string | null; end_time?: string | null };
 type CreateOverrides = { start_time?: string | null; end_time?: string | null; max_participants?: number | null };
 
+const UNDO_TIMEOUT_MS = 8000;
+
 // Kanban f1b8d7a3: a ProviderScheduleWeekBoard huzas/masolas/torles allapot-gepe es
 // @dnd-kit szenzora egy helyre kiemelve, hogy a ProviderScheduleCalendar (honap-nezet)
 // is hasznalhassa ugyanazt a mechanikat masolas/beillesztes nelkul (Zora dontese,
 // msg 3380): a masolas TOVABBRA IS az eredeti ikon-gomb + datum-valaszto minta, nincs
 // uj Ctrl-drag/long-press egyik nezetben sem.
+// Kanban f167e85e (#2): kulon MouseSensor (egerrel marad a rovid-distance aktivalas,
+// gyors desktop UX) es TouchSensor (mobilon csak 250ms hosszu nyomasra indul a huzas,
+// kis tolerance-szal -- ez ad esanyt a gorgetesnek a drag-indulas elott).
 export function useOccurrenceScheduling(
   occurrencesMap: Record<string, ProgramOccurrence>,
   onMoveOccurrence: (occurrenceId: string, updates: MoveUpdates) => Promise<void>,
   onCreateOccurrence: (programId: string, dateStr: string, overrides: CreateOverrides) => Promise<void>,
-  onDeleteOccurrence: (occurrenceId: string) => Promise<void>
+  onDeleteOccurrence: (occurrenceId: string) => Promise<void>,
+  bookedCountByOccurrence: Map<string, number>
 ) {
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } })
+  );
   const [dragError, setDragError] = useState<string | null>(null);
+
+  // Kanban f167e85e (#2): mentes utan rovid "Visszavonas" lehetoseg -- a korabbi
+  // (event_date/start_time/end_time) allapotot tartja meg, 8 mp utan eltunik.
+  const [lastDragMove, setLastDragMove] = useState<{ occurrenceId: string; previous: MoveUpdates } | null>(null);
+  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    };
+  }, []);
 
   const [movingOccurrenceId, setMovingOccurrenceId] = useState<string | null>(null);
   const [moveDate, setMoveDate] = useState('');
@@ -48,15 +69,43 @@ export function useOccurrenceScheduling(
     const currentDate = occ.event_date.includes('T') ? occ.event_date.split('T')[0] : occ.event_date;
     if (currentDate === targetDate) return;
 
+    const booked = bookedCountByOccurrence.get(occurrenceId) || 0;
+    if (booked > 0) {
+      const confirmed = window.confirm(
+        `${booked} fő foglalt erre az időpontra. Biztosan áthelyezed ${targetDate}-ra?`
+      );
+      if (!confirmed) return;
+    }
+
     setDragError(null);
+    const previous: MoveUpdates = {
+      event_date: currentDate,
+      start_time: occ.start_time || null,
+      end_time: occ.end_time || null,
+    };
     try {
       await onMoveOccurrence(occurrenceId, {
         event_date: targetDate,
         start_time: occ.start_time || null,
         end_time: occ.end_time || null,
       });
+      if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+      setLastDragMove({ occurrenceId, previous });
+      undoTimerRef.current = setTimeout(() => setLastDragMove(null), UNDO_TIMEOUT_MS);
     } catch (err) {
       setDragError(err instanceof Error ? err.message : 'Az áthelyezés nem sikerült (húzással).');
+    }
+  };
+
+  const undoLastDragMove = async () => {
+    if (!lastDragMove) return;
+    const { occurrenceId, previous } = lastDragMove;
+    setLastDragMove(null);
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    try {
+      await onMoveOccurrence(occurrenceId, previous);
+    } catch (err) {
+      setDragError(err instanceof Error ? err.message : 'A visszavonás nem sikerült.');
     }
   };
 
@@ -138,6 +187,8 @@ export function useOccurrenceScheduling(
     dragError,
     setDragError,
     handleDragEnd,
+    lastDragMove,
+    undoLastDragMove,
     movingOccurrenceId,
     moveDate,
     moveStartTime,

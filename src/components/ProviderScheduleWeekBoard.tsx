@@ -66,8 +66,8 @@ function mondayOf(d: Date): Date {
 // otlete), hanem egy explicit masolo-ikon a kartyan -- Csaba sajat referenciakepen
 // is ezt a mintat mutatta. A "..." gomb a mar meglevo gomb/form pontos-datum
 // athelyezest nyitja meg ugyanitt (tavoli/nem lathato heti datumhoz, kanban
-// 3349 3. kerdese). A honap-nezet (ProviderScheduleCalendar) valtozatlan marad,
-// nem dragolhato.
+// 3349 3. kerdese). FRISSITVE (c2c66884, msg 3390): a honap-nezet
+// (ProviderScheduleCalendar, MonthOccurrenceChip) is dragolhato mar, nem csak ez.
 export const ProviderScheduleWeekBoard: React.FC<ProviderScheduleWeekBoardProps> = ({
   programs,
   occurrencesMap,
@@ -82,11 +82,23 @@ export const ProviderScheduleWeekBoard: React.FC<ProviderScheduleWeekBoardProps>
   const [selectedProgramId, setSelectedProgramId] = useState<string>('all');
   const [dayPopupOccurrence, setDayPopupOccurrence] = useState<ProgramOccurrence | null>(null);
 
+  const bookedCountByOccurrence = useMemo(() => {
+    const map = new Map<string, number>();
+    orders
+      .filter(o => o.status !== 'cancelled' && o.occurrence_id)
+      .forEach(o => {
+        map.set(o.occurrence_id!, (map.get(o.occurrence_id!) || 0) + (o.participants_count || 0));
+      });
+    return map;
+  }, [orders]);
+
   const {
     sensors,
     dragError,
     setDragError,
     handleDragEnd,
+    lastDragMove,
+    undoLastDragMove,
     movingOccurrenceId,
     moveDate,
     moveStartTime,
@@ -109,23 +121,13 @@ export const ProviderScheduleWeekBoard: React.FC<ProviderScheduleWeekBoardProps>
     setCopyDate,
     deletingOccurrenceId,
     handleDelete,
-  } = useOccurrenceScheduling(occurrencesMap, onMoveOccurrence, onCreateOccurrence, onDeleteOccurrence);
+  } = useOccurrenceScheduling(occurrencesMap, onMoveOccurrence, onCreateOccurrence, onDeleteOccurrence, bookedCountByOccurrence);
 
   const programMap = useMemo(() => {
     const map = new Map<string, Program>();
     programs.forEach(p => map.set(p.id, p));
     return map;
   }, [programs]);
-
-  const bookedCountByOccurrence = useMemo(() => {
-    const map = new Map<string, number>();
-    orders
-      .filter(o => o.status !== 'cancelled' && o.occurrence_id)
-      .forEach(o => {
-        map.set(o.occurrence_id!, (map.get(o.occurrence_id!) || 0) + (o.participants_count || 0));
-      });
-    return map;
-  }, [orders]);
 
   const weekDays = useMemo(() => {
     return Array.from({ length: 7 }, (_, i) => {
@@ -199,6 +201,19 @@ export const ProviderScheduleWeekBoard: React.FC<ProviderScheduleWeekBoardProps>
           <span className="flex-1">{dragError}</span>
           <button type="button" onClick={() => setDragError(null)} className="text-rose-500 hover:text-rose-800 cursor-pointer shrink-0">
             <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
+      {lastDragMove && (
+        <div className="flex items-center gap-2 text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2.5">
+          <span className="flex-1">Áthelyezve.</span>
+          <button
+            type="button"
+            onClick={undoLastDragMove}
+            className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold cursor-pointer shrink-0"
+          >
+            Visszavonás
           </button>
         </div>
       )}
