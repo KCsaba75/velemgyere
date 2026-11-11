@@ -92,6 +92,20 @@ export const ProviderScheduleWeekBoard: React.FC<ProviderScheduleWeekBoardProps>
     return map;
   }, [orders]);
 
+  // Kanban 5d9187b1 (#5): lasd ProviderScheduleCalendar azonos logikaja.
+  const pendingOccurrenceIds = useMemo(() => {
+    const set = new Set<string>();
+    orders
+      .filter(o => o.status === 'pending' && o.occurrence_id)
+      .forEach(o => set.add(o.occurrence_id!));
+    return set;
+  }, [orders]);
+
+  const pendingOrdersCount = useMemo(
+    () => orders.filter(o => o.status === 'pending').length,
+    [orders]
+  );
+
   const {
     sensors,
     dragError,
@@ -195,6 +209,15 @@ export const ProviderScheduleWeekBoard: React.FC<ProviderScheduleWeekBoardProps>
         </div>
       </div>
 
+      {pendingOrdersCount > 0 && (
+        <div className="flex items-center gap-2 text-xs font-semibold text-amber-900 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
+          <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" />
+          <span className="flex-1">
+            {pendingOrdersCount} foglalás vár visszaigazolásra.
+          </span>
+        </div>
+      )}
+
       {dragError && (
         <div className="flex items-start gap-2 text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2.5">
           <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
@@ -229,6 +252,7 @@ export const ProviderScheduleWeekBoard: React.FC<ProviderScheduleWeekBoardProps>
               items={occurrencesByDate.get(day.dateStr) || []}
               weekDays={weekDays}
               bookedCountByOccurrence={bookedCountByOccurrence}
+              pendingOccurrenceIds={pendingOccurrenceIds}
               movingOccurrenceId={movingOccurrenceId}
               moveDate={moveDate}
               moveStartTime={moveStartTime}
@@ -278,6 +302,7 @@ interface DayColumnProps {
   items: Array<{ occ: ProgramOccurrence; program: Program | undefined }>;
   weekDays: Array<{ date: Date; dateStr: string; label: string }>;
   bookedCountByOccurrence: Map<string, number>;
+  pendingOccurrenceIds: Set<string>;
   movingOccurrenceId: string | null;
   moveDate: string;
   moveStartTime: string;
@@ -304,7 +329,7 @@ interface DayColumnProps {
 }
 
 const DayColumn: React.FC<DayColumnProps> = ({
-  dateStr, label, date, items, weekDays, bookedCountByOccurrence,
+  dateStr, label, date, items, weekDays, bookedCountByOccurrence, pendingOccurrenceIds,
   movingOccurrenceId, moveDate, moveStartTime, moveEndTime, moveSaving, moveError,
   onStartMove, onCancelMove, onChangeMoveDate, onChangeMoveStartTime, onChangeMoveEndTime, onSaveMove,
   copyingOccurrenceId, copyDate, copySaving, copyError, onStartCopy, onCancelCopy, onChangeCopyDate, onSaveCopy,
@@ -348,6 +373,7 @@ const DayColumn: React.FC<DayColumnProps> = ({
             occ={occ}
             program={program}
             booked={bookedCountByOccurrence.get(occ.id) || 0}
+            hasPending={pendingOccurrenceIds.has(occ.id)}
             isMoving={movingOccurrenceId === occ.id}
             moveDate={moveDate}
             moveStartTime={moveStartTime}
@@ -389,6 +415,7 @@ interface OccurrenceCardProps {
   occ: ProgramOccurrence;
   program: Program | undefined;
   booked: number;
+  hasPending: boolean;
   isMoving: boolean;
   moveDate: string;
   moveStartTime: string;
@@ -416,7 +443,7 @@ interface OccurrenceCardProps {
 }
 
 const OccurrenceCard: React.FC<OccurrenceCardProps> = ({
-  occ, program, booked, isMoving, moveDate, moveStartTime, moveEndTime, moveSaving, moveError,
+  occ, program, booked, hasPending, isMoving, moveDate, moveStartTime, moveEndTime, moveSaving, moveError,
   onStartMove, onCancelMove, onChangeMoveDate, onChangeMoveStartTime, onChangeMoveEndTime, onSaveMove,
   isCopying, copyDate, copySaving, copyError, weekDays, onStartCopy, onCancelCopy, onChangeCopyDate, onSaveCopy,
   isDeleting, onDelete, onOpenPopup,
@@ -488,7 +515,11 @@ const OccurrenceCard: React.FC<OccurrenceCardProps> = ({
       ref={setNodeRef}
       style={style}
       className={`rounded-xl border p-2.5 space-y-1.5 text-xs touch-none ${
-        occ.status === 'cancelled' ? 'bg-stone-100 border-stone-200 opacity-70' : 'bg-white border-stone-200 shadow-xs'
+        occ.status === 'cancelled'
+          ? 'bg-stone-100 border-stone-200 opacity-70'
+          : hasPending
+          ? 'bg-amber-50/70 border-amber-300 shadow-xs'
+          : 'bg-white border-stone-200 shadow-xs'
       }`}
     >
       <div className="flex items-start gap-1.5">

@@ -12,7 +12,6 @@ import {
   Clock,
   Users,
   Phone,
-  ExternalLink,
   Pencil,
   Trash2,
   Ban,
@@ -102,6 +101,23 @@ export const ProviderScheduleCalendar: React.FC<ProviderScheduleCalendarProps> =
       });
     return map;
   }, [orders]);
+
+  // Kanban 5d9187b1 (#5): occurrence-ok, amelyekre van visszaigazolasra varo
+  // (pending) rendeles -- a honap-cella es a nap-reszlet narancs jelzesehez.
+  const pendingOccurrenceIds = useMemo(() => {
+    const set = new Set<string>();
+    orders
+      .filter(o => o.status === 'pending' && o.occurrence_id)
+      .forEach(o => set.add(o.occurrence_id!));
+    return set;
+  }, [orders]);
+
+  // Kanban 5d9187b1 (#5): osszefoglalo sav a naptar tetejen -- a TELJES
+  // rendeles-keszletre szamolva, nem csak a lathato honapra.
+  const pendingOrdersCount = useMemo(
+    () => orders.filter(o => o.status === 'pending').length,
+    [orders]
+  );
 
   const {
     sensors,
@@ -272,13 +288,6 @@ export const ProviderScheduleCalendar: React.FC<ProviderScheduleCalendarProps> =
 
   const selectedDateOccurrences = occurrencesByDate.get(selectedDateStr) || [];
 
-  const openDeepLink = (programId: string | undefined, dateStr: string) => {
-    const params = new URLSearchParams();
-    if (programId) params.set('program', programId);
-    params.set('datum', dateStr);
-    window.open(`/szolgaltato/foglalasaim?${params.toString()}`, '_blank', 'noopener,noreferrer');
-  };
-
   const openAddOccurrence = () => {
     setAddingOccurrence(true);
     setAddProgramId(selectedProgramId !== 'all' ? selectedProgramId : (programs[0]?.id || ''));
@@ -348,6 +357,15 @@ export const ProviderScheduleCalendar: React.FC<ProviderScheduleCalendarProps> =
         </div>
       </div>
 
+      {pendingOrdersCount > 0 && (
+        <div className="flex items-center gap-2 text-xs font-semibold text-amber-900 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
+          <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" />
+          <span className="flex-1">
+            {pendingOrdersCount} foglalás vár visszaigazolásra.
+          </span>
+        </div>
+      )}
+
       {dragError && (
         <div className="flex items-start gap-2 text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2.5">
           <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
@@ -390,6 +408,8 @@ export const ProviderScheduleCalendar: React.FC<ProviderScheduleCalendarProps> =
                 dayItem={dayItem}
                 isSelected={dayDetailOpen && dayItem.dateStr === selectedDateStr}
                 items={occurrencesByDate.get(dayItem.dateStr) || []}
+                bookedCountByOccurrence={bookedCountByOccurrence}
+                pendingOccurrenceIds={pendingOccurrenceIds}
                 onSelect={() => { setSelectedDateStr(dayItem.dateStr); setDayDetailOpen(true); }}
                 onOpenPopup={setDayPopupOccurrence}
               />
@@ -421,15 +441,6 @@ export const ProviderScheduleCalendar: React.FC<ProviderScheduleCalendarProps> =
                 <h4 className="font-display text-base sm:text-lg font-bold capitalize truncate">{formattedSelectedDate}</h4>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => openDeepLink(selectedProgramId !== 'all' ? selectedProgramId : undefined, selectedDateStr)}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg text-[11px] font-bold border border-white/10 transition-colors cursor-pointer"
-                  title="A kiválasztott program és nap foglalásai új lapon"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Foglalások</span>
-                </button>
                 <span className="text-xs font-bold bg-white/10 px-3 py-1 rounded-full border border-white/10 whitespace-nowrap">
                   {selectedDateOccurrences.length} időpont
                 </span>
@@ -755,6 +766,8 @@ interface MonthDayCellProps {
   dayItem: { dateStr: string; dayNumber: number; isCurrentMonth: boolean; isToday: boolean };
   isSelected: boolean;
   items: Array<{ occ: ProgramOccurrence; program: Program | undefined }>;
+  bookedCountByOccurrence: Map<string, number>;
+  pendingOccurrenceIds: Set<string>;
   onSelect: () => void;
   onOpenPopup: (occ: ProgramOccurrence) => void;
 }
@@ -767,7 +780,7 @@ interface MonthDayCellProps {
 // jelenik meg, mint desktopon, igy a korabbi (msg 3380, 3. pont) "nincs mobil
 // drag" dontes felulirva: a grip-fogantyu mobilon is aktiv marad, mert ez pontosan
 // a mar bevalt desktop kartya-komponens ujrahasznositasa, nem uj mobil-dizajn.
-const MonthDayCell: React.FC<MonthDayCellProps> = ({ dayItem, isSelected, items, onSelect, onOpenPopup }) => {
+const MonthDayCell: React.FC<MonthDayCellProps> = ({ dayItem, isSelected, items, bookedCountByOccurrence, pendingOccurrenceIds, onSelect, onOpenPopup }) => {
   const { setNodeRef, isOver } = useDroppable({ id: dayItem.dateStr });
   const hasOccurrences = items.length > 0;
   const visibleItems = items.slice(0, 2);
@@ -817,6 +830,8 @@ const MonthDayCell: React.FC<MonthDayCellProps> = ({ dayItem, isSelected, items,
             key={item.occ.id}
             occ={item.occ}
             program={item.program}
+            booked={bookedCountByOccurrence.get(item.occ.id) || 0}
+            hasPending={pendingOccurrenceIds.has(item.occ.id)}
             onOpenPopup={() => onOpenPopup(item.occ)}
           />
         ))}
@@ -831,6 +846,8 @@ const MonthDayCell: React.FC<MonthDayCellProps> = ({ dayItem, isSelected, items,
 interface MonthOccurrenceChipProps {
   occ: ProgramOccurrence;
   program: Program | undefined;
+  booked: number;
+  hasPending: boolean;
   onOpenPopup: () => void;
 }
 
@@ -838,8 +855,12 @@ interface MonthOccurrenceChipProps {
 // a honap-cella (~150px szeles, 96-105px magas) nem fer el a teljes kartyat, csak
 // egy sor: kis drag-handle + ido+cim. Masolas/pontos-datum-athelyezes/torles a
 // kivalasztott-nap popupon marad (ott mar megvan, nem duplikalt itt).
-const MonthOccurrenceChip: React.FC<MonthOccurrenceChipProps> = ({ occ, program, onOpenPopup }) => {
+// Kanban 5d9187b1 (#5): letszam (booked/maxCap) + narancs keret ha van
+// visszaigazolasra varo (pending) rendeles az occurrence-hez -- ugyanaz a
+// jelzes-logika, mint a heti OccurrenceCard-nal, csak kompaktabb formaban.
+const MonthOccurrenceChip: React.FC<MonthOccurrenceChipProps> = ({ occ, program, booked, hasPending, onOpenPopup }) => {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: occ.id });
+  const maxCap = occ.max_participants ?? program?.max_participants ?? null;
 
   const style: React.CSSProperties = transform
     ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, zIndex: 50, opacity: isDragging ? 0.85 : 1 }
@@ -852,6 +873,8 @@ const MonthOccurrenceChip: React.FC<MonthOccurrenceChipProps> = ({ occ, program,
       className={`flex items-center gap-1 text-[10px] font-semibold rounded px-1 py-0.5 border leading-tight touch-none ${
         occ.status === 'cancelled'
           ? 'bg-stone-100 border-stone-200 text-stone-400'
+          : hasPending
+          ? 'bg-amber-50 border-amber-300 text-amber-900'
           : 'bg-emerald-50 border-emerald-200 text-emerald-900'
       }`}
     >
@@ -869,11 +892,16 @@ const MonthOccurrenceChip: React.FC<MonthOccurrenceChipProps> = ({ occ, program,
         type="button"
         onClick={(e) => { e.stopPropagation(); onOpenPopup(); }}
         className="truncate text-left flex-1 min-w-0 cursor-pointer hover:underline"
-        title={`${program?.title || 'Program'}${occ.start_time ? ` - ${occ.start_time}` : ''}`}
+        title={`${program?.title || 'Program'}${occ.start_time ? ` - ${occ.start_time}` : ''}${hasPending ? ' -- visszaigazolasra var' : ''}`}
       >
         {occ.start_time && <span className="font-bold mr-1">{occ.start_time}</span>}
         <span>{program?.title || 'Program'}</span>
       </button>
+      {occ.status !== 'cancelled' && (
+        <span className="shrink-0 tabular-nums">
+          {booked}{maxCap != null ? `/${maxCap}` : ''}
+        </span>
+      )}
     </div>
   );
 };

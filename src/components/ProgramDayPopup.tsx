@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { X, MapPin, Clock, Users, Phone, Mail, Loader2 } from 'lucide-react';
+import { X, MapPin, Clock, Users, Phone, Mail, Loader2, CheckCircle2 } from 'lucide-react';
 import { Order, OrderBuyerInfo, Program, ProgramOccurrence } from '../types/database';
 import { BookingDetailModal } from './BookingDetailModal';
+import { useApp } from '../context/AppContext';
 
 interface ProgramDayPopupProps {
   occurrence: ProgramOccurrence;
@@ -28,10 +29,36 @@ interface ProgramDayPopupProps {
 // erheto el (azokhoz mar nyitva van a program-kartya), DE kulso foglalas
 // felvetele a popupbol is engedelyezve van, ha van meg szabad hely.
 export const ProgramDayPopup: React.FC<ProgramDayPopupProps> = ({ occurrence, program, orders, getOrderBuyerInfo, onClose, onOpenManualBooking }) => {
+  const { confirmOrder } = useApp();
   const dayOrders = orders.filter(o => o.occurrence_id === occurrence.id);
   const [buyerInfos, setBuyerInfos] = useState<Record<string, OrderBuyerInfo>>({});
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const selectedOrder = selectedOrderId ? dayOrders.find(o => o.id === selectedOrderId) || null : null;
+
+  // Kanban 5d9187b1 (#5): kozvetlen visszaigazolas a sorbol, ugyanazzal a
+  // mechanikaval mint a BookingDetailModal sajat confirmOrder()-hivasa --
+  // nem kell a mely modalhoz menni csak ezert az egy muveletert.
+  const [confirmingOrderId, setConfirmingOrderId] = useState<string | null>(null);
+  const [confirmErrorByOrderId, setConfirmErrorByOrderId] = useState<Record<string, string>>({});
+
+  const handleConfirmOrder = async (e: React.MouseEvent, orderId: string) => {
+    e.stopPropagation();
+    setConfirmingOrderId(orderId);
+    setConfirmErrorByOrderId(prev => {
+      const { [orderId]: _removed, ...rest } = prev;
+      return rest;
+    });
+    try {
+      await confirmOrder(orderId);
+    } catch (err) {
+      setConfirmErrorByOrderId(prev => ({
+        ...prev,
+        [orderId]: err instanceof Error ? err.message : 'A visszaigazolás nem sikerült, próbáld meg újra.',
+      }));
+    } finally {
+      setConfirmingOrderId(null);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -113,43 +140,63 @@ export const ProgramDayPopup: React.FC<ProgramDayPopupProps> = ({ occurrence, pr
             {dayOrders.map(order => {
               const buyer = buyerInfos[order.id];
               const name = order.manual_customer_name || buyer?.name;
+              const isConfirming = confirmingOrderId === order.id;
+              const confirmError = confirmErrorByOrderId[order.id];
               return (
                 <div
                   key={order.id}
                   onClick={() => setSelectedOrderId(order.id)}
-                  className="p-3.5 flex items-start justify-between gap-3 text-sm cursor-pointer hover:bg-stone-50/80 transition-colors"
+                  className="p-3.5 flex flex-col gap-1.5 text-sm cursor-pointer hover:bg-stone-50/80 transition-colors"
                 >
-                  <div className="min-w-0">
-                    <p className="font-semibold text-stone-800 truncate flex items-center gap-1.5">
-                      {name || (
-                        <span className="flex items-center gap-1.5 text-stone-400 font-normal">
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" /> Betöltés...
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-stone-800 truncate flex items-center gap-1.5">
+                        {name || (
+                          <span className="flex items-center gap-1.5 text-stone-400 font-normal">
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" /> Betöltés...
+                          </span>
+                        )}
+                      </p>
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-stone-500 mt-1">
+                        <span className="flex items-center gap-1">
+                          <Users className="w-3 h-3" /> {order.participants_count} fő
                         </span>
-                      )}
-                    </p>
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-stone-500 mt-1">
-                      <span className="flex items-center gap-1">
-                        <Users className="w-3 h-3" /> {order.participants_count} fő
+                        {order.manual_customer_phone && (
+                          <span className="flex items-center gap-1"><Phone className="w-3 h-3" /> {order.manual_customer_phone}</span>
+                        )}
+                        {(order.manual_customer_email || buyer?.email) && (
+                          <span className="flex items-center gap-1"><Mail className="w-3 h-3" /> {order.manual_customer_email || buyer?.email}</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-1.5 shrink-0">
+                      <span
+                        className={`text-xs font-bold px-2 py-0.5 rounded-lg shrink-0 ${
+                          order.status === 'confirmed'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : order.status === 'pending'
+                              ? 'bg-amber-100 text-amber-900'
+                              : 'bg-stone-100 text-stone-500'
+                        }`}
+                      >
+                        {order.status === 'confirmed' ? 'Visszaigazolva' : order.status === 'pending' ? 'Függőben' : 'Lemondva'}
                       </span>
-                      {order.manual_customer_phone && (
-                        <span className="flex items-center gap-1"><Phone className="w-3 h-3" /> {order.manual_customer_phone}</span>
-                      )}
-                      {(order.manual_customer_email || buyer?.email) && (
-                        <span className="flex items-center gap-1"><Mail className="w-3 h-3" /> {order.manual_customer_email || buyer?.email}</span>
+                      {order.status === 'pending' && (
+                        <button
+                          type="button"
+                          onClick={(e) => handleConfirmOrder(e, order.id)}
+                          disabled={isConfirming}
+                          className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold shadow-xs transition-colors cursor-pointer disabled:opacity-60"
+                        >
+                          {isConfirming ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
+                          <span>Visszaigazolás</span>
+                        </button>
                       )}
                     </div>
                   </div>
-                  <span
-                    className={`text-xs font-bold px-2 py-0.5 rounded-lg shrink-0 ${
-                      order.status === 'confirmed'
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : order.status === 'pending'
-                          ? 'bg-amber-100 text-amber-900'
-                          : 'bg-stone-100 text-stone-500'
-                    }`}
-                  >
-                    {order.status === 'confirmed' ? 'Visszaigazolva' : order.status === 'pending' ? 'Függőben' : 'Lemondva'}
-                  </span>
+                  {confirmError && (
+                    <p className="text-xs font-semibold text-rose-700">{confirmError}</p>
+                  )}
                 </div>
               );
             })}
