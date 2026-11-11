@@ -105,7 +105,7 @@ function writeHtml(routePath, html) {
     outPath = path.join(DIST_DIR, 'index.html');
   } else {
     const trimmed = routePath.replace(/^\/|\/$/g, '');
-    outPath = path.join(DIST_DIR, `${trimmed}.html`);
+    outPath = path.join(DIST_DIR, trimmed, 'index.html');
   }
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
   fs.writeFileSync(outPath, html, 'utf8');
@@ -412,7 +412,7 @@ async function main() {
   const missing = [];
   for (const p of requiredStatic) {
     if (!staticPaths.includes(p)) continue;
-    const expected = p === '/' ? path.join(DIST_DIR, 'index.html') : path.join(DIST_DIR, `${p.replace(/^\//, '')}.html`);
+    const expected = p === '/' ? path.join(DIST_DIR, 'index.html') : path.join(DIST_DIR, p.replace(/^\//, ''), 'index.html');
     if (!fs.existsSync(expected)) missing.push(`${p} → ${expected}`);
   }
   if (missing.length > 0) {
