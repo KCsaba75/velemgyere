@@ -202,7 +202,7 @@ export const ProviderScheduleDashboardPage: React.FC = () => {
           </div>
           <button
             type="button"
-            onClick={() => setCurrentView('provider-dashboard')}
+            onClick={() => setCurrentView('provider-overview')}
             className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-bold text-stone-700 hover:text-stone-900 bg-white px-2.5 sm:px-4 py-2 sm:py-3 rounded-xl sm:rounded-2xl border border-stone-200 hover:bg-stone-50 transition-colors cursor-pointer"
             title="Vissza a Partner fiókhoz"
           >

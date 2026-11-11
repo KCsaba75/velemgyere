@@ -21,10 +21,16 @@ const HomePage = lazy(() => import('./components/HomePage').then(m => ({ default
 const ProgramsPage = lazy(() => import('./components/ProgramsPage').then(m => ({ default: m.ProgramsPage })));
 const ProgramDetailView = lazy(() => import('./components/ProgramDetailView').then(m => ({ default: m.ProgramDetailView })));
 const ProviderLanding = lazy(() => import('./components/ProviderLanding').then(m => ({ default: m.ProviderLanding })));
+// Kanban 4aac8eda (Csaba, 2026-11-11): bal oldali, sotet temaju sidebar-nav
+// minden szolgaltatoi oldal korul -- lasd ProviderSidebarLayout.tsx.
+const ProviderSidebarLayout = lazy(() => import('./components/ProviderSidebarLayout').then(m => ({ default: m.ProviderSidebarLayout })));
+const ProviderOverviewPage = lazy(() => import('./components/ProviderOverviewPage').then(m => ({ default: m.ProviderOverviewPage })));
 const ProviderDashboard = lazy(() => import('./components/ProviderDashboard').then(m => ({ default: m.ProviderDashboard })));
 const ProviderProgramsPage = lazy(() => import('./components/ProviderProgramsPage').then(m => ({ default: m.ProviderProgramsPage })));
 const ProviderBookingsPage = lazy(() => import('./components/ProviderBookingsPage').then(m => ({ default: m.ProviderBookingsPage })));
 const ProviderScheduleDashboardPage = lazy(() => import('./components/ProviderScheduleDashboardPage').then(m => ({ default: m.ProviderScheduleDashboardPage })));
+const ProviderGuestsPage = lazy(() => import('./components/ProviderGuestsPage').then(m => ({ default: m.ProviderGuestsPage })));
+const ProviderFinancesPage = lazy(() => import('./components/ProviderFinancesPage').then(m => ({ default: m.ProviderFinancesPage })));
 const ProviderReviewsPage = lazy(() => import('./components/ProviderReviewsPage').then(m => ({ default: m.ProviderReviewsPage })));
 const ProviderInquiriesPage = lazy(() => import('./components/ProviderInquiriesPage').then(m => ({ default: m.ProviderInquiriesPage })));
 const ProviderMessagesPage = lazy(() => import('./components/ProviderMessagesPage').then(m => ({ default: m.ProviderMessagesPage })));
@@ -81,12 +87,15 @@ const ProtectedRoute: React.FC<{ allow: UserRole[]; children: React.ReactNode }>
 };
 
 const AppContent: React.FC = () => {
-  const { isLoginModalOpen, openLoginModal, closeLoginModal } = useApp();
+  const { isLoginModalOpen, openLoginModal, closeLoginModal, currentUser } = useApp();
   const [registerModalOpen, setRegisterModalOpen] = useState(false);
   const [newProgramModalOpen, setNewProgramModalOpen] = useState(false);
+  // Kanban 4aac8eda: a providerkent mar nem renderelt mobil also-nav miatt
+  // (lasd Navbar.tsx) nincs szukseg a also-ter-fenntartasra ennel a szerepnel.
+  const isProvider = currentUser.role === 'provider';
 
   return (
-    <div className="min-h-screen flex flex-col bg-stone-50 font-sans selection:bg-emerald-500 selection:text-white pb-20 md:pb-0 overflow-x-clip w-full">
+    <div className={`min-h-screen flex flex-col bg-stone-50 font-sans selection:bg-emerald-500 selection:text-white overflow-x-clip w-full ${isProvider ? '' : 'pb-20 md:pb-0'}`}>
       {/* Sticky Main Navigation */}
       <Navbar
         onOpenLogin={() => openLoginModal(undefined, 'programs')}
@@ -119,11 +128,27 @@ const AppContent: React.FC = () => {
               />
             }
           />
+          {/* Kanban 4aac8eda (Csaba, 2026-11-11): minden szolgaltatoi oldal a
+              ProviderSidebarLayout-ba van csomagolva -- ez adja az allando,
+              bal oldali, sotet temaju navigaciot (lasd a komponens fejlec-
+              kommentjet a sidebar/tartalom temavalasztas inditekarol). */}
+          <Route
+            path="/szolgaltato/attekintes"
+            element={
+              <ProtectedRoute allow={['provider', 'admin']}>
+                <ProviderSidebarLayout>
+                  <ProviderOverviewPage />
+                </ProviderSidebarLayout>
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/szolgaltato/dashboard"
             element={
               <ProtectedRoute allow={['provider', 'admin']}>
-                <ProviderDashboard />
+                <ProviderSidebarLayout>
+                  <ProviderDashboard />
+                </ProviderSidebarLayout>
               </ProtectedRoute>
             }
           />
@@ -131,7 +156,9 @@ const AppContent: React.FC = () => {
             path="/szolgaltato/programjaim"
             element={
               <ProtectedRoute allow={['provider', 'admin']}>
-                <ProviderProgramsPage onOpenNewProgram={() => setNewProgramModalOpen(true)} />
+                <ProviderSidebarLayout>
+                  <ProviderProgramsPage onOpenNewProgram={() => setNewProgramModalOpen(true)} />
+                </ProviderSidebarLayout>
               </ProtectedRoute>
             }
           />
@@ -139,19 +166,43 @@ const AppContent: React.FC = () => {
             path="/szolgaltato/foglalasaim"
             element={
               <ProtectedRoute allow={['provider', 'admin']}>
-                <ProviderBookingsPage />
+                <ProviderSidebarLayout>
+                  <ProviderBookingsPage />
+                </ProviderSidebarLayout>
               </ProtectedRoute>
             }
           />
           {/* Kanban 4230d70e: uj program-utemezo Iranyitopult -- a /szolgaltato/dashboard
-              mar foglalt (kanban 5a3a8dd8 ota csak Fiokadatok), ezert uj route. A
-              menupont (Navbar) bekotese meg nyitott kerdes (C pont, Csaba dontese), a
-              route magaban addig is testelheto direkt URL-lel. */}
+              mar foglalt (kanban 5a3a8dd8 ota csak Fiokadatok), ezert uj route. Kanban
+              4aac8eda ota ez a sidebar "Foglalasok" celpontja (lasd
+              ProviderSidebarLayout.tsx dontes-kommentjet). */}
           <Route
             path="/szolgaltato/iranyitopult"
             element={
               <ProtectedRoute allow={['provider', 'admin']}>
-                <ProviderScheduleDashboardPage />
+                <ProviderSidebarLayout>
+                  <ProviderScheduleDashboardPage />
+                </ProviderSidebarLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/szolgaltato/vendegeim"
+            element={
+              <ProtectedRoute allow={['provider', 'admin']}>
+                <ProviderSidebarLayout>
+                  <ProviderGuestsPage />
+                </ProviderSidebarLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/szolgaltato/penzugyek"
+            element={
+              <ProtectedRoute allow={['provider', 'admin']}>
+                <ProviderSidebarLayout>
+                  <ProviderFinancesPage />
+                </ProviderSidebarLayout>
               </ProtectedRoute>
             }
           />
@@ -159,7 +210,9 @@ const AppContent: React.FC = () => {
             path="/szolgaltato/ertekeleseim"
             element={
               <ProtectedRoute allow={['provider', 'admin']}>
-                <ProviderReviewsPage />
+                <ProviderSidebarLayout>
+                  <ProviderReviewsPage />
+                </ProviderSidebarLayout>
               </ProtectedRoute>
             }
           />
@@ -167,7 +220,9 @@ const AppContent: React.FC = () => {
             path="/szolgaltato/erdeklodeseim"
             element={
               <ProtectedRoute allow={['provider', 'admin']}>
-                <ProviderInquiriesPage />
+                <ProviderSidebarLayout>
+                  <ProviderInquiriesPage />
+                </ProviderSidebarLayout>
               </ProtectedRoute>
             }
           />
@@ -175,7 +230,9 @@ const AppContent: React.FC = () => {
             path="/szolgaltato/uzeneteim"
             element={
               <ProtectedRoute allow={['provider', 'admin']}>
-                <ProviderMessagesPage />
+                <ProviderSidebarLayout>
+                  <ProviderMessagesPage />
+                </ProviderSidebarLayout>
               </ProtectedRoute>
             }
           />

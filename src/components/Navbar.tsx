@@ -116,7 +116,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     } else if (currentUser.role === 'admin') {
       navigateTo('admin-programs');
     } else if (currentUser.role === 'provider') {
-      navigateTo('provider-dashboard');
+      navigateTo('provider-overview');
     } else {
       navigateTo('my-account');
     }
@@ -256,7 +256,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     currentUser.role === 'admin'
       ? currentView === 'admin-programs'
       : currentUser.role === 'provider'
-      ? currentView === 'provider-dashboard'
+      ? currentView === 'provider-overview'
       : currentView === 'my-account';
 
   return (
@@ -302,6 +302,10 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
 
             {/* Desktop Navigation Links */}
+            {/* Kanban 4aac8eda (Csaba, 2026-11-11): providerkent ez a kozepso
+                nav-sor mar nem jelenik meg -- a bal oldali sidebar
+                (ProviderSidebarLayout) vette at a navigaciot, ket kulon sor
+                redundans/osszezavaro lenne. Admin/latogato valtozatlan. */}
             <nav className="hidden md:flex items-center gap-1 lg:gap-2 shrink-0">
               {isAdmin ? (
                 ADMIN_NAV_ITEMS.map(({ view, label, icon: Icon }) => (
@@ -316,7 +320,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     <span>{label}</span>
                   </button>
                 ))
-              ) : (
+              ) : !isProvider ? (
                 <>
                   <button
                     onClick={handleProgramsNavClick}
@@ -325,22 +329,21 @@ export const Navbar: React.FC<NavbarProps> = ({
                     }`}
                   >
                     <Compass className="w-4 h-4" />
-                    <span>{isProvider ? 'Programjaim' : 'Programok'}</span>
+                    <span>Programok</span>
                   </button>
                   <button
-                    onClick={() => navigateTo(isProvider ? 'provider-reviews' : 'travel')}
+                    onClick={() => navigateTo('travel')}
                     className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
                       isTravelOrReviewsActive ? 'text-emerald-700 bg-emerald-50/80 font-bold' : 'text-stone-700 hover:text-stone-900 hover:bg-stone-100'
                     }`}
                   >
-                    {isProvider ? <Star className="w-4 h-4" /> : <Bus className="w-4 h-4" />}
-                    <span>{isProvider ? 'Értékeléseim' : 'Utazások'}</span>
+                    <Bus className="w-4 h-4" />
+                    <span>Utazások</span>
                   </button>
-                  {isProvider && desktopBookingsButton}
+                  {desktopBookingsButton}
                   {desktopFavoritesOrMessagesButton}
-                  {!isProvider && desktopBookingsButton}
                 </>
-              )}
+              ) : null}
             </nav>
 
             {/* Desktop Action Buttons */}
@@ -365,23 +368,16 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <SettingsIcon className="w-4 h-4" />
                 </button>
               ) : currentUser.role === 'provider' ? (
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={onOpenNewProgram}
-                    className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-sm flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
-                  >
-                    <PlusCircle className="w-4 h-4" />
-                    + Új program
-                  </button>
-                  <button
-                    onClick={() => navigateTo('provider-dashboard')}
-                    className="px-3.5 py-2 rounded-xl border border-stone-300 hover:bg-stone-100 text-stone-800 font-medium text-sm flex items-center gap-1.5 transition-colors cursor-pointer"
-                    title="Fiókadatok, értékelések, érdeklődések"
-                  >
-                    <Briefcase className="w-4 h-4 text-emerald-700" />
-                    Partner fiók
-                  </button>
-                </div>
+                // Kanban 4aac8eda: a korabbi "Partner fiok" gomb kikerult -- a bal
+                // sidebar "Profil es beallitasok" + "Attekintes" celpontjai mar
+                // lefedik, ket redundans ut lett volna ugyanoda.
+                <button
+                  onClick={onOpenNewProgram}
+                  className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-sm flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+                >
+                  <PlusCircle className="w-4 h-4" />
+                  + Új program
+                </button>
               ) : isAuthenticated ? (
                 <button
                   onClick={() => navigateTo('my-account')}
@@ -435,6 +431,11 @@ export const Navbar: React.FC<NavbarProps> = ({
       </header>
 
       {/* Mobile Bottom Navigation Bar (only on mobile screens) */}
+      {/* Kanban 4aac8eda (Csaba, 2026-11-11): providerkent ez a sor teljesen
+          kimarad -- 7 (+2) sidebar-szekcio nem fert volna el egy fix 5-oszlopos
+          sorban, es a ProviderSidebarLayout sajat mobil hamburger+drawer
+          menuje adja a navigaciot helyette. Admin/latogato valtozatlan. */}
+      {!isProvider && (
       <nav
         aria-label="Mobil navigáció"
         className="md:hidden fixed bottom-0 inset-x-0 z-50 bg-white/95 backdrop-blur-lg border-t border-stone-200 shadow-[0_-4px_20px_rgba(0,0,0,0.07)] transform-gpu will-change-transform select-none w-full max-w-full"
@@ -526,6 +527,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           )}
         </div>
       </nav>
+      )}
 
       {selectedNotificationOrder && (
         <BookingDetailModal

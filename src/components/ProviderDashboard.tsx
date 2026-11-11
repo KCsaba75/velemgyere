@@ -2,19 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import {
   Building2,
-  MessageSquare,
   UserCog,
   Save,
-  Star,
   Banknote,
   Wallet,
   LogOut,
-  FileText,
-  Ticket,
-  ExternalLink,
   Landmark,
-  ChevronDown,
-  CalendarRange
+  ChevronDown
 } from 'lucide-react';
 import { OnsitePaymentMethod } from '../types/database';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
@@ -25,24 +19,23 @@ import { BookingPushNotificationCard } from './BookingPushNotificationCard';
 // Programok, Foglalasok, Ertekelesek es Erdeklodesek kezelese is kikerult
 // ebbol a Partner fiok oldalbol, mind onallo top-level menupont lett
 // (ProviderProgramsPage / ProviderBookingsPage / ProviderReviewsPage /
-// ProviderInquiriesPage, elerheto a lenti gyorslink-kartyakrol). Itt csak a
-// fiokadatok (Fiokadatok) maradt, nincs tobb belso fules navigacio.
-
+// ProviderInquiriesPage). Itt csak a fiokadatok (Fiokadatok) maradt.
+//
+// Kanban 4aac8eda (Csaba, 2026-11-11): a korabbi gyorslink-kartyak (Programok/
+// Foglalasok/Ertekelesek/Erdeklodesek/Iranyitopult) kikerultek innen -- ezeket
+// mostantol az allando bal sidebar (ProviderSidebarLayout) adja at minden
+// provider-oldalon, nem csak itt. Ez a lap a sidebar "Profil es beallitasok"
+// celpontja, kizarolag a fiokadat-urlap maradt benne.
 export const ProviderDashboard: React.FC = () => {
   const {
     currentUser,
     currentProvider,
-    reviews,
-    programs,
-    orders,
-    getProviderRatingStats,
     updateProviderProfile,
     updateMyProfile,
-    setCurrentView,
     logout
   } = useApp();
 
-  useDocumentMeta('Partner fiók -- Szolgáltatói Dashboard', 'Fiókadatok kezelése.');
+  useDocumentMeta('Profil és beállítások -- Szolgáltatói Dashboard', 'Fiókadatok kezelése.');
 
   // Profile tab: own-profile editable fields, seeded from currentProvider
   const [profileForm, setProfileForm] = useState({
@@ -102,13 +95,6 @@ export const ProviderDashboard: React.FC = () => {
     }
   };
 
-  const ratingStats = getProviderRatingStats(currentProvider?.id || '');
-  const publishedProgramsCount = programs.filter(p => p.provider_id === currentProvider?.id && p.status === 'published').length;
-  const pendingOrdersCount = orders.filter(o => {
-    const prog = programs.find(p => p.id === o.program_id);
-    return prog?.provider_id === currentProvider?.id && o.status === 'pending';
-  }).length;
-
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
       {/* Header welcome banner */}
@@ -134,112 +120,6 @@ export const ProviderDashboard: React.FC = () => {
         </button>
       </div>
 
-      {/* Quick navigation cards (top-level pages extracted from former tabs) */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4">
-        {/* Kanban 4230d70e (C2 dontes): az Iranyitopult vette at a fo nav-slotot
-            a Foglalasaim helyett -- itt, a Partner fiok gyorslinkjei kozt, a
-            Foglalasaim kartya marad (deep-link), plusz ez az uj kartya. */}
-        <button
-          type="button"
-          onClick={() => setCurrentView('provider-schedule')}
-          className="bg-white py-3 px-4 rounded-2xl border border-stone-200 shadow-xs hover:border-emerald-300 hover:shadow-md transition-all text-left min-w-0 cursor-pointer group"
-          title="Irányítópult (program-ütemező, önálló oldal)"
-        >
-          <div className="flex items-center justify-between gap-1 mb-1">
-            <span className="text-xs font-bold text-stone-500 uppercase tracking-wider flex items-center gap-1.5 truncate">
-              <CalendarRange className="w-4 h-4 text-emerald-600 shrink-0" />
-              Irányítópult
-            </span>
-          </div>
-          <div className="text-xs text-stone-400 truncate flex items-center gap-1 mt-1 group-hover:text-emerald-700">
-            <span>Megnyitás</span>
-            <ExternalLink className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
-          </div>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setCurrentView('provider-programs')}
-          className="bg-white py-3 px-4 rounded-2xl border border-stone-200 shadow-xs hover:border-emerald-300 hover:shadow-md transition-all text-left min-w-0 cursor-pointer group"
-          title="Programjaim (önálló oldal)"
-        >
-          <div className="flex items-center justify-between gap-1 mb-1">
-            <span className="text-xs font-bold text-stone-500 uppercase tracking-wider flex items-center gap-1.5 truncate">
-              <FileText className="w-4 h-4 text-emerald-600 shrink-0" />
-              Programjaim
-            </span>
-            <span className="bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full shrink-0">
-              {publishedProgramsCount}
-            </span>
-          </div>
-          <div className="text-xs text-stone-400 truncate flex items-center gap-1 mt-1 group-hover:text-emerald-700">
-            <span>Kezelés</span>
-            <ExternalLink className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
-          </div>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setCurrentView('provider-bookings')}
-          className="bg-white py-3 px-4 rounded-2xl border border-stone-200 shadow-xs hover:border-emerald-300 hover:shadow-md transition-all text-left min-w-0 cursor-pointer group"
-          title="Foglalásaim (önálló oldal)"
-        >
-          <div className="flex items-center justify-between gap-1 mb-1">
-            <span className="text-xs font-bold text-stone-500 uppercase tracking-wider flex items-center gap-1.5 truncate">
-              <Ticket className="w-4 h-4 text-emerald-600 shrink-0" />
-              Foglalásaim
-            </span>
-            {pendingOrdersCount > 0 && (
-              <span className="bg-amber-100 text-amber-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full shrink-0">
-                {pendingOrdersCount} új
-              </span>
-            )}
-          </div>
-          <div className="text-xs text-stone-400 truncate flex items-center gap-1 mt-1 group-hover:text-emerald-700">
-            <span>Megnyitás</span>
-            <ExternalLink className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
-          </div>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setCurrentView('provider-reviews')}
-          className="bg-white py-3 px-4 rounded-2xl border border-stone-200 shadow-xs hover:border-emerald-300 hover:shadow-md transition-all text-left min-w-0 cursor-pointer group"
-          title="Értékeléseim (önálló oldal)"
-        >
-          <div className="flex items-center justify-between gap-1 mb-1">
-            <span className="text-xs font-bold text-stone-500 uppercase tracking-wider flex items-center gap-1.5 truncate">
-              <Star className="w-4 h-4 text-amber-500 fill-amber-500 shrink-0" />
-              Értékelések
-            </span>
-            <span className="text-xs font-bold text-stone-700 shrink-0">
-              ★ {ratingStats.average ? ratingStats.average.toFixed(1) : '-'}
-            </span>
-          </div>
-          <div className="text-xs text-stone-400 truncate flex items-center gap-1 mt-1 group-hover:text-emerald-700">
-            <span>Megtekintés ({reviews.length})</span>
-            <ExternalLink className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
-          </div>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setCurrentView('provider-inquiries')}
-          className="bg-white py-3 px-4 rounded-2xl border border-stone-200 shadow-xs hover:border-emerald-300 hover:shadow-md transition-all text-left min-w-0 cursor-pointer group"
-          title="Érdeklődések (önálló oldal)"
-        >
-          <div className="flex items-center justify-between gap-1 mb-1">
-            <span className="text-xs font-bold text-stone-500 uppercase tracking-wider flex items-center gap-1.5 truncate">
-              <MessageSquare className="w-4 h-4 text-emerald-600 shrink-0" />
-              Érdeklődések
-            </span>
-          </div>
-          <div className="text-xs text-stone-400 truncate flex items-center gap-1 mt-1 group-hover:text-emerald-700">
-            <span>Megnyitás</span>
-            <ExternalLink className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
-          </div>
-        </button>
-      </div>
 
       {/* Own profile edit form */}
       <div className="bg-white rounded-3xl border border-stone-200 shadow-sm p-6 sm:p-8 max-w-3xl">

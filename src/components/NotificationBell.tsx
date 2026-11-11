@@ -87,7 +87,11 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
       return;
     }
     if (currentUser?.role === 'provider') {
-      setCurrentView('provider-dashboard');
+      // A gomb cimkeje "Ugras a partneri uzenetekhez" -- korabban tevesen a
+      // Fiok/Profil nezetre navigalt, nem az uzenetekre (eszlelve a 4aac8eda
+      // sidebar-atalakitas soran, nem ahhoz kapcsolodo regresszio, mert ez a
+      // hiba mar korabban is fennallt).
+      setCurrentView('provider-messages');
     } else {
       setCurrentView('bookings');
     }

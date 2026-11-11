@@ -64,6 +64,13 @@ const VIEW_TO_PATH: Record<string, string> = {
   bookings: '/foglalasaim',
   'provider-landing': '/szolgaltatoknak',
   'provider-dashboard': '/szolgaltato/dashboard',
+  // Kanban 4aac8eda (Csaba, 2026-11-11): uj bal-sidebar nav-celok -- "Attekintes"
+  // (statisztikak/teendok/esemenyek), "Vendegeim" es "Penzugyek", lasd
+  // ProviderSidebarLayout.tsx / ProviderOverviewPage.tsx / ProviderGuestsPage.tsx /
+  // ProviderFinancesPage.tsx.
+  'provider-overview': '/szolgaltato/attekintes',
+  'provider-guests': '/szolgaltato/vendegeim',
+  'provider-finances': '/szolgaltato/penzugyek',
   // Kanban 5a3a8dd8 (Csaba, 10-17 pontositas): a szolgaltato sajat programjai
   // es a beerkezett foglalasai onallo top-level menupontok, nem a Partner
   // fiok alatti belso fulek tovabb.
@@ -136,6 +143,9 @@ function pathToView(pathname: string): string {
   if (pathname.startsWith('/szolgaltato/ertekeleseim')) return 'provider-reviews';
   if (pathname.startsWith('/szolgaltato/erdeklodeseim')) return 'provider-inquiries';
   if (pathname.startsWith('/szolgaltato/uzeneteim')) return 'provider-messages';
+  if (pathname.startsWith('/szolgaltato/attekintes')) return 'provider-overview';
+  if (pathname.startsWith('/szolgaltato/vendegeim')) return 'provider-guests';
+  if (pathname.startsWith('/szolgaltato/penzugyek')) return 'provider-finances';
   if (pathname.startsWith('/szolgaltato/dashboard')) return 'provider-dashboard';
   // a specifikusabb /admin/xxx checkek az altalanos /admin ELOTT kellenek,
   // kulonben a prefix-match sosem jutna el ide.
@@ -1391,7 +1401,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     (currentUser.user_id ? rawProviders.find(p => p.user_id && p.user_id === currentUser.user_id) : null) ||
     (currentUser.email ? rawProviders.find(p => (p.email || '').toLowerCase() === currentUser.email.toLowerCase()) : null) ||
     (currentUser.role === 'provider' ? rawProviders.find(p => p.status === 'approved') || rawProviders[0] || null : null) ||
-    (currentView === 'provider-dashboard' ? rawProviders.find(p => p.status === 'approved') || rawProviders[0] || null : null) ||
+    (['provider-dashboard', 'provider-overview', 'provider-guests', 'provider-finances'].includes(currentView)
+      ? rawProviders.find(p => p.status === 'approved') || rawProviders[0] || null
+      : null) ||
     null;
 
   // Joined programs with images, category, region, provider (featured programs first)
@@ -2005,7 +2017,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setRawProviders(prev => [...prev, newProvider]);
     setRawProfiles(prev => [...prev, newProfile]);
     setCurrentUser(newProfile);
-    setCurrentView('provider-dashboard');
+    setCurrentView('provider-overview');
     return {
       success: true,
       message: 'Sikeres szolgáltatói regisztráció! Fiókod függőben (pending) van az adminisztrátori jóváhagyásig.',

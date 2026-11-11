@@ -52,7 +52,7 @@ export const ProviderLanding: React.FC<ProviderLandingProps> = ({
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 max-w-md mx-auto">
             {currentUser.role === 'provider' ? (
               <button
-                onClick={() => setCurrentView('provider-dashboard')}
+                onClick={() => setCurrentView('provider-overview')}
                 className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-8 py-4 rounded-2xl shadow-xl shadow-emerald-600/25 transition-all flex items-center justify-center gap-2 cursor-pointer text-base"
               >
                 <span>Ugrás a Szolgáltatói Dashboardra</span>
