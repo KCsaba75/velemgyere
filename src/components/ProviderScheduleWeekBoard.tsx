@@ -1,25 +1,17 @@
 import React, { useMemo, useState } from 'react';
 import {
   DndContext,
-  useDraggable,
   useDroppable,
 } from '@dnd-kit/core';
 import {
   ChevronLeft,
   ChevronRight,
-  GripVertical,
-  Copy,
-  MoreHorizontal,
-  Trash2,
-  Clock,
-  Users,
-  Loader2,
-  Save,
   X,
   AlertCircle,
 } from 'lucide-react';
 import { Order, OrderBuyerInfo, Program, ProgramOccurrence } from '../types/database';
 import { ProgramDayPopup } from './ProgramDayPopup';
+import { OccurrenceCard } from './OccurrenceCard';
 import { useOccurrenceScheduling } from '../hooks/useOccurrenceScheduling';
 
 interface ProviderScheduleWeekBoardProps {
@@ -30,6 +22,11 @@ interface ProviderScheduleWeekBoardProps {
   onCreateOccurrence: (
     programId: string,
     dateStr: string,
+    overrides: { start_time?: string | null; end_time?: string | null; max_participants?: number | null }
+  ) => Promise<void>;
+  onCreateOccurrences: (
+    programId: string,
+    dates: string[],
     overrides: { start_time?: string | null; end_time?: string | null; max_participants?: number | null }
   ) => Promise<void>;
   onMoveOccurrence: (
@@ -74,6 +71,7 @@ export const ProviderScheduleWeekBoard: React.FC<ProviderScheduleWeekBoardProps>
   orders,
   getOrderBuyerInfo,
   onCreateOccurrence,
+  onCreateOccurrences,
   onMoveOccurrence,
   onDeleteOccurrence,
   onOpenManualBooking,
@@ -133,9 +131,18 @@ export const ProviderScheduleWeekBoard: React.FC<ProviderScheduleWeekBoardProps>
     cancelCopy: onCancelCopy,
     saveCopy,
     setCopyDate,
+    copyMode,
+    setCopyMode,
+    recurringWeekday,
+    setRecurringWeekday,
+    recurringUntilDate,
+    setRecurringUntilDate,
+    recurringSaving,
+    recurringError,
+    saveCopyRecurring,
     deletingOccurrenceId,
     handleDelete,
-  } = useOccurrenceScheduling(occurrencesMap, onMoveOccurrence, onCreateOccurrence, onDeleteOccurrence, bookedCountByOccurrence);
+  } = useOccurrenceScheduling(occurrencesMap, onMoveOccurrence, onCreateOccurrence, onDeleteOccurrence, bookedCountByOccurrence, onCreateOccurrences);
 
   const programMap = useMemo(() => {
     const map = new Map<string, Program>();
@@ -273,6 +280,15 @@ export const ProviderScheduleWeekBoard: React.FC<ProviderScheduleWeekBoardProps>
               onCancelCopy={onCancelCopy}
               onChangeCopyDate={setCopyDate}
               onSaveCopy={saveCopy}
+              copyMode={copyMode}
+              onChangeCopyMode={setCopyMode}
+              recurringWeekday={recurringWeekday}
+              onChangeRecurringWeekday={setRecurringWeekday}
+              recurringUntilDate={recurringUntilDate}
+              onChangeRecurringUntilDate={setRecurringUntilDate}
+              recurringSaving={recurringSaving}
+              recurringError={recurringError}
+              onSaveCopyRecurring={saveCopyRecurring}
               deletingOccurrenceId={deletingOccurrenceId}
               onDelete={handleDelete}
               onOpenPopup={setDayPopupOccurrence}
@@ -323,6 +339,15 @@ interface DayColumnProps {
   onCancelCopy: () => void;
   onChangeCopyDate: (v: string) => void;
   onSaveCopy: (occ: ProgramOccurrence, targetDate: string) => void;
+  copyMode: 'single' | 'recurring';
+  onChangeCopyMode: (mode: 'single' | 'recurring') => void;
+  recurringWeekday: number;
+  onChangeRecurringWeekday: (weekday: number) => void;
+  recurringUntilDate: string;
+  onChangeRecurringUntilDate: (v: string) => void;
+  recurringSaving: boolean;
+  recurringError: string | null;
+  onSaveCopyRecurring: (occ: ProgramOccurrence, dates: string[]) => void;
   deletingOccurrenceId: string | null;
   onDelete: (occurrenceId: string) => void;
   onOpenPopup: (occ: ProgramOccurrence) => void;
@@ -333,6 +358,8 @@ const DayColumn: React.FC<DayColumnProps> = ({
   movingOccurrenceId, moveDate, moveStartTime, moveEndTime, moveSaving, moveError,
   onStartMove, onCancelMove, onChangeMoveDate, onChangeMoveStartTime, onChangeMoveEndTime, onSaveMove,
   copyingOccurrenceId, copyDate, copySaving, copyError, onStartCopy, onCancelCopy, onChangeCopyDate, onSaveCopy,
+  copyMode, onChangeCopyMode, recurringWeekday, onChangeRecurringWeekday, recurringUntilDate,
+  onChangeRecurringUntilDate, recurringSaving, recurringError, onSaveCopyRecurring,
   deletingOccurrenceId, onDelete, onOpenPopup,
 }) => {
   const { setNodeRef, isOver } = useDroppable({ id: dateStr });
@@ -395,6 +422,15 @@ const DayColumn: React.FC<DayColumnProps> = ({
             onCancelCopy={onCancelCopy}
             onChangeCopyDate={onChangeCopyDate}
             onSaveCopy={(target) => onSaveCopy(occ, target)}
+            copyMode={copyMode}
+            onChangeCopyMode={onChangeCopyMode}
+            recurringWeekday={recurringWeekday}
+            onChangeRecurringWeekday={onChangeRecurringWeekday}
+            recurringUntilDate={recurringUntilDate}
+            onChangeRecurringUntilDate={onChangeRecurringUntilDate}
+            recurringSaving={recurringSaving}
+            recurringError={recurringError}
+            onSaveCopyRecurring={(dates) => onSaveCopyRecurring(occ, dates)}
             isDeleting={deletingOccurrenceId === occ.id}
             onDelete={() => onDelete(occ.id)}
             onOpenPopup={() => onOpenPopup(occ)}
@@ -411,168 +447,3 @@ const DayColumn: React.FC<DayColumnProps> = ({
   );
 };
 
-interface OccurrenceCardProps {
-  occ: ProgramOccurrence;
-  program: Program | undefined;
-  booked: number;
-  hasPending: boolean;
-  isMoving: boolean;
-  moveDate: string;
-  moveStartTime: string;
-  moveEndTime: string;
-  moveSaving: boolean;
-  moveError: string | null;
-  onStartMove: () => void;
-  onCancelMove: () => void;
-  onChangeMoveDate: (v: string) => void;
-  onChangeMoveStartTime: (v: string) => void;
-  onChangeMoveEndTime: (v: string) => void;
-  onSaveMove: () => void;
-  isCopying: boolean;
-  copyDate: string;
-  copySaving: boolean;
-  copyError: string | null;
-  weekDays: Array<{ date: Date; dateStr: string; label: string }>;
-  onStartCopy: () => void;
-  onCancelCopy: () => void;
-  onChangeCopyDate: (v: string) => void;
-  onSaveCopy: (targetDate: string) => void;
-  isDeleting: boolean;
-  onDelete: () => void;
-  onOpenPopup: () => void;
-}
-
-const OccurrenceCard: React.FC<OccurrenceCardProps> = ({
-  occ, program, booked, hasPending, isMoving, moveDate, moveStartTime, moveEndTime, moveSaving, moveError,
-  onStartMove, onCancelMove, onChangeMoveDate, onChangeMoveStartTime, onChangeMoveEndTime, onSaveMove,
-  isCopying, copyDate, copySaving, copyError, weekDays, onStartCopy, onCancelCopy, onChangeCopyDate, onSaveCopy,
-  isDeleting, onDelete, onOpenPopup,
-}) => {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: occ.id });
-  const maxCap = occ.max_participants ?? program?.max_participants ?? null;
-  const isFull = maxCap != null && booked >= maxCap;
-  const currentDateStr = occ.event_date.includes('T') ? occ.event_date.split('T')[0] : occ.event_date;
-
-  const style: React.CSSProperties = transform
-    ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, zIndex: 50, opacity: isDragging ? 0.85 : 1 }
-    : {};
-
-  if (isMoving) {
-    return (
-      <div className="rounded-xl border border-emerald-300 bg-emerald-50/60 p-2.5 space-y-2 text-xs">
-        {moveError && <p className="font-semibold text-rose-700">{moveError}</p>}
-        <div className="flex flex-wrap gap-1.5">
-          <input type="date" value={moveDate} onChange={e => onChangeMoveDate(e.target.value)} className="px-1.5 py-1 rounded-lg border border-stone-300 text-[11px] flex-1 min-w-[110px]" />
-          <input type="time" value={moveStartTime} onChange={e => onChangeMoveStartTime(e.target.value)} className="px-1.5 py-1 rounded-lg border border-stone-300 text-[11px] w-20" />
-          <input type="time" value={moveEndTime} onChange={e => onChangeMoveEndTime(e.target.value)} className="px-1.5 py-1 rounded-lg border border-stone-300 text-[11px] w-20" />
-        </div>
-        <div className="flex items-center gap-1.5">
-          <button type="button" onClick={onSaveMove} disabled={moveSaving} className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1 cursor-pointer disabled:opacity-60">
-            {moveSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
-            <span>Mentés</span>
-          </button>
-          <button type="button" onClick={onCancelMove} className="px-2.5 py-1 rounded-lg border border-stone-300 text-stone-700 font-bold flex items-center gap-1 cursor-pointer">
-            <X className="w-3 h-3" />
-            <span>Mégse</span>
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (isCopying) {
-    const targetOptions = weekDays.filter(d => d.dateStr !== currentDateStr);
-    return (
-      <div className="rounded-xl border border-sky-300 bg-sky-50/60 p-2.5 space-y-2 text-xs">
-        {copyError && <p className="font-semibold text-rose-700">{copyError}</p>}
-        <p className="font-bold text-stone-700">Másolás melyik napra?</p>
-        <div className="flex flex-wrap gap-1">
-          {targetOptions.map(d => (
-            <button
-              key={d.dateStr}
-              type="button"
-              onClick={() => onSaveCopy(d.dateStr)}
-              disabled={copySaving}
-              className="px-2 py-1 rounded-lg bg-white border border-sky-200 text-sky-800 font-bold text-[11px] hover:bg-sky-100 cursor-pointer disabled:opacity-60"
-            >
-              {d.date.toLocaleDateString('hu-HU', { weekday: 'short', day: 'numeric' })}
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-1.5">
-          <input type="date" value={copyDate} onChange={e => onChangeCopyDate(e.target.value)} className="px-1.5 py-1 rounded-lg border border-stone-300 text-[11px] flex-1" />
-          <button type="button" onClick={() => onSaveCopy(copyDate)} disabled={copySaving || !copyDate} className="px-2.5 py-1 rounded-lg bg-sky-600 hover:bg-sky-700 text-white font-bold flex items-center gap-1 cursor-pointer disabled:opacity-60 shrink-0">
-            {copySaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Copy className="w-3 h-3" />}
-          </button>
-        </div>
-        <button type="button" onClick={onCancelCopy} className="text-[11px] font-bold text-stone-500 hover:text-stone-800 cursor-pointer">Mégse</button>
-      </div>
-    );
-  }
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className={`rounded-xl border p-2.5 space-y-1.5 text-xs touch-none ${
-        occ.status === 'cancelled'
-          ? 'bg-stone-100 border-stone-200 opacity-70'
-          : hasPending
-          ? 'bg-amber-50/70 border-amber-300 shadow-xs'
-          : 'bg-white border-stone-200 shadow-xs'
-      }`}
-    >
-      <div className="flex items-start gap-1.5">
-        <button
-          type="button"
-          {...attributes}
-          {...listeners}
-          className="p-0.5 text-stone-300 hover:text-stone-600 cursor-grab active:cursor-grabbing shrink-0 touch-none"
-          title="Húzással áthelyezhető másik napra"
-        >
-          <GripVertical className="w-3.5 h-3.5" />
-        </button>
-        <div className="min-w-0 flex-1">
-          <button
-            type="button"
-            onClick={onOpenPopup}
-            className="font-bold text-stone-900 leading-tight truncate text-left hover:text-emerald-700 hover:underline cursor-pointer block w-full"
-            title="Program összefoglaló és a napi foglalások"
-          >
-            {program?.title || 'Program'}
-          </button>
-          <div className="flex flex-wrap items-center gap-1.5 mt-1 text-[10px] text-stone-600">
-            {occ.start_time && (
-              <span className="inline-flex items-center gap-0.5">
-                <Clock className="w-2.5 h-2.5 text-emerald-600" />
-                {occ.start_time}
-              </span>
-            )}
-            <span className={`inline-flex items-center gap-0.5 ${isFull ? 'text-amber-700 font-bold' : ''}`}>
-              <Users className="w-2.5 h-2.5" />
-              {booked}{maxCap != null ? `/${maxCap}` : ''}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex items-center gap-1 pt-1 border-t border-stone-100">
-        <button type="button" onClick={onStartCopy} title="Másolás másik napra" className="p-1 rounded-md text-sky-600 hover:bg-sky-50 cursor-pointer">
-          <Copy className="w-3 h-3" />
-        </button>
-        <button type="button" onClick={onStartMove} title="Pontos dátum/idő megadása (áthelyezés)" className="p-1 rounded-md text-stone-500 hover:bg-stone-100 cursor-pointer">
-          <MoreHorizontal className="w-3 h-3" />
-        </button>
-        <button
-          type="button"
-          onClick={onDelete}
-          disabled={isDeleting}
-          title="Törlés"
-          className="p-1 rounded-md text-rose-500 hover:bg-rose-50 cursor-pointer disabled:opacity-60 ml-auto"
-        >
-          {isDeleting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
-        </button>
-      </div>
-    </div>
-  );
-};

@@ -1,15 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Briefcase, CalendarRange, LayoutGrid, Columns3, List } from 'lucide-react';
+import { Briefcase, CalendarRange, LayoutGrid, Columns3, List, CalendarDays } from 'lucide-react';
 import { Program, ProgramOccurrence, OrderBuyerInfo } from '../types/database';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
+import { useIsMobileViewport } from '../hooks/useIsMobileViewport';
 import { ProviderScheduleCalendar } from './ProviderScheduleCalendar';
 import { ProviderScheduleWeekBoard } from './ProviderScheduleWeekBoard';
+import { ProviderScheduleDayListView } from './ProviderScheduleDayListView';
 import { ProviderBookingsListView } from './ProviderBookingsListView';
 import { ManualBookingModal } from './ManualBookingModal';
 import { ProgramEditorModal } from './ProgramEditorModal';
 import { BookingDetailModal } from './BookingDetailModal';
 import { RescheduleOrderModal } from './RescheduleOrderModal';
+
+type ViewMode = 'day' | 'month' | 'week' | 'list';
+const VIEWMODE_STORAGE_KEY = 'vg_provider_schedule_viewmode';
+const isValidViewMode = (v: string | null): v is ViewMode =>
+  v === 'day' || v === 'month' || v === 'week' || v === 'list';
 
 // Kanban 4230d70e (Csaba, 1-6. pont): uj szolgaltatoi "Iranyitopult" -- havi
 // naptarnezet occurrence-centrikusan (nem foglalas-centrikusan, mint a
@@ -46,7 +53,30 @@ export const ProviderScheduleDashboardPage: React.FC = () => {
   // az idopont mar ismert, elore ki kell tolteni a ManualBookingModal-ban.
   const [manualBookingOccurrenceId, setManualBookingOccurrenceId] = useState<string | undefined>(undefined);
   const [editingProgram, setEditingProgram] = useState<Program | null>(null);
-  const [viewMode, setViewMode] = useState<'month' | 'week' | 'list'>('month');
+
+  // Kanban 882a92d9 (#9): mobilon az alapertelmezett nezet a napi lista, nem a
+  // racs-alapu Havi/Heti -- a valasztast localStorage-ban megjegyezzuk, az
+  // felulirja a viewport-heurisztikat minden kesobbi latogataskor (nem csak
+  // elsőn). A gombsor mindig mind a 4 opciot mutatja, minden eszkozon -- csak
+  // az ALAPERTELMEZES valtozik mobilon.
+  const isMobileViewport = useIsMobileViewport();
+  const [viewMode, setViewModeState] = useState<ViewMode>(() => {
+    try {
+      const stored = typeof window !== 'undefined' && window.localStorage
+        ? window.localStorage.getItem(VIEWMODE_STORAGE_KEY)
+        : null;
+      if (isValidViewMode(stored)) return stored;
+    } catch {}
+    return isMobileViewport ? 'day' : 'month';
+  });
+  const setViewMode = (mode: ViewMode) => {
+    setViewModeState(mode);
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem(VIEWMODE_STORAGE_KEY, mode);
+      }
+    } catch {}
+  };
 
   // 88b27fc8: a regi "Foglalasaim" Lista nezet harmadik nezet-modkent, a
   // ProviderBookingsPage-zel kozos ProviderBookingsListView-t hasznalva --
@@ -142,6 +172,17 @@ export const ProviderScheduleDashboardPage: React.FC = () => {
     await reloadOccurrences();
   };
 
+  // Kanban 882a92d9 (#8): batch-verzio az ismetlodo-masolashoz -- a mar letezo
+  // createOccurrences mar tud tomb-datumot, nem kell csomagolni egyesevel.
+  const handleCreateOccurrences = async (
+    programId: string,
+    dates: string[],
+    overrides: { start_time?: string | null; end_time?: string | null; max_participants?: number | null }
+  ) => {
+    await createOccurrences(programId, dates, overrides);
+    await reloadOccurrences();
+  };
+
   const handleMoveOccurrence = async (
     occurrenceId: string,
     updates: { event_date: string; start_time?: string | null; end_time?: string | null }
@@ -177,6 +218,17 @@ export const ProviderScheduleDashboardPage: React.FC = () => {
         </div>
         <div className="flex items-center gap-2 w-full sm:w-auto">
           <div className="inline-flex items-center p-1 bg-stone-100 rounded-xl text-xs font-semibold text-stone-600 border border-stone-200/80 shrink-0">
+            <button
+              type="button"
+              onClick={() => setViewMode('day')}
+              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                viewMode === 'day' ? 'bg-white text-stone-900 font-bold shadow-xs' : 'text-stone-600 hover:text-stone-900'
+              }`}
+              title="Napi nézet: Ma/Holnap/Ez a hét, görgethető lista"
+            >
+              <CalendarDays className="w-3.5 h-3.5" />
+              <span>Nap nézet</span>
+            </button>
             <button
               type="button"
               onClick={() => setViewMode('month')}
@@ -222,7 +274,19 @@ export const ProviderScheduleDashboardPage: React.FC = () => {
         </div>
       </div>
 
-      {viewMode === 'month' ? (
+      {viewMode === 'day' ? (
+        <ProviderScheduleDayListView
+          programs={displayPrograms}
+          occurrencesMap={occurrencesMap}
+          orders={ownOrders}
+          getOrderBuyerInfo={getOrderBuyerInfo}
+          onCreateOccurrence={handleCreateOccurrence}
+          onCreateOccurrences={handleCreateOccurrences}
+          onMoveOccurrence={handleMoveOccurrence}
+          onDeleteOccurrence={handleDeleteOccurrence}
+          onOpenManualBooking={handleOpenManualBooking}
+        />
+      ) : viewMode === 'month' ? (
         <ProviderScheduleCalendar
           programs={displayPrograms}
           occurrencesMap={occurrencesMap}
@@ -231,6 +295,7 @@ export const ProviderScheduleDashboardPage: React.FC = () => {
           onOpenManualBooking={handleOpenManualBooking}
           onEditProgram={setEditingProgram}
           onCreateOccurrence={handleCreateOccurrence}
+          onCreateOccurrences={handleCreateOccurrences}
           onMoveOccurrence={handleMoveOccurrence}
           onDeleteOccurrence={handleDeleteOccurrence}
           onCancelOccurrence={handleCancelOccurrence}
@@ -242,6 +307,7 @@ export const ProviderScheduleDashboardPage: React.FC = () => {
           orders={ownOrders}
           getOrderBuyerInfo={getOrderBuyerInfo}
           onCreateOccurrence={handleCreateOccurrence}
+          onCreateOccurrences={handleCreateOccurrences}
           onMoveOccurrence={handleMoveOccurrence}
           onDeleteOccurrence={handleDeleteOccurrence}
           onOpenManualBooking={handleOpenManualBooking}

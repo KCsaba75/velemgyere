@@ -12,6 +12,43 @@ type MoveUpdates = { event_date: string; start_time?: string | null; end_time?: 
 type CreateOverrides = { start_time?: string | null; end_time?: string | null; max_participants?: number | null };
 
 const UNDO_TIMEOUT_MS = 8000;
+// Kanban 882a92d9 (#8): biztonsagi felso korlat az ismetlodo-generatornak --
+// ~2 ev heti ismetlodes, hogy egy elgepelt veg-datum (pl. rossz evszam) ne
+// probaljon ezer sort letrehozni.
+const MAX_RECURRING_DATES = 104;
+
+function padZero(n: number): string {
+  return n < 10 ? `0${n}` : `${n}`;
+}
+
+function toDateStr(d: Date): string {
+  return `${d.getFullYear()}-${padZero(d.getMonth() + 1)}-${padZero(d.getDate())}`;
+}
+
+// Kanban 882a92d9 (#8): hetnap-index hetfo-elso sorrendben (0=Hetfo..6=Vasarnap),
+// hogy illeszkedjen a tobbi naptar-komponens WEEKDAYS/WEEKDAY_LABELS tombjehez.
+// A szamolas magat sosem tarolja -- csak a belole generalt konkret datum-listat
+// adja vissza, amit a hivo elozetesen megmutat, es csak jovahagyas utan hivja
+// a mar letezo batch createOccurrences-t (lasd adatmodell-dontes a kartyan).
+export function computeWeeklyRecurringDates(fromDateStr: string, weekdayIndexMondayFirst: number, untilDateStr: string): string[] {
+  const targetJsWeekday = (weekdayIndexMondayFirst + 1) % 7;
+  const fromDate = new Date(`${fromDateStr}T00:00:00`);
+  const untilDate = new Date(`${untilDateStr}T00:00:00`);
+  if (isNaN(fromDate.getTime()) || isNaN(untilDate.getTime()) || untilDate < fromDate) return [];
+
+  const start = new Date(fromDate);
+  start.setDate(start.getDate() + 1);
+  const diffToTarget = (targetJsWeekday - start.getDay() + 7) % 7;
+  const cursor = new Date(start);
+  cursor.setDate(cursor.getDate() + diffToTarget);
+
+  const dates: string[] = [];
+  while (cursor <= untilDate && dates.length < MAX_RECURRING_DATES) {
+    dates.push(toDateStr(cursor));
+    cursor.setDate(cursor.getDate() + 7);
+  }
+  return dates;
+}
 
 // Kanban f1b8d7a3: a ProviderScheduleWeekBoard huzas/masolas/torles allapot-gepe es
 // @dnd-kit szenzora egy helyre kiemelve, hogy a ProviderScheduleCalendar (honap-nezet)
@@ -26,7 +63,11 @@ export function useOccurrenceScheduling(
   onMoveOccurrence: (occurrenceId: string, updates: MoveUpdates) => Promise<void>,
   onCreateOccurrence: (programId: string, dateStr: string, overrides: CreateOverrides) => Promise<void>,
   onDeleteOccurrence: (occurrenceId: string) => Promise<void>,
-  bookedCountByOccurrence: Map<string, number>
+  bookedCountByOccurrence: Map<string, number>,
+  // Kanban 882a92d9 (#8): batch-verzio az ismetlodo-masolashoz -- a mar letezo
+  // AppContext createOccurrences(programId, dates[], overrides) direkt hivasa,
+  // nem uj backend-funkcio.
+  onCreateOccurrences: (programId: string, dates: string[], overrides: CreateOverrides) => Promise<void>
 ) {
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
@@ -56,6 +97,16 @@ export function useOccurrenceScheduling(
   const [copyDate, setCopyDate] = useState('');
   const [copySaving, setCopySaving] = useState(false);
   const [copyError, setCopyError] = useState<string | null>(null);
+
+  // Kanban 882a92d9 (#8): "Egy datum" (fent, valtozatlan) mellett "Ismetlodes"
+  // ag -- hetnap + veg-datum, a konkret listat a hivo (OccurrenceCard/
+  // MonthDayCell) szamolja ki elozetesen computeWeeklyRecurringDates-szel,
+  // itt csak a bemenet (allapot) es a vegso mentes van.
+  const [copyMode, setCopyMode] = useState<'single' | 'recurring'>('single');
+  const [recurringWeekday, setRecurringWeekday] = useState(0);
+  const [recurringUntilDate, setRecurringUntilDate] = useState('');
+  const [recurringSaving, setRecurringSaving] = useState(false);
+  const [recurringError, setRecurringError] = useState<string | null>(null);
 
   const [deletingOccurrenceId, setDeletingOccurrenceId] = useState<string | null>(null);
 
@@ -145,11 +196,18 @@ export function useOccurrenceScheduling(
     setCopyingOccurrenceId(occ.id);
     setCopyDate('');
     setCopyError(null);
+    setCopyMode('single');
+    const dateStr = occ.event_date.includes('T') ? occ.event_date.split('T')[0] : occ.event_date;
+    const jsWeekday = new Date(`${dateStr}T00:00:00`).getDay();
+    setRecurringWeekday((jsWeekday + 6) % 7);
+    setRecurringUntilDate('');
+    setRecurringError(null);
   };
 
   const cancelCopy = () => {
     setCopyingOccurrenceId(null);
     setCopyError(null);
+    setRecurringError(null);
   };
 
   const saveCopy = async (occ: ProgramOccurrence, targetDate: string) => {
@@ -167,6 +225,27 @@ export function useOccurrenceScheduling(
       setCopyError(err instanceof Error ? err.message : 'A másolás nem sikerült.');
     } finally {
       setCopySaving(false);
+    }
+  };
+
+  // Kanban 882a92d9 (#8): a hivo (UI) mar kiszamolta es elozetesen megmutatta
+  // a `dates` listat computeWeeklyRecurringDates-szel -- itt csak a jovahagyott
+  // listat kuldjuk egyben a mar letezo batch createOccurrences-nek.
+  const saveCopyRecurring = async (occ: ProgramOccurrence, dates: string[]) => {
+    if (dates.length === 0) return;
+    setRecurringSaving(true);
+    setRecurringError(null);
+    try {
+      await onCreateOccurrences(occ.program_id, dates, {
+        start_time: occ.start_time || null,
+        end_time: occ.end_time || null,
+        max_participants: occ.max_participants ?? null,
+      });
+      setCopyingOccurrenceId(null);
+    } catch (err) {
+      setRecurringError(err instanceof Error ? err.message : 'Az ismétlődő másolás nem sikerült.');
+    } finally {
+      setRecurringSaving(false);
     }
   };
 
@@ -209,6 +288,15 @@ export function useOccurrenceScheduling(
     cancelCopy,
     saveCopy,
     setCopyDate,
+    copyMode,
+    setCopyMode,
+    recurringWeekday,
+    setRecurringWeekday,
+    recurringUntilDate,
+    setRecurringUntilDate,
+    recurringSaving,
+    recurringError,
+    saveCopyRecurring,
     deletingOccurrenceId,
     handleDelete,
   };

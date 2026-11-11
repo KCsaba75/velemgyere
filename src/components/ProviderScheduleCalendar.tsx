@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { Order, OrderBuyerInfo, Program, ProgramOccurrence } from '../types/database';
 import { ProgramDayPopup } from './ProgramDayPopup';
+import { RecurringCopyPanel } from './RecurringCopyPanel';
 import { useOccurrenceScheduling } from '../hooks/useOccurrenceScheduling';
 
 interface ProviderScheduleCalendarProps {
@@ -38,6 +39,11 @@ interface ProviderScheduleCalendarProps {
   onCreateOccurrence: (
     programId: string,
     dateStr: string,
+    overrides: { start_time?: string | null; end_time?: string | null; max_participants?: number | null }
+  ) => Promise<void>;
+  onCreateOccurrences: (
+    programId: string,
+    dates: string[],
     overrides: { start_time?: string | null; end_time?: string | null; max_participants?: number | null }
   ) => Promise<void>;
   onMoveOccurrence: (
@@ -75,6 +81,7 @@ export const ProviderScheduleCalendar: React.FC<ProviderScheduleCalendarProps> =
   onOpenManualBooking,
   onEditProgram,
   onCreateOccurrence,
+  onCreateOccurrences,
   onMoveOccurrence,
   onDeleteOccurrence,
   onCancelOccurrence,
@@ -146,9 +153,18 @@ export const ProviderScheduleCalendar: React.FC<ProviderScheduleCalendarProps> =
     cancelCopy,
     saveCopy,
     setCopyDate,
+    copyMode,
+    setCopyMode,
+    recurringWeekday,
+    setRecurringWeekday,
+    recurringUntilDate,
+    setRecurringUntilDate,
+    recurringSaving,
+    recurringError,
+    saveCopyRecurring,
     deletingOccurrenceId,
     handleDelete,
-  } = useOccurrenceScheduling(occurrencesMap, onMoveOccurrence, onCreateOccurrence, onDeleteOccurrence, bookedCountByOccurrence);
+  } = useOccurrenceScheduling(occurrencesMap, onMoveOccurrence, onCreateOccurrence, onDeleteOccurrence, bookedCountByOccurrence, onCreateOccurrences);
 
   // Kanban 803361a4 #3: a Torles FK miatt mindig elbukik, ha van foglalas --
   // ilyenkor a lemondas (status='cancelled') az ut, kulon allapot/hiba-kezelessel.
@@ -554,32 +570,64 @@ export const ProviderScheduleCalendar: React.FC<ProviderScheduleCalendarProps> =
                           </div>
                         ) : isCopying ? (
                           <div className="bg-white rounded-xl p-3 border border-sky-200 space-y-2">
-                            {copyError && <p className="text-xs font-semibold text-rose-700">{copyError}</p>}
-                            <p className="text-xs font-bold text-stone-700">Másolás melyik napra?</p>
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="date"
-                                value={copyDate}
-                                onChange={e => setCopyDate(e.target.value)}
-                                className="px-2 py-1.5 rounded-lg border border-stone-300 text-xs flex-1"
-                              />
+                            <div className="inline-flex items-center p-0.5 bg-stone-100 rounded-lg text-[11px] font-bold text-stone-600">
                               <button
                                 type="button"
-                                onClick={() => saveCopy(occ, copyDate)}
-                                disabled={copySaving || !copyDate}
-                                className="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-60 shrink-0"
+                                onClick={() => setCopyMode('single')}
+                                className={`px-2 py-1 rounded-md cursor-pointer ${copyMode === 'single' ? 'bg-white text-stone-900 shadow-xs' : ''}`}
                               >
-                                {copySaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Copy className="w-3.5 h-3.5" />}
-                                <span>Másolás</span>
+                                Egy dátum
                               </button>
                               <button
                                 type="button"
-                                onClick={cancelCopy}
-                                className="px-3 py-1.5 rounded-lg border border-stone-300 text-stone-700 text-xs font-bold flex items-center gap-1.5 cursor-pointer shrink-0"
+                                onClick={() => setCopyMode('recurring')}
+                                className={`px-2 py-1 rounded-md cursor-pointer ${copyMode === 'recurring' ? 'bg-white text-stone-900 shadow-xs' : ''}`}
                               >
-                                <X className="w-3.5 h-3.5" />
+                                Ismétlődés
                               </button>
                             </div>
+                            {copyMode === 'single' ? (
+                              <>
+                                {copyError && <p className="text-xs font-semibold text-rose-700">{copyError}</p>}
+                                <p className="text-xs font-bold text-stone-700">Másolás melyik napra?</p>
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="date"
+                                    value={copyDate}
+                                    onChange={e => setCopyDate(e.target.value)}
+                                    className="px-2 py-1.5 rounded-lg border border-stone-300 text-xs flex-1"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => saveCopy(occ, copyDate)}
+                                    disabled={copySaving || !copyDate}
+                                    className="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-60 shrink-0"
+                                  >
+                                    {copySaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Copy className="w-3.5 h-3.5" />}
+                                    <span>Másolás</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={cancelCopy}
+                                    className="px-3 py-1.5 rounded-lg border border-stone-300 text-stone-700 text-xs font-bold flex items-center gap-1.5 cursor-pointer shrink-0"
+                                  >
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </>
+                            ) : (
+                              <RecurringCopyPanel
+                                occ={occ}
+                                weekday={recurringWeekday}
+                                onChangeWeekday={setRecurringWeekday}
+                                untilDate={recurringUntilDate}
+                                onChangeUntilDate={setRecurringUntilDate}
+                                saving={recurringSaving}
+                                error={recurringError}
+                                onSave={(dates) => saveCopyRecurring(occ, dates)}
+                                onCancel={cancelCopy}
+                              />
+                            )}
                           </div>
                         ) : (
                           <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-stone-200/60">
