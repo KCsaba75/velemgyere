@@ -18,9 +18,11 @@ import { RescheduleOrderModal } from './RescheduleOrderModal';
 // C (mobil also-nav elhelyezes): KESZ, lasd Navbar.tsx.
 // Athelyezes mechanizmus (Csaba Trello-referenciakepe, kanban 3348/3349/3355):
 // het-nezet (ProviderScheduleWeekBoard, @dnd-kit/core, huzassal athelyezes +
-// masolo-ikon uj idopont-masolashoz) a honap-nezet (ProviderScheduleCalendar,
-// valtozatlan, gomb/form athelyezes) MELLETT, nezet-valtoval -- a honap-nezet
-// NEM dragolhato (tul sok/kicsi cella), csak a het-nezet.
+// masolo-ikon uj idopont-masolashoz) a honap-nezet (ProviderScheduleCalendar)
+// MELLETT, nezet-valtoval. FRISSITVE (c2c66884, Csaba korrekcioja, msg 3390):
+// a honap-nezet (MonthOccurrenceChip) MAR IS dragolhato, ugyanazzal a
+// @dnd-kit mechanikaval, mobilon is -- ez a bekezdes korabban meg az ELOTTI
+// (gomb/form-csak) allapotot irta le, az mar nem ervenyes.
 export const ProviderScheduleDashboardPage: React.FC = () => {
   const {
     currentUser,
@@ -153,6 +155,14 @@ export const ProviderScheduleDashboardPage: React.FC = () => {
     await reloadOccurrences();
   };
 
+  // Kanban 803361a4 #3: foglalt idopontra a torles mindig elbukott (FK),
+  // ez a lemondas-ut (status='cancelled') ugyanazt a mutaciot hasznalja,
+  // mint a ProgramEditorModal-beli nyitas/lemondas kapcsolo.
+  const handleCancelOccurrence = async (occurrenceId: string) => {
+    await updateOccurrence(occurrenceId, { status: 'cancelled' });
+    await reloadOccurrences();
+  };
+
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-8 pb-6 sm:pb-8 animate-in fade-in duration-200">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4 mb-4 sm:mb-6">
@@ -223,6 +233,7 @@ export const ProviderScheduleDashboardPage: React.FC = () => {
           onCreateOccurrence={handleCreateOccurrence}
           onMoveOccurrence={handleMoveOccurrence}
           onDeleteOccurrence={handleDeleteOccurrence}
+          onCancelOccurrence={handleCancelOccurrence}
         />
       ) : viewMode === 'week' ? (
         <ProviderScheduleWeekBoard

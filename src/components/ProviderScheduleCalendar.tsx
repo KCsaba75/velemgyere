@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import {
   DndContext,
   useDraggable,
@@ -23,6 +23,7 @@ import {
   Copy,
   GripVertical,
   AlertCircle,
+  MoreVertical,
 } from 'lucide-react';
 import { Order, OrderBuyerInfo, Program, ProgramOccurrence } from '../types/database';
 import { ProgramDayPopup } from './ProgramDayPopup';
@@ -45,6 +46,7 @@ interface ProviderScheduleCalendarProps {
     updates: { event_date: string; start_time?: string | null; end_time?: string | null }
   ) => Promise<void>;
   onDeleteOccurrence: (occurrenceId: string) => Promise<void>;
+  onCancelOccurrence?: (occurrenceId: string) => Promise<void>;
 }
 
 const WEEKDAYS = [
@@ -76,6 +78,7 @@ export const ProviderScheduleCalendar: React.FC<ProviderScheduleCalendarProps> =
   onCreateOccurrence,
   onMoveOccurrence,
   onDeleteOccurrence,
+  onCancelOccurrence,
 }) => {
   const today = useMemo(() => new Date(), []);
   const [currentYear, setCurrentYear] = useState<number>(today.getFullYear());
@@ -118,6 +121,42 @@ export const ProviderScheduleCalendar: React.FC<ProviderScheduleCalendarProps> =
     deletingOccurrenceId,
     handleDelete,
   } = useOccurrenceScheduling(occurrencesMap, onMoveOccurrence, onCreateOccurrence, onDeleteOccurrence);
+
+  // Kanban 803361a4 #3: a Torles FK miatt mindig elbukik, ha van foglalas --
+  // ilyenkor a lemondas (status='cancelled') az ut, kulon allapot/hiba-kezelessel.
+  const [cancellingOccurrenceId, setCancellingOccurrenceId] = useState<string | null>(null);
+  const handleCancelOccurrence = async (occurrenceId: string) => {
+    if (!window.confirm('Biztosan lemondod ezt az időpontot? A foglalások lemondottként megmaradnak, nem törlődnek.')) return;
+    setCancellingOccurrenceId(occurrenceId);
+    try {
+      await onCancelOccurrence?.(occurrenceId);
+    } catch (err) {
+      setDragError(err instanceof Error ? err.message : 'A lemondás nem sikerült.');
+    } finally {
+      setCancellingOccurrenceId(null);
+    }
+  };
+
+  // Kanban 803361a4 #7: Szerkesztes/Athelyezes/Masolas/Torles(Lemondas) a
+  // Kulso foglalas melletti "..." menube kerul, ugyanaz a nyitott-menu-id +
+  // click-outside minta mint a FavoritesView mappa-muveletek menujeben.
+  const [openActionsMenuId, setOpenActionsMenuId] = useState<string | null>(null);
+  const actionsMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!openActionsMenuId) return;
+    const handleClickOutside = (e: MouseEvent | TouchEvent) => {
+      if (actionsMenuRef.current && !actionsMenuRef.current.contains(e.target as Node)) {
+        setOpenActionsMenuId(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [openActionsMenuId]);
 
   const [addingOccurrence, setAddingOccurrence] = useState(false);
   const [addProgramId, setAddProgramId] = useState<string>('');
@@ -401,6 +440,7 @@ export const ProviderScheduleCalendar: React.FC<ProviderScheduleCalendarProps> =
                     const isMoving = movingOccurrenceId === occ.id;
                     const isCopying = copyingOccurrenceId === occ.id;
                     const isDeleting = deletingOccurrenceId === occ.id;
+                    const isCancelling = cancellingOccurrenceId === occ.id;
 
                     return (
                       <div
@@ -441,16 +481,6 @@ export const ProviderScheduleCalendar: React.FC<ProviderScheduleCalendarProps> =
                               )}
                             </div>
                           </div>
-                          {program && onEditProgram && (
-                            <button
-                              type="button"
-                              onClick={() => onEditProgram(program)}
-                              className="p-1.5 rounded-lg border border-stone-200 text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition-colors cursor-pointer shrink-0"
-                              title="Program szerkesztése"
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </button>
-                          )}
                         </div>
 
                         {isMoving ? (
@@ -527,42 +557,92 @@ export const ProviderScheduleCalendar: React.FC<ProviderScheduleCalendarProps> =
                           </div>
                         ) : (
                           <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-stone-200/60">
-                            <button
-                              type="button"
-                              onClick={() => startMove(occ)}
-                              className="px-3 py-1.5 rounded-xl border border-stone-300 hover:bg-stone-100 text-stone-700 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
-                            >
-                              <CalendarDays className="w-3.5 h-3.5 text-stone-500" />
-                              <span>Áthelyezés</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => startCopy(occ)}
-                              className="px-3 py-1.5 rounded-xl border border-sky-200 bg-sky-50 hover:bg-sky-100 text-sky-700 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
-                            >
-                              <Copy className="w-3.5 h-3.5" />
-                              <span>Másolás</span>
-                            </button>
                             {onOpenManualBooking && (
                               <button
                                 type="button"
-                                onClick={() => onOpenManualBooking(program?.id)}
+                                onClick={() => onOpenManualBooking(program?.id, occ.id)}
                                 className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
                               >
                                 <Phone className="w-3.5 h-3.5" />
                                 <span>Külső foglalás</span>
                               </button>
                             )}
-                            <button
-                              type="button"
-                              onClick={() => handleDelete(occ.id)}
-                              disabled={isDeleting}
-                              className="px-3 py-1.5 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-60 ml-auto"
-                              title="Időpont törlése"
+                            <div
+                              className="relative ml-auto"
+                              ref={openActionsMenuId === occ.id ? actionsMenuRef : undefined}
                             >
-                              {isDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-                              <span>Törlés</span>
-                            </button>
+                              <button
+                                type="button"
+                                onClick={() => setOpenActionsMenuId(prev => (prev === occ.id ? null : occ.id))}
+                                className="p-1.5 rounded-xl border border-stone-200 text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition-colors cursor-pointer"
+                                title="További műveletek"
+                                aria-haspopup="menu"
+                                aria-expanded={openActionsMenuId === occ.id}
+                              >
+                                <MoreVertical className="w-3.5 h-3.5" />
+                              </button>
+                              {openActionsMenuId === occ.id && (
+                                <div
+                                  role="menu"
+                                  className="absolute right-0 top-full mt-1.5 w-44 bg-white rounded-xl border border-stone-200 shadow-xl z-50 overflow-hidden py-1 animate-in fade-in zoom-in-95 duration-150"
+                                >
+                                  {program && onEditProgram && (
+                                    <button
+                                      type="button"
+                                      role="menuitem"
+                                      onClick={() => { onEditProgram(program); setOpenActionsMenuId(null); }}
+                                      className="w-full px-3.5 py-2 text-left text-xs font-bold text-stone-700 hover:bg-stone-50 flex items-center gap-2 cursor-pointer"
+                                    >
+                                      <Pencil className="w-3.5 h-3.5 text-stone-500" />
+                                      <span>Szerkesztés</span>
+                                    </button>
+                                  )}
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    onClick={() => { startMove(occ); setOpenActionsMenuId(null); }}
+                                    className="w-full px-3.5 py-2 text-left text-xs font-bold text-stone-700 hover:bg-stone-50 flex items-center gap-2 cursor-pointer"
+                                  >
+                                    <CalendarDays className="w-3.5 h-3.5 text-stone-500" />
+                                    <span>Áthelyezés</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    onClick={() => { startCopy(occ); setOpenActionsMenuId(null); }}
+                                    className="w-full px-3.5 py-2 text-left text-xs font-bold text-sky-700 hover:bg-sky-50 flex items-center gap-2 cursor-pointer"
+                                  >
+                                    <Copy className="w-3.5 h-3.5" />
+                                    <span>Másolás</span>
+                                  </button>
+                                  {booked > 0 ? (
+                                    <button
+                                      type="button"
+                                      role="menuitem"
+                                      disabled={isCancelling || occ.status === 'cancelled'}
+                                      onClick={() => { setOpenActionsMenuId(null); handleCancelOccurrence(occ.id); }}
+                                      title="Foglalás miatt törlés nem lehetséges -- az alkalom lemondható"
+                                      className="w-full px-3.5 py-2 text-left text-xs font-bold text-rose-600 hover:bg-rose-50 flex items-center gap-2 cursor-pointer border-t border-stone-100 disabled:opacity-60"
+                                    >
+                                      <Ban className="w-3.5 h-3.5" />
+                                      <span>Alkalom lemondása</span>
+                                    </button>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      role="menuitem"
+                                      disabled={isDeleting}
+                                      onClick={() => { setOpenActionsMenuId(null); handleDelete(occ.id); }}
+                                      title="Időpont törlése"
+                                      className="w-full px-3.5 py-2 text-left text-xs font-bold text-rose-600 hover:bg-rose-50 flex items-center gap-2 cursor-pointer border-t border-stone-100 disabled:opacity-60"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                      <span>Törlés</span>
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           </div>
                         )}
                       </div>
