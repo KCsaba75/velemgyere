@@ -6,6 +6,8 @@ import {
   CalendarRange,
   Star,
   MessageCircle,
+  MessageSquare,
+  Users,
   CheckCircle2,
   AlertCircle,
   Ticket,
@@ -19,6 +21,15 @@ import { useDocumentMeta } from '../hooks/useDocumentMeta';
 // Korabban nem volt ilyen osszegzo oldal: a "Iranyitopult" (provider-schedule)
 // egy program-utemezo naptar, nem statisztikai hub, ezert ez teljesen uj
 // komponens, meglevo adatokbol (orders/programs/reviews/uzenetek) szamolva.
+//
+// Kiegeszites (Csaba, 2026-11-11 14:38+14:40 Telegram): a mobil also navigacios
+// sav csak 5 fix elemet kap (Fooldal/Programok/Foglalasok/Penzugy/Profil), a
+// korabbi hamburger+drawer pedig torolve (nem csak elrejtve, lasd
+// ProviderSidebarLayout.tsx). Igy a Vendegeim/Uzenetek/Ertekeleseim/
+// Erdeklodesek szekcioknak mobilon NEM lenne semmilyen eleresi utjuk -- Csaba
+// kifejezetten az Attekintes oldalt jelolte ki ezek helyeként, ezert az alabbi
+// "Tovabbi menupontok" blokk adja a navigaciot hozzajuk (desktopon redundans
+// a sidebarral, de nem zavaro, es konzisztens mindket nezetben).
 function formatRelative(dateStr: string): string {
   const d = new Date(dateStr);
   const diffMs = Date.now() - d.getTime();
@@ -212,6 +223,30 @@ export const ProviderOverviewPage: React.FC = () => {
               ))}
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Tovabbi menupontok -- lasd a fenti kiegeszito komment, ezek nincsenek
+          a mobil also navigacios savban, ide kerultek helyette. */}
+      <div className="bg-white rounded-3xl border border-stone-200 shadow-sm p-5 sm:p-6">
+        <h3 className="text-base font-bold text-stone-900 font-display mb-3">További menüpontok</h3>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          {[
+            { key: 'guests', label: 'Vendégeim', icon: Users, view: 'provider-guests' },
+            { key: 'messages', label: 'Üzenetek', icon: MessageCircle, view: 'provider-messages' },
+            { key: 'reviews', label: 'Értékeléseim', icon: Star, view: 'provider-reviews' },
+            { key: 'inquiries', label: 'Érdeklődések', icon: MessageSquare, view: 'provider-inquiries' },
+          ].map(({ key, label, icon: Icon, view }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setCurrentView(view)}
+              className="flex flex-col items-center gap-1.5 text-center px-3 py-3.5 rounded-2xl bg-stone-50 hover:bg-emerald-50 border border-stone-200 hover:border-emerald-300 transition-colors cursor-pointer"
+            >
+              <Icon className="w-5 h-5 text-emerald-600" />
+              <span className="text-xs font-bold text-stone-700">{label}</span>
+            </button>
+          ))}
         </div>
       </div>
     </div>

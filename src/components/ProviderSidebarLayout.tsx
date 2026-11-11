@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useApp } from '../context/AppContext';
 import {
   LayoutDashboard,
@@ -10,8 +10,6 @@ import {
   Settings as SettingsIcon,
   Star,
   MessageSquare,
-  Menu,
-  X,
 } from 'lucide-react';
 
 // Kanban 4aac8eda (Csaba, 2026-11-11, kep mellekelve): a korabbi tab-soros/
@@ -26,6 +24,15 @@ import {
 // meglevo vilagos design-rendszert hasznalja tovabbra is. Ha Csaba a TELJES
 // provider-teruletet sotetre akarta volna valtani, az mas/nagyobb feladat
 // lenne -- ezt a dontest itt jeleztem a review-ban, nem talalgattam tovabb.
+//
+// Kiegeszites (Csaba, 2026-11-11 14:38+14:40, Telegram): mobilon a korabbi
+// hamburger+drawer-t teljesen lecsereli egy fix also navigacios sav (lasd
+// Navbar.tsx PROVIDER_NAV_ITEMS, 5 elem: Fooldal/Programok/Foglalasok/
+// Penzugy/Profil) -- a drawer-kod itt torolve, nem csak elrejtve. A sidebar
+// 7+2 szekciojabol a Vendegeim/Uzenetek/Ertekeleseim/Erdeklodesek NINCS az
+// also savban; ezek eleresenek Csaba szerint az Attekintes oldalon kell
+// mennie a drawer helyett -- ezert a ProviderOverviewPage kapott egy
+// "Tovabbi menupontok" gyorslink-blokkot ezekre (lasd ott).
 export interface ProviderNavItem {
   key: string;
   view: string;
@@ -182,8 +189,6 @@ export const ProviderSidebarLayout: React.FC<{ children: React.ReactNode }> = ({
     totalUnreadBookingMessageCount,
   } = useApp();
 
-  const [drawerOpen, setDrawerOpen] = useState(false);
-
   const ownProgramIds = new Set(
     programs.filter(p => p.provider_id === currentProvider?.id).map(p => p.id)
   );
@@ -196,63 +201,22 @@ export const ProviderSidebarLayout: React.FC<{ children: React.ReactNode }> = ({
     messages: totalUnreadBookingMessageCount,
   };
 
-  const activeLabel =
-    [...PRIMARY_NAV_ITEMS, ...SECONDARY_NAV_ITEMS].find(item => item.view === currentView)?.label ||
-    'Partner felület';
-
   const handleNavigate = (view: string) => {
     setCurrentView(view);
-    setDrawerOpen(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (
     <div className="max-w-screen-2xl mx-auto px-0 sm:px-4 lg:px-6">
       <div className="flex flex-col md:flex-row md:gap-6">
-        {/* Desktop fixed sidebar */}
+        {/* Desktop fixed sidebar -- mobilon a navigaciot a Navbar.tsx fix also
+            sava adja (kanban 4aac8eda, 2026-11-11 kiegeszites: a korabbi sajat
+            hamburger+drawer torolve, nem csak elrejtve). */}
         <aside className="hidden md:block w-72 shrink-0">
           <div className="sticky top-20 h-[calc(100vh-6rem)] bg-stone-950 rounded-3xl border border-stone-800 overflow-hidden shadow-xl">
             <SidebarContent currentView={currentView} badges={badges} onNavigate={handleNavigate} />
           </div>
         </aside>
-
-        {/* Mobile top bar: hamburger + current section label */}
-        <div className="md:hidden sticky top-16 z-30 bg-stone-950 border-b border-stone-800 flex items-center justify-between px-4 py-3">
-          <span className="text-sm font-bold text-white truncate">{activeLabel}</span>
-          <button
-            type="button"
-            onClick={() => setDrawerOpen(true)}
-            className="p-2 rounded-lg bg-white/10 text-white cursor-pointer"
-            aria-label="Partner menü megnyitása"
-          >
-            <Menu className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Mobile off-canvas drawer */}
-        {drawerOpen && (
-          <div className="md:hidden fixed inset-0 z-50 flex">
-            <div
-              className="absolute inset-0 bg-black/50"
-              onClick={() => setDrawerOpen(false)}
-              aria-hidden="true"
-            />
-            <div className="relative w-72 max-w-[80vw] h-full bg-stone-950 shadow-2xl flex flex-col animate-in fade-in duration-200">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
-                <span className="text-xs font-bold uppercase tracking-wider text-stone-500">Partner felület</span>
-                <button
-                  type="button"
-                  onClick={() => setDrawerOpen(false)}
-                  className="p-1.5 rounded-lg hover:bg-white/10 text-stone-300 cursor-pointer"
-                  aria-label="Menü bezárása"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-              <SidebarContent currentView={currentView} badges={badges} onNavigate={handleNavigate} />
-            </div>
-          </div>
-        )}
 
         {/* Page content */}
         <div className="flex-1 min-w-0 py-4 sm:py-6">{children}</div>

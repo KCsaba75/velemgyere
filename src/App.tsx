@@ -87,15 +87,15 @@ const ProtectedRoute: React.FC<{ allow: UserRole[]; children: React.ReactNode }>
 };
 
 const AppContent: React.FC = () => {
-  const { isLoginModalOpen, openLoginModal, closeLoginModal, currentUser } = useApp();
+  const { isLoginModalOpen, openLoginModal, closeLoginModal } = useApp();
   const [registerModalOpen, setRegisterModalOpen] = useState(false);
   const [newProgramModalOpen, setNewProgramModalOpen] = useState(false);
-  // Kanban 4aac8eda: a providerkent mar nem renderelt mobil also-nav miatt
-  // (lasd Navbar.tsx) nincs szukseg a also-ter-fenntartasra ennel a szerepnel.
-  const isProvider = currentUser.role === 'provider';
+  // Kanban 4aac8eda (2026-11-11 kiegeszites): a provider mobil also-nav mostantol
+  // mindenkivel egyutt a Navbar.tsx fix also savaban renderelodik (a korabbi sajat
+  // hamburger+drawer torolve), ezert az also-ter-fenntartas mar providerre is kell.
 
   return (
-    <div className={`min-h-screen flex flex-col bg-stone-50 font-sans selection:bg-emerald-500 selection:text-white overflow-x-clip w-full ${isProvider ? '' : 'pb-20 md:pb-0'}`}>
+    <div className="min-h-screen flex flex-col bg-stone-50 font-sans selection:bg-emerald-500 selection:text-white overflow-x-clip w-full pb-20 md:pb-0">
       {/* Sticky Main Navigation */}
       <Navbar
         onOpenLogin={() => openLoginModal(undefined, 'programs')}

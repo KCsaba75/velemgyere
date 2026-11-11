@@ -9,6 +9,9 @@ import {
   Ticket,
   Compass,
   LayoutGrid,
+  LayoutDashboard,
+  FileText,
+  Banknote,
   Bus,
   Star,
   MessageSquare,
@@ -72,6 +75,24 @@ export const Navbar: React.FC<NavbarProps> = ({
     { view: 'admin-users', label: 'Felhasználók', icon: Users },
     { view: 'admin-reviews', label: 'Értékelések', icon: Star },
     { view: 'admin-bookings', label: 'Foglalások', icon: Ticket },
+  ];
+
+  // Kanban 4aac8eda (Csaba, 2026-11-11 14:38+14:40 Telegram, kiegeszites): a
+  // ProviderSidebarLayout korabbi mobil hamburger+drawer-jet egy fix, 5 elemu
+  // also navigacios sav valtja fel, ugyanaz a minta mint az admin fenti
+  // ADMIN_NAV_ITEMS-nel. A Vendegeim/Uzenetek szandekosan NINCS itt (Csaba
+  // kifejezett kerese) -- ezek az Attekintes oldal gyorslink-blokkjabol
+  // erhetoek el (lasd ProviderOverviewPage.tsx).
+  const PROVIDER_NAV_ITEMS: ReadonlyArray<{
+    view: string;
+    label: string;
+    icon: React.ComponentType<{ className?: string }>;
+  }> = [
+    { view: 'provider-overview', label: 'Főlap', icon: LayoutDashboard },
+    { view: 'provider-programs', label: 'Programok', icon: FileText },
+    { view: 'provider-schedule', label: 'Foglalások', icon: CalendarRange },
+    { view: 'provider-finances', label: 'Pénzügy', icon: Banknote },
+    { view: 'provider-dashboard', label: 'Profil', icon: SettingsIcon },
   ];
 
   // Kanban 5a3a8dd8 (Csaba, 10-17 pontositas): providerkent a globalis
@@ -192,6 +213,9 @@ export const Navbar: React.FC<NavbarProps> = ({
     </button>
   );
 
+  // Kanban 4aac8eda (2026-11-11 kiegeszites): ez a ket mobil-gomb mostantol
+  // CSAK a latogato also-savban renderelodik (a provider sajat PROVIDER_NAV_ITEMS-t
+  // hasznal), ezert az isProvider-agaik megszuntek -- tisztan latogato-tartalom.
   const mobileBookingsButton = (
     <button
       key="bookings"
@@ -204,18 +228,14 @@ export const Navbar: React.FC<NavbarProps> = ({
       }`}
     >
       <div className="relative flex items-center justify-center">
-        {isProvider ? (
-          <CalendarRange className={`w-5 h-5 transition-transform ${isBookingsActive ? 'scale-110 stroke-[2.4] text-emerald-700' : 'stroke-[1.8]'}`} />
-        ) : (
-          <Ticket className={`w-5 h-5 transition-transform ${isBookingsActive ? 'scale-110 stroke-[2.4] text-emerald-700' : 'stroke-[1.8]'}`} />
-        )}
+        <Ticket className={`w-5 h-5 transition-transform ${isBookingsActive ? 'scale-110 stroke-[2.4] text-emerald-700' : 'stroke-[1.8]'}`} />
         {isAuthenticated && providerOwnOrdersCount > 0 && (
           <span className="absolute -top-1.5 -right-2.5 bg-emerald-600 text-white text-[9px] font-extrabold px-1.5 min-w-[15px] h-3.5 rounded-full flex items-center justify-center leading-none shadow-xs">
             {providerOwnOrdersCount > 99 ? '99+' : providerOwnOrdersCount}
           </span>
         )}
       </div>
-      <span className="text-[11px] leading-tight mt-1 truncate">{isProvider ? 'Irányítópult' : 'Foglalásaim'}</span>
+      <span className="text-[11px] leading-tight mt-1 truncate">Foglalásaim</span>
     </button>
   );
 
@@ -223,32 +243,28 @@ export const Navbar: React.FC<NavbarProps> = ({
     <button
       key="favorites-or-messages"
       type="button"
-      onClick={() => navigateTo(isProvider ? 'provider-messages' : 'favorites')}
+      onClick={() => navigateTo('favorites')}
       className={`flex flex-col items-center justify-center py-1.5 px-0.5 transition-colors cursor-pointer min-w-0 ${
         isFavoritesOrMessagesActive
-          ? isProvider ? 'text-emerald-700 font-bold' : 'text-rose-700 font-bold'
+          ? 'text-rose-700 font-bold'
           : 'text-stone-500 hover:text-stone-800 font-medium'
       }`}
     >
       <div className="relative flex items-center justify-center">
-        {isProvider ? (
-          <MessageSquare className={`w-5 h-5 transition-transform ${isFavoritesOrMessagesActive ? 'scale-110 stroke-[2.4]' : 'stroke-[1.8]'}`} />
-        ) : (
-          <Heart
-            className={`w-5 h-5 transition-transform ${
-              currentView === 'favorites' || totalFavoritesCount > 0
-                ? 'fill-rose-500 text-rose-500 scale-105'
-                : 'stroke-[1.8]'
-            }`}
-          />
-        )}
-        {!isProvider && totalFavoritesCount > 0 && (
+        <Heart
+          className={`w-5 h-5 transition-transform ${
+            currentView === 'favorites' || totalFavoritesCount > 0
+              ? 'fill-rose-500 text-rose-500 scale-105'
+              : 'stroke-[1.8]'
+          }`}
+        />
+        {totalFavoritesCount > 0 && (
           <span className="absolute -top-1.5 -right-2.5 bg-rose-500 text-white text-[9px] font-extrabold px-1.5 min-w-[15px] h-3.5 rounded-full flex items-center justify-center leading-none shadow-xs">
             {totalFavoritesCount > 99 ? '99+' : totalFavoritesCount}
           </span>
         )}
       </div>
-      <span className="text-[11px] leading-tight mt-1 truncate">{isProvider ? 'Üzenet' : 'Kedvencek'}</span>
+      <span className="text-[11px] leading-tight mt-1 truncate">Kedvencek</span>
     </button>
   );
 
@@ -431,11 +447,10 @@ export const Navbar: React.FC<NavbarProps> = ({
       </header>
 
       {/* Mobile Bottom Navigation Bar (only on mobile screens) */}
-      {/* Kanban 4aac8eda (Csaba, 2026-11-11): providerkent ez a sor teljesen
-          kimarad -- 7 (+2) sidebar-szekcio nem fert volna el egy fix 5-oszlopos
-          sorban, es a ProviderSidebarLayout sajat mobil hamburger+drawer
-          menuje adja a navigaciot helyette. Admin/latogato valtozatlan. */}
-      {!isProvider && (
+      {/* Kanban 4aac8eda (Csaba, 2026-11-11 14:38+14:40 Telegram, kiegeszites):
+          providerkent is renderelodik -- a korabbi sajat ProviderSidebarLayout
+          hamburger+drawer-je torolve, ez a fix also sav adja a navigaciot
+          mindenkinek (admin/provider/latogato), csak a tartalma mas. */}
       <nav
         aria-label="Mobil navigáció"
         className="md:hidden fixed bottom-0 inset-x-0 z-50 bg-white/95 backdrop-blur-lg border-t border-stone-200 shadow-[0_-4px_20px_rgba(0,0,0,0.07)] transform-gpu will-change-transform select-none w-full max-w-full"
@@ -459,6 +474,34 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </button>
               );
             })
+          ) : isProvider ? (
+            PROVIDER_NAV_ITEMS.map(({ view, label, icon: Icon }) => {
+              const active = currentView === view;
+              // Kanban 23585044 minta: csak az aktiv (upcoming) foglalasok
+              // szamoljanak a badge-ben, ugyanaz a metrika mint a desktop
+              // "Irányítópult" gombon (providerOwnOrdersCount).
+              const badge = view === 'provider-schedule' ? providerOwnOrdersCount : 0;
+              return (
+                <button
+                  key={view}
+                  type="button"
+                  onClick={() => navigateTo(view)}
+                  className={`flex flex-col items-center justify-center py-1.5 px-0.5 transition-colors cursor-pointer min-w-0 ${
+                    active ? 'text-emerald-700 font-bold' : 'text-stone-500 hover:text-stone-800 font-medium'
+                  }`}
+                >
+                  <div className="relative flex items-center justify-center">
+                    <Icon className={`w-5 h-5 transition-transform ${active ? 'scale-110 stroke-[2.4]' : 'stroke-[1.8]'}`} />
+                    {badge > 0 && (
+                      <span className="absolute -top-1.5 -right-2.5 bg-emerald-600 text-white text-[9px] font-extrabold px-1.5 min-w-[15px] h-3.5 rounded-full flex items-center justify-center leading-none shadow-xs">
+                        {badge > 99 ? '99+' : badge}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[11px] leading-tight mt-1 truncate">{label}</span>
+                </button>
+              );
+            })
           ) : (
             <>
               {/* 1. Programok */}
@@ -472,31 +515,26 @@ export const Navbar: React.FC<NavbarProps> = ({
                 }`}
               >
                 <Compass className={`w-5 h-5 transition-transform ${isProgramsNavActive ? 'scale-110 stroke-[2.4]' : 'stroke-[1.8]'}`} />
-                <span className="text-[11px] leading-tight mt-1 truncate">{isProvider ? 'Programjaim' : 'Programok'}</span>
+                <span className="text-[11px] leading-tight mt-1 truncate">Programok</span>
               </button>
 
-              {/* 2. Utazások (szolgáltatóként: Értékeléseim) */}
+              {/* 2. Utazások */}
               <button
                 type="button"
-                onClick={() => navigateTo(isProvider ? 'provider-reviews' : 'travel')}
+                onClick={() => navigateTo('travel')}
                 className={`flex flex-col items-center justify-center py-1.5 px-0.5 transition-colors cursor-pointer min-w-0 ${
                   isTravelOrReviewsActive
                     ? 'text-emerald-700 font-bold'
                     : 'text-stone-500 hover:text-stone-800 font-medium'
                 }`}
               >
-                {isProvider ? (
-                  <Star className={`w-5 h-5 transition-transform ${isTravelOrReviewsActive ? 'scale-110 stroke-[2.4]' : 'stroke-[1.8]'}`} />
-                ) : (
-                  <Bus className={`w-5 h-5 transition-transform ${isTravelOrReviewsActive ? 'scale-110 stroke-[2.4]' : 'stroke-[1.8]'}`} />
-                )}
-                <span className="text-[11px] leading-tight mt-1 truncate">{isProvider ? 'Értékeléseim' : 'Utazások'}</span>
+                <Bus className={`w-5 h-5 transition-transform ${isTravelOrReviewsActive ? 'scale-110 stroke-[2.4]' : 'stroke-[1.8]'}`} />
+                <span className="text-[11px] leading-tight mt-1 truncate">Utazások</span>
               </button>
 
               {/* 3-4. Kedvencek/Foglalások */}
-              {isProvider && mobileBookingsButton}
               {mobileFavoritesOrMessagesButton}
-              {!isProvider && mobileBookingsButton}
+              {mobileBookingsButton}
 
               {/* 5. fiókom */}
               <button
@@ -509,9 +547,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 }`}
               >
                 <div className="relative flex items-center justify-center">
-                  {currentUser.role === 'provider' ? (
-                    <Briefcase className={`w-5 h-5 ${isAccountActive ? 'text-emerald-700 stroke-[2.4]' : 'stroke-[1.8]'}`} />
-                  ) : isAuthenticated ? (
+                  {isAuthenticated ? (
                     <div className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center text-[10px] font-bold">
                       {(currentUser.name || currentUser.email || 'U').charAt(0).toUpperCase()}
                     </div>
@@ -519,15 +555,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                     <User className={`w-5 h-5 ${isAccountActive ? 'stroke-[2.4]' : 'stroke-[1.8]'}`} />
                   )}
                 </div>
-                <span className="text-[11px] leading-tight mt-1 truncate">
-                  {currentUser.role === 'provider' ? 'Partner' : 'Fiókom'}
-                </span>
+                <span className="text-[11px] leading-tight mt-1 truncate">Fiókom</span>
               </button>
             </>
           )}
         </div>
       </nav>
-      )}
 
       {selectedNotificationOrder && (
         <BookingDetailModal
