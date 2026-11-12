@@ -1,5 +1,5 @@
 import React from 'react';
-import { useApp } from '../context/AppContext';
+import { useApp, formatHuf } from '../context/AppContext';
 import { CountryFlag } from './CountryFlag';
 import {
   Filter,
@@ -64,6 +64,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({ mobileOpen, onCloseMobile,
     setCurrencyFilter,
     travelCurrencyFilter,
     setTravelCurrencyFilter,
+    eurHufRate,
     resetFilters,
     resetTravelFilters,
   } = useApp();
@@ -223,6 +224,9 @@ export const FilterBar: React.FC<FilterBarProps> = ({ mobileOpen, onCloseMobile,
               <span className="font-bold">Maximális részvételi díj:</span>
               <span className="font-extrabold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-lg">
                 {activeMaxPrice} EUR / fő
+                {eurHufRate > 0 && (
+                  <span className="font-medium text-emerald-600"> (kb. {formatHuf(activeMaxPrice * eurHufRate)} Ft)</span>
+                )}
               </span>
             </div>
             <input
