@@ -191,12 +191,18 @@ export const ProgramCard: React.FC<ProgramCardProps> = ({ program, onSelect }) =
             </div>
 
             <div className="flex items-center justify-between pt-1.5 border-t border-stone-200/70 gap-2">
-              {/* Rating before price */}
-              <div className="flex items-center gap-1.5 text-stone-800 font-bold">
-                <Star className="w-4 h-4 fill-amber-400 text-amber-400 shrink-0" />
-                <span className="text-stone-900 font-extrabold">{stats.average.toFixed(1)}</span>
-                <span className="text-stone-500 font-medium text-xs">({stats.count})</span>
-              </div>
+              {/* Rating before price -- kanban 6cd9f9ca: getProgramRatingStats
+                  count=0-nal 5.0-t ad vissza alapertelmezeskent, ez NEM valodi
+                  ertekeles, ne mutassunk hamis csillagot/atlagot amig nincs. */}
+              {stats.count > 0 ? (
+                <div className="flex items-center gap-1.5 text-stone-800 font-bold">
+                  <Star className="w-4 h-4 fill-amber-400 text-amber-400 shrink-0" />
+                  <span className="text-stone-900 font-extrabold">{stats.average.toFixed(1)}</span>
+                  <span className="text-stone-500 font-medium text-xs">({stats.count})</span>
+                </div>
+              ) : (
+                <span className="text-stone-500 font-medium text-xs">Még nincs értékelés</span>
+              )}
 
               {/* Price */}
               <div className="flex flex-col items-end shrink-0">

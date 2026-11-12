@@ -69,13 +69,23 @@ export const ProgramReviewsSection: React.FC<ProgramReviewsSectionProps> = ({ pr
         </div>
       </div>
 
-      {/* Rating Overview Dashboard */}
+      {/* Rating Overview Dashboard -- kanban 6cd9f9ca: addig, amig nincs
+          valodi (igazolt) ertekeles, az EGESZ dashboard (atlag+csillagok+
+          ajanlas-szazalek+4 alszempont-kartya) ELTUNIK, nem csak a szam
+          cserelodik 5.0-ra -- az is hamis jelzes lenne. */}
+      {reviews.length === 0 ? (
+        <div className="bg-stone-50 rounded-3xl border border-stone-200 p-6 sm:p-8 text-center">
+          <Star className="w-8 h-8 text-stone-300 mx-auto mb-2" />
+          <p className="text-sm font-bold text-stone-700">Légy te az első, aki értékeli ezt a programot!</p>
+          <p className="text-xs text-stone-500 mt-1">Még nem érkezett igazolt vásárlói vélemény ehhez a programhoz.</p>
+        </div>
+      ) : (
       <div className="bg-stone-50 rounded-3xl border border-stone-200 p-5 sm:p-6 space-y-5">
         {/* Top: Score, Stars & Recommendation Pill */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-stone-200">
           <div className="flex items-center gap-3.5 flex-wrap sm:flex-nowrap">
             <span className="text-3xl sm:text-4xl font-black font-display text-stone-900 leading-none">
-              {reviews.length > 0 ? stats.average.toFixed(1) : '5.0'}
+              {stats.average.toFixed(1)}
             </span>
             <div className="flex flex-col justify-center">
               <div className="flex items-center gap-1 text-amber-400">
@@ -177,6 +187,7 @@ export const ProgramReviewsSection: React.FC<ProgramReviewsSectionProps> = ({ pr
           </div>
         </div>
       </div>
+      )}
 
       {/* Customer Photos Gallery */}
       {allReviewPhotos.length > 0 && (

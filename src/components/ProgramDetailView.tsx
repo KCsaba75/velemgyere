@@ -497,20 +497,26 @@ export const ProgramDetailView: React.FC = () => {
                   href="#reviews-section"
                   className="inline-flex items-center gap-2 text-xs font-bold text-stone-700 hover:text-emerald-700 bg-stone-100 hover:bg-emerald-50 px-3 py-1.5 rounded-xl border border-stone-200/80 transition-all cursor-pointer"
                 >
-                  <div className="flex text-amber-400">
-                    <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
-                  </div>
-                  <span className="text-stone-900 font-extrabold font-display text-sm">
-                    {programStats.average.toFixed(1)}
-                  </span>
-                  <span className="text-stone-400">•</span>
-                  <span className="text-stone-600">
-                    {programStats.count > 0 ? `${programStats.count} igazolt értékelés` : 'Új program'}
-                  </span>
-                  {programStats.count > 0 && (
-                    <span className="text-emerald-700 font-semibold">
-                      ({programStats.recommendPercent}% ajánlja)
-                    </span>
+                  {/* Kanban 6cd9f9ca: count=0-nal a star+atlag ELTUNIK (nincs
+                      valodi ertekeles, a getProgramRatingStats 5.0 default-ja
+                      nem jelenhet meg), csak a "Meg nincs ertekeles" szoveg
+                      marad -- igazitva a ProgramCard ugyanilyen szovegehez. */}
+                  {programStats.count > 0 ? (
+                    <>
+                      <div className="flex text-amber-400">
+                        <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
+                      </div>
+                      <span className="text-stone-900 font-extrabold font-display text-sm">
+                        {programStats.average.toFixed(1)}
+                      </span>
+                      <span className="text-stone-400">•</span>
+                      <span className="text-stone-600">{programStats.count} igazolt értékelés</span>
+                      <span className="text-emerald-700 font-semibold">
+                        ({programStats.recommendPercent}% ajánlja)
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-stone-600">Még nincs értékelés</span>
                   )}
                 </a>
               </div>
