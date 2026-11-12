@@ -220,6 +220,11 @@ export interface Order {
   // Közvetlen dátum és időpont (pl. egyedi/külső foglalásokhoz)
   event_date?: string | null;
   start_time?: string | null;
+
+  // Kanban ca9129b7: a szolgaltato altal perzisztalt "ki jelent meg" jeloles a
+  // Foglaltlista oldalhoz -- rendeles-szinten (1 rendeles = 1 occurrence), nem
+  // kulon tablaban.
+  attended?: boolean;
 }
 
 // Returned by the get_provider_contact_for_order RPC (kanban fbf552b2 point 3): the
@@ -232,11 +237,13 @@ export interface OrderProviderContact {
   website: string | null;
 }
 
-// Returned by the get_order_buyer_info RPC (kanban fbf552b2 point 5b): the buyer's
-// name/email, only resolvable server-side for the provider's (or admin's) OWN program.
+// Returned by the get_order_buyer_info RPC (kanban fbf552b2 point 5b, bovitve
+// ca9129b7-ben phone-nal): the buyer's name/email/phone, only resolvable
+// server-side for the provider's (or admin's) OWN program.
 export interface OrderBuyerInfo {
   name: string;
   email: string;
+  phone: string | null;
 }
 
 export type CreditTransactionType = 'signup_bonus' | 'refund' | 'usage' | 'manual_payout';

@@ -6,7 +6,7 @@ import {
   CalendarRange,
   Star,
   MessageCircle,
-  MessageSquare,
+  ListChecks,
   Users,
   CheckCircle2,
   AlertCircle,
@@ -252,7 +252,7 @@ export const ProviderOverviewPage: React.FC = () => {
             { key: 'guests', label: 'Vendégeim', icon: Users, view: 'provider-guests' },
             { key: 'messages', label: 'Üzenetek', icon: MessageCircle, view: 'provider-messages' },
             { key: 'reviews', label: 'Értékeléseim', icon: Star, view: 'provider-reviews' },
-            { key: 'inquiries', label: 'Érdeklődések', icon: MessageSquare, view: 'provider-inquiries' },
+            { key: 'booked-list', label: 'Foglaltlista', icon: ListChecks, view: 'provider-booked-list' },
           ].map(({ key, label, icon: Icon, view }) => (
             <button
               key={key}

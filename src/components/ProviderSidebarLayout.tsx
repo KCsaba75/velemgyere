@@ -9,7 +9,7 @@ import {
   MessageCircle,
   Settings as SettingsIcon,
   Star,
-  MessageSquare,
+  ListChecks,
 } from 'lucide-react';
 
 // Kanban 4aac8eda (Csaba, 2026-11-11, kep mellekelve): a korabbi tab-soros/
@@ -104,7 +104,7 @@ const SECONDARY_NAV_ITEMS: ReadonlyArray<{
   icon: React.ComponentType<{ className?: string }>;
 }> = [
   { key: 'reviews', view: 'provider-reviews', label: 'Értékeléseim', icon: Star },
-  { key: 'inquiries', view: 'provider-inquiries', label: 'Érdeklődések', icon: MessageSquare },
+  { key: 'booked-list', view: 'provider-booked-list', label: 'Foglaltlista', icon: ListChecks },
 ];
 
 interface SidebarContentProps {

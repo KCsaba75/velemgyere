@@ -32,7 +32,7 @@ const ProviderScheduleDashboardPage = lazy(() => import('./components/ProviderSc
 const ProviderGuestsPage = lazy(() => import('./components/ProviderGuestsPage').then(m => ({ default: m.ProviderGuestsPage })));
 const ProviderFinancesPage = lazy(() => import('./components/ProviderFinancesPage').then(m => ({ default: m.ProviderFinancesPage })));
 const ProviderReviewsPage = lazy(() => import('./components/ProviderReviewsPage').then(m => ({ default: m.ProviderReviewsPage })));
-const ProviderInquiriesPage = lazy(() => import('./components/ProviderInquiriesPage').then(m => ({ default: m.ProviderInquiriesPage })));
+const ProviderBookedListPage = lazy(() => import('./components/ProviderBookedListPage').then(m => ({ default: m.ProviderBookedListPage })));
 const ProviderMessagesPage = lazy(() => import('./components/ProviderMessagesPage').then(m => ({ default: m.ProviderMessagesPage })));
 // Kanban 653c7577 (Csaba, teljes admin-nav atszervezes): nincs tobbe kozos
 // AdminDashboard hub -- minden admin-alfunkcio onallo top-level route/lazy
@@ -217,11 +217,11 @@ const AppContent: React.FC = () => {
             }
           />
           <Route
-            path="/szolgaltato/erdeklodeseim"
+            path="/szolgaltato/foglaltlista"
             element={
               <ProtectedRoute allow={['provider', 'admin']}>
                 <ProviderSidebarLayout>
-                  <ProviderInquiriesPage />
+                  <ProviderBookedListPage />
                 </ProviderSidebarLayout>
               </ProtectedRoute>
             }

@@ -280,7 +280,7 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
                     program,
                     undefined,
                     contact,
-                    order.manual_customer_name ? { name: order.manual_customer_name, email: order.manual_customer_email || '' } : null,
+                    order.manual_customer_name ? { name: order.manual_customer_name, email: order.manual_customer_email || '', phone: order.manual_customer_phone || null } : null,
                     { isProvider: currentUser?.role === 'provider' }
                   );
                   openGoogleCalendar(payload);
@@ -299,7 +299,7 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
                     program,
                     undefined,
                     contact,
-                    order.manual_customer_name ? { name: order.manual_customer_name, email: order.manual_customer_email || '' } : null,
+                    order.manual_customer_name ? { name: order.manual_customer_name, email: order.manual_customer_email || '', phone: order.manual_customer_phone || null } : null,
                     { isProvider: currentUser?.role === 'provider' }
                   );
                   downloadIcsFile(payload);

@@ -56,3 +56,36 @@ values ('e2e00000-0000-4000-8000-000000000004', 'e2e00000-0000-4000-8000-0000000
         'E2E hosszu leiras a teszt programrol.', 'Troodos, Ciprus', 'Ciprus', 'Larnaca szalloda elott',
         '2027-06-15', '09:00', '17:00', '8 óra', 65, 'EUR', 'published', 16)
 on conflict (id) do nothing;
+
+-- Kanban ca9129b7 (Foglaltlista teszt): KULON program az idoponttal+
+-- foglalasokkal, nem a fenti e2e-teszt-program-troodos-t bovitjuk -- az utobbi
+-- szandekosan occurrence-nelkuli, mert a booking-crud.spec.ts/offline-
+-- resilience.spec.ts a "Van meg szabad hely?" (legacy, occurrence nelkuli)
+-- UI-agat tesztelik rajta; ha occurrence-t kapna, az a UI mas agra valtana es
+-- elrontana azokat a teszteket (ez tenylegesen megtortent, innen a tanulsag).
+insert into public.programs (id, provider_id, category_id, region_id, title, slug, short_description, description,
+                              location, country, departure_location, event_date, start_time, end_time, duration,
+                              price, currency, status, max_participants)
+values ('e2e00000-0000-4000-8000-000000000008', 'e2e00000-0000-4000-8000-000000000003',
+        'e2e00000-0000-4000-8000-000000000001', 'e2e00000-0000-4000-8000-000000000002',
+        'E2E Foglaltlista Teszt Program', 'e2e-teszt-program-foglaltlista', 'E2E rovid leiras',
+        'E2E hosszu leiras a foglaltlista tesztjehez.', 'Troodos, Ciprus', 'Ciprus', 'Larnaca szalloda elott',
+        '2027-07-20', '09:00', '17:00', '8 óra', 65, 'EUR', 'published', 16)
+on conflict (id) do nothing;
+
+insert into public.program_occurrences (id, program_id, event_date, start_time, end_time, status)
+values ('e2e00000-0000-4000-8000-000000000005', 'e2e00000-0000-4000-8000-000000000008', '2027-07-20', '09:00', '17:00', 'open')
+on conflict (id) do nothing;
+
+insert into public.orders (id, program_id, occurrence_id, user_id, participants_count, total_price, booking_fee, onsite_amount, currency, status, is_manual, manual_customer_name, manual_customer_phone, manual_customer_email)
+values ('e2e00000-0000-4000-8000-000000000006', 'e2e00000-0000-4000-8000-000000000008', 'e2e00000-0000-4000-8000-000000000005', 'e2e00000-0000-4000-8000-0000000000aa', 2, 130, 0, 130, 'EUR', 'confirmed', true, 'E2E Foglaltlista Teszt Vendég', '+36301234567', 'e2e-vendeg@test.local')
+on conflict (id) do nothing;
+
+-- Platform-eredetu (nem manualis) foglalas is ugyanerre az idopontra -- a
+-- buyer-info RPC-utat (get_order_buyer_info) es a bulk-uzenetkuldest is
+-- lefedi a Foglaltlista teszt. A vevo ujra felhasznalja a sajat
+-- e2e-provider auth-sorat -- csak a profiles.name/email kell a nezethez,
+-- nem szamit hogy ugyanaz a szemely mint a szolgaltato.
+insert into public.orders (id, program_id, occurrence_id, user_id, participants_count, total_price, booking_fee, onsite_amount, currency, status, is_manual)
+values ('e2e00000-0000-4000-8000-000000000007', 'e2e00000-0000-4000-8000-000000000008', 'e2e00000-0000-4000-8000-000000000005', 'e2e00000-0000-4000-8000-0000000000aa', 1, 65, 0, 65, 'EUR', 'confirmed', false)
+on conflict (id) do nothing;

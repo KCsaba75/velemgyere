@@ -197,7 +197,7 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
             created_at: new Date().toISOString()
           } as ProgramOccurrence),
           null,
-          { name: customerName.trim(), email: customerEmail.trim() },
+          { name: customerName.trim(), email: customerEmail.trim(), phone: customerPhone.trim() || null },
           { isProvider: true }
         );
 

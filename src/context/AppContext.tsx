@@ -28,9 +28,11 @@ import {
   OrderStatus,
   FavoriteFolder,
   FavoriteItem,
-  ProgramPriceTier
+  ProgramPriceTier,
+  BookingMessageSenderRole
 } from '../types/database';
 import { PageRecord } from '../types/pageContent';
+import { isBookingMessageWriteWindowOpen } from '../hooks/useBookingMessages';
 import { 
   INITIAL_CATEGORIES, 
   INITIAL_REGIONS,
@@ -85,7 +87,10 @@ const VIEW_TO_PATH: Record<string, string> = {
   // Erdeklodesek fulek is onallo top-level oldalak lettek, ugyanugy mint a
   // Programok/Foglalasok -- elerheto a Partner fiok oldal gyorslinkjeiből.
   'provider-reviews': '/szolgaltato/ertekeleseim',
-  'provider-inquiries': '/szolgaltato/erdeklodeseim',
+  // Kanban ca9129b7: az Erdeklodesek placeholder-fulet felvaltotta a
+  // Foglaltlista (program+idopont-valaszto, foglalok elerhetosegei+megjelenes-
+  // jeloles, nyomtathato).
+  'provider-booked-list': '/szolgaltato/foglaltlista',
   // Kanban 5d6bb3d4 (Csaba, via Zora): a szolgaltatoi navbar "Kedvencek"
   // helyere kerulo uj "Uzenet" placeholder menupont, onallo top-level oldal.
   'provider-messages': '/szolgaltato/uzeneteim',
@@ -141,7 +146,7 @@ function pathToView(pathname: string): string {
   if (pathname.startsWith('/szolgaltato/iranyitopult')) return 'provider-schedule';
   if (pathname.startsWith('/szolgaltato/foglalasaim')) return 'provider-bookings';
   if (pathname.startsWith('/szolgaltato/ertekeleseim')) return 'provider-reviews';
-  if (pathname.startsWith('/szolgaltato/erdeklodeseim')) return 'provider-inquiries';
+  if (pathname.startsWith('/szolgaltato/foglaltlista')) return 'provider-booked-list';
   if (pathname.startsWith('/szolgaltato/uzeneteim')) return 'provider-messages';
   if (pathname.startsWith('/szolgaltato/attekintes')) return 'provider-overview';
   if (pathname.startsWith('/szolgaltato/vendegeim')) return 'provider-guests';
@@ -492,6 +497,16 @@ interface AppContextType {
   confirmOrder: (id: string) => Promise<void>;
   getProviderContactForOrder: (orderId: string) => Promise<OrderProviderContact | null>;
   getOrderBuyerInfo: (orderId: string) => Promise<OrderBuyerInfo | null>;
+
+  // Kanban ca9129b7 (Foglaltlista oldal): a "ki jelent meg" perzisztens jeloles,
+  // es a tobb rendeles sajat uzenofolyamaba egyszerre beiro bulk-uzenetkuldes.
+  setOrderAttended: (orderId: string, attended: boolean) => Promise<void>;
+  sendBulkBookingMessage: (
+    orderIds: string[],
+    content: string,
+    senderRole: BookingMessageSenderRole,
+    senderId: string
+  ) => Promise<{ sentCount: number; skippedCount: number }>;
 
   // Credit ledger (point 5): read-only from the client -- crediting/payout is
   // admin-side (manual_payout, refund) for now, see schema.sql comment.
@@ -3024,6 +3039,58 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return row ? (row as OrderBuyerInfo) : null;
   };
 
+  // Kanban ca9129b7 (Foglaltlista): egyszeru direkt update, a mar letezo
+  // "Providers can update orders for their programs" UPDATE RLS-policy fedi,
+  // nincs kulon RPC/jogosultsag-valtozas kell.
+  const setOrderAttended = async (orderId: string, attended: boolean): Promise<void> => {
+    if (!isSupabaseConfigured) {
+      setOrders(prev => prev.map(o => (o.id === orderId ? { ...o, attended } : o)));
+      return;
+    }
+    const { error } = await supabase.from('orders').update({ attended }).eq('id', orderId);
+    if (error) {
+      console.error('setOrderAttended failed:', error);
+      throw new Error('A megjelenés-jelölés mentése nem sikerült, próbáld meg újra.');
+    }
+    setOrders(prev => prev.map(o => (o.id === orderId ? { ...o, attended } : o)));
+  };
+
+  // Kanban ca9129b7 ("Uzenet mindenkinek"): UGYANAZT a szoveget beirja minden
+  // megadott rendeles SAJAT (kulon) booking_messages-szalaba, egy batch
+  // insert-tel. A zart (2 nappal a program utani) szalakat kihagyja -- ezekrol
+  // a sentCount/skippedCount ad visszajelzest a hivonak.
+  const sendBulkBookingMessage = async (
+    orderIds: string[],
+    content: string,
+    senderRole: BookingMessageSenderRole,
+    senderId: string
+  ): Promise<{ sentCount: number; skippedCount: number }> => {
+    const trimmed = content.trim();
+    if (!trimmed || orderIds.length === 0 || !isSupabaseConfigured) {
+      return { sentCount: 0, skippedCount: orderIds.length };
+    }
+    const openOrderIds = orderIds.filter(id => {
+      const order = orders.find(o => o.id === id);
+      return isBookingMessageWriteWindowOpen(order?.event_date ?? order?.program?.event_date ?? null);
+    });
+    const skippedCount = orderIds.length - openOrderIds.length;
+    if (openOrderIds.length === 0) return { sentCount: 0, skippedCount };
+
+    const rows = openOrderIds.map(orderId => ({
+      order_id: orderId,
+      sender_role: senderRole,
+      sender_id: senderId,
+      content: trimmed,
+      created_at: new Date().toISOString(),
+    }));
+    const { error } = await supabase.from('booking_messages').insert(rows);
+    if (error) {
+      console.error('sendBulkBookingMessage failed:', error);
+      throw new Error('Az üzenet küldése nem sikerült, próbáld meg újra.');
+    }
+    return { sentCount: openOrderIds.length, skippedCount };
+  };
+
   // Admin-only (enforced by the "Admins can manage app settings" RLS policy, this is
   // just the client call) -- updates the live fee settings. Already-granted signup
   // bonuses and already-created orders keep their own captured booking_fee/onsite_amount
@@ -4104,6 +4171,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         confirmOrder,
         getProviderContactForOrder,
         getOrderBuyerInfo,
+        setOrderAttended,
+        sendBulkBookingMessage,
 
         creditTransactions,
         creditBalance,

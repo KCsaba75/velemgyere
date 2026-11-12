@@ -1019,7 +1019,7 @@ export const ProviderBookingsCalendar: React.FC<ProviderBookingsCalendarProps> =
                                 program,
                                 occ,
                                 null,
-                                buyer ? { name: buyer.name, email: buyer.email } : null,
+                                buyer ? { name: buyer.name, email: buyer.email, phone: buyer.phone } : null,
                                 { isProvider: true }
                               );
                               openGoogleCalendar(payload);
