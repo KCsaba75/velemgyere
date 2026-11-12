@@ -17,8 +17,19 @@ on conflict (id) do nothing;
 -- bejelentkezes is "Hibas e-mail cim vagy jelszo" 400-at ad -- lasd kanban
 -- 6171b71e verifikacios korben felfedezve, a sajat regisztracios folyammal
 -- letrehozott sorok mind '00000000-0000-0000-0000-000000000000'-t kapnak).
-insert into auth.users (id, instance_id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, aud, role)
-values ('e2e00000-0000-4000-8000-0000000000aa', '00000000-0000-0000-0000-000000000000', 'e2e-provider@test.local', crypt('e2e-test-pw-123', gen_salt('bf')), now(), '{}', '{}', 'authenticated', 'authenticated')
+--
+-- confirmation_token/recovery_token/email_change_token_new/email_change
+-- EXPLICIT ures string-kent kell, nem NULL (ezeknek nincs DB-default-juk,
+-- kulonben '' -- lasd \d auth.users), ES created_at/updated_at EXPLICIT
+-- now()-kent (ezeknek SEM kulon DB-default-juk): egy UI-regisztracioval
+-- letrehozott sor mindezt automatikusan megkapja, a direkt SQL insert nem,
+-- es a GoTrue login-utja (/token?grant_type=password) NULL mezok eseten
+-- 500-at ad ("Scan error ... converting NULL to string/time.Time is
+-- unsupported") -- kanban 7b23a78a friss db reset+teljes e2e-suite korben
+-- derult ki (ez a kovetkezo ket tag ugyanabban a sorozatban, mint a fenti
+-- instance_id/identities fix).
+insert into auth.users (id, instance_id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, aud, role, confirmation_token, recovery_token, email_change_token_new, email_change, created_at, updated_at)
+values ('e2e00000-0000-4000-8000-0000000000aa', '00000000-0000-0000-0000-000000000000', 'e2e-provider@test.local', crypt('e2e-test-pw-123', gen_salt('bf')), now(), '{}', '{}', 'authenticated', 'authenticated', '', '', '', '', now(), now())
 on conflict (id) do nothing;
 
 -- A robust_signup_trigger a profiles sort 'visitor' default-dal hozza letre --
