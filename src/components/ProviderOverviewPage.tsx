@@ -138,23 +138,36 @@ export const ProviderOverviewPage: React.FC = () => {
         </p>
       </div>
 
-      {/* Stat tiles */}
+      {/* Stat tiles -- Csaba kerese (kanban 004455ac): kattinthatok, a relevans lapra
+          navigalnak, hover+focus-jelzessel billentyuzet-elerheteosegre is. */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <div className="bg-white rounded-2xl border border-stone-200 shadow-xs p-4">
+        <button
+          type="button"
+          onClick={() => setCurrentView('provider-programs')}
+          className="text-left bg-white rounded-2xl border border-stone-200 shadow-xs p-4 cursor-pointer transition-colors hover:border-emerald-300 hover:bg-emerald-50/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+        >
           <div className="flex items-center gap-1.5 text-xs font-bold text-stone-500 uppercase tracking-wider mb-1.5">
             <FileText className="w-4 h-4 text-emerald-600" />
             Publikált programok
           </div>
           <div className="text-2xl font-extrabold text-stone-900">{publishedProgramsCount}</div>
-        </div>
-        <div className="bg-white rounded-2xl border border-stone-200 shadow-xs p-4">
+        </button>
+        <button
+          type="button"
+          onClick={() => setCurrentView('provider-schedule')}
+          className="text-left bg-white rounded-2xl border border-stone-200 shadow-xs p-4 cursor-pointer transition-colors hover:border-emerald-300 hover:bg-emerald-50/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+        >
           <div className="flex items-center gap-1.5 text-xs font-bold text-stone-500 uppercase tracking-wider mb-1.5">
             <CalendarRange className="w-4 h-4 text-emerald-600" />
             Aktív foglalások
           </div>
           <div className="text-2xl font-extrabold text-stone-900">{upcomingOrdersCount}</div>
-        </div>
-        <div className="bg-white rounded-2xl border border-stone-200 shadow-xs p-4">
+        </button>
+        <button
+          type="button"
+          onClick={() => setCurrentView('provider-reviews')}
+          className="text-left bg-white rounded-2xl border border-stone-200 shadow-xs p-4 cursor-pointer transition-colors hover:border-emerald-300 hover:bg-emerald-50/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+        >
           <div className="flex items-center gap-1.5 text-xs font-bold text-stone-500 uppercase tracking-wider mb-1.5">
             <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
             Átlagértékelés
@@ -162,14 +175,18 @@ export const ProviderOverviewPage: React.FC = () => {
           <div className="text-2xl font-extrabold text-stone-900">
             {ratingStats.average ? ratingStats.average.toFixed(1) : '-'}
           </div>
-        </div>
-        <div className="bg-white rounded-2xl border border-stone-200 shadow-xs p-4">
+        </button>
+        <button
+          type="button"
+          onClick={() => setCurrentView('provider-messages')}
+          className="text-left bg-white rounded-2xl border border-stone-200 shadow-xs p-4 cursor-pointer transition-colors hover:border-emerald-300 hover:bg-emerald-50/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+        >
           <div className="flex items-center gap-1.5 text-xs font-bold text-stone-500 uppercase tracking-wider mb-1.5">
             <MessageCircle className="w-4 h-4 text-emerald-600" />
             Olvasatlan üzenet
           </div>
           <div className="text-2xl font-extrabold text-stone-900">{totalUnreadBookingMessageCount}</div>
-        </div>
+        </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
