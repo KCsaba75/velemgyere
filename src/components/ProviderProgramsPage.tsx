@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useApp, formatPrice, formatProgramDisplayDate } from '../context/AppContext';
+import { useApp, formatAmount, formatProgramDisplayDate } from '../context/AppContext';
 import { CountryFlag } from './CountryFlag';
 import {
   PlusCircle,
@@ -261,8 +261,8 @@ export const ProviderProgramsPage: React.FC<ProviderProgramsPageProps> = ({ onOp
                           <span className="flex items-center gap-1">📅 {formatProgramDisplayDate(prog.event_date, (programOccurrencesCounts[prog.id] || 0) > 1)}</span>
                           <span className="flex items-center gap-1 font-bold text-emerald-800">
                             💰 {prog.pricing_mode === 'tiered'
-                              ? `${formatPrice(prog.price)} ${prog.currency === 'EUR' ? '€' : prog.currency}/túra-tól (Sávos)`
-                              : `${formatPrice(prog.price)} ${prog.currency === 'EUR' ? '€' : prog.currency}/fő`}
+                              ? `${formatAmount(prog.price, prog.currency)} ${prog.currency === 'EUR' ? '€' : prog.currency}/túra-tól (Sávos)`
+                              : `${formatAmount(prog.price, prog.currency)} ${prog.currency === 'EUR' ? '€' : prog.currency}/fő`}
                           </span>
                         </div>
                       </div>

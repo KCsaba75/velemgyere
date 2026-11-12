@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useApp, formatPrice } from '../context/AppContext';
+import { useApp, formatAmount } from '../context/AppContext';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import { ProgramCard } from './ProgramCard';
 import { CountryFlag } from './CountryFlag';
@@ -176,7 +176,7 @@ export const FavoritesView: React.FC = () => {
   };
 
   const handleShareList = (title: string, programsToShare: typeof allFavoritePrograms) => {
-    const listSummary = programsToShare.map((p, i) => `${i + 1}. ${p.title} (${formatPrice(p.price)} €${p.pricing_mode === 'tiered' ? '/túra-tól' : '/fő'} - ${p.country || p.region?.name})`).join('\n');
+    const listSummary = programsToShare.map((p, i) => `${i + 1}. ${p.title} (${formatAmount(p.price, p.currency)} ${p.currency === 'EUR' ? '€' : p.currency}${p.pricing_mode === 'tiered' ? '/túra-tól' : '/fő'} - ${p.country || p.region?.name})`).join('\n');
     const textToCopy = `📌 ${title} - Velem Gyere:\n\n${listSummary}\n\nFedezd fel: ${window.location.origin}/kedvencek`;
 
     if (navigator.clipboard) {
@@ -239,7 +239,7 @@ export const FavoritesView: React.FC = () => {
             {allFavoritePrograms.length > 0 && (
               <div className="flex items-center gap-2 bg-stone-50 px-3.5 py-2 rounded-xl border border-stone-200/80 text-xs text-stone-700">
                 <Wallet className="w-4 h-4 text-emerald-600" />
-                <span>Összköltség: <strong className="text-stone-900 font-extrabold font-display text-sm">{formatPrice(totalAllCost)} €</strong>/fő</span>
+                <span>Összköltség: <strong className="text-stone-900 font-extrabold font-display text-sm">{formatAmount(totalAllCost, 'EUR')} €</strong>/fő</span>
               </div>
             )}
 
@@ -334,7 +334,7 @@ export const FavoritesView: React.FC = () => {
                       {folderPrograms.length > 0 && (
                         <div className="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-xl border border-stone-200/80 text-xs text-stone-700">
                           <Wallet className="w-3.5 h-3.5 text-emerald-600" />
-                          <span><strong className="text-stone-900 font-extrabold">{formatPrice(folderCost)} €</strong>/fő</span>
+                          <span><strong className="text-stone-900 font-extrabold">{formatAmount(folderCost, 'EUR')} €</strong>/fő</span>
                         </div>
                       )}
                       {folderPrograms.length > 0 && (
@@ -539,7 +539,7 @@ export const FavoritesView: React.FC = () => {
                       <Heart className="w-3.5 h-3.5 fill-rose-500 text-rose-500" />
                       <span className="font-extrabold text-rose-700">{folderPrograms.length}</span>
                       {folderPrograms.length > 0 && (
-                        <> &middot; <strong className="text-stone-900">{formatPrice(folderCost)} €</strong>/fő</>
+                        <> &middot; <strong className="text-stone-900">{formatAmount(folderCost, 'EUR')} €</strong>/fő</>
                       )}
                     </p>
                   </div>

@@ -11,7 +11,7 @@ import {
   History,
   XCircle,
 } from 'lucide-react';
-import { getBookingReference, formatPrice, getOrderBucket, OrderBucket } from '../context/AppContext';
+import { getBookingReference, formatAmount, getOrderBucket, OrderBucket } from '../context/AppContext';
 import { Order, Program, OrderBuyerInfo, OnsitePaymentMethod, ProgramOccurrence } from '../types/database';
 
 const PAYMENT_METHOD_LABEL: Record<OnsitePaymentMethod, string> = {
@@ -235,7 +235,7 @@ export const ProviderBookingsListView: React.FC<ProviderBookingsListViewProps> =
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3 text-xs text-stone-500">
-                  <span>{order.participants_count} fő · helyszínen fizetendő: <strong className="text-stone-800">{formatPrice(order.onsite_amount)} {order.currency === 'EUR' ? '€' : order.currency}</strong></span>
+                  <span>{order.participants_count} fő · helyszínen fizetendő: <strong className="text-stone-800">{formatAmount(order.onsite_amount, order.currency)} {order.currency === 'EUR' ? '€' : order.currency}</strong></span>
                   {order.onsite_payment_method && (
                     <span className="inline-flex items-center gap-1 text-stone-600 bg-stone-100 px-2 py-0.5 rounded-md">
                       {order.onsite_payment_method === 'revolut' ? (

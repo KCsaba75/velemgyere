@@ -1,5 +1,5 @@
 import React from 'react';
-import { useApp, formatPrice } from '../context/AppContext';
+import { useApp, formatAmount } from '../context/AppContext';
 import { Banknote, TrendingUp, Landmark, FileSpreadsheet, Info } from 'lucide-react';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
 
@@ -69,7 +69,7 @@ export const ProviderFinancesPage: React.FC = () => {
             Becsült forgalom (e havi)
           </div>
           <div className="text-2xl font-extrabold text-stone-900">
-            {formatPrice(monthTurnover)} {currency}
+            {formatAmount(monthTurnover, currency)} {currency}
           </div>
         </div>
         <div className="bg-white rounded-2xl border border-stone-200 shadow-xs p-5">
@@ -78,7 +78,7 @@ export const ProviderFinancesPage: React.FC = () => {
             Becsült forgalom (összesen)
           </div>
           <div className="text-2xl font-extrabold text-stone-900">
-            {formatPrice(totalTurnover)} {currency}
+            {formatAmount(totalTurnover, currency)} {currency}
           </div>
         </div>
       </div>

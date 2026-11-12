@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useApp, formatPrice, getBookingReference, getOrderBucket, OrderBucket } from '../context/AppContext';
+import { useApp, formatAmount, getBookingReference, getOrderBucket, OrderBucket } from '../context/AppContext';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import { Ticket, Compass, Eye, Sparkles, ArrowRight, Users, History, XCircle } from 'lucide-react';
 import { Order, OrderStatus } from '../types/database';
@@ -207,7 +207,7 @@ export const BookingsView: React.FC = () => {
                       {(order.start_time) && ` (${order.start_time})`}
                     </span>
                     <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5" />{order.participants_count} fő</span>
-                    <span className="font-semibold text-stone-700">{formatPrice(order.total_price)} {order.currency === 'EUR' ? '€' : order.currency}</span>
+                    <span className="font-semibold text-stone-700">{formatAmount(order.total_price, order.currency)} {order.currency === 'EUR' ? '€' : order.currency}</span>
                     <span className={`text-[11px] font-bold px-2 py-0.5 rounded-lg border ${ORDER_STATUS_CLASS[order.status]}`}>
                       {ORDER_STATUS_LABEL[order.status]}
                     </span>

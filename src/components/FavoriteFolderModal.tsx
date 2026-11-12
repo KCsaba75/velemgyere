@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useApp, formatPrice } from '../context/AppContext';
+import { useApp, formatAmount } from '../context/AppContext';
 import { 
   X, 
   FolderPlus, 
@@ -128,7 +128,7 @@ export const FavoriteFolderModal: React.FC = () => {
               {folderModalProgram.title}
             </h4>
             <p className="text-xs font-extrabold text-emerald-700 mt-0.5">
-              {formatPrice(folderModalProgram.price)} {folderModalProgram.currency === 'EUR' ? '€' : folderModalProgram.currency}
+              {formatAmount(folderModalProgram.price, folderModalProgram.currency)} {folderModalProgram.currency === 'EUR' ? '€' : folderModalProgram.currency}
               {folderModalProgram.pricing_mode === 'tiered' ? '/túra-tól' : '/fő'}
             </p>
           </div>

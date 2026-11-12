@@ -3,7 +3,7 @@ import { Program } from '../types/database';
 import { MapPin, Calendar, Clock, ArrowRight, Sparkles, Building2, Heart, Star } from 'lucide-react';
 import { CategoryIcon } from './CategoryIcon';
 import { CountryFlag } from './CountryFlag';
-import { useApp, formatPrice, formatHuf, formatProgramDisplayDate } from '../context/AppContext';
+import { useApp, formatAmount, formatHuf, formatProgramDisplayDate } from '../context/AppContext';
 
 interface ProgramCardProps {
   program: Program;
@@ -133,7 +133,7 @@ export const ProgramCard: React.FC<ProgramCardProps> = ({ program, onSelect }) =
         {/* Price Tag overlay on image */}
         <div className="absolute bottom-3 right-3 bg-emerald-600/95 backdrop-blur-sm text-white px-2.5 sm:px-3 py-1 rounded-xl shadow-lg font-bold text-xs sm:text-sm z-10">
           <span className="font-extrabold">
-            {formatPrice(displayPrice)} {program.currency === 'EUR' ? '€' : program.currency}
+            {formatAmount(displayPrice, program.currency)} {program.currency === 'EUR' ? '€' : program.currency}
             {program.pricing_mode === 'tiered' ? '/túra-tól' : '/fő'}
           </span>
         </div>
@@ -182,7 +182,7 @@ export const ProgramCard: React.FC<ProgramCardProps> = ({ program, onSelect }) =
               <div className="flex flex-col items-end shrink-0">
                 <div className="flex items-center gap-1 text-emerald-800 font-bold">
                   <span className="text-base">💰</span>
-                  <span>{formatPrice(displayPrice)} {program.currency === 'EUR' ? '€' : program.currency} {program.pricing_mode === 'tiered' ? '/túra-tól' : '/fő'}</span>
+                  <span>{formatAmount(displayPrice, program.currency)} {program.currency === 'EUR' ? '€' : program.currency} {program.pricing_mode === 'tiered' ? '/túra-tól' : '/fő'}</span>
                 </div>
                 {(program.currency === 'EUR' || !program.currency) && eurHufRate > 0 && (
                   <span className="text-[11px] font-medium text-stone-500 tracking-tight">

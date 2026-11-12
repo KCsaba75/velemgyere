@@ -16,6 +16,8 @@ vi.mock('../context/AppContext', () => ({
   // named importkent hasznalja az AppContext modulbol, nem a hook-on at.
   formatPrice: (n: number) => String(n),
   formatHuf: (n: number) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' '),
+  formatAmount: (n: number, currency: string | undefined) =>
+    currency === 'Ft' ? String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') : String(n),
   formatProgramDisplayDate: (d: string) => d,
   getHungarianDateSuffix: () => '-tól',
 }));

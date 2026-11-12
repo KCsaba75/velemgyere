@@ -17,7 +17,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { Program, ProgramOccurrence, BookingSource, OnsitePaymentMethod, Order } from '../types/database';
-import { useApp, formatPrice, CURRENT_BOOKING_YEAR } from '../context/AppContext';
+import { useApp, formatAmount, CURRENT_BOOKING_YEAR } from '../context/AppContext';
 import {
   buildCalendarEventPayload,
   generateGoogleCalendarUrl,
@@ -308,7 +308,7 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
               >
                 {availablePrograms.map((prog) => (
                   <option key={prog.id} value={prog.id}>
-                    {prog.title} ({formatPrice(prog.price)} {prog.currency} / fő)
+                    {prog.title} ({formatAmount(prog.price, prog.currency)} {prog.currency} / fő)
                   </option>
                 ))}
               </select>

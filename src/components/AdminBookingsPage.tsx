@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useApp, formatPrice, formatPlatformFee, getBookingReference } from '../context/AppContext';
+import { useApp, formatAmount, formatPlatformFee, getBookingReference } from '../context/AppContext';
 import { Ticket, Clock, Wallet, Landmark, Banknote } from 'lucide-react';
 import { OnsitePaymentMethod } from '../types/database';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
@@ -59,7 +59,7 @@ export const AdminBookingsPage: React.FC = () => {
           { label: 'Megerősítve', value: orders.filter(o => o.status === 'confirmed').length, tone: 'emerald' },
           {
             label: 'Platform díjbevétel',
-            value: `${formatPrice(orders.reduce((sum, o) => o.status !== 'cancelled' ? sum + (Number(o.booking_fee) || 0) : sum, 0))} €`,
+            value: `${formatAmount(orders.reduce((sum, o) => o.status !== 'cancelled' ? sum + (Number(o.booking_fee) || 0) : sum, 0), 'EUR')} €`,
             tone: 'indigo',
           },
         ]}
@@ -123,13 +123,13 @@ export const AdminBookingsPage: React.FC = () => {
                   <div className="flex flex-wrap items-center gap-3 text-xs text-stone-500">
                     <span>{order.participants_count} fő</span>
                     <span>·</span>
-                    <span>Teljes: <strong className="text-stone-800">{formatPrice(order.total_price)} {order.currency === 'EUR' ? '€' : order.currency}</strong></span>
+                    <span>Teljes: <strong className="text-stone-800">{formatAmount(order.total_price, order.currency)} {order.currency === 'EUR' ? '€' : order.currency}</strong></span>
                     <span>·</span>
                     <span className="text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
                       Platform kényelmi díj (Stripe fizetve): {formatPlatformFee(order.booking_fee)} €
                     </span>
                     <span>·</span>
-                    <span>Helyszínen: <strong className="text-stone-800">{formatPrice(order.onsite_amount)} €</strong></span>
+                    <span>Helyszínen: <strong className="text-stone-800">{formatAmount(order.onsite_amount, order.currency)} {order.currency === 'EUR' ? '€' : order.currency}</strong></span>
                     {order.onsite_payment_method && (
                       <span className="inline-flex items-center gap-1 text-stone-600 bg-stone-100 px-2 py-0.5 rounded-md">
                         {order.onsite_payment_method === 'revolut' ? (

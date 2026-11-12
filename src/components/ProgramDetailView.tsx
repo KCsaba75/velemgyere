@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { useApp, formatPrice, formatPlatformFee, formatProgramDisplayDate } from '../context/AppContext';
+import { useApp, formatAmount, formatPlatformFee, formatProgramDisplayDate } from '../context/AppContext';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import {
   ArrowLeft,
@@ -461,7 +461,7 @@ export const ProgramDetailView: React.FC = () => {
               {program.pricing_mode === 'tiered' ? (
                 lowestTier ? (
                   <>
-                    {formatPrice(computeTotalPrice(lowestTier.total_price))} {program.currency === 'EUR' ? '€' : program.currency}
+                    {formatAmount(computeTotalPrice(lowestTier.total_price), program.currency)} {program.currency === 'EUR' ? '€' : program.currency}
                     <span className="text-xs sm:text-sm font-normal text-emerald-100">/túra-tól</span>
                   </>
                 ) : (
@@ -469,7 +469,7 @@ export const ProgramDetailView: React.FC = () => {
                 )
               ) : (
                 <>
-                  {formatPrice(computeTotalPrice(program.price))} {program.currency === 'EUR' ? '€' : program.currency}
+                  {formatAmount(computeTotalPrice(program.price), program.currency)} {program.currency === 'EUR' ? '€' : program.currency}
                   <span className="text-xs sm:text-sm font-normal text-emerald-100"> / fő</span>
                 </>
               )}
@@ -677,7 +677,7 @@ export const ProgramDetailView: React.FC = () => {
                     lowestTier ? (
                       <>
                         <span className="text-3xl sm:text-4xl font-extrabold text-stone-900 font-display">
-                          {formatPrice(computeTotalPrice(lowestTier.total_price))} {program.currency === 'EUR' ? '€' : program.currency}
+                          {formatAmount(computeTotalPrice(lowestTier.total_price), program.currency)} {program.currency === 'EUR' ? '€' : program.currency}
                         </span>
                         <span className="text-xs text-stone-500 font-medium">/túra-tól</span>
                       </>
@@ -687,7 +687,7 @@ export const ProgramDetailView: React.FC = () => {
                   ) : (
                     <>
                       <span className="text-3xl sm:text-4xl font-extrabold text-stone-900 font-display">
-                        {formatPrice(computeTotalPrice(program.price))} {program.currency === 'EUR' ? '€' : program.currency}
+                        {formatAmount(computeTotalPrice(program.price), program.currency)} {program.currency === 'EUR' ? '€' : program.currency}
                       </span>
                       <span className="text-xs text-stone-500 font-medium"> / fő</span>
                     </>
@@ -728,7 +728,7 @@ export const ProgramDetailView: React.FC = () => {
                           <span className="truncate sm:whitespace-normal">Helyszínen fizetendő díj:</span>
                         </span>
                         <strong className="font-bold text-stone-900 whitespace-nowrap shrink-0 ml-auto">
-                          {formatPrice(baseNet)} {curr}
+                          {formatAmount(baseNet, program.currency)} {curr}
                         </strong>
                       </div>
                     </div>
@@ -945,13 +945,13 @@ export const ProgramDetailView: React.FC = () => {
                                   <span className="truncate sm:whitespace-normal">Helyszínen fizetendő díj:</span>
                                 </span>
                                 <strong className="text-stone-900 font-bold text-sm whitespace-nowrap shrink-0 ml-auto">
-                                  {formatPrice(netTotal)} {curr}
+                                  {formatAmount(netTotal, program.currency)} {curr}
                                 </strong>
                               </div>
                               <div className="pt-2 border-t border-stone-200 flex items-center justify-between gap-3 text-stone-900 font-bold text-sm">
                                 <span className="min-w-0">Teljes fizetendő összeg:</span>
                                 <span className="text-emerald-700 font-extrabold text-base whitespace-nowrap shrink-0 ml-auto">
-                                  {formatPrice(total)} {curr}
+                                  {formatAmount(total, program.currency)} {curr}
                                 </span>
                               </div>
                             </div>

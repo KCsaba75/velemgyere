@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useApp, formatPrice, formatHuf, formatProgramDisplayDate } from '../context/AppContext';
+import { useApp, formatAmount, formatHuf, formatProgramDisplayDate } from '../context/AppContext';
 import {
   PlusCircle,
   Edit3,
@@ -1048,7 +1048,7 @@ export const ProgramEditorModal: React.FC<ProgramEditorModalProps> = ({ isOpen, 
                   </div>
                   <p className="text-xs text-stone-500 mt-2.5">
                     {pricingMode === 'per_person'
-                      ? `Fejenkénti ár: ${formatPrice(Number(price) || 0)} ${curr} / fő, a végösszeg a résztvevők számával szorzódik.`
+                      ? `Fejenkénti ár: ${formatAmount(Number(price) || 0, currency)} ${curr} / fő, a végösszeg a résztvevők számával szorzódik.`
                       : 'Sávos ár: a csoport létszámától függő, a sávhoz tartozó FIX összeg a teljes csoportra (nem fejenként).'}
                   </p>
                 </div>
@@ -1137,7 +1137,7 @@ export const ProgramEditorModal: React.FC<ProgramEditorModalProps> = ({ isOpen, 
                           {tier.max_participants ? `${tier.min_participants}-${tier.max_participants} fő` : `${tier.min_participants}+ fő`}
                         </span>
                         <div className="flex items-center gap-3">
-                          <strong className="text-emerald-700 font-bold">{formatPrice(tier.total_price)} {curr}</strong>
+                          <strong className="text-emerald-700 font-bold">{formatAmount(tier.total_price, currency)} {curr}</strong>
                           <button onClick={() => handleDeleteTier(tier)} title="Törlés" className="p-1.5 rounded-lg text-stone-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer">
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -1257,7 +1257,7 @@ export const ProgramEditorModal: React.FC<ProgramEditorModalProps> = ({ isOpen, 
                     </div>
                     <div className="absolute top-3 right-3 bg-stone-900/70 text-white text-[10px] font-bold px-2.5 py-1 rounded-lg shadow z-10">ELŐNÉZET</div>
                     <div className="absolute bottom-3 right-3 bg-emerald-600/95 backdrop-blur-sm text-white px-2.5 py-1 rounded-xl shadow-lg font-bold text-xs z-10">
-                      {formatPrice(previewDisplayPrice)} {curr}{pricingMode === 'tiered' ? '/túra-tól' : '/fő'}
+                      {formatAmount(previewDisplayPrice, currency)} {curr}{pricingMode === 'tiered' ? '/túra-tól' : '/fő'}
                     </div>
                   </div>
                   <div className="p-5">
@@ -1273,7 +1273,7 @@ export const ProgramEditorModal: React.FC<ProgramEditorModalProps> = ({ isOpen, 
                       <div className="flex items-center justify-between pt-1.5 border-t border-stone-200/70">
                         <div className="flex items-center gap-1 text-emerald-800 font-bold">
                           <span className="text-base">💰</span>
-                          <span>{formatPrice(previewDisplayPrice)} {curr} {pricingMode === 'tiered' ? '/túra-tól' : '/fő'}</span>
+                          <span>{formatAmount(previewDisplayPrice, currency)} {curr} {pricingMode === 'tiered' ? '/túra-tól' : '/fő'}</span>
                         </div>
                         {curr === '€' && eurHufRate > 0 && (
                           <span className="text-[11px] font-medium text-stone-500 tracking-tight">({formatHuf(previewDisplayPrice * eurHufRate)} Ft)</span>

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useApp, formatPrice, getBookingReference } from '../context/AppContext';
+import { useApp, formatAmount, getBookingReference } from '../context/AppContext';
 import {
   X,
   Ticket,
@@ -365,10 +365,10 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
             <div className="flex items-center gap-2">
               <Wallet className="w-4 h-4 text-stone-400 shrink-0" />
               <span>
-                Összesen: <strong className="text-stone-900">{formatPrice(order.total_price)} {order.currency === 'EUR' ? '€' : order.currency}</strong>
+                Összesen: <strong className="text-stone-900">{formatAmount(order.total_price, order.currency)} {order.currency === 'EUR' ? '€' : order.currency}</strong>
                 {order.booking_fee > 0 && (
                   <span className="text-stone-500">
-                    {' '}(online: {formatPrice(order.booking_fee)} € · helyszínen: {formatPrice(order.onsite_amount)} €)
+                    {' '}(online: {formatAmount(order.booking_fee, order.currency)} {order.currency === 'EUR' ? '€' : order.currency} · helyszínen: {formatAmount(order.onsite_amount, order.currency)} {order.currency === 'EUR' ? '€' : order.currency})
                   </span>
                 )}
               </span>
@@ -651,8 +651,8 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
           providerPhone={contact?.phone}
           providerEmail={contact?.email}
           providerWebsite={contact?.website ?? undefined}
-          bookingFeeFormatted={order.booking_fee > 0 ? `${formatPrice(order.booking_fee)} ${order.currency === 'EUR' ? '€' : order.currency}` : undefined}
-          onsiteAmountFormatted={`${formatPrice(order.onsite_amount || order.total_price)} ${order.currency === 'EUR' ? '€' : order.currency}`}
+          bookingFeeFormatted={order.booking_fee > 0 ? `${formatAmount(order.booking_fee, order.currency)} ${order.currency === 'EUR' ? '€' : order.currency}` : undefined}
+          onsiteAmountFormatted={`${formatAmount(order.onsite_amount || order.total_price, order.currency)} ${order.currency === 'EUR' ? '€' : order.currency}`}
           onsitePaymentMethodLabel={order.onsite_payment_method ? PAYMENT_METHOD_LABEL[order.onsite_payment_method] : undefined}
         />
       </div>

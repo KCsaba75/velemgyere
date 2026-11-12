@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Program, OnsitePaymentMethod, ProgramOccurrence, OccurrenceAvailability } from '../types/database';
 import { useApp, CURRENT_BOOKING_YEAR } from '../context/AppContext';
-import { formatPrice, formatPlatformFee } from '../lib/priceUtils';
+import { formatAmount, formatPlatformFee } from '../lib/priceUtils';
 import { 
   X, 
   CheckCircle2, 
@@ -96,7 +96,7 @@ export const BookingCheckoutModal: React.FC<BookingCheckoutModalProps> = ({
   // breakdown-ban nem azt a szorzast irjuk ki, hanem a sav-alapu magyarazatot.
   const netTotalLabel = program.pricing_mode === 'tiered'
     ? `${participantsCount} fő (sávos ár)`
-    : `${participantsCount} × ${formatPrice(program.price)} ${curr}`;
+    : `${participantsCount} × ${formatAmount(program.price, program.currency)} ${curr}`;
 
   // Tenyleges foglalas-letrehozas (kanban 2ee2425b: bevezetes alatt egyelore
   // nem kerunk penzt, ezert ez most kozvetlenul a review lepesrol fut, nem a
@@ -312,7 +312,7 @@ export const BookingCheckoutModal: React.FC<BookingCheckoutModalProps> = ({
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-stone-600">
                     <span>Részvételi alapár ({netTotalLabel}):</span>
-                    <strong className="text-stone-900 font-semibold">{formatPrice(netTotal)} {curr}</strong>
+                    <strong className="text-stone-900 font-semibold">{formatAmount(netTotal, program.currency)} {curr}</strong>
                   </div>
                   <div className="flex items-center justify-between text-emerald-800 bg-emerald-50/70 p-2 rounded-xl border border-emerald-100">
                     <span className="flex items-center gap-1.5 font-bold">
@@ -329,13 +329,13 @@ export const BookingCheckoutModal: React.FC<BookingCheckoutModalProps> = ({
                       Helyszínen fizetendő díj (program napján a szolgáltatónak):
                     </span>
                     <strong className="text-stone-900 font-bold whitespace-nowrap">
-                      {formatPrice(netTotal)} {curr}
+                      {formatAmount(netTotal, program.currency)} {curr}
                     </strong>
                   </div>
                   <div className="pt-2 border-t border-stone-200 flex items-center justify-between text-stone-900 text-sm font-bold">
                     <span>Teljes fizetendő részvételi összeg:</span>
                     <span className="text-emerald-700 font-black text-base whitespace-nowrap">
-                      {formatPrice(total)} {curr}
+                      {formatAmount(total, program.currency)} {curr}
                     </span>
                   </div>
                 </div>
@@ -506,7 +506,7 @@ export const BookingCheckoutModal: React.FC<BookingCheckoutModalProps> = ({
                 </div>
                 <div className="flex items-center justify-between text-stone-700">
                   <span>Helyszínen fizetendő ({onsitePaymentMethod === 'revolut' ? 'Revolut' : 'Készpénz'}):</span>
-                  <strong className="text-stone-900">{formatPrice(netTotal)} {curr}</strong>
+                  <strong className="text-stone-900">{formatAmount(netTotal, program.currency)} {curr}</strong>
                 </div>
               </div>
 
@@ -745,7 +745,7 @@ export const BookingCheckoutModal: React.FC<BookingCheckoutModalProps> = ({
             notIncluded={program.not_included}
             providerCompanyName={program.provider?.company_name}
             providerDescription={program.provider?.description}
-            onsiteAmountFormatted={`${formatPrice(netTotal)} ${curr}`}
+            onsiteAmountFormatted={`${formatAmount(netTotal, program.currency)} ${curr}`}
             onsitePaymentMethodLabel={onsitePaymentMethod === 'revolut' ? 'Revolut' : 'Készpénz'}
           />
         </div>
