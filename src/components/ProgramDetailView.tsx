@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { useApp, formatAmount, formatPlatformFee, formatProgramDisplayDate } from '../context/AppContext';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
@@ -24,7 +24,9 @@ import {
   Heart,
   Ticket,
   Edit3,
-  Landmark
+  Landmark,
+  Mail,
+  Link2
 } from 'lucide-react';
 import { CategoryIcon } from './CategoryIcon';
 import { CountryFlag } from './CountryFlag';
@@ -119,6 +121,20 @@ export const ProgramDetailView: React.FC = () => {
   // Gallery state
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [copiedLink, setCopiedLink] = useState(false);
+  // Kanban 7c62b5fb: Megosztas lenyilo menu (WhatsApp/Messenger/Email/Link).
+  const [isShareMenuOpen, setIsShareMenuOpen] = useState(false);
+  const shareMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isShareMenuOpen) return;
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (shareMenuRef.current && !shareMenuRef.current.contains(e.target as Node)) {
+        setIsShareMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [isShareMenuOpen]);
 
   // Availability check (point 6) -- only callable once logged in, see checkProgramAvailability.
   const [availability, setAvailability] = useState<ProgramAvailability | null>(null);
@@ -315,7 +331,29 @@ export const ProgramDetailView: React.FC = () => {
   const handleCopyLink = () => {
     navigator.clipboard?.writeText(window.location.href);
     setCopiedLink(true);
+    setIsShareMenuOpen(false);
     setTimeout(() => setCopiedLink(false), 2500);
+  };
+
+  const handleShareWhatsApp = () => {
+    const text = `${program.title} - ${window.location.href}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
+    setIsShareMenuOpen(false);
+  };
+
+  // Messenger app_id nelkul, megbizhatoan csak a mobil-app deep linkje mukodik
+  // (nincs sajat FB app, a /dialog/send JS API app_id-t igenyelne) -- deszkopon
+  // nincs kezelo, de ez a Messenger-megosztas ismert korlata, nem hiba itt.
+  const handleShareMessenger = () => {
+    window.open(`fb-messenger://share/?link=${encodeURIComponent(window.location.href)}`, '_blank', 'noopener,noreferrer');
+    setIsShareMenuOpen(false);
+  };
+
+  const handleShareEmail = () => {
+    const subject = encodeURIComponent(program.title);
+    const body = encodeURIComponent(`${program.short_description}\n\n${window.location.href}`);
+    window.location.href = `mailto:?subject=${subject}&body=${body}`;
+    setIsShareMenuOpen(false);
   };
 
   return (
@@ -373,18 +411,61 @@ export const ProgramDetailView: React.FC = () => {
             </button>
           )}
 
-          {/* Megosztás gomb közvetlenül a kép felett a többi címkével egy sorban */}
-          <button
-            type="button"
-            onClick={handleCopyLink}
-            className={`bg-white border border-stone-200 text-stone-700 hover:text-stone-900 hover:border-stone-300 hover:bg-stone-50 text-xs sm:text-sm font-bold px-3 py-1.5 rounded-xl shadow-sm flex items-center gap-1.5 transition-colors cursor-pointer ${
+          {/* Megosztás gomb közvetlenül a kép felett a többi címkével egy sorban --
+              kanban 7c62b5fb: lenyíló menü WhatsApp/Messenger/Email/Link opciókkal. */}
+          <div
+            ref={shareMenuRef}
+            className={`relative ${
               currentUser && (currentUser.role === 'admin' || (currentProvider && currentProvider.id === program.provider_id)) ? '' : 'sm:ml-auto'
             }`}
-            title="Link másolása"
           >
-            {copiedLink ? <Check className="w-4 h-4 text-emerald-600" /> : <Share2 className="w-4 h-4 text-stone-500" />}
-            <span>{copiedLink ? 'Megosztva!' : 'Megosztás'}</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setIsShareMenuOpen(prev => !prev)}
+              className="bg-white border border-stone-200 text-stone-700 hover:text-stone-900 hover:border-stone-300 hover:bg-stone-50 text-xs sm:text-sm font-bold px-3 py-1.5 rounded-xl shadow-sm flex items-center gap-1.5 transition-colors cursor-pointer"
+              title="Megosztás"
+            >
+              {copiedLink ? <Check className="w-4 h-4 text-emerald-600" /> : <Share2 className="w-4 h-4 text-stone-500" />}
+              <span>{copiedLink ? 'Megosztva!' : 'Megosztás'}</span>
+            </button>
+
+            {isShareMenuOpen && (
+              <div className="absolute left-0 top-full mt-2 w-56 bg-white rounded-2xl border border-stone-200 shadow-lg z-20 overflow-hidden animate-in fade-in duration-150">
+                <button
+                  type="button"
+                  onClick={handleShareWhatsApp}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm font-semibold text-stone-700 hover:bg-stone-50 transition-colors cursor-pointer"
+                >
+                  <span className="text-base">💬</span>
+                  <span>WhatsApp</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleShareMessenger}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm font-semibold text-stone-700 hover:bg-stone-50 transition-colors cursor-pointer"
+                >
+                  <span className="text-base">📨</span>
+                  <span>Messenger</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleShareEmail}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm font-semibold text-stone-700 hover:bg-stone-50 transition-colors cursor-pointer"
+                >
+                  <Mail className="w-4 h-4 text-stone-500 shrink-0" />
+                  <span>Email</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCopyLink}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm font-semibold text-stone-700 hover:bg-stone-50 transition-colors cursor-pointer border-t border-stone-100"
+                >
+                  <Link2 className="w-4 h-4 text-stone-500 shrink-0" />
+                  <span>Link másolása</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="relative aspect-[16/9] sm:aspect-[21/9] w-full rounded-3xl overflow-hidden shadow-lg border border-stone-200 bg-stone-900">
