@@ -1,6 +1,6 @@
 import React from 'react';
 import { Program } from '../types/database';
-import { MapPin, Calendar, Clock, ArrowRight, Sparkles, Building2, Heart, Star } from 'lucide-react';
+import { MapPin, Calendar, Clock, ArrowRight, Sparkles, Building2, Heart, Star, Crown } from 'lucide-react';
 import { CategoryIcon } from './CategoryIcon';
 import { CountryFlag } from './CountryFlag';
 import { useApp, formatAmount, formatHuf, formatProgramDisplayDate } from '../context/AppContext';
@@ -146,6 +146,15 @@ export const ProgramCard: React.FC<ProgramCardProps> = ({ program, onSelect }) =
           <div className="flex items-center gap-1.5 text-xs text-stone-500 mb-2">
             <Building2 className="w-3.5 h-3.5 text-stone-400 shrink-0" />
             <span className="font-semibold text-stone-700 truncate">{program.provider?.company_name || 'Helyi magyar szolgáltató'}</span>
+            {program.provider?.is_founder && (
+              <span
+                className="inline-flex items-center gap-0.5 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-md shrink-0"
+                title="Alapító szolgáltató -- a Velem Gyere első 20 partnere között"
+              >
+                <Crown className="w-3 h-3" />
+                Alapító
+              </span>
+            )}
           </div>
 
           {/* Program Title */}

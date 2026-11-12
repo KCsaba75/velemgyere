@@ -1132,6 +1132,17 @@ where status = 'approved';
 
 alter view public.providers_public set (security_invoker = true);
 
+-- Kanban fadb2f0d (2026-11-12): is_founder hozzaadva a publikus view-hoz, lasd
+-- supabase/migrations/20261112020000_providers_public_is_founder.sql -- a
+-- fenti definicio csak tortenelmi referencia, a VALOS allapotot a legutolso
+-- "create or replace view public.providers_public" nyeri a fajlban.
+create or replace view public.providers_public as
+select id, company_name, description, status, accepted_payment_methods, is_founder
+from public.providers
+where status = 'approved';
+
+alter view public.providers_public set (security_invoker = true);
+
 -- A vevo Veglegesitesnel valasztott onsite_payment_method-jat a szolgaltato altal
 -- TENYLEGESEN elfogadott modokra kell korlatozni -- UI-szinten mar megvan, de API-n
 -- keresztul (direkt insert/update) is ki kell kenyszeriteni, kulonben megkerulheto.
@@ -1926,3 +1937,47 @@ create policy "Admins can manage payout requests"
 -- feltétel (pl. active = true) hamis. Ez produkcio-szeles regresszio lenne egy
 -- WARN-szintu, gyakorlatilag artalmatlan talalat miatt. Dontes: elfogadva,
 -- nem valtoztatunk.
+
+-- ============================================================================
+-- KANBAN fadb2f0d (Csaba, 2026-11-12): "Alapito" jelzes az elso 20
+-- szolgaltatonak, sorrend = az elso publikalt program idopontja szerint,
+-- orokre megmarad. Lasd supabase/migrations/20261112010000_provider_founder_badge.sql
+-- a teljes indoklasert (trigger-alapu first_published_at + permanensen
+-- befagyasztott is_founder, mert egy futasidoben ujraszamolt "top 20"
+-- sertene az "orokre megmarad" kerest egy kesobbi torlesnel).
+alter table public.providers add column if not exists first_published_at timestamptz;
+alter table public.providers add column if not exists is_founder boolean not null default false;
+
+create or replace function public.set_provider_first_published()
+returns trigger as $$
+begin
+  if new.status = 'published' and (tg_op = 'INSERT' or old.status is distinct from 'published') then
+    update public.providers
+    set first_published_at = coalesce(first_published_at, now())
+    where id = new.provider_id;
+
+    update public.providers
+    set is_founder = true
+    where id = new.provider_id
+      and is_founder = false
+      and first_published_at is not null
+      and (
+        select count(*) from public.providers p2
+        where p2.first_published_at is not null
+          and p2.first_published_at <= providers.first_published_at
+      ) <= 20;
+  end if;
+  return new;
+end;
+$$ language plpgsql security definer set search_path = public;
+
+drop trigger if exists trg_set_provider_first_published on public.programs;
+create trigger trg_set_provider_first_published
+after insert or update of status on public.programs
+for each row
+execute function public.set_provider_first_published();
+
+-- is_founder publikus badge (katalogus-kartya/profil), tehat a teaser-only
+-- anon/authenticated oszlop-grant listahoz kell adni -- first_published_at
+-- NEM publikus, csak admin_list_providers()-en keresztul.
+grant select (is_founder) on public.providers to anon, authenticated;

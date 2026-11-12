@@ -40,6 +40,10 @@ export interface Provider {
   description: string;
   status: ProviderStatus;
   created_at?: string;
+  // Kanban fadb2f0d: "Alapito" jelzes az elso 20 szolgaltatonak (az elso
+  // publikalt programjuk idopontja szerint rangsorolva, orokre megmarad).
+  // Kulon public column-grant (schema.sql) teszi lathatova anon/authenticated-nek.
+  is_founder?: boolean;
   // Stripe Connect prep (kanban 71215856 point 5) -- columns only, no Stripe
   // logic wired up yet. onsite_only is the only mode currently in use.
   stripe_account_id?: string | null;

@@ -13,6 +13,7 @@ import {
   Ticket,
   ArrowRight,
   PartyPopper,
+  Crown,
 } from 'lucide-react';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
 
@@ -132,6 +133,15 @@ export const ProviderOverviewPage: React.FC = () => {
         <h1 className="text-xl sm:text-3xl lg:text-4xl font-extrabold font-display text-stone-900 tracking-tight flex items-center gap-2">
           <LayoutDashboard className="w-6 h-6 sm:w-8 sm:h-8 text-emerald-600" />
           <span>Áttekintés</span>
+          {currentProvider?.is_founder && (
+            <span
+              className="inline-flex items-center gap-1 text-xs sm:text-sm font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg"
+              title="A Velem Gyere első 20 szolgáltatója között csatlakoztál -- ez a jelzés örökre megmarad"
+            >
+              <Crown className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              Alapító szolgáltató
+            </span>
+          )}
         </h1>
         <p className="text-sm text-stone-500 mt-1">
           Statisztikák, teendők és legutóbbi események egy helyen.
