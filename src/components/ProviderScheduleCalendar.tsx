@@ -286,6 +286,115 @@ export const ProviderScheduleCalendar: React.FC<ProviderScheduleCalendarProps> =
     setDayDetailOpen(true);
   };
 
+  // Kanban 28432797: honap-valtas oldalra-swipe-pal mobilon (Google Naptar
+  // minta), a mar meglevo nyil-gombok MELLETT, nem helyette. Natuv
+  // touchstart/touchmove/touchend a honap-racs konteinerere, NEM a React
+  // szintetikus onTouch* propok -- azok a touchmove-ot passzivkent kotik be,
+  // es egy preventDefault() benne csak figyelmeztetest ad, nem allitja meg a
+  // bongeszo sajat gorgeteset (ismert React-csapda).
+  // Harom gesztus EGYUTTELESET kell szetvalasztani (lasd kartya):
+  //  a) fuggoleges lap-gorgetes (629ebf36 ota magasabb cellak miatt van mit
+  //     gorgetni) -- ha a mozdulat fuggoleges-dominans, azonnal 'active=false'-ra
+  //     allunk es SOHA nem hivunk preventDefault-ot, a natuv scroll valtozatlan.
+  //  b) MonthOccurrenceChip sajat drag-athelyezese a grip-fogantyun (dnd-kit
+  //     TouchSensor, lasd 53ea4b7e) -- ha a touchstart a grip-gombon
+  //     kezdodott, a swipe-detektalas teljesen kimarad, a gesztus 100%-ban a
+  //     dnd-kit-e.
+  //  c) az uj honap-lapozo swipe -- csak akkor aktivalodik, ha a mozdulat
+  //     TISZTAN horizontalis (|dx| > |dy| * 1.5) ES egy minimum 60px-et
+  //     mozdult, hogy veletlen remegesre ne valtson honapot.
+  // A racs vizualisan koveti az ujjat (transform: translateX) a jobb erzet
+  // kedveert, de a teljes Google Naptar-szeru "lapozo" ki-be csuszo animacio
+  // (elozo/kovetkezo honap egyszerre lathato athuzas kozben) szandekosan nincs
+  // megvalositva -- a kartya csak a lapozas-gesztust es az utkozes-kezelest
+  // kerte, a teljes vizualis parity kulon, nagyobb scope lenne.
+  const monthGridRef = useRef<HTMLDivElement>(null);
+  const monthSwipeHandlersRef = useRef({ prev: handlePrevMonth, next: handleNextMonth });
+  useEffect(() => {
+    monthSwipeHandlersRef.current = { prev: handlePrevMonth, next: handleNextMonth };
+  });
+
+  useEffect(() => {
+    const el = monthGridRef.current;
+    if (!el) return;
+
+    const MIN_SWIPE_PX = 60;
+    const DIRECTION_LOCK_PX = 10;
+    const HORIZONTAL_RATIO = 1.5;
+    const GRIP_SELECTOR = 'button[title="Húzással áthelyezhető másik napra"]';
+
+    const state: { active: boolean; startX: number; startY: number; direction: 'horizontal' | 'vertical' | null } = {
+      active: false,
+      startX: 0,
+      startY: 0,
+      direction: null,
+    };
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) {
+        state.active = false;
+        return;
+      }
+      const target = e.target;
+      if (target instanceof Element && target.closest(GRIP_SELECTOR)) {
+        state.active = false;
+        return;
+      }
+      state.active = true;
+      state.direction = null;
+      state.startX = e.touches[0].clientX;
+      state.startY = e.touches[0].clientY;
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (!state.active || e.touches.length !== 1) return;
+      const dx = e.touches[0].clientX - state.startX;
+      const dy = e.touches[0].clientY - state.startY;
+
+      if (state.direction === null) {
+        if (Math.abs(dx) < DIRECTION_LOCK_PX && Math.abs(dy) < DIRECTION_LOCK_PX) return;
+        state.direction = Math.abs(dx) > Math.abs(dy) * HORIZONTAL_RATIO ? 'horizontal' : 'vertical';
+        if (state.direction === 'vertical') {
+          state.active = false;
+          return;
+        }
+      }
+
+      e.preventDefault();
+      el.style.transition = 'none';
+      el.style.transform = `translateX(${dx}px)`;
+    };
+
+    const onTouchEnd = (e: TouchEvent) => {
+      if (!state.active || state.direction !== 'horizontal') {
+        state.active = false;
+        return;
+      }
+      const endX = e.changedTouches[0]?.clientX ?? state.startX;
+      const dx = endX - state.startX;
+      el.style.transition = 'transform 150ms ease-out';
+      el.style.transform = '';
+      if (dx <= -MIN_SWIPE_PX) {
+        monthSwipeHandlersRef.current.next();
+      } else if (dx >= MIN_SWIPE_PX) {
+        monthSwipeHandlersRef.current.prev();
+      }
+      state.active = false;
+    };
+
+    el.addEventListener('touchstart', onTouchStart, { passive: true });
+    el.addEventListener('touchmove', onTouchMove, { passive: false });
+    el.addEventListener('touchend', onTouchEnd, { passive: true });
+    el.addEventListener('touchcancel', onTouchEnd, { passive: true });
+
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchmove', onTouchMove);
+      el.removeEventListener('touchend', onTouchEnd);
+      el.removeEventListener('touchcancel', onTouchEnd);
+    };
+  }, []);
+
   const monthName = useMemo(() => {
     const date = new Date(currentYear, currentMonth, 1);
     const month = date.toLocaleDateString('hu-HU', { month: 'long' });
@@ -417,7 +526,7 @@ export const ProviderScheduleCalendar: React.FC<ProviderScheduleCalendarProps> =
         </div>
 
         <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-          <div className="grid grid-cols-7 divide-x divide-y divide-stone-100 border-b border-stone-200">
+          <div ref={monthGridRef} className="grid grid-cols-7 divide-x divide-y divide-stone-100 border-b border-stone-200">
             {calendarDays.map((dayItem, index) => (
               <MonthDayCell
                 key={index}
