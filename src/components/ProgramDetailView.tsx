@@ -396,34 +396,40 @@ export const ProgramDetailView: React.FC = () => {
             fetchPriority="high"
           />
 
-          {/* Floating Heart Button in the top right corner of the main photo */}
-          <button
-            type="button"
-            onClick={() => {
-              if (!program) return;
-              // Same toggle-off-on-click fix as ProgramCard (kanban 12f43965).
-              if (isFav) {
-                toggleFavorite(program.id);
-              } else {
-                openFolderModal(program);
+          {/* Floating Heart Button in the top right corner of the main photo --
+              a Kedvencek funkcio kifejezetten programvadaszoknak keszult
+              (lasd AppContext toggleFavorite/isProgramFavorite kommentjei),
+              provider-fiokkal nezve nincs ertelme, ezert kanban 3aa63940
+              szerint teljesen elrejtve, nem csak letiltva. */}
+          {currentUser?.role !== 'provider' && (
+            <button
+              type="button"
+              onClick={() => {
+                if (!program) return;
+                // Same toggle-off-on-click fix as ProgramCard (kanban 12f43965).
+                if (isFav) {
+                  toggleFavorite(program.id);
+                } else {
+                  openFolderModal(program);
+                }
+              }}
+              className={`absolute top-4 right-4 z-10 w-11 h-11 rounded-full backdrop-blur-md shadow-xl flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-90 cursor-pointer ${
+                isFav
+                  ? 'bg-white text-rose-500 ring-2 ring-rose-400/60 shadow-rose-500/30'
+                  : 'bg-stone-900/60 hover:bg-white text-white hover:text-rose-500'
+              }`}
+              title={
+                !isAuthenticated
+                  ? "Jelentkezz be programvadászként a kedvencek mentéséhez (♡)"
+                  : isFav
+                    ? "Mentve a kedvencekhez (mappák kezelése)"
+                    : "Mentés egy mappába (♡)"
               }
-            }}
-            className={`absolute top-4 right-4 z-10 w-11 h-11 rounded-full backdrop-blur-md shadow-xl flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-90 cursor-pointer ${
-              isFav
-                ? 'bg-white text-rose-500 ring-2 ring-rose-400/60 shadow-rose-500/30'
-                : 'bg-stone-900/60 hover:bg-white text-white hover:text-rose-500'
-            }`}
-            title={
-              !isAuthenticated
-                ? "Jelentkezz be programvadászként a kedvencek mentéséhez (♡)"
-                : isFav
-                  ? "Mentve a kedvencekhez (mappák kezelése)"
-                  : "Mentés egy mappába (♡)"
-            }
-            aria-label={isFav ? "Kedvenc program" : "Mentés a kedvencek közé"}
-          >
-            <Heart className={`w-5 h-5 transition-transform ${isFav ? 'fill-rose-500 text-rose-500 scale-110' : 'text-current'}`} />
-          </button>
+              aria-label={isFav ? "Kedvenc program" : "Mentés a kedvencek közé"}
+            >
+              <Heart className={`w-5 h-5 transition-transform ${isFav ? 'fill-rose-500 text-rose-500 scale-110' : 'text-current'}`} />
+            </button>
+          )}
         </div>
 
         {/* Alatta: bal oldalon a kisképek (galéria), jobb oldalon az összegcímke - azonos távolságra a nagy képtől */}
@@ -974,21 +980,24 @@ export const ProgramDetailView: React.FC = () => {
                 </div>
               )}
 
-              {/* Quick Favorite Save in Sticky Booking Card */}
-              <div className="pt-2 border-t border-stone-100 flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => program && openFolderModal(program)}
-                  className={`flex-1 py-2.5 px-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                    isFav
-                      ? 'bg-rose-50 border-rose-200 text-rose-700 shadow-xs'
-                      : 'bg-white border-stone-200 text-stone-700 hover:border-stone-300 hover:bg-stone-50'
-                  }`}
-                >
-                  <Heart className={`w-4 h-4 ${isFav ? 'fill-rose-500 text-rose-500' : 'text-stone-400'}`} />
-                  <span>{isFav ? 'Mentve a kedvencekhez (mappák kezelése)' : 'Mentés egy mappába (♡)'}</span>
-                </button>
-              </div>
+              {/* Quick Favorite Save in Sticky Booking Card -- kanban 3aa63940,
+                  lasd a fenti floating Heart gomb kommentjet. */}
+              {currentUser?.role !== 'provider' && (
+                <div className="pt-2 border-t border-stone-100 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => program && openFolderModal(program)}
+                    className={`flex-1 py-2.5 px-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                      isFav
+                        ? 'bg-rose-50 border-rose-200 text-rose-700 shadow-xs'
+                        : 'bg-white border-stone-200 text-stone-700 hover:border-stone-300 hover:bg-stone-50'
+                    }`}
+                  >
+                    <Heart className={`w-4 h-4 ${isFav ? 'fill-rose-500 text-rose-500' : 'text-stone-400'}`} />
+                    <span>{isFav ? 'Mentve a kedvencekhez (mappák kezelése)' : 'Mentés egy mappába (♡)'}</span>
+                  </button>
+                </div>
+              )}
             </div>
 
 
