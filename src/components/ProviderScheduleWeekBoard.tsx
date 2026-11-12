@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   DndContext,
   useDroppable,
@@ -57,6 +57,20 @@ function mondayOf(d: Date): Date {
   return monday;
 }
 
+function addWeeks(d: Date, weeks: number): Date {
+  const r = new Date(d);
+  r.setDate(r.getDate() + weeks * 7);
+  return r;
+}
+
+// Kanban fe350dd4 (Zora dontese B): kezdetben ~1 honapnyi (4 het) toltodik be,
+// utana a also sentinel 2-esevel bovit, max ~3 honapig (12 het) -- onnantol a
+// sentinel tovabbra is latszik, de a bovites nema no-op (nincs kulon UI-jelzes,
+// nincs igazi windowing/regi-het-eltavolitas v1-ben, csak novekvo lista).
+const INITIAL_WEEKS = 4;
+const LOAD_MORE_WEEKS = 2;
+const MAX_WEEKS = 12;
+
 // Kanban 4230d70e (C pont, Csaba referencia-kepe alapjan): Trello-stilusu
 // nap-oszlopos het-nezet, @dnd-kit/core-ral. Huzas = athelyezes (onMoveOccurrence,
 // csak a datum valtozik). A masolashoz NEM Ctrl+huzas/long-press van (Zora eredeti
@@ -76,9 +90,52 @@ export const ProviderScheduleWeekBoard: React.FC<ProviderScheduleWeekBoardProps>
   onDeleteOccurrence,
   onOpenManualBooking,
 }) => {
-  const [weekStart, setWeekStart] = useState<Date>(() => mondayOf(new Date()));
+  // Kanban fe350dd4: tobb het egymas alatt, vegtelen-gorgetes-szeruen (lasd
+  // lejjebb a sentinel+IntersectionObserver-t). weekStarts[0] MINDIG a valodi
+  // aktualis het (sosem bovitunk visszafele, Zora dontese A) -- a kiemeles
+  // ezert egyszeruen idx===0.
+  const [weekStarts, setWeekStarts] = useState<Date[]>(() => {
+    const base = mondayOf(new Date());
+    return Array.from({ length: INITIAL_WEEKS }, (_, i) => addWeeks(base, i));
+  });
+  // Melyik het-szekciora mutat a Vissza/Elore/"Ez a het" -- csak ezt a gombsavot
+  // es a fejlec-labelt vezerli, a tenyleges gorgetest scrollIntoView vegzi.
+  const [focusedWeekIndex, setFocusedWeekIndex] = useState(0);
+  const weekSectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const bottomSentinelRef = useRef<HTMLDivElement | null>(null);
+
   const [selectedProgramId, setSelectedProgramId] = useState<string>('all');
   const [dayPopupOccurrence, setDayPopupOccurrence] = useState<ProgramOccurrence | null>(null);
+
+  const loadMoreWeeks = () => {
+    setWeekStarts(prev => {
+      if (prev.length >= MAX_WEEKS) return prev;
+      const extra = Array.from({ length: LOAD_MORE_WEEKS }, (_, i) => addWeeks(prev[prev.length - 1], i + 1));
+      return [...prev, ...extra].slice(0, MAX_WEEKS);
+    });
+  };
+
+  // Also sentinel: amint a nezetbe er (rootMargin-nal korabban, hogy ne legyen
+  // "villanas" uresseggel), tobb hetet tolt be. A MAX_WEEKS-sapka utan is
+  // futhat, de a loadMoreWeeks onnantol no-op.
+  useEffect(() => {
+    const el = bottomSentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => { if (entries[0]?.isIntersecting) loadMoreWeeks(); },
+      { rootMargin: '600px 0px' }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const key = toDateStr(weekStarts[focusedWeekIndex]);
+    const el = weekSectionRefs.current[key];
+    el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusedWeekIndex]);
 
   const bookedCountByOccurrence = useMemo(() => {
     const map = new Map<string, number>();
@@ -150,13 +207,20 @@ export const ProviderScheduleWeekBoard: React.FC<ProviderScheduleWeekBoardProps>
     return map;
   }, [programs]);
 
-  const weekDays = useMemo(() => {
-    return Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(weekStart);
-      d.setDate(weekStart.getDate() + i);
-      return { date: d, dateStr: toDateStr(d), label: WEEKDAY_LABELS[i] };
-    });
-  }, [weekStart]);
+  // Minden betoltott hetnek megvan a sajat 7 napja -- a huzas-celpont
+  // (useDroppable id=dateStr) globalisan egyedi, ugy mint eddig is, csak
+  // most tobb het alatt ismetlodik a szamitas.
+  const weeksWithDays = useMemo(() => {
+    return weekStarts.map(ws => ({
+      weekStart: ws,
+      weekKey: toDateStr(ws),
+      days: Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(ws);
+        d.setDate(ws.getDate() + i);
+        return { date: d, dateStr: toDateStr(d), label: WEEKDAY_LABELS[i] };
+      }),
+    }));
+  }, [weekStarts]);
 
   const occurrencesByDate = useMemo(() => {
     const map = new Map<string, Array<{ occ: ProgramOccurrence; program: Program | undefined }>>();
@@ -171,24 +235,46 @@ export const ProviderScheduleWeekBoard: React.FC<ProviderScheduleWeekBoardProps>
     return map;
   }, [occurrencesMap, selectedProgramId, programMap]);
 
-  const weekLabel = useMemo(() => {
-    const end = new Date(weekStart);
-    end.setDate(weekStart.getDate() + 6);
+  const fmtWeekLabel = (ws: Date) => {
+    const end = new Date(ws);
+    end.setDate(ws.getDate() + 6);
     const fmt = (d: Date) => d.toLocaleDateString('hu-HU', { month: 'short', day: 'numeric' });
-    return `${fmt(weekStart)} -- ${fmt(end)}`;
-  }, [weekStart]);
+    return `${fmt(ws)} -- ${fmt(end)}`;
+  };
+  const weekLabel = useMemo(
+    () => fmtWeekLabel(weekStarts[focusedWeekIndex]),
+    [weekStarts, focusedWeekIndex]
+  );
 
-  const handlePrevWeek = () => setWeekStart(prev => { const d = new Date(prev); d.setDate(d.getDate() - 7); return d; });
-  const handleNextWeek = () => setWeekStart(prev => { const d = new Date(prev); d.setDate(d.getDate() + 7); return d; });
-  const handleThisWeek = () => setWeekStart(mondayOf(new Date()));
+  // Kanban fe350dd4: a gombok mar nem cserelik le a tartalmat, hanem a megfelelo
+  // mar betoltott (vagy szukseg eseten most betoltott) het-szekciora scrollolnak
+  // -- lasd a focusedWeekIndex-re figyelo scrollIntoView-t feljebb. Csak ELORE
+  // bovitunk (Zora dontese A), ezert "Elozo het" a 0. indexnel le van tiltva.
+  const handlePrevWeek = () => setFocusedWeekIndex(i => Math.max(0, i - 1));
+  const handleNextWeek = () => setFocusedWeekIndex(i => {
+    const next = i + 1;
+    if (next >= weekStarts.length - 1) loadMoreWeeks();
+    return next;
+  });
+  const handleThisWeek = () => setFocusedWeekIndex(0);
 
   return (
     <div className="space-y-4">
-      <div className="bg-white rounded-2xl border border-stone-200 p-4 sm:p-5 shadow-sm">
+      {/* Kanban fe350dd4: a het-valaszto+program-szuro sav a dashboard SAJAT
+          sticky fejlece ALA illeszkedik (Navbar + dashboard-fejlec magassaga),
+          ezert a top-ertek a ket felso sticky reteg osszegzett magassaganak
+          felel meg -- lasd ProviderScheduleDashboardPage.tsx sticky wrapperjet. */}
+      <div data-testid="week-sticky-navbar" className="sticky top-[114px] sm:top-[204px] z-20 bg-white rounded-2xl border border-stone-200 p-4 sm:p-5 shadow-sm">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="flex items-center gap-2 sm:gap-3">
             <div className="flex items-center bg-stone-100 p-1 rounded-xl border border-stone-200">
-              <button type="button" onClick={handlePrevWeek} aria-label="Előző hét" className="p-1.5 sm:p-2 rounded-lg hover:bg-white text-stone-700 hover:text-stone-900 transition-colors cursor-pointer">
+              <button
+                type="button"
+                onClick={handlePrevWeek}
+                disabled={focusedWeekIndex === 0}
+                aria-label="Előző hét"
+                className="p-1.5 sm:p-2 rounded-lg hover:bg-white text-stone-700 hover:text-stone-900 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+              >
                 <ChevronLeft className="w-5 h-5" />
               </button>
               <button type="button" onClick={handleThisWeek} className="px-3 py-1 text-xs font-bold text-stone-700 hover:text-stone-900 hover:bg-white rounded-lg transition-colors cursor-pointer">
@@ -249,52 +335,81 @@ export const ProviderScheduleWeekBoard: React.FC<ProviderScheduleWeekBoardProps>
       )}
 
       <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-3">
-          {weekDays.map(day => (
-            <DayColumn
-              key={day.dateStr}
-              dateStr={day.dateStr}
-              label={day.label}
-              date={day.date}
-              items={occurrencesByDate.get(day.dateStr) || []}
-              weekDays={weekDays}
-              bookedCountByOccurrence={bookedCountByOccurrence}
-              pendingOccurrenceIds={pendingOccurrenceIds}
-              movingOccurrenceId={movingOccurrenceId}
-              moveDate={moveDate}
-              moveStartTime={moveStartTime}
-              moveEndTime={moveEndTime}
-              moveSaving={moveSaving}
-              moveError={moveError}
-              onStartMove={startMove}
-              onCancelMove={onCancelMove}
-              onChangeMoveDate={setMoveDate}
-              onChangeMoveStartTime={setMoveStartTime}
-              onChangeMoveEndTime={setMoveEndTime}
-              onSaveMove={saveMove}
-              copyingOccurrenceId={copyingOccurrenceId}
-              copyDate={copyDate}
-              copySaving={copySaving}
-              copyError={copyError}
-              onStartCopy={startCopy}
-              onCancelCopy={onCancelCopy}
-              onChangeCopyDate={setCopyDate}
-              onSaveCopy={saveCopy}
-              copyMode={copyMode}
-              onChangeCopyMode={setCopyMode}
-              recurringWeekday={recurringWeekday}
-              onChangeRecurringWeekday={setRecurringWeekday}
-              recurringUntilDate={recurringUntilDate}
-              onChangeRecurringUntilDate={setRecurringUntilDate}
-              recurringSaving={recurringSaving}
-              recurringError={recurringError}
-              onSaveCopyRecurring={saveCopyRecurring}
-              deletingOccurrenceId={deletingOccurrenceId}
-              onDelete={handleDelete}
-              onOpenPopup={setDayPopupOccurrence}
-            />
-          ))}
+        <div className="space-y-5">
+          {weeksWithDays.map((week, idx) => {
+            const isCurrentWeek = idx === 0;
+            return (
+              <div
+                key={week.weekKey}
+                ref={(el) => { weekSectionRefs.current[week.weekKey] = el; }}
+                // scroll-mt: amikor a Vissza/Elore gomb ide scrollol, ennyivel
+                // tolodik lejjebb a celpont, hogy ne csusszon a Navbar + a ket
+                // sticky sav (dashboard-fejlec + ez a het-nav sav) ala.
+                className={`rounded-2xl p-2.5 sm:p-3 scroll-mt-[236px] sm:scroll-mt-[292px] transition-colors ${
+                  isCurrentWeek ? 'bg-emerald-50/50 ring-2 ring-emerald-200/80' : ''
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-2 px-1">
+                  <span className={`text-xs font-extrabold uppercase tracking-wide ${isCurrentWeek ? 'text-emerald-700' : 'text-stone-400'}`}>
+                    {fmtWeekLabel(week.weekStart)}
+                  </span>
+                  {isCurrentWeek && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-600 text-white">Ez a hét</span>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-3">
+                  {week.days.map(day => (
+                    <DayColumn
+                      key={day.dateStr}
+                      dateStr={day.dateStr}
+                      label={day.label}
+                      date={day.date}
+                      items={occurrencesByDate.get(day.dateStr) || []}
+                      weekDays={week.days}
+                      bookedCountByOccurrence={bookedCountByOccurrence}
+                      pendingOccurrenceIds={pendingOccurrenceIds}
+                      movingOccurrenceId={movingOccurrenceId}
+                      moveDate={moveDate}
+                      moveStartTime={moveStartTime}
+                      moveEndTime={moveEndTime}
+                      moveSaving={moveSaving}
+                      moveError={moveError}
+                      onStartMove={startMove}
+                      onCancelMove={onCancelMove}
+                      onChangeMoveDate={setMoveDate}
+                      onChangeMoveStartTime={setMoveStartTime}
+                      onChangeMoveEndTime={setMoveEndTime}
+                      onSaveMove={saveMove}
+                      copyingOccurrenceId={copyingOccurrenceId}
+                      copyDate={copyDate}
+                      copySaving={copySaving}
+                      copyError={copyError}
+                      onStartCopy={startCopy}
+                      onCancelCopy={onCancelCopy}
+                      onChangeCopyDate={setCopyDate}
+                      onSaveCopy={saveCopy}
+                      copyMode={copyMode}
+                      onChangeCopyMode={setCopyMode}
+                      recurringWeekday={recurringWeekday}
+                      onChangeRecurringWeekday={setRecurringWeekday}
+                      recurringUntilDate={recurringUntilDate}
+                      onChangeRecurringUntilDate={setRecurringUntilDate}
+                      recurringSaving={recurringSaving}
+                      recurringError={recurringError}
+                      onSaveCopyRecurring={saveCopyRecurring}
+                      deletingOccurrenceId={deletingOccurrenceId}
+                      onDelete={handleDelete}
+                      onOpenPopup={setDayPopupOccurrence}
+                    />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </div>
+
+        {/* Also sentinel -- lasd a feljebbi IntersectionObserver-t (loadMoreWeeks) */}
+        <div ref={bottomSentinelRef} aria-hidden="true" className="h-px" />
       </DndContext>
 
       {dayPopupOccurrence && (
