@@ -160,7 +160,13 @@ export const OccurrenceCard: React.FC<OccurrenceCardProps> = ({
     <div
       ref={draggable ? setNodeRef : undefined}
       style={style}
-      className={`rounded-xl border p-2.5 space-y-1.5 text-xs ${draggable ? 'touch-none' : ''} ${
+      // Kanban 53ea4b7e: a kulso kartya-div korabban is megkapta a touch-none-t
+      // draggable=true ag eseten, pedig a dnd-kit attributes/listeners csak a
+      // grip-gombra (lent) van felrakva, nem a kulso div-re -- a touch-none a
+      // kartya BARMELY pontjan elkezdett erintest letiltotta a bongeszo sajat
+      // gorgeteserol, ezert nem lehetett a kartyak FOLOTT gorgetni mobilon. A
+      // grip-gomb sajat touch-none-ja eleg a drag aktivalasahoz.
+      className={`rounded-xl border p-2.5 space-y-1.5 text-xs ${
         occ.status === 'cancelled'
           ? 'bg-stone-100 border-stone-200 opacity-70'
           : hasPending

@@ -910,6 +910,10 @@ interface MonthOccurrenceChipProps {
 // Kanban 5d9187b1 (#5): letszam (booked/maxCap) + narancs keret ha van
 // visszaigazolasra varo (pending) rendeles az occurrence-hez -- ugyanaz a
 // jelzes-logika, mint a heti OccurrenceCard-nal, csak kompaktabb formaban.
+// Kanban 53ea4b7e: a kulso chip-div touch-none-ja eltavolitva -- ugyanaz a
+// hiba volt mint az OccurrenceCard-nal (lasd ott), a grip-gomb sajat
+// touch-none-ja eleg a drag aktivalasahoz, a kulsoe csak a Havi nezet
+// gorgeteset blokkolta mobilon.
 const MonthOccurrenceChip: React.FC<MonthOccurrenceChipProps> = ({ occ, program, booked, hasPending, onOpenPopup }) => {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: occ.id });
   const maxCap = occ.max_participants ?? program?.max_participants ?? null;
@@ -922,7 +926,7 @@ const MonthOccurrenceChip: React.FC<MonthOccurrenceChipProps> = ({ occ, program,
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex items-center gap-1.5 sm:gap-1 text-xs sm:text-[10px] font-semibold rounded px-1.5 py-1 sm:px-1 sm:py-0.5 border leading-tight touch-none ${
+      className={`flex items-center gap-1.5 sm:gap-1 text-xs sm:text-[10px] font-semibold rounded px-1.5 py-1 sm:px-1 sm:py-0.5 border leading-tight ${
         occ.status === 'cancelled'
           ? 'bg-stone-100 border-stone-200 text-stone-400'
           : hasPending
