@@ -13,9 +13,33 @@ insert into public.regions (id, country, name, slug, flag_emoji, active)
 values ('e2e00000-0000-4000-8000-000000000002', 'Ciprus', 'E2E Régió', 'e2e-regio', '🇨🇾', true)
 on conflict (id) do nothing;
 
-insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, aud, role)
-values ('e2e00000-0000-4000-8000-0000000000aa', 'e2e-provider@test.local', crypt('e2e-test-pw-123', gen_salt('bf')), now(), '{}', '{}', 'authenticated', 'authenticated')
+-- instance_id kotelezo GoTrue-nak (NULL eseten a jelszo egyebkent helyes
+-- bejelentkezes is "Hibas e-mail cim vagy jelszo" 400-at ad -- lasd kanban
+-- 6171b71e verifikacios korben felfedezve, a sajat regisztracios folyammal
+-- letrehozott sorok mind '00000000-0000-0000-0000-000000000000'-t kapnak).
+insert into auth.users (id, instance_id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, aud, role)
+values ('e2e00000-0000-4000-8000-0000000000aa', '00000000-0000-0000-0000-000000000000', 'e2e-provider@test.local', crypt('e2e-test-pw-123', gen_salt('bf')), now(), '{}', '{}', 'authenticated', 'authenticated')
 on conflict (id) do nothing;
+
+-- A robust_signup_trigger a profiles sort 'visitor' default-dal hozza letre --
+-- ezt a seed-provider fiokot explicit providerre kell allitani, kulonben a
+-- ProtectedRoute (allow=['provider','admin']) kizarja a /szolgaltato/* utakrol.
+update public.profiles set role = 'provider' where user_id = 'e2e00000-0000-4000-8000-0000000000aa';
+
+-- GoTrue (ujabb verzioban) az auth.identities tablat is lekerdezi a
+-- bejelentkezesnel -- email/jelszo provider eseten is kell egy sor, kulonben
+-- "Database error querying schema" 500-at ad, a jelszotol fuggetlenul (ezt is
+-- a 6171b71e verifikacios korben derult ki -- egy UI-regisztracioval letrehozott
+-- sor automatikusan kapja ezt, a direkt SQL insert nem).
+insert into auth.identities (provider_id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+values (
+  'e2e00000-0000-4000-8000-0000000000aa',
+  'e2e00000-0000-4000-8000-0000000000aa',
+  jsonb_build_object('sub', 'e2e00000-0000-4000-8000-0000000000aa', 'email', 'e2e-provider@test.local', 'email_verified', true, 'phone_verified', false),
+  'email',
+  now(), now(), now()
+)
+on conflict (provider_id, provider) do nothing;
 
 insert into public.providers (id, user_id, company_name, contact_name, email, phone, description, status)
 values ('e2e00000-0000-4000-8000-000000000003', 'e2e00000-0000-4000-8000-0000000000aa',

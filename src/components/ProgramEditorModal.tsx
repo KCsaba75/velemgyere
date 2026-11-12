@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useApp, formatPrice } from '../context/AppContext';
+import { useApp, formatPrice, formatHuf, formatProgramDisplayDate } from '../context/AppContext';
 import {
   PlusCircle,
   Edit3,
@@ -17,10 +17,16 @@ import {
   Ban,
   RotateCcw,
   FileEdit,
+  ArrowRight,
+  Eye,
+  CheckCircle2,
+  Building2,
 } from 'lucide-react';
 import { Program, ProgramStatus, ProgramPriceTier, ProgramOccurrence } from '../types/database';
 import { supabase } from '../lib/supabase';
 import { uploadProgramImage } from '../lib/imageUpload';
+import { CategoryIcon } from './CategoryIcon';
+import { CountryFlag } from './CountryFlag';
 
 interface ProgramEditorModalProps {
   isOpen: boolean;
@@ -66,7 +72,12 @@ function generateDatesInRange(startDate: string, endDate: string, weekdays: Set<
   return dates;
 }
 
-type EditorTab = 'basic' | 'pricing' | 'occurrences';
+// 6171b71e: a wizard mod ('preview'/'confirm') csak UJ program letrehozasakor
+// aktiv (lasd isWizardMode lejjebb) -- meglevo program szerkesztesenel ezek a
+// lepesek sosem jelennek meg, az EditorTab-ba valo felvetelük csak annyit tesz,
+// hogy a handleSelectTab/ensureWorkingProgram meglevo (valtozatlan) logikaja
+// ujrahasznosithato a wizard "Tovabb" gombjahoz is.
+type EditorTab = 'basic' | 'pricing' | 'occurrences' | 'preview' | 'confirm';
 
 // Kanban 70afbb5a point 2: a korabban 3 kulon modalra szort "uj program / szerkesztes"
 // (NewProgramModal) + "arazas" (ProgramPricingModal) + "idopontok" (ProgramOccurrencesModal)
@@ -80,7 +91,13 @@ export const ProgramEditorModal: React.FC<ProgramEditorModalProps> = ({ isOpen, 
     categories, regions, createProgram, updateProgram, currentUser, currentProvider,
     getProgramPriceTiers, createPriceTier, deletePriceTier,
     getProgramOccurrences, createOccurrences, updateOccurrence, deleteOccurrence,
+    computeTotalPrice, eurHufRate,
   } = useApp();
+
+  // 6171b71e: UJ program letrehozasakor iranyitott varazslo-folyam (5 lepes,
+  // csak Vissza/Elore navigacio), MEGLEVO program szerkesztesenel a jelenlegi
+  // szabadon ugralhato fulos nezet marad valtozatlanul -- lasd kartya-brief.
+  const isWizardMode = !programToEdit;
 
   const [activeTab, setActiveTab] = useState<EditorTab>('basic');
   // A tenyleges mentett/auto-draftelt program -- programToEdit-bol jon, vagy az elso
@@ -321,6 +338,21 @@ export const ProgramEditorModal: React.FC<ProgramEditorModalProps> = ({ isOpen, 
     if (tab === 'occurrences') await reloadOccurrences(wp.id);
   };
 
+  // Wizard mod lepes-sorrendje -- a "Tovabb"/"Vissza" gomb ezen lepked, a
+  // meglevo handleSelectTab (ensureWorkingProgram + tiers/occurrences reload)
+  // valtozatlan logikajat hasznalva ujra, hogy ne legyen duplikalt mentes-kod.
+  const WIZARD_STEP_ORDER: EditorTab[] = ['basic', 'pricing', 'occurrences', 'preview', 'confirm'];
+
+  const handleWizardNext = async () => {
+    const next = WIZARD_STEP_ORDER[WIZARD_STEP_ORDER.indexOf(activeTab) + 1];
+    if (next) await handleSelectTab(next);
+  };
+
+  const handleWizardBack = () => {
+    const prev = WIZARD_STEP_ORDER[WIZARD_STEP_ORDER.indexOf(activeTab) - 1];
+    if (prev) setActiveTab(prev);
+  };
+
   if (!isOpen) return null;
 
   // --- Alapadatok handlers ---
@@ -379,8 +411,10 @@ export const ProgramEditorModal: React.FC<ProgramEditorModalProps> = ({ isOpen, 
     setImages(newImages);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Kivonva a handleSubmit-bol (6171b71e), hogy a wizard zaro lepesenek ket
+  // kulon gombja (piszkozat / kozzetetel) is hivhassa a status-radio UI
+  // nelkul, a payload-epites duplikalasa nelkul.
+  const saveProgram = async (targetStatus: ProgramStatus) => {
     if (!title.trim() || !shortDescription.trim() || !location.trim() || !departureLocation.trim()) {
       alert('Kérjük töltsd ki az összes kötelező mezőt!');
       return;
@@ -408,7 +442,7 @@ export const ProgramEditorModal: React.FC<ProgramEditorModalProps> = ({ isOpen, 
         max_participants: maxParticipants ? Number(maxParticipants) : undefined,
         included: includedList,
         not_included: notIncludedList,
-        status: status === 'draft' ? 'draft' as ProgramStatus : 'published' as ProgramStatus,
+        status: targetStatus,
       };
 
       if (workingProgram) {
@@ -424,6 +458,11 @@ export const ProgramEditorModal: React.FC<ProgramEditorModalProps> = ({ isOpen, 
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await saveProgram(status === 'draft' ? 'draft' : 'published');
   };
 
   // --- Árazás handlers ---
@@ -555,6 +594,21 @@ export const ProgramEditorModal: React.FC<ProgramEditorModalProps> = ({ isOpen, 
     { key: 'occurrences', label: 'Időpontok', icon: <Calendar className="w-4 h-4" /> },
   ];
 
+  // 6171b71e: uj-program wizard lepes-sora (csak isWizardMode-ban hasznalt,
+  // csak-informativ progress-sav, nem kattinthato -- a navigacio a Vissza/
+  // Elore gombokkal megy, nem a lepes-fejjel).
+  const WIZARD_STEPS: { key: EditorTab; label: string; icon: React.ReactNode }[] = [
+    ...TABS,
+    { key: 'preview', label: 'Előnézet', icon: <Eye className="w-4 h-4" /> },
+    { key: 'confirm', label: 'Záró döntés', icon: <CheckCircle2 className="w-4 h-4" /> },
+  ];
+  const wizardStepIndex = WIZARD_STEPS.findIndex(s => s.key === activeTab);
+  const previewCategory = categories.find(c => c.id === categoryId);
+  const previewRegion = regions.find(r => r.id === regionId);
+  const previewCoverEntry = images.find(img => img.isCover) || images[0];
+  const previewCoverUrl = previewCoverEntry?.thumbUrl || previewCoverEntry?.url;
+  const previewDisplayPrice = computeTotalPrice(Number(price) || 0);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-150 overflow-y-auto">
       <div className="bg-white rounded-3xl max-w-3xl w-full p-6 sm:p-8 shadow-2xl border border-stone-200 relative my-8 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
@@ -578,25 +632,53 @@ export const ProgramEditorModal: React.FC<ProgramEditorModalProps> = ({ isOpen, 
           </button>
         </div>
 
-        {/* Tabs */}
-        <div className="flex items-center gap-1.5 mb-5 bg-stone-100 p-1 rounded-xl">
-          {TABS.map(tab => (
-            <button
-              key={tab.key}
-              type="button"
-              data-testid={`editor-tab-${tab.key}`}
-              onClick={() => handleSelectTab(tab.key)}
-              disabled={draftCreating}
-              className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs sm:text-sm font-bold cursor-pointer transition-colors disabled:opacity-60 ${
-                activeTab === tab.key ? 'bg-white text-emerald-700 shadow-xs' : 'text-stone-500 hover:text-stone-800'
-              }`}
-            >
-              {draftCreating && tab.key !== 'basic' ? <Loader2 className="w-4 h-4 animate-spin" /> : tab.icon}
-              <span>{tab.label}</span>
-              {tab.key !== 'basic' && !workingProgram && <span className="text-[10px] text-stone-400 font-normal">(mentés után)</span>}
-            </button>
-          ))}
-        </div>
+        {/* Tabs -- csak szerkesztes-modban (szabadon ugralhato), uj program eseten a wizard-progress jon helyette */}
+        {!isWizardMode && (
+          <div className="flex items-center gap-1.5 mb-5 bg-stone-100 p-1 rounded-xl">
+            {TABS.map(tab => (
+              <button
+                key={tab.key}
+                type="button"
+                data-testid={`editor-tab-${tab.key}`}
+                onClick={() => handleSelectTab(tab.key)}
+                disabled={draftCreating}
+                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs sm:text-sm font-bold cursor-pointer transition-colors disabled:opacity-60 ${
+                  activeTab === tab.key ? 'bg-white text-emerald-700 shadow-xs' : 'text-stone-500 hover:text-stone-800'
+                }`}
+              >
+                {draftCreating && tab.key !== 'basic' ? <Loader2 className="w-4 h-4 animate-spin" /> : tab.icon}
+                <span>{tab.label}</span>
+                {tab.key !== 'basic' && !workingProgram && <span className="text-[10px] text-stone-400 font-normal">(mentés után)</span>}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Wizard progress -- csak-informativ, nem kattinthato; a navigacio Vissza/Elore gombbal megy (alant) */}
+        {isWizardMode && (
+          <div className="flex items-center gap-1 mb-5" data-testid="wizard-progress">
+            {WIZARD_STEPS.map((step, idx) => {
+              const isDone = idx < wizardStepIndex;
+              const isCurrent = idx === wizardStepIndex;
+              return (
+                <React.Fragment key={step.key}>
+                  <div
+                    data-testid={`wizard-step-${step.key}`}
+                    className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold ${
+                      isCurrent ? 'bg-emerald-50 text-emerald-700' : isDone ? 'text-emerald-600' : 'text-stone-400'
+                    }`}
+                  >
+                    {isDone ? <Check className="w-3.5 h-3.5" /> : step.icon}
+                    <span className="hidden sm:inline">{step.label}</span>
+                  </div>
+                  {idx < WIZARD_STEPS.length - 1 && (
+                    <div className={`flex-1 h-0.5 rounded ${isDone ? 'bg-emerald-400' : 'bg-stone-200'}`} />
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </div>
+        )}
 
         {draftError && (
           <div className="text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 px-3.5 py-2.5 rounded-xl mb-4">
@@ -933,25 +1015,28 @@ export const ProgramEditorModal: React.FC<ProgramEditorModalProps> = ({ isOpen, 
               </div>
             </div>
 
-            <div className="space-y-4 pt-4 border-t border-stone-100">
-              <h4 className="text-xs font-bold text-stone-400 uppercase tracking-wider">6. Státusz és közzététel</h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <label className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-start gap-3 ${status === 'published' ? 'border-emerald-600 bg-emerald-50/50 ring-2 ring-emerald-200' : 'border-stone-200 hover:border-stone-300'}`}>
-                  <input type="radio" name="prog_status" checked={status === 'published'} onChange={() => setStatus('published')} className="mt-1 accent-emerald-600" />
-                  <div>
-                    <div className="font-bold text-stone-900 text-sm flex items-center gap-1.5"><Sparkles className="w-4 h-4 text-emerald-600" /><span>Publikálás (Azonnal aktív)</span></div>
-                    <div className="text-xs text-stone-500 mt-1">A program azonnal aktívvá válik és megjelenik a katalógusban. Nincs szükség külön admin jóváhagyásra!</div>
-                  </div>
-                </label>
-                <label className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-start gap-3 ${status === 'draft' ? 'border-emerald-600 bg-emerald-50/50 ring-2 ring-emerald-200' : 'border-stone-200 hover:border-stone-300'}`}>
-                  <input type="radio" name="prog_status" checked={status === 'draft'} onChange={() => setStatus('draft')} className="mt-1 accent-emerald-600" />
-                  <div>
-                    <div className="font-bold text-stone-900 text-sm flex items-center gap-1.5"><FileText className="w-4 h-4 text-stone-600" /><span>Mentés piszkozatként (draft)</span></div>
-                    <div className="text-xs text-stone-500 mt-1">Csak te látod a szolgáltatói felületeden, a katalógusban rejtve marad. Később bármikor közzéteheted.</div>
-                  </div>
-                </label>
+            {/* Wizard modban a status-valasztas a zaro (5.) lepesre kerul at (lasd lejjebb) -- itt csak szerkesztes-modban jelenik meg, a mai helyen. */}
+            {!isWizardMode && (
+              <div className="space-y-4 pt-4 border-t border-stone-100">
+                <h4 className="text-xs font-bold text-stone-400 uppercase tracking-wider">6. Státusz és közzététel</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <label className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-start gap-3 ${status === 'published' ? 'border-emerald-600 bg-emerald-50/50 ring-2 ring-emerald-200' : 'border-stone-200 hover:border-stone-300'}`}>
+                    <input type="radio" name="prog_status" checked={status === 'published'} onChange={() => setStatus('published')} className="mt-1 accent-emerald-600" />
+                    <div>
+                      <div className="font-bold text-stone-900 text-sm flex items-center gap-1.5"><Sparkles className="w-4 h-4 text-emerald-600" /><span>Publikálás (Azonnal aktív)</span></div>
+                      <div className="text-xs text-stone-500 mt-1">A program azonnal aktívvá válik és megjelenik a katalógusban. Nincs szükség külön admin jóváhagyásra!</div>
+                    </div>
+                  </label>
+                  <label className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-start gap-3 ${status === 'draft' ? 'border-emerald-600 bg-emerald-50/50 ring-2 ring-emerald-200' : 'border-stone-200 hover:border-stone-300'}`}>
+                    <input type="radio" name="prog_status" checked={status === 'draft'} onChange={() => setStatus('draft')} className="mt-1 accent-emerald-600" />
+                    <div>
+                      <div className="font-bold text-stone-900 text-sm flex items-center gap-1.5"><FileText className="w-4 h-4 text-stone-600" /><span>Mentés piszkozatként (draft)</span></div>
+                      <div className="text-xs text-stone-500 mt-1">Csak te látod a szolgáltatói felületeden, a katalógusban rejtve marad. Később bármikor közzéteheted.</div>
+                    </div>
+                  </label>
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* ===== TAB: Árazás ===== */}
@@ -1163,24 +1248,151 @@ export const ProgramEditorModal: React.FC<ProgramEditorModalProps> = ({ isOpen, 
             )}
           </div>
 
-          {/* Submit -- mindig lathato, fuggetlenul az aktiv tabtol */}
-          <div className="pt-4 border-t border-stone-200 flex items-center justify-end gap-3">
-            <button type="button" onClick={onClose} className="px-5 py-3 rounded-xl border border-stone-300 text-stone-700 font-semibold text-sm hover:bg-stone-50 cursor-pointer">Mégse</button>
-            <button
-              type="submit"
-              disabled={isSubmitting || uploadingCount > 0}
-              className="px-7 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold text-sm shadow-md transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
-            >
-              <Sparkles className="w-4 h-4" />
-              <span>
-                {isSubmitting
-                  ? 'Mentés...'
-                  : (programToEdit || workingProgram)
-                    ? status === 'published' ? 'Módosítások mentése (Publikált)' : 'Módosítások mentése (Piszkozat)'
-                    : status === 'published' ? 'Program publikálása' : 'Mentés piszkozatként'}
-              </span>
-            </button>
-          </div>
+          {/* ===== TAB (wizard-only): Elonezet ===== */}
+          {isWizardMode && (
+            <div className={activeTab === 'preview' ? 'space-y-4' : 'hidden'}>
+              <h4 className="text-xs font-bold text-stone-400 uppercase tracking-wider">4. Előnézet -- így fog kinézni a katalógusban</h4>
+              <div className="max-w-sm mx-auto w-full">
+                <div className="relative bg-white rounded-2xl border border-stone-200 shadow-sm flex flex-col overflow-hidden">
+                  <div className="relative aspect-[16/10] w-full overflow-hidden bg-stone-900">
+                    <img
+                      src={previewCoverUrl || 'https://images.unsplash.com/photo-1590523741831-ab7e8b8f9c7f?auto=format&fit=crop&w=800&q=80'}
+                      alt={title || 'Program'}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/25 pointer-events-none" />
+                    <div className="absolute top-3 left-3 flex flex-wrap gap-1.5 z-10 max-w-[70%]">
+                      <div className="bg-white/95 backdrop-blur-md text-stone-900 text-xs font-bold px-2.5 py-1 rounded-lg shadow-sm flex items-center gap-1.5">
+                        <CountryFlag emoji={previewRegion?.flag_emoji} country={previewRegion?.country} size="xs" />
+                        <span>{previewRegion?.name || 'Úticél'}</span>
+                      </div>
+                      {previewCategory && (
+                        <div className="bg-stone-900/85 backdrop-blur-md text-stone-200 text-xs font-medium px-2 py-1 rounded-lg shadow-sm flex items-center gap-1">
+                          <CategoryIcon icon={previewCategory.icon} className="w-3 h-3 text-emerald-400" />
+                          <span>{previewCategory.name}</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="absolute top-3 right-3 bg-stone-900/70 text-white text-[10px] font-bold px-2.5 py-1 rounded-lg shadow z-10">ELŐNÉZET</div>
+                    <div className="absolute bottom-3 right-3 bg-emerald-600/95 backdrop-blur-sm text-white px-2.5 py-1 rounded-xl shadow-lg font-bold text-xs z-10">
+                      {formatPrice(previewDisplayPrice)} {curr}{pricingMode === 'tiered' ? '/túra-tól' : '/fő'}
+                    </div>
+                  </div>
+                  <div className="p-5">
+                    <div className="flex items-center gap-1.5 text-xs text-stone-500 mb-2">
+                      <Building2 className="w-3.5 h-3.5 text-stone-400 shrink-0" />
+                      <span className="font-semibold text-stone-700 truncate">{currentProvider?.company_name || currentUser.name}</span>
+                    </div>
+                    <h3 className="font-display text-lg font-bold text-stone-900 mb-3 line-clamp-2 leading-snug">{title || 'Program neve'}</h3>
+                    <div className="space-y-1.5 text-xs text-stone-600 bg-stone-50 p-3 rounded-xl border border-stone-100">
+                      <div className="flex items-center gap-2"><span className="text-base">📍</span><span className="font-medium text-stone-800 truncate">{location || 'Helyszín'}</span></div>
+                      <div className="flex items-center gap-2"><span className="text-base">📅</span><span className="text-stone-700">{formatProgramDisplayDate(eventDate, occurrences.length > 1)}</span></div>
+                      <div className="flex items-center gap-2"><span className="text-base">⏱</span><span className="text-stone-700">{duration}</span></div>
+                      <div className="flex items-center justify-between pt-1.5 border-t border-stone-200/70">
+                        <div className="flex items-center gap-1 text-emerald-800 font-bold">
+                          <span className="text-base">💰</span>
+                          <span>{formatPrice(previewDisplayPrice)} {curr} {pricingMode === 'tiered' ? '/túra-tól' : '/fő'}</span>
+                        </div>
+                        {curr === '€' && eurHufRate > 0 && (
+                          <span className="text-[11px] font-medium text-stone-500 tracking-tight">({formatHuf(previewDisplayPrice * eurHufRate)} Ft)</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="px-5 pb-5">
+                    <div className="w-full bg-stone-200 text-stone-500 font-semibold py-2.5 px-4 rounded-xl text-sm flex items-center justify-center gap-2 cursor-default">
+                      <span>Részletek & Érdeklődés</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <p className="text-xs text-stone-500 text-center">Ez egy egyszerűsített előnézet a jelenlegi adataidból -- a valós kártyán értékelés és kedvenc-gomb is megjelenik majd, élő adatokkal.</p>
+            </div>
+          )}
+
+          {/* ===== TAB (wizard-only): Zaro dontes ===== */}
+          {isWizardMode && (
+            <div className={activeTab === 'confirm' ? 'space-y-4' : 'hidden'}>
+              <h4 className="text-xs font-bold text-stone-400 uppercase tracking-wider">5. Záró döntés</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="p-4 rounded-2xl border-2 border-stone-200">
+                  <div className="font-bold text-stone-900 text-sm flex items-center gap-1.5"><Sparkles className="w-4 h-4 text-emerald-600" /><span>Mentés és közzététel</span></div>
+                  <div className="text-xs text-stone-500 mt-1">
+                    A program azonnal aktívvá válik és megjelenik a katalógusban.{' '}
+                    {occurrences.length === 0 && <strong className="text-rose-600">Legalább egy időpont szükséges ehhez (lásd 3. lépés).</strong>}
+                  </div>
+                </div>
+                <div className="p-4 rounded-2xl border-2 border-stone-200">
+                  <div className="font-bold text-stone-900 text-sm flex items-center gap-1.5"><FileText className="w-4 h-4 text-stone-600" /><span>Mentés piszkozatként</span></div>
+                  <div className="text-xs text-stone-500 mt-1">Csak te látod a szolgáltatói felületeden, a katalógusban rejtve marad. Később bármikor közzéteheted.</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Navigacio/Submit -- wizard modban lepesenkenti Vissza/Elore + zaro ket gomb, szerkesztes-modban a mai Megse/Submit valtozatlanul */}
+          {isWizardMode ? (
+            <div className="pt-4 border-t border-stone-200 flex items-center justify-between gap-3 flex-wrap">
+              <button
+                type="button"
+                onClick={activeTab === 'basic' ? onClose : handleWizardBack}
+                className="px-5 py-3 rounded-xl border border-stone-300 text-stone-700 font-semibold text-sm hover:bg-stone-50 cursor-pointer"
+              >
+                {activeTab === 'basic' ? 'Mégse' : 'Vissza'}
+              </button>
+              {activeTab !== 'confirm' ? (
+                <button
+                  type="button"
+                  disabled={draftCreating}
+                  onClick={handleWizardNext}
+                  className="px-7 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold text-sm shadow-md transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  {draftCreating ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
+                  <span>Tovább</span>
+                </button>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    disabled={isSubmitting || uploadingCount > 0}
+                    onClick={() => saveProgram('draft')}
+                    className="px-5 py-3 rounded-xl border border-stone-300 text-stone-700 font-bold text-sm hover:bg-stone-50 cursor-pointer disabled:opacity-50"
+                  >
+                    {isSubmitting ? 'Mentés...' : 'Mentés piszkozatként'}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isSubmitting || uploadingCount > 0 || occurrences.length === 0}
+                    title={occurrences.length === 0 ? 'Legalább egy időpont szükséges a közzétételhez' : undefined}
+                    onClick={() => saveProgram('published')}
+                    className="px-7 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold text-sm shadow-md transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    <span>{isSubmitting ? 'Mentés...' : 'Mentés és közzététel'}</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="pt-4 border-t border-stone-200 flex items-center justify-end gap-3">
+              <button type="button" onClick={onClose} className="px-5 py-3 rounded-xl border border-stone-300 text-stone-700 font-semibold text-sm hover:bg-stone-50 cursor-pointer">Mégse</button>
+              <button
+                type="submit"
+                disabled={isSubmitting || uploadingCount > 0}
+                className="px-7 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold text-sm shadow-md transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>
+                  {isSubmitting
+                    ? 'Mentés...'
+                    : (programToEdit || workingProgram)
+                      ? status === 'published' ? 'Módosítások mentése (Publikált)' : 'Módosítások mentése (Piszkozat)'
+                      : status === 'published' ? 'Program publikálása' : 'Mentés piszkozatként'}
+                </span>
+              </button>
+            </div>
+          )}
         </form>
       </div>
     </div>
