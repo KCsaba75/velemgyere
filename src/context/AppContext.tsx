@@ -308,8 +308,11 @@ interface AppContextType {
   setSelectedDateTo: (date: string) => void;
   selectedDurationType: 'all' | 'single' | 'multi';
   setSelectedDurationType: (type: 'all' | 'single' | 'multi') => void;
-  maxPrice: number;
-  setMaxPrice: (price: number) => void;
+  // Kanban c9df8a1a: null = nincs meg felhasznalo-valasztott ertek, a csuszka
+  // a katalogus aktualisan legdragabb (EUR-ekvivalens) programjat kovesse
+  // dinamikusan. Konkret szamra valt, mihelyt a felhasznalo elmozditja.
+  maxPrice: number | null;
+  setMaxPrice: (price: number | null) => void;
   currencyFilter: 'ALL' | 'EUR' | 'Ft';
   setCurrencyFilter: (curr: 'ALL' | 'EUR' | 'Ft') => void;
   resetFilters: () => void;
@@ -330,8 +333,8 @@ interface AppContextType {
   setTravelSelectedDateTo: (date: string) => void;
   travelSelectedDurationType: 'all' | 'single' | 'multi';
   setTravelSelectedDurationType: (type: 'all' | 'single' | 'multi') => void;
-  travelMaxPrice: number;
-  setTravelMaxPrice: (price: number) => void;
+  travelMaxPrice: number | null;
+  setTravelMaxPrice: (price: number | null) => void;
   travelCurrencyFilter: 'ALL' | 'EUR' | 'Ft';
   setTravelCurrencyFilter: (curr: 'ALL' | 'EUR' | 'Ft') => void;
   resetTravelFilters: () => void;
@@ -695,7 +698,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const selectedDate = selectedDateFrom;
   const setSelectedDate = setSelectedDateFrom;
   const [selectedDurationType, setSelectedDurationType] = useState<'all' | 'single' | 'multi'>('all');
-  const [maxPrice, setMaxPrice] = useState<number>(150); // Default for EUR abroad prices
+  // Kanban c9df8a1a: null amig a felhasznalo nem erinti -- a slider ekkor a
+  // dinamikusan szamolt (legdragabb EUR-ekvivalens program) erteket mutatja,
+  // es a szuro sem korlatoz semmit (lasd ProgramList.tsx price-filter aga).
+  const [maxPrice, setMaxPrice] = useState<number | null>(null);
   const [currencyFilter, setCurrencyFilter] = useState<'ALL' | 'EUR' | 'Ft'>('ALL');
 
   // Kanban 2bc6d38b: independent filter slice for "Utazások" (travelOnly) --
@@ -705,7 +711,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [travelSelectedDateFrom, setTravelSelectedDateFrom] = useState<string>('');
   const [travelSelectedDateTo, setTravelSelectedDateTo] = useState<string>('');
   const [travelSelectedDurationType, setTravelSelectedDurationType] = useState<'all' | 'single' | 'multi'>('all');
-  const [travelMaxPrice, setTravelMaxPrice] = useState<number>(150);
+  const [travelMaxPrice, setTravelMaxPrice] = useState<number | null>(null);
   const [travelCurrencyFilter, setTravelCurrencyFilter] = useState<'ALL' | 'EUR' | 'Ft'>('ALL');
 
   // Dynamic collections from Supabase (sole persistent source of truth - local storage removed)
@@ -1512,7 +1518,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSelectedDateFrom('');
     setSelectedDateTo('');
     setSelectedDurationType('all');
-    setMaxPrice(150);
+    setMaxPrice(null);
     setCurrencyFilter('ALL');
   };
 
@@ -1524,7 +1530,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setTravelSelectedDateFrom('');
     setTravelSelectedDateTo('');
     setTravelSelectedDurationType('all');
-    setTravelMaxPrice(150);
+    setTravelMaxPrice(null);
     setTravelCurrencyFilter('ALL');
   };
 

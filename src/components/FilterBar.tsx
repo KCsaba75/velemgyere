@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useApp, formatHuf } from '../context/AppContext';
+import { priceInEur } from '../lib/priceUtils';
 import { CountryFlag } from './CountryFlag';
 import {
   Filter,
@@ -67,6 +68,8 @@ export const FilterBar: React.FC<FilterBarProps> = ({ mobileOpen, onCloseMobile,
     eurHufRate,
     resetFilters,
     resetTravelFilters,
+    programs,
+    currentUser,
   } = useApp();
 
   // Kanban 2bc6d38b: pick the active slice once, use the same names below --
@@ -86,13 +89,36 @@ export const FilterBar: React.FC<FilterBarProps> = ({ mobileOpen, onCloseMobile,
   const activeCurrencyFilter = travelOnly ? travelCurrencyFilter : currencyFilter;
   const activeResetFilters = travelOnly ? resetTravelFilters : resetFilters;
 
+  // Kanban c9df8a1a: a csuszka teteje dinamikusan a jelenleg latHato (Programok
+  // VAGY Utazások szeletben -- lasd travelOnly) legdragabb, EUR-ekvivalens
+  // programhoz igazodik, nem egy fix szamhoz -- kulonben egy uj, pl. 400 EUR-os
+  // program kiesne a szuresbol anelkul hogy a felhasznalo eszrevenne. Csak a
+  // Programok/Utazások kategoria-szeletre szamolva (nem az OSSZES aktiv szuro
+  // -- regio/datum/idotartam -- hatasara), hogy ne ugorjon a csuszka erteke
+  // valtozatlanul minden mas szuro-valtaskor.
+  const dynamicMaxPrice = useMemo(() => {
+    const relevant = programs.filter(p => {
+      if (currentUser.role === 'visitor' && p.status !== 'published') return false;
+      if (currentUser.role === 'provider' && p.status !== 'published' && p.provider?.user_id !== currentUser.user_id) return false;
+      const isTravelProgram = p.category?.is_travel_category === true;
+      return travelOnly ? isTravelProgram : !isTravelProgram;
+    });
+    if (relevant.length === 0) return 200;
+    const highest = Math.max(...relevant.map(p => priceInEur(p.price, p.currency, eurHufRate)));
+    return Math.max(20, Math.ceil(highest / 5) * 5);
+  }, [programs, currentUser, travelOnly, eurHufRate]);
+
+  // A csuszka tenylegesen megjelenitett/hasznalt erteke: ameddig a felhasznalo
+  // nem erintette (activeMaxPrice===null), a dinamikus felso hatarral egyezik.
+  const resolvedMaxPrice = activeMaxPrice ?? dynamicMaxPrice;
+
   const hasActiveFilters = Boolean(
     activeRegion ||
     (!travelOnly && selectedCategory) ||
     activeDateFrom ||
     activeDateTo ||
     activeDurationType !== 'all' ||
-    activeMaxPrice < 150 ||
+    activeMaxPrice !== null ||
     activeCurrencyFilter !== 'ALL'
   );
 
@@ -223,18 +249,18 @@ export const FilterBar: React.FC<FilterBarProps> = ({ mobileOpen, onCloseMobile,
             <div className="flex items-center justify-between text-xs text-stone-600 mb-1">
               <span className="font-bold">Maximális részvételi díj:</span>
               <span className="font-extrabold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-lg">
-                {activeMaxPrice} EUR / fő
+                {resolvedMaxPrice} EUR / fő
                 {eurHufRate > 0 && (
-                  <span className="font-medium text-emerald-600"> (kb. {formatHuf(activeMaxPrice * eurHufRate)} Ft)</span>
+                  <span className="font-medium text-emerald-600"> (kb. {formatHuf(resolvedMaxPrice * eurHufRate)} Ft)</span>
                 )}
               </span>
             </div>
             <input
               type="range"
               min="20"
-              max="200"
+              max={dynamicMaxPrice}
               step="5"
-              value={activeMaxPrice}
+              value={resolvedMaxPrice}
               onChange={(e) => setActiveMaxPrice(Number(e.target.value))}
               className="w-full accent-emerald-600 cursor-pointer"
             />
