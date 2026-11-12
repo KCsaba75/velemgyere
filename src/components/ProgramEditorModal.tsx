@@ -144,7 +144,6 @@ export const ProgramEditorModal: React.FC<ProgramEditorModalProps> = ({ isOpen, 
       isCover: true
     }
   ]);
-  const [customImageUrl, setCustomImageUrl] = useState('');
   const [uploadingCount, setUploadingCount] = useState(0);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
@@ -370,13 +369,6 @@ export const ProgramEditorModal: React.FC<ProgramEditorModalProps> = ({ isOpen, 
     }
   };
   const handleRemoveNotIncluded = (idx: number) => setNotIncludedList(notIncludedList.filter((_, i) => i !== idx));
-
-  const handleAddImageUrl = () => {
-    if (customImageUrl.trim()) {
-      setImages([...images, { url: customImageUrl.trim(), isCover: images.length === 0 }]);
-      setCustomImageUrl('');
-    }
-  };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -982,17 +974,6 @@ export const ProgramEditorModal: React.FC<ProgramEditorModalProps> = ({ isOpen, 
                     </p>
                   )}
                   {uploadError && <p className="text-xs text-rose-600 font-semibold">{uploadError}</p>}
-                  <span className="text-xs font-medium text-stone-600">Vagy kép URL megadása:</span>
-                  <div className="flex gap-2">
-                    <input
-                      type="url"
-                      value={customImageUrl}
-                      onChange={(e) => setCustomImageUrl(e.target.value)}
-                      placeholder="https://images.unsplash.com/..."
-                      className="flex-1 text-xs bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    />
-                    <button type="button" onClick={handleAddImageUrl} className="px-3 py-2 bg-stone-800 hover:bg-stone-900 text-white rounded-xl text-xs font-semibold shrink-0 cursor-pointer">Hozzáadás</button>
-                  </div>
                 </div>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
