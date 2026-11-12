@@ -44,6 +44,12 @@ export interface Provider {
   // publikalt programjuk idopontja szerint rangsorolva, orokre megmarad).
   // Kulon public column-grant (schema.sql) teszi lathatova anon/authenticated-nek.
   is_founder?: boolean;
+  // Kanban d0005ffe: bizalmi jelzo a katalogus-kartyan ("Uj szolgaltato" <10,
+  // utana a tenyleges folyton-no szam) -- triggerrel karbantartott szamlalo az
+  // orders tablarol (status='confirmed'), nem futasidoben szamolt aggregacio,
+  // mert a nyers orders tabla RLS-e nem engedi anon/katalogus-olvasast.
+  // Ugyanaz a public column-grant/view-mintat kapta mint az is_founder.
+  confirmed_bookings_count?: number;
   // Stripe Connect prep (kanban 71215856 point 5) -- columns only, no Stripe
   // logic wired up yet. onsite_only is the only mode currently in use.
   stripe_account_id?: string | null;
