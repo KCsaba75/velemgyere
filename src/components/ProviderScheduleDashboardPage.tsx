@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Briefcase, CalendarRange, LayoutGrid, Columns3, List, CalendarDays } from 'lucide-react';
+import { CalendarRange, LayoutGrid, Columns3, List, CalendarDays } from 'lucide-react';
 import { Program, ProgramOccurrence, OrderBuyerInfo } from '../types/database';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import { useIsMobileViewport } from '../hooks/useIsMobileViewport';
@@ -42,7 +42,6 @@ export const ProviderScheduleDashboardPage: React.FC = () => {
     deleteOccurrence,
     getOrderBuyerInfo,
     confirmOrder,
-    setCurrentView,
   } = useApp();
 
   useDocumentMeta('Irányítópult -- Szolgáltatói Dashboard', 'Program-ütemező havi nézet: időpontok felvétele, áthelyezése és foglalások egy helyen.');
@@ -262,15 +261,6 @@ export const ProviderScheduleDashboardPage: React.FC = () => {
               <span>Lista nézet</span>
             </button>
           </div>
-          <button
-            type="button"
-            onClick={() => setCurrentView('provider-overview')}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-bold text-stone-700 hover:text-stone-900 bg-white px-2.5 sm:px-4 py-2 sm:py-3 rounded-xl sm:rounded-2xl border border-stone-200 hover:bg-stone-50 transition-colors cursor-pointer"
-            title="Vissza a Partner fiókhoz"
-          >
-            <Briefcase className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-stone-500" />
-            <span className="truncate">Partner fiók</span>
-          </button>
         </div>
       </div>
 
