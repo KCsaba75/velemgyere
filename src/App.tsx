@@ -27,7 +27,6 @@ const ProviderSidebarLayout = lazy(() => import('./components/ProviderSidebarLay
 const ProviderOverviewPage = lazy(() => import('./components/ProviderOverviewPage').then(m => ({ default: m.ProviderOverviewPage })));
 const ProviderDashboard = lazy(() => import('./components/ProviderDashboard').then(m => ({ default: m.ProviderDashboard })));
 const ProviderProgramsPage = lazy(() => import('./components/ProviderProgramsPage').then(m => ({ default: m.ProviderProgramsPage })));
-const ProviderBookingsPage = lazy(() => import('./components/ProviderBookingsPage').then(m => ({ default: m.ProviderBookingsPage })));
 const ProviderScheduleDashboardPage = lazy(() => import('./components/ProviderScheduleDashboardPage').then(m => ({ default: m.ProviderScheduleDashboardPage })));
 const ProviderGuestsPage = lazy(() => import('./components/ProviderGuestsPage').then(m => ({ default: m.ProviderGuestsPage })));
 const ProviderFinancesPage = lazy(() => import('./components/ProviderFinancesPage').then(m => ({ default: m.ProviderFinancesPage })));
@@ -158,16 +157,6 @@ const AppContent: React.FC = () => {
               <ProtectedRoute allow={['provider', 'admin']}>
                 <ProviderSidebarLayout>
                   <ProviderProgramsPage onOpenNewProgram={() => setNewProgramModalOpen(true)} />
-                </ProviderSidebarLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/szolgaltato/foglalasaim"
-            element={
-              <ProtectedRoute allow={['provider', 'admin']}>
-                <ProviderSidebarLayout>
-                  <ProviderBookingsPage />
                 </ProviderSidebarLayout>
               </ProtectedRoute>
             }
