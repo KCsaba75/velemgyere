@@ -678,7 +678,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const navigate = useNavigate();
   const location = useLocation();
   const currentView = pathToView(location.pathname);
-  const setCurrentView = (view: string) => navigate(VIEW_TO_PATH[view] || '/');
+  // Kanban dc9d85fb: loginRedirectTo altalaban egy VIEW_TO_PATH-kulcs ('programs',
+  // 'bookings', stb.), de a /foglalasaim/:ref deep-linknek nincs es nem is lehet
+  // sajat view-kulcsa (dinamikus ref per foglalas) -- ha a hivo mar egy valodi
+  // utvonalat ad at ('/'-tal kezdve), azt kozvetlenul navigaljuk, nem essunk
+  // vissza a fooldalra.
+  const setCurrentView = (view: string) => navigate(VIEW_TO_PATH[view] || (view.startsWith('/') ? view : '/'));
 
   // Filters state
   const [searchQuery, setSearchQuery] = useState<string>('');

@@ -290,6 +290,10 @@ const AppContent: React.FC = () => {
           />
           <Route path="/kedvencek" element={<FavoritesView />} />
           <Route path="/foglalasaim" element={<BookingsView />} />
+          {/* Kanban dc9d85fb: a foglalas-visszaigazolo email linkje egy konkret
+              foglalasra mutat (booking_reference vagy id), ugyanaz a komponens
+              olvassa ki useParams-szal es nyitja meg a reszletek-modalt. */}
+          <Route path="/foglalasaim/:ref" element={<BookingsView />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/jelszo-visszaallitas" element={<ResetPasswordPage />} />
           <Route path="/hogyan-mukodik" element={<HowItWorksPage />} />
