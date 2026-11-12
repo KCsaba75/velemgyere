@@ -839,7 +839,7 @@ const MonthDayCell: React.FC<MonthDayCellProps> = ({ dayItem, isSelected, items,
       ref={setNodeRef}
       data-testid={`day-cell-${dayItem.dateStr}`}
       onClick={onSelect}
-      className={`min-h-[96px] sm:min-h-[105px] p-1.5 sm:p-2 transition-all cursor-pointer relative flex flex-col justify-between ${
+      className={`min-h-[150px] sm:min-h-[105px] p-2 transition-all cursor-pointer relative flex flex-col justify-between ${
         isOver
           ? 'bg-emerald-50/70 ring-2 ring-emerald-400 ring-inset z-10'
           : !dayItem.isCurrentMonth
@@ -884,7 +884,7 @@ const MonthDayCell: React.FC<MonthDayCellProps> = ({ dayItem, isSelected, items,
           />
         ))}
         {overflowCount > 0 && (
-          <div className="text-[9px] font-bold text-stone-500 pl-1">+{overflowCount} további</div>
+          <div className="text-[11px] sm:text-[9px] font-bold text-stone-500 pl-1">+{overflowCount} további</div>
         )}
       </div>
     </div>
@@ -900,9 +900,13 @@ interface MonthOccurrenceChipProps {
 }
 
 // Kompakt, huzhato varians a ProviderScheduleWeekBoard OccurrenceCard-jahoz kepest --
-// a honap-cella (~150px szeles, 96-105px magas) nem fer el a teljes kartyat, csak
-// egy sor: kis drag-handle + ido+cim. Masolas/pontos-datum-athelyezes/torles a
-// kivalasztott-nap popupon marad (ott mar megvan, nem duplikalt itt).
+// a honap-cella (~150px szeles) nem fer el a teljes kartyat, csak egy sor: kis
+// drag-handle + ido+cim. Masolas/pontos-datum-athelyezes/torles a kivalasztott-nap
+// popupon marad (ott mar megvan, nem duplikalt itt).
+// Kanban 629ebf36: mobilon a cella magassaga 96px->150px-re nott es a chip
+// betumeret/padding/grip-ikon is nagyobb (sm: felett valtozatlan), mivel a 7
+// oszlopos racs szelessege fix -- a tobb magassag termeszetesen lefele
+// gorgethetove teszi a Havi nezetet, nincs kulon scroll-konteiner korulotte.
 // Kanban 5d9187b1 (#5): letszam (booked/maxCap) + narancs keret ha van
 // visszaigazolasra varo (pending) rendeles az occurrence-hez -- ugyanaz a
 // jelzes-logika, mint a heti OccurrenceCard-nal, csak kompaktabb formaban.
@@ -918,7 +922,7 @@ const MonthOccurrenceChip: React.FC<MonthOccurrenceChipProps> = ({ occ, program,
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex items-center gap-1 text-[10px] font-semibold rounded px-1 py-0.5 border leading-tight touch-none ${
+      className={`flex items-center gap-1.5 sm:gap-1 text-xs sm:text-[10px] font-semibold rounded px-1.5 py-1 sm:px-1 sm:py-0.5 border leading-tight touch-none ${
         occ.status === 'cancelled'
           ? 'bg-stone-100 border-stone-200 text-stone-400'
           : hasPending
@@ -934,7 +938,7 @@ const MonthOccurrenceChip: React.FC<MonthOccurrenceChipProps> = ({ occ, program,
         className="p-0 text-emerald-700/50 hover:text-emerald-900 cursor-grab active:cursor-grabbing shrink-0 touch-none"
         title="Húzással áthelyezhető másik napra"
       >
-        <GripVertical className="w-2.5 h-2.5" />
+        <GripVertical className="w-3.5 h-3.5 sm:w-2.5 sm:h-2.5" />
       </button>
       <button
         type="button"
