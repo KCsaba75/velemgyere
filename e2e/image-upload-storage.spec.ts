@@ -41,11 +41,11 @@ test('program-kep feltoltese a NewProgramModal-ban valodi Storage URL-t ad, nem 
   await page.getByRole('button', { name: 'Belépés a Szolgáltatói Dashboardra' }).click();
   await expect(page.getByRole('button', { name: 'Belépés / Regisztráció' })).not.toBeVisible({ timeout: 15_000 });
 
-  // A Navbar "Dashboard" gombjaval navigalunk (nem kozvetlen URL-re), igy az
-  // app sajat view-allapota es a ProtectedRoute szerep-ellenorzese konzisztens
-  // uton mukodik, nem fut bele semmilyen kulon kliens-oldali redirect-logikaba.
-  await page.getByRole('button', { name: 'Dashboard', exact: true }).click();
-  await expect(page).toHaveURL(/\/szolgaltato\/dashboard/, { timeout: 10_000 });
+  // A fejsorban (Navbar) a "+ Uj program" gomb providerkent globalis, barmelyik
+  // nezeten (meg a meg nyitva levo szolgaltatoi-landing nezeten is) elerheto --
+  // nem kell elotte explicit a (korabban letezett, de a navbar tobbszori
+  // atszervezese -- 5a3a8dd8/23585044/4230d70e -- soran mar megszunt) kulon
+  // "Dashboard" gombra kattintani/a /szolgaltato/dashboard route-ra navigalni.
   await page.getByRole('button', { name: '+ Új program' }).first().click();
 
   const fileInput = page.locator('input[type="file"][accept="image/*"]');
