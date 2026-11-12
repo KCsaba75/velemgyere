@@ -116,7 +116,7 @@ interface SidebarContentProps {
 const SidebarContent: React.FC<SidebarContentProps> = ({ currentView, badges, onNavigate }) => (
   <div className="flex flex-col h-full">
     <div className="px-5 pt-5 pb-3">
-      <span className="text-[11px] font-bold uppercase tracking-wider text-stone-500">
+      <span className="text-[11px] font-bold uppercase tracking-wider text-stone-300">
         Partner felület
       </span>
     </div>
@@ -132,11 +132,11 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ currentView, badges, on
             onClick={() => onNavigate(view)}
             className={`w-full flex items-start gap-3 px-3 py-3 rounded-xl text-left transition-colors cursor-pointer border ${
               active
-                ? 'bg-emerald-500/15 border-emerald-500/40 text-white'
+                ? 'bg-white/10 border-emerald-400/50 text-white'
                 : 'border-transparent text-stone-300 hover:bg-white/5 hover:text-white'
             }`}
           >
-            <Icon className={`w-5 h-5 mt-0.5 shrink-0 ${active ? 'text-emerald-400' : 'text-stone-400'}`} />
+            <Icon className={`w-5 h-5 mt-0.5 shrink-0 ${active ? 'text-emerald-300' : 'text-stone-300'}`} />
             <span className="min-w-0 flex-1">
               <span className="flex items-center gap-2">
                 <span className={`text-sm font-bold ${active ? 'text-white' : 'text-stone-200'}`}>{label}</span>
@@ -146,7 +146,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ currentView, badges, on
                   </span>
                 )}
               </span>
-              <span className="block text-[11px] text-stone-400 mt-0.5 leading-snug truncate">
+              <span className="block text-[11px] text-stone-300 mt-0.5 leading-snug truncate">
                 {subtitle}
               </span>
             </span>
@@ -155,7 +155,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ currentView, badges, on
       })}
 
       <div className="pt-3 mt-2 border-t border-white/10 space-y-0.5">
-        <span className="block px-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-stone-500">
+        <span className="block px-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-stone-300">
           Egyéb
         </span>
         {SECONDARY_NAV_ITEMS.map(({ key, view, label, icon: Icon }) => {
@@ -166,7 +166,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ currentView, badges, on
               type="button"
               onClick={() => onNavigate(view)}
               className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-colors cursor-pointer ${
-                active ? 'text-emerald-400 font-bold' : 'text-stone-400 hover:text-stone-200 hover:bg-white/5'
+                active ? 'text-emerald-300 font-bold' : 'text-stone-300 hover:text-stone-100 hover:bg-white/5'
               }`}
             >
               <Icon className="w-4 h-4 shrink-0" />
@@ -213,7 +213,7 @@ export const ProviderSidebarLayout: React.FC<{ children: React.ReactNode }> = ({
             sava adja (kanban 4aac8eda, 2026-11-11 kiegeszites: a korabbi sajat
             hamburger+drawer torolve, nem csak elrejtve). */}
         <aside className="hidden md:block w-72 shrink-0">
-          <div className="sticky top-20 h-[calc(100vh-6rem)] bg-stone-950 rounded-3xl border border-stone-800 overflow-hidden shadow-xl">
+          <div className="sticky top-20 h-[calc(100vh-6rem)] bg-gradient-to-b from-emerald-900 to-stone-900 rounded-3xl border border-emerald-950/60 overflow-hidden shadow-xl">
             <SidebarContent currentView={currentView} badges={badges} onNavigate={handleNavigate} />
           </div>
         </aside>
