@@ -48,3 +48,18 @@ export const formatHuf = (value: number | string | undefined | null): string => 
   const rounded = Math.round(num);
   return rounded.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 };
+
+/**
+ * Egy program ára EUR-ekvivalensben -- a katalógus ár-szűrője (és bármilyen
+ * jövőbeli ár szerinti rendezés) MINDIG EUR-skálán dolgozik (lásd FilterBar.tsx
+ * csúszka "EUR / fő" felirata), de egy program ára Ft-ban is meg lehet adva
+ * (ProgramEditorModal currency mező). Ha a nyers price mezőt közvetlenül
+ * hasonlítjuk össze egy EUR-skálájú értékkel, egy Ft-áras program ára (pl.
+ * 65300) mindig jóval a szűrő fölé esik -- lásd kanban 4b081d70.
+ */
+export const priceInEur = (price: number, currency: string | undefined, eurHufRate: number): number => {
+  if (currency === 'Ft' && eurHufRate > 0) {
+    return price / eurHufRate;
+  }
+  return price;
+};

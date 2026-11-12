@@ -3,6 +3,7 @@ import { useApp } from '../context/AppContext';
 import { ProgramCard } from './ProgramCard';
 import { CountryFlag } from './CountryFlag';
 import { SearchX, RotateCcw, Globe, Filter, MapPin, Calendar, ChevronDown } from 'lucide-react';
+import { priceInEur } from '../lib/priceUtils';
 
 interface ProgramListProps {
   // Mobile filter-drawer trigger (kanban e0ee8b7e) -- the open/close state
@@ -57,7 +58,8 @@ export const ProgramList: React.FC<ProgramListProps> = ({ onOpenMobileFilters, e
     resetFilters,
     resetTravelFilters,
     isLoading,
-    programOccurrencesDates
+    programOccurrencesDates,
+    eurHufRate
   } = useApp();
 
   // Kanban 2bc6d38b: same slice-picking as FilterBar.tsx -- see the
@@ -201,8 +203,11 @@ export const ProgramList: React.FC<ProgramListProps> = ({ onOpenMobileFilters, e
         if (!isMulti) return false;
       }
 
-      // Max price
-      if (p.price > activeMaxPrice) {
+      // Max price -- a csuszka EUR-skalaju (lasd FilterBar "EUR / fo" felirat),
+      // ezert egy Ft-araz program (kanban 4b081d70: 65300 Ft mindig kiesett
+      // egy ~200 EUR-os csuszka-ertek mellett) elotte EUR-ekvivalensre
+      // valtando.
+      if (priceInEur(p.price, p.currency, eurHufRate) > activeMaxPrice) {
         return false;
       }
 
@@ -226,7 +231,8 @@ export const ProgramList: React.FC<ProgramListProps> = ({ onOpenMobileFilters, e
     activeDateTo,
     activeDurationType,
     activeMaxPrice,
-    programOccurrencesDates
+    programOccurrencesDates,
+    eurHufRate
   ]);
 
   return (
