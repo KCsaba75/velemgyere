@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { useApp, formatAmount, formatPlatformFee, getBookingReference } from '../context/AppContext';
+import { useApp, formatAmount, formatHuf, formatPlatformFee, getBookingReference } from '../context/AppContext';
+import { priceInEur } from '../lib/priceUtils';
 import { Ticket, Clock, Wallet, Landmark, Banknote } from 'lucide-react';
 import { OnsitePaymentMethod } from '../types/database';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
@@ -17,7 +18,7 @@ const PAYMENT_METHOD_LABEL: Record<OnsitePaymentMethod, string> = {
 // nyilvantartasa & statuszfigyeles kikerult a kozos Admin Vezerlopult
 // fulsorabol a sajat "Foglalasok" targymenuje ala, onallo top-level oldalra.
 export const AdminBookingsPage: React.FC = () => {
-  const { orders, openProgramDetail } = useApp();
+  const { orders, openProgramDetail, eurHufRate } = useApp();
 
   useDocumentMeta('Foglalások -- Admin', 'Összes beérkezett foglalás nyilvántartása és státuszfigyelése.');
 
@@ -59,7 +60,20 @@ export const AdminBookingsPage: React.FC = () => {
           { label: 'Megerősítve', value: orders.filter(o => o.status === 'confirmed').length, tone: 'emerald' },
           {
             label: 'Platform díjbevétel',
-            value: `${formatAmount(orders.reduce((sum, o) => o.status !== 'cancelled' ? sum + (Number(o.booking_fee) || 0) : sum, 0), 'EUR')} €`,
+            value: (() => {
+              // EUR-alapu osszegzes (Csaba dontese, kanban b0ece1bb): minden
+              // rendeles booking_fee-jet EUR-ra normalizaljuk osszeadas elott,
+              // hogy vegyes EUR/Ft rendelesek ne adodjanak ossze konverzio nelkul.
+              const feeEur = orders.reduce((sum, o) => o.status !== 'cancelled' ? sum + priceInEur(Number(o.booking_fee) || 0, o.currency, eurHufRate) : sum, 0);
+              return (
+                <>
+                  {formatAmount(feeEur, 'EUR')} €
+                  {eurHufRate > 0 && (
+                    <span className="text-sm font-medium text-stone-400"> ({formatHuf(feeEur * eurHufRate)} Ft)</span>
+                  )}
+                </>
+              );
+            })(),
             tone: 'indigo',
           },
         ]}

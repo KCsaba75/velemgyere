@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useApp, formatAmount } from '../context/AppContext';
+import { useApp, formatAmount, formatHuf } from '../context/AppContext';
+import { priceInEur } from '../lib/priceUtils';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import { ProgramCard } from './ProgramCard';
 import { CountryFlag } from './CountryFlag';
@@ -40,7 +41,8 @@ export const FavoritesView: React.FC = () => {
     setCurrentView,
     isAuthenticated,
     currentUser,
-    openLoginModal
+    openLoginModal,
+    eurHufRate
   } = useApp();
 
   useDocumentMeta('Mentett kedvencek & Utazási listák', 'Rendszerezd kedvenc túráidat és programjaidat utazási mappákba.');
@@ -146,8 +148,11 @@ export const FavoritesView: React.FC = () => {
     );
   }
 
-  // Compute total estimated cost across ALL saved favorites (desktop summary section)
-  const totalAllCost = allFavoritePrograms.reduce((sum, p) => sum + (Number(p.price) || 0), 0);
+  // Compute total estimated cost across ALL saved favorites (desktop summary section).
+  // Platform elszamolasa EUR-alapu (Csaba dontese, kanban b0ece1bb): minden tetelt
+  // EUR-ra normalizalunk osszeadas elott, hogy vegyes EUR/Ft kedvenc-listanal ne
+  // adodjon ossze ket kulonbozo penznem szama konverzio nelkul.
+  const totalAllCost = allFavoritePrograms.reduce((sum, p) => sum + priceInEur(Number(p.price) || 0, p.currency, eurHufRate), 0);
 
   const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -239,7 +244,12 @@ export const FavoritesView: React.FC = () => {
             {allFavoritePrograms.length > 0 && (
               <div className="flex items-center gap-2 bg-stone-50 px-3.5 py-2 rounded-xl border border-stone-200/80 text-xs text-stone-700">
                 <Wallet className="w-4 h-4 text-emerald-600" />
-                <span>Összköltség: <strong className="text-stone-900 font-extrabold font-display text-sm">{formatAmount(totalAllCost, 'EUR')} €</strong>/fő</span>
+                <span>
+                  Összköltség: <strong className="text-stone-900 font-extrabold font-display text-sm">{formatAmount(totalAllCost, 'EUR')} €</strong>/fő
+                  {eurHufRate > 0 && (
+                    <span className="text-stone-500"> ({formatHuf(totalAllCost * eurHufRate)} Ft)</span>
+                  )}
+                </span>
               </div>
             )}
 
@@ -298,7 +308,7 @@ export const FavoritesView: React.FC = () => {
 
           {favoriteFolders.map((folder) => {
             const folderPrograms = getFolderPrograms(folder.id);
-            const folderCost = folderPrograms.reduce((sum, p) => sum + (Number(p.price) || 0), 0);
+            const folderCost = folderPrograms.reduce((sum, p) => sum + priceInEur(Number(p.price) || 0, p.currency, eurHufRate), 0);
 
             return (
               <React.Fragment key={folder.id}>
@@ -334,7 +344,12 @@ export const FavoritesView: React.FC = () => {
                       {folderPrograms.length > 0 && (
                         <div className="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-xl border border-stone-200/80 text-xs text-stone-700">
                           <Wallet className="w-3.5 h-3.5 text-emerald-600" />
-                          <span><strong className="text-stone-900 font-extrabold">{formatAmount(folderCost, 'EUR')} €</strong>/fő</span>
+                          <span>
+                            <strong className="text-stone-900 font-extrabold">{formatAmount(folderCost, 'EUR')} €</strong>/fő
+                            {eurHufRate > 0 && (
+                              <span className="text-stone-500"> ({formatHuf(folderCost * eurHufRate)} Ft)</span>
+                            )}
+                          </span>
                         </div>
                       )}
                       {folderPrograms.length > 0 && (
@@ -521,7 +536,7 @@ export const FavoritesView: React.FC = () => {
       {/* MODAL: VIEW FOLDER CONTENTS */}
       {viewingFolder && (() => {
         const folderPrograms = getFolderPrograms(viewingFolder.id);
-        const folderCost = folderPrograms.reduce((sum, p) => sum + (Number(p.price) || 0), 0);
+        const folderCost = folderPrograms.reduce((sum, p) => sum + priceInEur(Number(p.price) || 0, p.currency, eurHufRate), 0);
 
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
@@ -539,7 +554,12 @@ export const FavoritesView: React.FC = () => {
                       <Heart className="w-3.5 h-3.5 fill-rose-500 text-rose-500" />
                       <span className="font-extrabold text-rose-700">{folderPrograms.length}</span>
                       {folderPrograms.length > 0 && (
-                        <> &middot; <strong className="text-stone-900">{formatAmount(folderCost, 'EUR')} €</strong>/fő</>
+                        <>
+                          &middot; <strong className="text-stone-900">{formatAmount(folderCost, 'EUR')} €</strong>/fő
+                          {eurHufRate > 0 && (
+                            <span className="text-stone-500"> ({formatHuf(folderCost * eurHufRate)} Ft)</span>
+                          )}
+                        </>
                       )}
                     </p>
                   </div>

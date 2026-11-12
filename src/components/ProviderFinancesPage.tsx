@@ -1,5 +1,6 @@
 import React from 'react';
-import { useApp, formatAmount } from '../context/AppContext';
+import { useApp, formatAmount, formatHuf } from '../context/AppContext';
+import { priceInEur } from '../lib/priceUtils';
 import { Banknote, TrendingUp, Landmark, FileSpreadsheet, Info } from 'lucide-react';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
 
@@ -17,7 +18,7 @@ import { useDocumentMeta } from '../hooks/useDocumentMeta';
 // placeholder magyarazattal a tobbire. Ha Csaba valodi jutalek/kifizetes
 // funkciot akar, az a Stripe Connect bekotese -- kulon backend-feladat.
 export const ProviderFinancesPage: React.FC = () => {
-  const { currentUser, currentProvider, programs, orders } = useApp();
+  const { currentUser, currentProvider, programs, orders, eurHufRate } = useApp();
 
   useDocumentMeta('Pénzügyek -- Szolgáltatói Dashboard', 'Forgalom-becslés a foglalásaid alapján.');
 
@@ -34,11 +35,13 @@ export const ProviderFinancesPage: React.FC = () => {
     return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
   };
 
-  const totalTurnover = confirmedOrders.reduce((sum, o) => sum + (o.onsite_amount || 0), 0);
+  // Platform elszamolasa EUR-alapu (Csaba dontese, kanban b0ece1bb): minden
+  // rendeles onsite_amount-jat EUR-ra normalizaljuk osszeadas elott, hogy
+  // vegyes EUR/Ft rendelesek ne adodjanak ossze konverzio nelkul.
+  const totalTurnover = confirmedOrders.reduce((sum, o) => sum + priceInEur(o.onsite_amount || 0, o.currency, eurHufRate), 0);
   const monthTurnover = confirmedOrders
     .filter(o => isThisMonth(o.created_at))
-    .reduce((sum, o) => sum + (o.onsite_amount || 0), 0);
-  const currency = confirmedOrders[0]?.currency === 'EUR' || !confirmedOrders[0]?.currency ? '€' : confirmedOrders[0].currency;
+    .reduce((sum, o) => sum + priceInEur(o.onsite_amount || 0, o.currency, eurHufRate), 0);
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4">
@@ -69,7 +72,10 @@ export const ProviderFinancesPage: React.FC = () => {
             Becsült forgalom (e havi)
           </div>
           <div className="text-2xl font-extrabold text-stone-900">
-            {formatAmount(monthTurnover, currency)} {currency}
+            {formatAmount(monthTurnover, 'EUR')} €
+            {eurHufRate > 0 && (
+              <span className="text-sm font-medium text-stone-400"> ({formatHuf(monthTurnover * eurHufRate)} Ft)</span>
+            )}
           </div>
         </div>
         <div className="bg-white rounded-2xl border border-stone-200 shadow-xs p-5">
@@ -78,7 +84,10 @@ export const ProviderFinancesPage: React.FC = () => {
             Becsült forgalom (összesen)
           </div>
           <div className="text-2xl font-extrabold text-stone-900">
-            {formatAmount(totalTurnover, currency)} {currency}
+            {formatAmount(totalTurnover, 'EUR')} €
+            {eurHufRate > 0 && (
+              <span className="text-sm font-medium text-stone-400"> ({formatHuf(totalTurnover * eurHufRate)} Ft)</span>
+            )}
           </div>
         </div>
       </div>
