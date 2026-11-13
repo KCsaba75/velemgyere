@@ -154,8 +154,7 @@ export const SimpleTextPageEditorCard: React.FC<{
         <ImageUploadField slug={slug} label="Kép" imageUrl={imageDraft} onChange={setImageDraft} />
       )}
       <SaveButton saving={saving} saved={saved} onClick={handleSave} />
-      </div>
-    </details>
+    </div>
   );
 };
 
@@ -406,7 +405,74 @@ export const HowItWorksEditorCard: React.FC = () => {
   );
 };
 
-// ---- 4. GYIK: dinamikus kerdes-valasz lista ----
+// ---- 4. GYIK: ket celkozonseg (Utazoknak / Szolgaltatoknak) kulon listaval ----
+// Kanban faqsplit1: egyetlen kozos `items` tomb marad a mentes alapja (egy
+// updatePageContent hivas menti mindket szekciot egyszerre), csak a
+// megjelenites es a hozzaadas-gomb van szekcionkent szetvalasztva. Az
+// `audience` hianya ('traveler'-kent kezelve) garantalja, hogy a meglevo,
+// migracio elotti kerdesek valtozatlanul az elso szekcioban maradnak.
+const faqAudienceOf = (item: FaqItem): 'traveler' | 'provider' => (item.audience === 'provider' ? 'provider' : 'traveler');
+
+const FaqSection: React.FC<{
+  heading: string;
+  audience: 'traveler' | 'provider';
+  items: FaqItem[];
+  onUpdate: (globalIdx: number, field: 'question' | 'answer', value: string) => void;
+  onRemove: (globalIdx: number) => void;
+  onAdd: () => void;
+}> = ({ heading, audience, items, onUpdate, onRemove, onAdd }) => {
+  const entries = items
+    .map((item, globalIdx) => ({ item, globalIdx }))
+    .filter(({ item }) => faqAudienceOf(item) === audience);
+
+  return (
+    <div className="space-y-3">
+      <h5 className="text-sm font-bold text-stone-800">{heading}</h5>
+
+      {entries.length === 0 && (
+        <p className="text-[11px] text-stone-400">Nincs még felvett kérdés ebben a szekcióban.</p>
+      )}
+
+      <div className="space-y-3">
+        {entries.map(({ item, globalIdx }) => (
+          <div key={globalIdx} className="border border-stone-100 rounded-xl p-4 space-y-2 relative">
+            <button
+              type="button"
+              onClick={() => onRemove(globalIdx)}
+              className="absolute top-3 right-3 text-stone-400 hover:text-rose-600 cursor-pointer"
+              title="Törlés"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+            <input
+              type="text"
+              value={item.question}
+              onChange={(e) => onUpdate(globalIdx, 'question', e.target.value)}
+              placeholder="Kérdés"
+              className="w-full text-sm font-semibold bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 pr-8 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+            <textarea
+              rows={3}
+              value={item.answer}
+              onChange={(e) => onUpdate(globalIdx, 'answer', e.target.value)}
+              placeholder="Válasz"
+              className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2.5 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-y"
+            />
+          </div>
+        ))}
+      </div>
+
+      <button
+        type="button"
+        onClick={onAdd}
+        className="text-xs font-semibold text-stone-700 bg-white border border-stone-300 hover:bg-stone-50 px-3 py-2 rounded-xl flex items-center gap-1.5 cursor-pointer"
+      >
+        <Plus className="w-3.5 h-3.5" /> Kérdés hozzáadása
+      </button>
+    </div>
+  );
+};
+
 export const FaqEditorCard: React.FC = () => {
   const { pages, updatePageContent } = useApp();
   const page = pages['faq'];
@@ -420,10 +486,11 @@ export const FaqEditorCard: React.FC = () => {
     setItems((page?.content?.items as FaqItem[]) || []);
   }, [page]);
 
-  const updateItem = (idx: number, field: keyof FaqItem, value: string) => {
+  const updateItem = (idx: number, field: 'question' | 'answer', value: string) => {
     setItems(prev => prev.map((it, i) => (i === idx ? { ...it, [field]: value } : it)));
   };
-  const addItem = () => setItems(prev => [...prev, { question: '', answer: '' }]);
+  const addItem = (audience: 'traveler' | 'provider') =>
+    setItems(prev => [...prev, { question: '', answer: '', audience }]);
   const removeItem = (idx: number) => setItems(prev => prev.filter((_, i) => i !== idx));
 
   const handleSave = async () => {
@@ -439,7 +506,7 @@ export const FaqEditorCard: React.FC = () => {
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-stone-200 p-6 space-y-4">
+    <div className="bg-white rounded-2xl border border-stone-200 p-6 space-y-5">
       <h4 className="font-display font-bold text-stone-900 text-base">Gyakran Ismételt Kérdések</h4>
       <div className="space-y-1.5">
         <label className="text-xs font-bold text-stone-700 uppercase tracking-wider">Oldal címe</label>
@@ -457,42 +524,27 @@ export const FaqEditorCard: React.FC = () => {
         </p>
       )}
 
-      <div className="space-y-3">
-        {items.map((item, idx) => (
-          <div key={idx} className="border border-stone-100 rounded-xl p-4 space-y-2 relative">
-            <button
-              type="button"
-              onClick={() => removeItem(idx)}
-              className="absolute top-3 right-3 text-stone-400 hover:text-rose-600 cursor-pointer"
-              title="Törlés"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-            <input
-              type="text"
-              value={item.question}
-              onChange={(e) => updateItem(idx, 'question', e.target.value)}
-              placeholder="Kérdés"
-              className="w-full text-sm font-semibold bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 pr-8 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            />
-            <textarea
-              rows={3}
-              value={item.answer}
-              onChange={(e) => updateItem(idx, 'answer', e.target.value)}
-              placeholder="Válasz"
-              className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2.5 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-y"
-            />
-          </div>
-        ))}
+      <div className="pt-2 border-t border-stone-100">
+        <FaqSection
+          heading="Utazóknak, Programvadászoknak"
+          audience="traveler"
+          items={items}
+          onUpdate={updateItem}
+          onRemove={removeItem}
+          onAdd={() => addItem('traveler')}
+        />
       </div>
 
-      <button
-        type="button"
-        onClick={addItem}
-        className="text-xs font-semibold text-stone-700 bg-white border border-stone-300 hover:bg-stone-50 px-3 py-2 rounded-xl flex items-center gap-1.5 cursor-pointer"
-      >
-        <Plus className="w-3.5 h-3.5" /> Kérdés hozzáadása
-      </button>
+      <div className="pt-2 border-t border-stone-100">
+        <FaqSection
+          heading="Szolgáltatóknak"
+          audience="provider"
+          items={items}
+          onUpdate={updateItem}
+          onRemove={removeItem}
+          onAdd={() => addItem('provider')}
+        />
+      </div>
 
       <SaveButton saving={saving} saved={saved} onClick={handleSave} />
     </div>
@@ -713,6 +765,7 @@ export const AboutUsEditorCard: React.FC = () => {
         ))}
       </div>
       <SaveButton saving={saving} saved={saved} onClick={handleSave} />
-    </div>
+      </div>
+    </details>
   );
 };

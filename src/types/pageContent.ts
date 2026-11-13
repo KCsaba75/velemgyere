@@ -47,9 +47,13 @@ export interface HowItWorksContent {
   providerSteps?: HowItWorksStepContent[];
 }
 
+// Kanban faqsplit1: ket celkozonseg kulon szekcioban. Hianyzo/undefined audience
+// = 'traveler', hogy a MEGLEVO (migracio elotti) kerdesek automatikusan az elso
+// szekcioba essenek, DB-irasban semmit nem kell visszamenoleg atjelolni.
 export interface FaqItem {
   question: string;
   answer: string;
+  audience?: 'traveler' | 'provider';
 }
 
 export interface FaqContent {
