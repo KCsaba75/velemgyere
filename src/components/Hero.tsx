@@ -51,7 +51,7 @@ export const Hero: React.FC = () => {
     <section
       className="relative overflow-hidden bg-gradient-to-b from-stone-950 via-emerald-950/90 to-stone-900 text-white pt-10 pb-18 sm:pt-16 sm:pb-24"
     >
-      {pages['home-hero']?.content?.imageUrl && (
+      {pages['home-hero']?.content?.imageUrl ? (
         <>
           <img
             src={String(pages['home-hero'].content.imageUrl)}
@@ -59,15 +59,18 @@ export const Hero: React.FC = () => {
             aria-hidden="true"
             className="absolute inset-0 z-0 h-full w-full object-cover object-center"
           />
-          <div className="absolute inset-0 z-0 bg-gradient-to-b from-stone-950/25 via-emerald-950/30 to-stone-950/35 pointer-events-none" />
+          <div className="absolute inset-0 z-[1] bg-gradient-to-b from-stone-950/10 via-emerald-950/10 to-stone-950/15 pointer-events-none" />
+        </>
+      ) : (
+        <>
+          {/* Decorative gradient effects are used only when no photo is uploaded. */}
+          <div className="absolute inset-0 opacity-20 pointer-events-none mix-blend-overlay bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:24px_24px]"></div>
+          <div className="absolute -top-40 -right-40 w-96 h-96 bg-emerald-500/20 rounded-full blur-3xl pointer-events-none"></div>
+          <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-teal-500/15 rounded-full blur-3xl pointer-events-none"></div>
         </>
       )}
-      {/* Background aesthetic decorative elements */}
-      <div className="absolute inset-0 opacity-20 pointer-events-none mix-blend-overlay bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:24px_24px]"></div>
-      <div className="absolute -top-40 -right-40 w-96 h-96 bg-emerald-500/20 rounded-full blur-3xl pointer-events-none"></div>
-      <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-teal-500/15 rounded-full blur-3xl pointer-events-none"></div>
 
-      <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
         {/* Subtle pill badge */}
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-emerald-300 text-xs sm:text-sm font-semibold mb-6 backdrop-blur-md">
           <CountryFlag emoji="🇭🇺" country="Magyarország" size="sm" />
