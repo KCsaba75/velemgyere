@@ -49,7 +49,7 @@ export const Hero: React.FC = () => {
 
   return (
     <section
-      className="relative h-[650px] overflow-hidden bg-gradient-to-b from-stone-950 via-emerald-950/90 to-stone-900 text-white py-4 sm:py-6 flex flex-col justify-center"
+      className="relative isolate min-h-[520px] sm:min-h-[600px] flex items-center overflow-hidden text-white"
     >
       {pages['home-hero']?.content?.imageUrl ? (
         <>
@@ -57,10 +57,10 @@ export const Hero: React.FC = () => {
             src={String(pages['home-hero'].content.imageUrl)}
             alt=""
             aria-hidden="true"
-            className="absolute inset-0 z-0 h-full w-full object-cover object-[center_70%]"
+            className="absolute inset-0 -z-20 h-full w-full object-cover"
           />
           {/* Match the layered photo treatment used on the About Us hero. */}
-          <div className="absolute inset-0 z-0 bg-gradient-to-r from-stone-950/50 via-stone-900/35 to-stone-900/20" />
+          <div className="absolute inset-0 -z-10 bg-gradient-to-r from-stone-950/80 via-stone-900/55 to-stone-900/10" />
         </>
       ) : (
         <>
@@ -71,7 +71,7 @@ export const Hero: React.FC = () => {
         </>
       )}
 
-      <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-20 sm:py-28 text-center">
         {/* Subtle pill badge */}
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-emerald-300 text-xs sm:text-sm font-semibold mb-6 backdrop-blur-md">
           <CountryFlag emoji="🇭🇺" country="Magyarország" size="sm" />
