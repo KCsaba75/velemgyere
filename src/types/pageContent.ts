@@ -45,6 +45,8 @@ export interface HowItWorksContent {
   // kiemelo doboz minden lepesnel). A felso providerTitle/providerText marad
   // a rovid teaser, ez a tomb a lentebbi reszletes bontas.
   providerSteps?: HowItWorksStepContent[];
+  // A programvadász részletes, önálló lépésenkénti idővonala.
+  visitorSteps?: HowItWorksStepContent[];
 }
 
 // Kanban faqsplit1: ket celkozonseg kulon szekcioban. Hianyzo/undefined audience
