@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useDocumentMeta } from '../../hooks/useDocumentMeta';
-import { DRAFT_HOW_IT_WORKS, DRAFT_HOW_IT_WORKS_PROVIDER_STEPS, HowItWorksContent, HowItWorksStepContent } from '../../types/pageContent';
+import { DRAFT_HOW_IT_WORKS, DRAFT_HOW_IT_WORKS_PROVIDER_STEPS, DRAFT_HOW_IT_WORKS_VISITOR_STEPS, HowItWorksContent, HowItWorksStepContent } from '../../types/pageContent';
 import { sanitizeHtml } from '../../lib/sanitizeHtml';
 
 type MockupVariant = 'register' | 'draft' | 'review' | 'published' | 'inquiry';
@@ -195,6 +195,8 @@ export const HowItWorksPage: React.FC = () => {
     ? content.providerSteps
     : DRAFT_HOW_IT_WORKS_PROVIDER_STEPS;
   const isProviderStepsDraft = !content.providerSteps || content.providerSteps.length === 0;
+  const visitorSteps = content.visitorSteps && content.visitorSteps.length > 0 ? content.visitorSteps : DRAFT_HOW_IT_WORKS_VISITOR_STEPS;
+  const isVisitorStepsDraft = !content.visitorSteps || content.visitorSteps.length === 0;
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-16">
@@ -235,6 +237,28 @@ export const HowItWorksPage: React.FC = () => {
             className="text-sm sm:text-base text-stone-700 leading-relaxed whitespace-pre-wrap"
             dangerouslySetInnerHTML={{ __html: sanitizeHtml(providerText) }}
           />
+        </div>
+      </div>
+
+      <div className="mt-16 sm:mt-20">
+        <div className="text-center max-w-2xl mx-auto mb-10 sm:mb-14">
+          <h2 className="text-xl sm:text-3xl font-extrabold font-display text-stone-900 mb-3">Programvadászként -- lépésről lépésre</h2>
+          <p className="text-sm sm:text-base text-stone-500">Így találod meg a programot, küldesz érdeklődést, és egyeztetsz a szolgáltatóval.</p>
+          {isVisitorStepsDraft && <div className="mt-4 inline-block text-xs font-bold text-amber-800 bg-amber-50 border border-amber-200 px-3 py-2 rounded-xl">Ez a tartalom még nincs véglegesítve -- admin tölti majd ki.</div>}
+        </div>
+        <div className="max-w-3xl mx-auto space-y-0">
+          {visitorSteps.map((step, idx) => (
+            <div key={idx} className="relative flex gap-4 sm:gap-6">
+              <div className="flex flex-col items-center shrink-0">
+                <div className="w-10 h-10 rounded-full bg-stone-900 text-white font-extrabold font-display flex items-center justify-center text-base shadow-sm">{idx + 1}</div>
+                {idx !== visitorSteps.length - 1 && <div className="flex-1 w-0.5 border-l-2 border-dashed border-stone-300 my-1.5 min-h-[2.5rem]" />}
+              </div>
+              <div className="flex-1 pb-10 md:pb-12">
+                <h3 className="font-display font-bold text-lg sm:text-xl text-stone-900 mb-2">{step.title}</h3>
+                <div className="text-sm sm:text-base text-stone-600 leading-relaxed whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: sanitizeHtml(step.body) }} />
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
