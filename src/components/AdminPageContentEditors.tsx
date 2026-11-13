@@ -641,6 +641,7 @@ export const HomeHeroImageEditorCard: React.FC = () => {
         </button>
         {saved && <span className="text-xs font-bold text-emerald-700 flex items-center gap-1"><Check className="w-3.5 h-3.5" /> Mentve</span>}
       </div>
+      </div>
     </details>
   );
 };
