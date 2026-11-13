@@ -59,7 +59,8 @@ export const Hero: React.FC = () => {
             aria-hidden="true"
             className="absolute inset-0 z-0 h-full w-full object-cover object-center"
           />
-          {/* No dark overlay: show the uploaded photo at its original brightness. */}
+          {/* Match the layered photo treatment used on the About Us hero. */}
+          <div className="absolute inset-0 z-0 bg-gradient-to-r from-stone-950/80 via-stone-900/55 to-stone-900/10" />
         </>
       ) : (
         <>
