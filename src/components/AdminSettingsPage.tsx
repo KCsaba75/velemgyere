@@ -3,7 +3,7 @@ import { useApp } from '../context/AppContext';
 import { ShieldCheck, RotateCcw, LogOut, Check, RefreshCw, ChevronDown, Send, AlertCircle, MailCheck } from 'lucide-react';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import { BookingPushNotificationCard } from './BookingPushNotificationCard';
-import { SimpleTextPageEditorCard, ContactPageEditorCard, HowItWorksEditorCard, FaqEditorCard } from './AdminPageContentEditors';
+import { SimpleTextPageEditorCard, ContactPageEditorCard, HowItWorksEditorCard, FaqEditorCard, AboutUsEditorCard } from './AdminPageContentEditors';
 
 // Kanban 653c7577 (Csaba, teljes admin-nav atszervezes): a korabbi Admin
 // Vezerlopult "Beallitasok" (dij+arfolyam) es "Erdeklodesek" fulje, plusz a
@@ -413,7 +413,7 @@ export const AdminSettingsPage: React.FC = () => {
           </p>
         </div>
         <HowItWorksEditorCard />
-        <SimpleTextPageEditorCard slug="about-us" cardTitle="Rólunk" defaultTitle="Rólunk" withImage />
+        <AboutUsEditorCard />
         <SimpleTextPageEditorCard slug="pricing" cardTitle="Árazás és fizetés" defaultTitle="Árazás és fizetés" />
         <FaqEditorCard />
         <ContactPageEditorCard />
