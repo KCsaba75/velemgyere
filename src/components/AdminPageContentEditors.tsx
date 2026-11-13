@@ -497,3 +497,116 @@ export const FaqEditorCard: React.FC = () => {
     </div>
   );
 };
+
+
+// ---- Rólunk: teljes, szekciónként szerkeszthető bemutatkozó oldal ----
+const ABOUT_FIELDS: Array<{ key: string; label: string; multiline?: boolean }> = [
+  { key: 'heroEyebrow', label: 'Nyitókép – kis felső cím' },
+  { key: 'heroTitle', label: 'Nyitókép – főcím első sora' },
+  { key: 'heroHighlight', label: 'Nyitókép – kiemelt főcím' },
+  { key: 'heroText', label: 'Nyitókép – bevezető szöveg', multiline: true },
+  { key: 'storyEyebrow', label: 'Történet – felső cím' },
+  { key: 'storyTitle', label: 'Történet – főcím' },
+  { key: 'storyParagraph1', label: 'Bemutatkozás – 1. bekezdés', multiline: true },
+  { key: 'storyParagraph2', label: 'Bemutatkozás – 2. bekezdés', multiline: true },
+  { key: 'storyParagraph3', label: 'Bemutatkozás – 3. bekezdés', multiline: true },
+  { key: 'storyQuote', label: 'Kiemelt idézet', multiline: true },
+  { key: 'storyImageCaption', label: 'Történet képének kísérőszövege' },
+  { key: 'discoveryEyebrow', label: 'Felismerés – felső cím' },
+  { key: 'discoveryTitle', label: 'Felismerés – főcím' },
+  { key: 'discoveryText', label: 'Felismerés – leírás', multiline: true },
+  { key: 'discoveryStep1Title', label: '1. lépés címe' },
+  { key: 'discoveryStep1Text', label: '1. lépés leírása', multiline: true },
+  { key: 'discoveryStep2Title', label: '2. lépés címe' },
+  { key: 'discoveryStep2Text', label: '2. lépés leírása', multiline: true },
+  { key: 'discoveryStep3Title', label: '3. lépés címe' },
+  { key: 'discoveryStep3Text', label: '3. lépés leírása', multiline: true },
+  { key: 'discoveryQuestion', label: 'Felismerés – záró kérdés', multiline: true },
+  { key: 'discoveryAnswer', label: 'Felismerés – záró válasz' },
+  { key: 'missionEyebrow', label: 'Küldetés – felső cím' },
+  { key: 'missionTitle', label: 'Küldetés – főcím' },
+  { key: 'missionText1', label: 'Küldetés – 1. bekezdés', multiline: true },
+  { key: 'missionText2', label: 'Küldetés – 2. bekezdés', multiline: true },
+  { key: 'missionCallout', label: 'Küldetés – kiemelt szöveg', multiline: true },
+  { key: 'experiencesEyebrow', label: 'Programtípusok – felső cím' },
+  { key: 'experiencesTitle', label: 'Programtípusok – főcím' },
+  { key: 'experiencesText', label: 'Programtípusok – leírás', multiline: true },
+  { key: 'experience1Title', label: '1. programtípus – cím' },
+  { key: 'experience1Text', label: '1. programtípus – leírás', multiline: true },
+  { key: 'experience2Title', label: '2. programtípus – cím' },
+  { key: 'experience2Text', label: '2. programtípus – leírás', multiline: true },
+  { key: 'experience3Title', label: '3. programtípus – cím' },
+  { key: 'experience3Text', label: '3. programtípus – leírás', multiline: true },
+  { key: 'experience4Title', label: '4. programtípus – cím' },
+  { key: 'experience4Text', label: '4. programtípus – leírás', multiline: true },
+  { key: 'experience5Title', label: '5. programtípus – cím' },
+  { key: 'experience5Text', label: '5. programtípus – leírás', multiline: true },
+  { key: 'ctaTitle', label: 'Záró rész – főcím' },
+  { key: 'ctaText', label: 'Záró rész – leírás', multiline: true },
+  { key: 'ctaSignoff', label: 'Záró rész – elköszönés' },
+  { key: 'ctaSignature', label: 'Záró rész – aláírás' },
+  { key: 'ctaTagline', label: 'Záró rész – szlogen' },
+];
+
+export const AboutUsEditorCard: React.FC = () => {
+  const { pages, updatePageContent } = useApp();
+  const page = pages['about-us'];
+  const content = page?.content || {};
+  const [title, setTitle] = useState(page?.title || 'Rólunk – Velemgyere');
+  const [draft, setDraft] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  React.useEffect(() => {
+    setTitle(page?.title || 'Rólunk – Velemgyere');
+    setDraft(Object.fromEntries(ABOUT_FIELDS.map(({ key }) => [key, String(content[key] || '')]).concat(
+      ['heroImageUrl', 'storyImageUrl', 'missionImageUrl'].map(key => [key, String(content[key] || '')])
+    )));
+  }, [page]);
+
+  const setField = (key: string, value: string) => setDraft(prev => ({ ...prev, [key]: value }));
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await updatePageContent('about-us', {
+        title: title.trim() || 'Rólunk – Velemgyere',
+        content: { ...content, ...draft },
+      });
+      setSaved(true);
+      window.setTimeout(() => setSaved(false), 2500);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-2xl border border-stone-200 p-6 space-y-5">
+      <div>
+        <h4 className="font-display font-bold text-stone-900 text-base">Rólunk – teljes oldal szerkesztése</h4>
+        <p className="mt-1 text-sm text-stone-500">Módosítsd a szövegeket és a képeket. A mentés után a nyilvános Rólunk oldal az új tartalmat jeleníti meg.</p>
+      </div>
+      <div className="space-y-1.5">
+        <label className="text-xs font-bold text-stone-700 uppercase tracking-wider">Oldal / SEO címe</label>
+        <input value={title} onChange={e => setTitle(e.target.value)} className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2" />
+      </div>
+      <div className="grid md:grid-cols-3 gap-4">
+        <ImageUploadField slug="about-us" label="Nyitókép" imageUrl={draft.heroImageUrl || ''} onChange={url => setField('heroImageUrl', url)} />
+        <ImageUploadField slug="about-us" label="Történet képe" imageUrl={draft.storyImageUrl || ''} onChange={url => setField('storyImageUrl', url)} />
+        <ImageUploadField slug="about-us" label="Küldetés képe" imageUrl={draft.missionImageUrl || ''} onChange={url => setField('missionImageUrl', url)} />
+      </div>
+      <div className="grid md:grid-cols-2 gap-4">
+        {ABOUT_FIELDS.map(field => (
+          <div key={field.key} className={field.multiline ? 'space-y-1.5 md:col-span-2' : 'space-y-1.5'}>
+            <label className="text-xs font-bold text-stone-700">{field.label}</label>
+            {field.multiline ? (
+              <textarea rows={3} value={draft[field.key] || ''} onChange={e => setField(field.key, e.target.value)} className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2.5 resize-y" />
+            ) : (
+              <input value={draft[field.key] || ''} onChange={e => setField(field.key, e.target.value)} className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2" />
+            )}
+          </div>
+        ))}
+      </div>
+      <SaveButton saving={saving} saved={saved} onClick={handleSave} />
+    </div>
+  );
+};
