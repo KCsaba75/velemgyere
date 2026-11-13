@@ -49,7 +49,7 @@ export const Hero: React.FC = () => {
 
   return (
     <section
-      className="relative isolate min-h-[520px] sm:min-h-[600px] flex items-center overflow-hidden text-white"
+      className="relative isolate sm:min-h-[600px] flex items-center overflow-hidden text-white"
     >
       {pages['home-hero']?.content?.imageUrl ? (
         <>
@@ -71,31 +71,31 @@ export const Hero: React.FC = () => {
         </>
       )}
 
-      <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-20 sm:py-28 text-center">
+      <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-28 text-center">
         {/* Subtle pill badge */}
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-emerald-300 text-xs sm:text-sm font-semibold mb-6 backdrop-blur-md">
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-emerald-300 text-xs sm:text-sm font-semibold mb-4 sm:mb-6 backdrop-blur-md">
           <CountryFlag emoji="🇭🇺" country="Magyarország" size="sm" />
           <span>100% Magyar Nyelvű Programok & Helyi Szolgáltatók Külföldön</span>
         </div>
 
         {/* Main Title */}
-        <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight font-display mb-4 text-white">
+        <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight font-display mb-3 sm:mb-4 text-white">
           VELEM GYERE
         </h1>
 
         {/* Subtitle / Secondary slogan */}
-        <p className="text-xl sm:text-2xl lg:text-3xl text-stone-200 font-medium mb-3 max-w-3xl mx-auto font-display">
+        <p className="text-xl sm:text-2xl lg:text-3xl text-stone-200 font-medium mb-2 sm:mb-3 max-w-3xl mx-auto font-display">
           Fedezd fel a világot anyanyelveden!
         </p>
 
-        <p className="text-stone-300 text-sm sm:text-base max-w-3xl mx-auto mb-8 leading-relaxed">
-          Külföldi magyar idegenvezetők, kirándulásszervezők és megbízható reptéri transzferek egyetlen közös platformon. 
+        <p className="text-stone-300 text-sm sm:text-base max-w-3xl mx-auto mb-5 sm:mb-8 leading-relaxed">
+          Külföldi magyar idegenvezetők, kirándulásszervezők és megbízható reptéri transzferek egyetlen közös platformon.
           Kiemelt desztinációk:{' '}
           <strong className="text-white font-semibold">Ciprus • Málta • Spanyolország (Barcelona, Málaga, Mallorca) • Róma • Isztambul</strong>
         </p>
 
         {/* Large Search Box ("Mit keresel?") */}
-        <div className="max-w-3xl mx-auto mb-8">
+        <div className="max-w-3xl mx-auto mb-5 sm:mb-8">
           <form 
             onSubmit={handleSearchSubmit}
             className="bg-white p-2 sm:p-2.5 rounded-2xl shadow-2xl shadow-black/50 flex flex-col sm:flex-row items-stretch gap-2 border border-stone-200"
@@ -128,7 +128,7 @@ export const Hero: React.FC = () => {
         </div>
 
         {/* Quick Regions / Destinations Bar */}
-        <div className="mb-6">
+        <div className="mb-4 sm:mb-6">
           <div className="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-2.5 flex items-center justify-center gap-1.5">
             <Globe className="w-3.5 h-3.5" />
             <span>Kiemelt Úticélok</span>
