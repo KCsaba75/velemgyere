@@ -3,7 +3,7 @@ import { Check, Loader2, Plus, Trash2, Upload } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { supabase } from '../lib/supabase';
 import { uploadSiteContentImage } from '../lib/imageUpload';
-import { DRAFT_FAQ_ITEMS, DRAFT_FALLBACKS, DRAFT_HOW_IT_WORKS, DRAFT_HOW_IT_WORKS_PROVIDER_STEPS, FaqItem, HowItWorksContent, HowItWorksStepContent } from '../types/pageContent';
+import { DRAFT_FAQ_ITEMS, DRAFT_FALLBACKS, DRAFT_HOW_IT_WORKS, DRAFT_HOW_IT_WORKS_PROVIDER_STEPS, DRAFT_HOW_IT_WORKS_VISITOR_STEPS, FaqItem, HowItWorksContent, HowItWorksStepContent } from '../types/pageContent';
 import { RichTextEditor } from './RichTextEditor';
 import { sanitizeHtml } from '../lib/sanitizeHtml';
 
@@ -274,6 +274,10 @@ export const HowItWorksEditorCard: React.FC = () => {
   const set = (field: keyof HowItWorksContent, value: string) => setDraft(prev => ({ ...prev, [field]: value }));
 
   const steps = draft.providerSteps || [];
+  const visitorSteps = draft.visitorSteps || [];
+  const updateVisitorStep = (idx: number, field: keyof HowItWorksStepContent, value: string) => setDraft(prev => ({ ...prev, visitorSteps: (prev.visitorSteps || []).map((step, i) => i === idx ? { ...step, [field]: value } : step) }));
+  const addVisitorStep = () => setDraft(prev => ({ ...prev, visitorSteps: [...(prev.visitorSteps || []), { title: '', body: '' }] }));
+  const removeVisitorStep = (idx: number) => setDraft(prev => ({ ...prev, visitorSteps: (prev.visitorSteps || []).filter((_, i) => i !== idx) }));
   const updateStep = (idx: number, field: keyof HowItWorksStepContent, value: string) => {
     setDraft(prev => ({
       ...prev,
@@ -302,6 +306,7 @@ export const HowItWorksEditorCard: React.FC = () => {
           visitorText: sanitizeHtml(draft.visitorText || ''),
           providerText: sanitizeHtml(draft.providerText || ''),
           providerSteps: cleanedSteps,
+          visitorSteps: (draft.visitorSteps || []).filter(step => step.title.trim() || step.body.trim()).map(step => ({ ...step, body: sanitizeHtml(step.body) })),
         } as Record<string, unknown>,
       });
       setSaved(true);
@@ -426,6 +431,22 @@ export const HowItWorksEditorCard: React.FC = () => {
         >
           <Plus className="w-3.5 h-3.5" /> Lépés hozzáadása
         </button>
+      </div>
+
+
+      <div className="border-t border-stone-200 pt-5 space-y-3">
+        <h5 className="text-xs font-bold text-emerald-800 uppercase tracking-wider">Programvadászoknak lépések (részletes idővonal, lent az oldalon)</h5>
+        {visitorSteps.length === 0 && <p className="text-[11px] text-stone-400">Jelenleg nincs felvett lépés -- a nyilvános oldalon az alapértelmezett {DRAFT_HOW_IT_WORKS_VISITOR_STEPS.length} lépéses minta jelenik meg draft-jelzéssel.</p>}
+        <div className="space-y-3">
+          {visitorSteps.map((step, idx) => (
+            <div key={idx} className="border border-emerald-100 rounded-xl p-4 space-y-2 relative">
+              <button type="button" onClick={() => removeVisitorStep(idx)} className="absolute top-3 right-3 text-stone-400 hover:text-rose-600 cursor-pointer" title="Törlés"><Trash2 className="w-4 h-4" /></button>
+              <input type="text" value={step.title} onChange={e => updateVisitorStep(idx, 'title', e.target.value)} placeholder={`${idx + 1}. lépés címe`} className="w-full text-sm font-semibold bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 pr-8 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+              <RichTextEditor value={step.body} onChange={html => updateVisitorStep(idx, 'body', html)} placeholder="Részletes leírás a programvadásznak." minHeightClassName="min-h-[90px]" />
+            </div>
+          ))}
+        </div>
+        <button type="button" onClick={addVisitorStep} className="text-xs font-semibold text-stone-700 bg-white border border-stone-300 hover:bg-stone-50 px-3 py-2 rounded-xl flex items-center gap-1.5 cursor-pointer"><Plus className="w-3.5 h-3.5" /> Lépés hozzáadása</button>
       </div>
 
       <SaveButton saving={saving} saved={saved} onClick={handleSave} />
