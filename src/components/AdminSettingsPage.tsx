@@ -201,8 +201,11 @@ export const AdminSettingsPage: React.FC = () => {
       {/* Fee + exchange rate settings */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
         {/* Foglalási díj card */}
-        <div className="bg-white rounded-2xl border border-stone-200 p-6 space-y-4">
-          <h3 className="font-display font-bold text-stone-900 text-lg">Foglalási díj</h3>
+        <details className="bg-white rounded-2xl border border-stone-200 overflow-hidden group">
+          <summary className="list-none cursor-pointer select-none p-5 sm:p-6 font-display font-bold text-stone-900 text-lg flex items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
+            Foglalási díj <span className="text-stone-400 text-sm transition-transform group-open:rotate-180">⌄</span>
+          </summary>
+          <div className="px-5 pb-5 sm:px-6 sm:pb-6 space-y-4">
           <p className="text-sm text-stone-600">
             A foglalási díj = MAX(százalék × program nettó ára, minimum összeg). A programgazda a
             saját kézhez kapandó (nettó) összeget adja meg, erre számolódik rá a díj -- a vevő a
@@ -269,12 +272,15 @@ export const AdminSettingsPage: React.FC = () => {
           <p className="text-xs text-stone-400">
             Jelenlegi érték élesben: {feePercentage.toFixed(2)}% (min. {feeMinimumEur.toFixed(2)} €)
           </p>
-        </div>
+          </div>
+        </details>
 
         {/* EUR / HUF Árfolyam API & Beállítások card */}
-        <div className="bg-white rounded-2xl border border-stone-200 p-6 space-y-4">
-          <div className="flex items-center justify-between gap-2">
-            <h3 className="font-display font-bold text-stone-900 text-lg">Napi Euro - Forint Árfolyam (API)</h3>
+        <details className="bg-white rounded-2xl border border-stone-200 overflow-hidden group">
+          <summary className="list-none cursor-pointer select-none p-5 sm:p-6 font-display font-bold text-stone-900 text-lg flex items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
+            Napi Euro - Forint Árfolyam (API) <span className="text-stone-400 text-sm transition-transform group-open:rotate-180">⌄</span>
+          </summary>
+          <div className="px-5 pb-5 sm:px-6 sm:pb-6 space-y-4">
             <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 shrink-0">
               1 EUR = {eurHufRate} Ft
             </span>
@@ -347,12 +353,16 @@ export const AdminSettingsPage: React.FC = () => {
               )}
             </p>
           </div>
-        </div>
+          </div>
+        </details>
       </div>
 
       {/* Közösségi média linkek (lábléc, kanban 71915a0a) */}
-      <div className="bg-white rounded-2xl border border-stone-200 p-6 space-y-4">
-        <h3 className="font-display font-bold text-stone-900 text-lg">Közösségi média linkek (lábléc)</h3>
+      <details className="bg-white rounded-2xl border border-stone-200 overflow-hidden group">
+        <summary className="list-none cursor-pointer select-none p-5 sm:p-6 font-display font-bold text-stone-900 text-lg flex items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
+          Közösségi média linkek (lábléc) <span className="text-stone-400 text-sm transition-transform group-open:rotate-180">⌄</span>
+        </summary>
+        <div className="px-5 pb-5 sm:px-6 sm:pb-6 space-y-4">
         <p className="text-sm text-stone-600">
           A lábléc bal oldalán megjelenő ikonok URL-je. Üresen hagyva az adott platform ikonja nem jelenik meg a láblécben.
         </p>
@@ -403,11 +413,16 @@ export const AdminSettingsPage: React.FC = () => {
           )}
         </div>
       </div>
+        </div>
+      </details>
 
       {/* Platform + Ugyfelszolgalat aloldalak tartalma (kanban 71915a0a, 4-6. pont) */}
-      <div className="space-y-4">
+      <details className="bg-white rounded-2xl border border-stone-200 overflow-hidden group">
+        <summary className="list-none cursor-pointer select-none p-5 sm:p-6 font-display font-bold text-stone-900 text-lg flex items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
+          Oldalak tartalma (Platform / Ügyfélszolgálat) <span className="text-stone-400 text-sm transition-transform group-open:rotate-180">⌄</span>
+        </summary>
+        <div className="p-5 sm:p-6 space-y-4">
         <div>
-          <h3 className="font-display font-bold text-stone-900 text-lg">Oldalak tartalma (Platform / Ügyfélszolgálat)</h3>
           <p className="text-sm text-stone-600">
             A lábléc Platform és Ügyfélszolgálat oszlopaiban elérhető 7 aloldal szövege és képe itt szerkeszthető.
           </p>
@@ -420,11 +435,15 @@ export const AdminSettingsPage: React.FC = () => {
         <ContactPageEditorCard />
         <SimpleTextPageEditorCard slug="terms" cardTitle="Általános Szerződési Feltételek" defaultTitle="Általános Szerződési Feltételek" legalWarning />
         <SimpleTextPageEditorCard slug="privacy" cardTitle="Adatkezelési Tájékoztató" defaultTitle="Adatkezelési Tájékoztató" legalWarning />
-      </div>
+        </div>
+      </details>
 
       {/* Érdeklődések */}
-      <div className="space-y-3">
-        <h3 className="font-display font-bold text-stone-900 text-lg">Érdeklődések</h3>
+      <details className="bg-white rounded-2xl border border-stone-200 overflow-hidden group">
+        <summary className="list-none cursor-pointer select-none p-5 sm:p-6 font-display font-bold text-stone-900 text-lg flex items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
+          Érdeklődések ({inquiries.length}) <span className="text-stone-400 text-sm transition-transform group-open:rotate-180">⌄</span>
+        </summary>
+        <div className="px-5 pb-5 sm:px-6 sm:pb-6 space-y-3">
         <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden shadow-sm">
           <div className="p-4 bg-stone-50 border-b border-stone-100 text-xs font-bold text-stone-500 uppercase tracking-wider">
             Összes Beérkezett Érdeklődés ({inquiries.length})
@@ -473,14 +492,18 @@ export const AdminSettingsPage: React.FC = () => {
             })}
           </div>
         </div>
-      </div>
+        </div>
+      </details>
 
       {/* Push-értesítés kapcsolati üzenetekre (kanban 248d2841, Csaba IGEN) --
           ugyanaz a komponens/mechanizmus mint a foglalás-chat push-nál
           (MyAccountView), csak más leíró szöveggel. */}
       {currentUser.user_id && (
-        <div className="space-y-3">
-          <h3 className="font-display font-bold text-stone-900 text-lg">Push-értesítés</h3>
+        <details className="bg-white rounded-2xl border border-stone-200 overflow-hidden group">
+          <summary className="list-none cursor-pointer select-none p-5 font-display font-bold text-stone-900 text-lg flex items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
+            Push-értesítés <span className="text-stone-400 text-sm transition-transform group-open:rotate-180">⌄</span>
+          </summary>
+          <div className="px-5 pb-5">
           <BookingPushNotificationCard
             userId={currentUser.user_id}
             initialEnabled={currentUser.push_notifications_enabled ?? true}
@@ -489,7 +512,8 @@ export const AdminSettingsPage: React.FC = () => {
               await updateMyProfile({ push_notifications_enabled: enabled });
             }}
           />
-        </div>
+          </div>
+        </details>
       )}
 
       {/* Kapcsolati üzenetek (kanban 6f9ad755, bővítve msg 3189) -- a sajat-fiokom
@@ -498,8 +522,11 @@ export const AdminSettingsPage: React.FC = () => {
           Kinyithato sor (olvasashoz, status 'new'->'read'), es egy valasz-urlap
           (send-contact-reply Edge Function -- email a felhasznalonak +
           status->'resolved'). */}
-      <div className="space-y-3">
-        <h3 className="font-display font-bold text-stone-900 text-lg">Kapcsolati üzenetek</h3>
+      <details className="bg-white rounded-2xl border border-stone-200 overflow-hidden group">
+        <summary className="list-none cursor-pointer select-none p-5 sm:p-6 font-display font-bold text-stone-900 text-lg flex items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
+          Kapcsolati üzenetek ({contactMessages.length}) {contactMessages.some(m => m.status === 'new') && <span className="text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full">{contactMessages.filter(m => m.status === 'new').length} új</span>} <span className="ml-auto text-stone-400 text-sm transition-transform group-open:rotate-180">⌄</span>
+        </summary>
+        <div className="px-5 pb-5">
         <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden shadow-sm">
           <div className="p-4 bg-stone-50 border-b border-stone-100 text-xs font-bold text-stone-500 uppercase tracking-wider flex items-center justify-between">
             <span>Felhasználóktól beérkezett üzenetek ({contactMessages.length})</span>
@@ -602,7 +629,8 @@ export const AdminSettingsPage: React.FC = () => {
             </div>
           )}
         </div>
-      </div>
+        </div>
+      </details>
     </div>
   );
 };
