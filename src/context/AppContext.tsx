@@ -2481,26 +2481,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     email: string;
     message: string;
   }): Promise<{ success: boolean; message: string }> => {
-    if (!data.message.trim()) {
-      return { success: false, message: 'Írj be egy üzenetet, mielőtt elküldöd.' };
+    if (!data.name.trim() || !data.email.trim() || !data.message.trim()) {
+      return { success: false, message: 'Kérjük, töltsd ki a nevedet, az e-mail-címedet és az üzenetedet.' };
+    }
+    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(data.email.trim())) {
+      return { success: false, message: 'Kérjük, érvényes e-mail-címet adj meg.' };
+    }
+    if (data.message.trim().length < 5 || data.message.length > 5000) {
+      return { success: false, message: 'Az üzenet legalább 5, legfeljebb 5000 karakter lehet.' };
     }
     if (!isSupabaseConfigured) {
-      return { success: false, message: 'Az üzenetküldés csak éles (Supabase-sel összekötött) környezetben érhető el.' };
+      return { success: false, message: 'Az üzenetküldés jelenleg nem érhető el. Kérjük, írj az info@velemgyere.hu címre.' };
     }
 
-    const { error } = await supabase.from('contact_messages').insert({
-      user_id: currentUser.user_id || null,
-      name: data.name,
-      email: data.email,
-      message: data.message.trim(),
+    const { data: response, error } = await supabase.functions.invoke('submit-contact-message', {
+      body: {
+        name: data.name.trim(),
+        email: data.email.trim(),
+        message: data.message.trim(),
+        userId: currentUser.user_id || null,
+      },
     });
 
-    if (error) {
-      console.error('submitContactMessage failed:', error);
-      return { success: false, message: `Üzenet küldése sikertelen: ${error.message}` };
+    if (error || !response?.sent) {
+      console.error('submitContactMessage failed:', error || response?.error);
+      return { success: false, message: response?.error || 'Nem sikerült elküldeni az üzenetet. Kérjük, próbáld újra később.' };
     }
 
-    return { success: true, message: 'Üzeneted elküldve! Hamarosan válaszolunk.' };
+    return { success: true, message: 'Köszönjük! Üzenetedet elküldtük a Velemgyere csapatának. Hamarosan válaszolunk.' };
   };
 
   // Kanban 6f9ad755 bővítés (Csaba, msg 3189): admin kinyit egy "még olvasatlan"
