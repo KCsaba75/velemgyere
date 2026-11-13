@@ -937,10 +937,17 @@ interface MonthDayCellProps {
 // jelenik meg, mint desktopon, igy a korabbi (msg 3380, 3. pont) "nincs mobil
 // drag" dontes felulirva: a grip-fogantyu mobilon is aktiv marad, mert ez pontosan
 // a mar bevalt desktop kartya-komponens ujrahasznositasa, nem uj mobil-dizajn.
+// Kanban dyn001: a cella magassaga mar korabban is min-height (nem fix height),
+// tehat a 629ebf36 ota termeszetesen novekszik ha tobb chip fer bele -- a
+// korabbi 2-es cap volt az, ami ezt megakadalyozta ("+N tovabbi" csonkitas
+// mar 3. programnal is). A cap most 6-ra nott, csak ennel tobb program eseten
+// jelenik meg az overflow-szoveg.
+const DAY_CELL_VISIBLE_CAP = 6;
+
 const MonthDayCell: React.FC<MonthDayCellProps> = ({ dayItem, isSelected, items, bookedCountByOccurrence, pendingOccurrenceIds, onSelect, onOpenPopup }) => {
   const { setNodeRef, isOver } = useDroppable({ id: dayItem.dateStr });
   const hasOccurrences = items.length > 0;
-  const visibleItems = items.slice(0, 2);
+  const visibleItems = items.slice(0, DAY_CELL_VISIBLE_CAP);
   const overflowCount = items.length - visibleItems.length;
 
   return (
