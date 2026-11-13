@@ -124,8 +124,15 @@ export const SimpleTextPageEditorCard: React.FC<{
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-stone-200 p-6 space-y-4">
-      <h4 className="font-display font-bold text-stone-900 text-base">{cardTitle}</h4>
+    <details className="group bg-white rounded-2xl border border-stone-200 overflow-hidden">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-5 [&::-webkit-details-marker]:hidden">
+        <div>
+          <h4 className="font-display font-bold text-stone-900 text-base">{cardTitle}</h4>
+          <p className="mt-1 text-sm text-stone-500">Szöveg és cím szerkesztése</p>
+        </div>
+        <span className="shrink-0 rounded-full bg-stone-100 px-3 py-1.5 text-xs font-bold text-stone-600 group-open:bg-emerald-50 group-open:text-emerald-700">Megnyitás <span className="inline-block transition-transform group-open:rotate-180">⌄</span></span>
+      </summary>
+      <div className="border-t border-stone-100 p-5 space-y-4">
       {legalWarning && (
         <p className="text-xs font-bold text-amber-800 bg-amber-50 border border-amber-200 px-3 py-2 rounded-xl">
           Jogi szöveg -- ne találj ki végleges ÁSZF/adatkezelési tartalmat, csak Csaba által megadott/jóváhagyott szöveget tölts ide.
@@ -156,7 +163,8 @@ export const SimpleTextPageEditorCard: React.FC<{
         <ImageUploadField slug={slug} label="Kép" imageUrl={imageDraft} onChange={setImageDraft} />
       )}
       <SaveButton saving={saving} saved={saved} onClick={handleSave} />
-    </div>
+      </div>
+    </details>
   );
 };
 
@@ -193,8 +201,15 @@ export const ContactPageEditorCard: React.FC = () => {
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-stone-200 p-6 space-y-4">
-      <h4 className="font-display font-bold text-stone-900 text-base">Kapcsolat</h4>
+    <details className="group bg-white rounded-2xl border border-stone-200 overflow-hidden">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-5 [&::-webkit-details-marker]:hidden">
+        <div>
+          <h4 className="font-display font-bold text-stone-900 text-base">Kapcsolat</h4>
+          <p className="mt-1 text-sm text-stone-500">Elérhetőségek és bevezető szöveg</p>
+        </div>
+        <span className="shrink-0 rounded-full bg-stone-100 px-3 py-1.5 text-xs font-bold text-stone-600 group-open:bg-emerald-50 group-open:text-emerald-700">Megnyitás <span className="inline-block transition-transform group-open:rotate-180">⌄</span></span>
+      </summary>
+      <div className="border-t border-stone-100 p-5 space-y-4">
       <div className="space-y-1.5">
         <label className="text-xs font-bold text-stone-700 uppercase tracking-wider">Oldal címe</label>
         <input
@@ -236,7 +251,8 @@ export const ContactPageEditorCard: React.FC = () => {
         </div>
       </div>
       <SaveButton saving={saving} saved={saved} onClick={handleSave} />
-    </div>
+      </div>
+    </details>
   );
 };
 
@@ -296,8 +312,15 @@ export const HowItWorksEditorCard: React.FC = () => {
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-stone-200 p-6 space-y-4">
-      <h4 className="font-display font-bold text-stone-900 text-base">Hogyan működik? (kétféle nézőpont)</h4>
+    <details className="group bg-white rounded-2xl border border-stone-200 overflow-hidden">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-5 [&::-webkit-details-marker]:hidden">
+        <div>
+          <h4 className="font-display font-bold text-stone-900 text-base">Hogyan működik? (kétféle nézőpont)</h4>
+          <p className="mt-1 text-sm text-stone-500">Két nézőpont szövege és szolgáltatói lépések</p>
+        </div>
+        <span className="shrink-0 rounded-full bg-stone-100 px-3 py-1.5 text-xs font-bold text-stone-600 group-open:bg-emerald-50 group-open:text-emerald-700">Megnyitás <span className="inline-block transition-transform group-open:rotate-180">⌄</span></span>
+      </summary>
+      <div className="border-t border-stone-100 p-5 space-y-4">
       <div className="space-y-1.5">
         <label className="text-xs font-bold text-stone-700 uppercase tracking-wider">Oldal címe</label>
         <input
@@ -406,7 +429,8 @@ export const HowItWorksEditorCard: React.FC = () => {
       </div>
 
       <SaveButton saving={saving} saved={saved} onClick={handleSave} />
-    </div>
+      </div>
+    </details>
   );
 };
 
@@ -512,8 +536,15 @@ export const FaqEditorCard: React.FC = () => {
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-stone-200 p-6 space-y-5">
-      <h4 className="font-display font-bold text-stone-900 text-base">Gyakran Ismételt Kérdések</h4>
+    <details className="group bg-white rounded-2xl border border-stone-200 overflow-hidden">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-5 [&::-webkit-details-marker]:hidden">
+        <div>
+          <h4 className="font-display font-bold text-stone-900 text-base">Gyakran Ismételt Kérdések</h4>
+          <p className="mt-1 text-sm text-stone-500">Kérdések szerkesztése célközönség szerint</p>
+        </div>
+        <span className="shrink-0 rounded-full bg-stone-100 px-3 py-1.5 text-xs font-bold text-stone-600 group-open:bg-emerald-50 group-open:text-emerald-700">Megnyitás <span className="inline-block transition-transform group-open:rotate-180">⌄</span></span>
+      </summary>
+      <div className="border-t border-stone-100 p-5 space-y-5">
       <div className="space-y-1.5">
         <label className="text-xs font-bold text-stone-700 uppercase tracking-wider">Oldal címe</label>
         <input
@@ -553,7 +584,8 @@ export const FaqEditorCard: React.FC = () => {
       </div>
 
       <SaveButton saving={saving} saved={saved} onClick={handleSave} />
-    </div>
+      </div>
+    </details>
   );
 };
 

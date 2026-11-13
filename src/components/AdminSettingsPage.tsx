@@ -284,7 +284,6 @@ export const AdminSettingsPage: React.FC = () => {
             <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 shrink-0">
               1 EUR = {eurHufRate} Ft
             </span>
-          </div>
           <p className="text-sm text-stone-600">
             Az EUR összegű programkártyák törzsén a rendszer automatikusan megjeleníti a forintösszeget is zárójelben. A napi hivatalos középárfolyam lekérhető az API-ból, vagy kézzel is megadható.
           </p>
@@ -412,7 +411,6 @@ export const AdminSettingsPage: React.FC = () => {
             </span>
           )}
         </div>
-      </div>
         </div>
       </details>
 
