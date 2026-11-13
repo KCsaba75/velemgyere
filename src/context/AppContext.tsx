@@ -2484,7 +2484,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!data.name.trim() || !data.email.trim() || !data.message.trim()) {
       return { success: false, message: 'Kérjük, töltsd ki a nevedet, az e-mail-címedet és az üzenetedet.' };
     }
-    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(data.email.trim())) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email.trim())) {
       return { success: false, message: 'Kérjük, érvényes e-mail-címet adj meg.' };
     }
     if (data.message.trim().length < 5 || data.message.length > 5000) {
