@@ -3,7 +3,7 @@ import { useApp } from '../context/AppContext';
 import { ShieldCheck, RotateCcw, LogOut, Check, RefreshCw, ChevronDown, Send, AlertCircle, MailCheck } from 'lucide-react';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import { BookingPushNotificationCard } from './BookingPushNotificationCard';
-import { SimpleTextPageEditorCard, ContactPageEditorCard, HowItWorksEditorCard, FaqEditorCard, AboutUsEditorCard } from './AdminPageContentEditors';
+import { SimpleTextPageEditorCard, ContactPageEditorCard, HowItWorksEditorCard, FaqEditorCard, AboutUsEditorCard, HomeHeroImageEditorCard } from './AdminPageContentEditors';
 
 // Kanban 653c7577 (Csaba, teljes admin-nav atszervezes): a korabbi Admin
 // Vezerlopult "Beallitasok" (dij+arfolyam) es "Erdeklodesek" fulje, plusz a
@@ -412,6 +412,7 @@ export const AdminSettingsPage: React.FC = () => {
             A lábléc Platform és Ügyfélszolgálat oszlopaiban elérhető 7 aloldal szövege és képe itt szerkeszthető.
           </p>
         </div>
+        <HomeHeroImageEditorCard />
         <HowItWorksEditorCard />
         <AboutUsEditorCard />
         <SimpleTextPageEditorCard slug="pricing" cardTitle="Árazás és fizetés" defaultTitle="Árazás és fizetés" />
