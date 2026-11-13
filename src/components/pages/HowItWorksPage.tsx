@@ -13,6 +13,7 @@ import {
 import { useApp } from '../../context/AppContext';
 import { useDocumentMeta } from '../../hooks/useDocumentMeta';
 import { DRAFT_HOW_IT_WORKS, DRAFT_HOW_IT_WORKS_PROVIDER_STEPS, HowItWorksContent, HowItWorksStepContent } from '../../types/pageContent';
+import { sanitizeHtml } from '../../lib/sanitizeHtml';
 
 type MockupVariant = 'register' | 'draft' | 'review' | 'published' | 'inquiry';
 
@@ -136,7 +137,10 @@ const ProviderStepsTimeline: React.FC<{ steps: HowItWorksStepContent[] }> = ({ s
             <div className="md:grid md:grid-cols-5 md:gap-10 md:items-start">
               <div className={`md:col-span-3 ${textFirst ? 'md:order-1' : 'md:order-2'}`}>
                 <h3 className="font-display font-bold text-lg sm:text-xl text-stone-900 mb-2">{step.title}</h3>
-                <p className="text-sm sm:text-base text-stone-600 leading-relaxed whitespace-pre-wrap">{step.body}</p>
+                <div
+                  className="text-sm sm:text-base text-stone-600 leading-relaxed whitespace-pre-wrap"
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(step.body) }}
+                />
 
                 {(step.leftText || step.rightText) && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
@@ -210,7 +214,10 @@ export const HowItWorksPage: React.FC = () => {
           <h2 className="font-display font-bold text-xl text-stone-900">
             {content.visitorTitle?.trim() || 'Neked, aki élményt keresel'}
           </h2>
-          <p className="text-sm sm:text-base text-stone-700 leading-relaxed whitespace-pre-wrap">{visitorText}</p>
+          <div
+            className="text-sm sm:text-base text-stone-700 leading-relaxed whitespace-pre-wrap"
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(visitorText) }}
+          />
         </div>
 
         <div className="bg-white rounded-2xl border border-stone-200 p-6 sm:p-8 space-y-4">
@@ -224,7 +231,10 @@ export const HowItWorksPage: React.FC = () => {
           <h2 className="font-display font-bold text-xl text-stone-900">
             {content.providerTitle?.trim() || 'Neked, aki programot hirdetnél'}
           </h2>
-          <p className="text-sm sm:text-base text-stone-700 leading-relaxed whitespace-pre-wrap">{providerText}</p>
+          <div
+            className="text-sm sm:text-base text-stone-700 leading-relaxed whitespace-pre-wrap"
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(providerText) }}
+          />
         </div>
       </div>
 

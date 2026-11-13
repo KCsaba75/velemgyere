@@ -3,6 +3,7 @@ import { useApp } from '../../context/AppContext';
 import { useDocumentMeta } from '../../hooks/useDocumentMeta';
 import { SimpleTextContent } from '../../types/pageContent';
 import { DRAFT_FALLBACKS } from '../../types/pageContent';
+import { sanitizeHtml } from '../../lib/sanitizeHtml';
 
 export const TermsPage: React.FC = () => {
   const { pages } = useApp();
@@ -40,9 +41,10 @@ export const TermsPage: React.FC = () => {
           </div>
         )}
         <article className="rounded-2xl border border-stone-200 bg-white p-6 sm:p-10 shadow-sm">
-          <div className="whitespace-pre-wrap break-words text-sm sm:text-base leading-8 text-stone-700">
-            {bodyText}
-          </div>
+          <div
+            className="whitespace-pre-wrap break-words text-sm sm:text-base leading-8 text-stone-700"
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(bodyText) }}
+          />
         </article>
       </section>
     </div>

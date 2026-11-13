@@ -3,6 +3,7 @@ import { ChevronDown } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useDocumentMeta } from '../../hooks/useDocumentMeta';
 import { DRAFT_FAQ_ITEMS, FaqContent, FaqItem } from '../../types/pageContent';
+import { sanitizeHtml } from '../../lib/sanitizeHtml';
 
 // Kanban faqsplit1: hianyzo audience = 'traveler', hogy a migracio elotti
 // (meglevo) kerdesek valtozatlanul az elso szekcioban jelenjenek meg.
@@ -34,9 +35,10 @@ const FaqAccordionGroup: React.FC<{
               <ChevronDown className={`w-4 h-4 text-stone-400 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
             </button>
             {isOpen && (
-              <div className="px-5 pb-4 text-sm text-stone-700 leading-relaxed whitespace-pre-wrap">
-                {item.answer}
-              </div>
+              <div
+                className="px-5 pb-4 text-sm text-stone-700 leading-relaxed whitespace-pre-wrap"
+                dangerouslySetInnerHTML={{ __html: sanitizeHtml(item.answer) }}
+              />
             )}
           </div>
         );

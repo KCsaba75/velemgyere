@@ -4,6 +4,8 @@ import { useApp } from '../context/AppContext';
 import { supabase } from '../lib/supabase';
 import { uploadSiteContentImage } from '../lib/imageUpload';
 import { DRAFT_FAQ_ITEMS, DRAFT_FALLBACKS, DRAFT_HOW_IT_WORKS, DRAFT_HOW_IT_WORKS_PROVIDER_STEPS, FaqItem, HowItWorksContent, HowItWorksStepContent } from '../types/pageContent';
+import { RichTextEditor } from './RichTextEditor';
+import { sanitizeHtml } from '../lib/sanitizeHtml';
 
 // Kanban 71915a0a (4-6. pont): admin-szerkeszto kartyak a 7 uj publikus
 // aloldalhoz (Platform + Ugyfelszolgalat). Minden kartya ugyanazt a
@@ -109,9 +111,10 @@ export const SimpleTextPageEditorCard: React.FC<{
   const handleSave = async () => {
     setSaving(true);
     try {
+      const cleanBody = sanitizeHtml(bodyDraft);
       await updatePageContent(slug, {
         title: titleDraft.trim() || defaultTitle,
-        content: withImage ? { bodyText: bodyDraft, imageUrl: imageDraft } : { bodyText: bodyDraft },
+        content: withImage ? { bodyText: cleanBody, imageUrl: imageDraft } : { bodyText: cleanBody },
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
@@ -139,12 +142,11 @@ export const SimpleTextPageEditorCard: React.FC<{
       </div>
       <div className="space-y-1.5">
         <label className="text-xs font-bold text-stone-700 uppercase tracking-wider">Szöveg</label>
-        <textarea
-          rows={6}
+        <RichTextEditor
           value={bodyDraft}
-          onChange={(e) => setBodyDraft(e.target.value)}
+          onChange={setBodyDraft}
           placeholder={DRAFT_FALLBACKS[slug] || ''}
-          className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2.5 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-y"
+          minHeightClassName="min-h-[150px]"
         />
         {!bodyDraft.trim() && (
           <p className="text-[11px] text-stone-400">Üresen a szürke minta-szöveg jelenik meg a nyilvános oldalon (draft-jelzéssel), amíg ide nem írsz tartalmat.</p>
@@ -181,7 +183,7 @@ export const ContactPageEditorCard: React.FC = () => {
     try {
       await updatePageContent('contact', {
         title: titleDraft.trim() || 'Kapcsolat',
-        content: { bodyText: bodyDraft, email: emailDraft, phone: phoneDraft },
+        content: { bodyText: sanitizeHtml(bodyDraft), email: emailDraft, phone: phoneDraft },
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
@@ -204,12 +206,11 @@ export const ContactPageEditorCard: React.FC = () => {
       </div>
       <div className="space-y-1.5">
         <label className="text-xs font-bold text-stone-700 uppercase tracking-wider">Szöveg</label>
-        <textarea
-          rows={4}
+        <RichTextEditor
           value={bodyDraft}
-          onChange={(e) => setBodyDraft(e.target.value)}
+          onChange={setBodyDraft}
           placeholder={DRAFT_FALLBACKS.contact}
-          className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2.5 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-y"
+          minHeightClassName="min-h-[110px]"
         />
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -275,10 +276,17 @@ export const HowItWorksEditorCard: React.FC = () => {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const cleanedSteps = (draft.providerSteps || []).filter(s => s.title.trim() || s.body.trim());
+      const cleanedSteps = (draft.providerSteps || [])
+        .filter(s => s.title.trim() || s.body.trim())
+        .map(s => ({ ...s, body: sanitizeHtml(s.body) }));
       await updatePageContent('how-it-works', {
         title: titleDraft.trim() || 'Hogyan működik?',
-        content: { ...draft, providerSteps: cleanedSteps } as Record<string, unknown>,
+        content: {
+          ...draft,
+          visitorText: sanitizeHtml(draft.visitorText || ''),
+          providerText: sanitizeHtml(draft.providerText || ''),
+          providerSteps: cleanedSteps,
+        } as Record<string, unknown>,
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
@@ -309,12 +317,11 @@ export const HowItWorksEditorCard: React.FC = () => {
             placeholder="Alcím"
             className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
           />
-          <textarea
-            rows={5}
+          <RichTextEditor
             value={draft.visitorText || ''}
-            onChange={(e) => set('visitorText', e.target.value)}
+            onChange={(html) => set('visitorText', html)}
             placeholder={DRAFT_HOW_IT_WORKS.visitorText}
-            className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2.5 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-y"
+            minHeightClassName="min-h-[130px]"
           />
           <ImageUploadField slug="how-it-works" label="Kép" imageUrl={draft.visitorImageUrl || ''} onChange={(url) => set('visitorImageUrl', url)} />
         </div>
@@ -327,12 +334,11 @@ export const HowItWorksEditorCard: React.FC = () => {
             placeholder="Alcím"
             className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
           />
-          <textarea
-            rows={5}
+          <RichTextEditor
             value={draft.providerText || ''}
-            onChange={(e) => set('providerText', e.target.value)}
+            onChange={(html) => set('providerText', html)}
             placeholder={DRAFT_HOW_IT_WORKS.providerText}
-            className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2.5 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-y"
+            minHeightClassName="min-h-[130px]"
           />
           <ImageUploadField slug="how-it-works" label="Kép" imageUrl={draft.providerImageUrl || ''} onChange={(url) => set('providerImageUrl', url)} />
         </div>
@@ -365,12 +371,11 @@ export const HowItWorksEditorCard: React.FC = () => {
                 placeholder={`${idx + 1}. lépés címe`}
                 className="w-full text-sm font-semibold bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 pr-8 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
-              <textarea
-                rows={3}
+              <RichTextEditor
                 value={step.body}
-                onChange={(e) => updateStep(idx, 'body', e.target.value)}
+                onChange={(html) => updateStep(idx, 'body', html)}
                 placeholder="Részletes leírás: mit kell kitöltenie/feltöltenie/megadnia a szolgáltatónak, és mi történik utána."
-                className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2.5 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-y"
+                minHeightClassName="min-h-[90px]"
               />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <input
@@ -451,12 +456,11 @@ const FaqSection: React.FC<{
               placeholder="Kérdés"
               className="w-full text-sm font-semibold bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 pr-8 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
-            <textarea
-              rows={3}
+            <RichTextEditor
               value={item.answer}
-              onChange={(e) => onUpdate(globalIdx, 'answer', e.target.value)}
+              onChange={(html) => onUpdate(globalIdx, 'answer', html)}
               placeholder="Válasz"
-              className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2.5 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-y"
+              minHeightClassName="min-h-[80px]"
             />
           </div>
         ))}
@@ -496,7 +500,9 @@ export const FaqEditorCard: React.FC = () => {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const cleaned = items.filter(it => it.question.trim() || it.answer.trim());
+      const cleaned = items
+        .filter(it => it.question.trim() || it.answer.trim())
+        .map(it => ({ ...it, answer: sanitizeHtml(it.answer) }));
       await updatePageContent('faq', { title: titleDraft.trim() || 'Gyakran Ismételt Kérdések', content: { items: cleaned } });
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
@@ -722,9 +728,13 @@ export const AboutUsEditorCard: React.FC = () => {
   const handleSave = async () => {
     setSaving(true);
     try {
+      const multilineKeys = new Set(ABOUT_FIELDS.filter(f => f.multiline).map(f => f.key));
+      const cleanedDraft = Object.fromEntries(
+        Object.entries(draft).map(([key, val]) => [key, multilineKeys.has(key) ? sanitizeHtml(val) : val])
+      );
       await updatePageContent('about-us', {
         title: title.trim() || 'Rólunk – Velemgyere',
-        content: { ...content, ...draft },
+        content: { ...content, ...cleanedDraft },
       });
       setSaved(true);
       window.setTimeout(() => setSaved(false), 2500);
@@ -757,7 +767,7 @@ export const AboutUsEditorCard: React.FC = () => {
           <div key={field.key} className={field.multiline ? 'space-y-1.5 md:col-span-2' : 'space-y-1.5'}>
             <label className="text-xs font-bold text-stone-700">{field.label}</label>
             {field.multiline ? (
-              <textarea rows={3} value={draft[field.key] || ''} onChange={e => setField(field.key, e.target.value)} className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2.5 resize-y" />
+              <RichTextEditor value={draft[field.key] || ''} onChange={(html) => setField(field.key, html)} minHeightClassName="min-h-[80px]" />
             ) : (
               <input value={draft[field.key] || ''} onChange={e => setField(field.key, e.target.value)} className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2" />
             )}

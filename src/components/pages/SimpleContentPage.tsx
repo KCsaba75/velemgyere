@@ -3,6 +3,7 @@ import { Mail, Phone } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useDocumentMeta } from '../../hooks/useDocumentMeta';
 import { ContactContent, SimpleTextImageContent } from '../../types/pageContent';
+import { sanitizeHtml } from '../../lib/sanitizeHtml';
 
 interface SimpleContentPageProps {
   slug: string;
@@ -57,9 +58,10 @@ export const SimpleContentPage: React.FC<SimpleContentPageProps> = ({
         />
       )}
 
-      <div className="prose prose-stone max-w-none text-stone-700 text-sm sm:text-base leading-relaxed whitespace-pre-wrap">
-        {bodyText}
-      </div>
+      <div
+        className="prose prose-stone max-w-none text-stone-700 text-sm sm:text-base leading-relaxed whitespace-pre-wrap"
+        dangerouslySetInnerHTML={{ __html: sanitizeHtml(bodyText) }}
+      />
 
       {showContactFields && (content.email || content.phone) && (
         <div className="mt-8 flex flex-col gap-3">
