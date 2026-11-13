@@ -66,7 +66,7 @@ Deno.serve(async (req: Request) => {
   const name = String(body.name ?? '').trim();
   const email = String(body.email ?? '').trim();
   const message = String(body.message ?? '').trim();
-  if (!name || name.length > 120 || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email) || email.length > 254 || message.length < 5 || message.length > 5000) {
+  if (!name || name.length > 120 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254 || message.length < 5 || message.length > 5000) {
     return jsonResponse({ error: 'Kérjük, ellenőrizd a megadott adatokat.' }, 400);
   }
 
