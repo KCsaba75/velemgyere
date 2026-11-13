@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Compass, Briefcase } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useDocumentMeta } from '../../hooks/useDocumentMeta';
 import { DRAFT_FAQ_ITEMS, FaqContent, FaqItem } from '../../types/pageContent';
@@ -9,20 +9,37 @@ import { sanitizeStoredContent } from '../../lib/sanitizeHtml';
 // (meglevo) kerdesek valtozatlanul az elso szekcioban jelenjenek meg.
 const faqAudienceOf = (item: FaqItem): 'traveler' | 'provider' => (item.audience === 'provider' ? 'provider' : 'traveler');
 
+// Kanban faqcolumns1: a ket szekcio fejleces, a HowItWorksPage ket-oszlopos
+// badge+cim+leiras kartyajanak mintajara (Csaba minta-kepe ugyanezt a
+// meglevo stilust mutatta referenciakent, nem szo szerinti szoveget).
+const FaqSectionHeaderCard: React.FC<{
+  badge: string;
+  badgeIcon: React.ElementType;
+  badgeClassName: string;
+  title: string;
+  description: string;
+}> = ({ badge, badgeIcon: Icon, badgeClassName, title, description }) => (
+  <div className="bg-white rounded-2xl border border-stone-200 p-5 sm:p-6">
+    <div className={`inline-flex items-center gap-2 text-xs font-bold px-3 py-1 rounded-lg mb-3 ${badgeClassName}`}>
+      <Icon className="w-3.5 h-3.5" />
+      <span>{badge}</span>
+    </div>
+    <h2 className="font-display font-bold text-lg sm:text-xl text-stone-900">{title}</h2>
+    <p className="mt-1 text-sm text-stone-500">{description}</p>
+  </div>
+);
+
 const FaqAccordionGroup: React.FC<{
-  heading?: string;
+  groupKey: string;
   items: FaqItem[];
   openKey: string | null;
   onToggle: (key: string) => void;
-}> = ({ heading, items, openKey, onToggle }) => {
+}> = ({ groupKey, items, openKey, onToggle }) => {
   if (items.length === 0) return null;
   return (
     <div className="space-y-3">
-      {heading && (
-        <h2 className="text-lg sm:text-xl font-bold font-display text-stone-900 pt-2">{heading}</h2>
-      )}
       {items.map((item, idx) => {
-        const key = `${heading || 'traveler'}-${idx}`;
+        const key = `${groupKey}-${idx}`;
         const isOpen = openKey === key;
         return (
           <div key={key} className="bg-white rounded-2xl border border-stone-200 overflow-hidden">
@@ -66,15 +83,34 @@ export const FaqPage: React.FC = () => {
         {title}
       </h1>
 
+      {showHeadings && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <FaqSectionHeaderCard
+            badge="PROGRAMVADÁSZOKNAK"
+            badgeIcon={Compass}
+            badgeClassName="text-emerald-800 bg-emerald-50 border border-emerald-200"
+            title="Utazóknak, Programvadászoknak"
+            description="Amit érdemes tudnod foglalás előtt és közben."
+          />
+          <FaqSectionHeaderCard
+            badge="SZOLGÁLTATÓKÉNT"
+            badgeIcon={Briefcase}
+            badgeClassName="text-stone-700 bg-stone-100 border border-stone-200"
+            title="Szolgáltatóknak"
+            description="Amit a programjaid meghirdetéséről és kezeléséről tudnod kell."
+          />
+        </div>
+      )}
+
       <div className="space-y-6">
         <FaqAccordionGroup
-          heading={showHeadings ? 'Utazóknak, Programvadászoknak' : undefined}
+          groupKey="traveler"
           items={travelerItems}
           openKey={openKey}
           onToggle={(key) => setOpenKey(prev => (prev === key ? null : key))}
         />
         <FaqAccordionGroup
-          heading={showHeadings ? 'Szolgáltatóknak' : undefined}
+          groupKey="provider"
           items={providerItems}
           openKey={openKey}
           onToggle={(key) => setOpenKey(prev => (prev === key ? null : key))}
