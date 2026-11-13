@@ -560,7 +560,11 @@ export const AboutUsEditorCard: React.FC = () => {
   React.useEffect(() => {
     setTitle(page?.title || 'Rólunk – Velemgyere');
     const entries: Array<[string, string]> = ABOUT_FIELDS.map(({ key }) => [key, String(content[key] || '')]);
-    entries.push(...['heroImageUrl', 'storyImageUrl', 'missionImageUrl'].map(key => [key, String(content[key] || '')] as [string, string]));
+    entries.push(
+      ['heroImageUrl', String(content.heroImageUrl || 'https://images.unsplash.com/photo-1533105079780-92b9be482077?auto=format&fit=crop&w=2000&q=85')],
+      ['storyImageUrl', String(content.storyImageUrl || 'https://images.unsplash.com/photo-1516483638261-f4dbaf036963?auto=format&fit=crop&w=1200&q=85')],
+      ['missionImageUrl', String(content.missionImageUrl || 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=1200&q=85')],
+    );
     setDraft(Object.fromEntries(entries));
   }, [page]);
 
