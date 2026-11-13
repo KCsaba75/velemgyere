@@ -59,7 +59,7 @@ export const Hero: React.FC = () => {
             aria-hidden="true"
             className="absolute inset-0 z-0 h-full w-full object-cover object-center"
           />
-          <div className="absolute inset-0 z-[1] bg-gradient-to-b from-stone-950/10 via-emerald-950/10 to-stone-950/15 pointer-events-none" />
+          {/* No dark overlay: show the uploaded photo at its original brightness. */}
         </>
       ) : (
         <>
