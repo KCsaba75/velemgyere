@@ -7,7 +7,8 @@ import { CountryFlag } from './CountryFlag';
 export const Hero: React.FC = () => {
   const { 
     searchQuery, 
-    setSearchQuery, 
+    setSearchQuery,
+    pages, 
     regions,
     selectedRegion,
     setSelectedRegion,
@@ -47,7 +48,14 @@ export const Hero: React.FC = () => {
   };
 
   return (
-    <section className="relative overflow-hidden bg-gradient-to-b from-stone-950 via-emerald-950/90 to-stone-900 text-white pt-10 pb-18 sm:pt-16 sm:pb-24">
+    <section
+      className="relative overflow-hidden bg-gradient-to-b from-stone-950 via-emerald-950/90 to-stone-900 text-white pt-10 pb-18 sm:pt-16 sm:pb-24"
+      style={pages['home-hero']?.content?.imageUrl ? {
+        backgroundImage: `linear-gradient(to bottom, rgba(12,12,12,.88), rgba(2,44,34,.84), rgba(28,25,23,.90)), url("${String(pages['home-hero'].content.imageUrl)}")`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      } : undefined}
+    >
       {/* Background aesthetic decorative elements */}
       <div className="absolute inset-0 opacity-20 pointer-events-none mix-blend-overlay bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:24px_24px]"></div>
       <div className="absolute -top-40 -right-40 w-96 h-96 bg-emerald-500/20 rounded-full blur-3xl pointer-events-none"></div>
