@@ -51,7 +51,7 @@ export const Hero: React.FC = () => {
     <section
       className="relative overflow-hidden bg-gradient-to-b from-stone-950 via-emerald-950/90 to-stone-900 text-white pt-10 pb-18 sm:pt-16 sm:pb-24"
       style={pages['home-hero']?.content?.imageUrl ? {
-        backgroundImage: `linear-gradient(to bottom, rgba(12,12,12,.88), rgba(2,44,34,.84), rgba(28,25,23,.90)), url("${String(pages['home-hero'].content.imageUrl)}")`,
+        backgroundImage: `linear-gradient(to bottom, rgba(12,12,12,.48), rgba(2,44,34,.52), rgba(28,25,23,.58)), url("${String(pages['home-hero'].content.imageUrl)}")`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
       } : undefined}
