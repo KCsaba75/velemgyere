@@ -1,9 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  DndContext,
-  useDroppable,
-} from '@dnd-kit/core';
-import {
   ChevronLeft,
   ChevronRight,
   X,
@@ -39,6 +35,7 @@ interface ProviderScheduleWeekBoardProps {
 }
 
 const WEEKDAY_LABELS = ['Hétfő', 'Kedd', 'Szerda', 'Csütörtök', 'Péntek', 'Szombat', 'Vasárnap'];
+const WEEKDAY_SHORT = ['H', 'K', 'Sze', 'Cs', 'P', 'Szo', 'V'];
 
 function padZero(n: number): string {
   return n < 10 ? `0${n}` : `${n}`;
@@ -71,14 +68,19 @@ const INITIAL_WEEKS = 4;
 const LOAD_MORE_WEEKS = 2;
 const MAX_WEEKS = 12;
 
-// Kanban 4230d70e (C pont, Csaba referencia-kepe alapjan): Trello-stilusu
-// nap-oszlopos het-nezet, @dnd-kit/core-ral. Huzas = athelyezes (onMoveOccurrence,
-// csak a datum valtozik). A masolashoz NEM Ctrl+huzas/long-press van (Zora eredeti
-// otlete), hanem egy explicit masolo-ikon a kartyan -- Csaba sajat referenciakepen
-// is ezt a mintat mutatta. A "..." gomb a mar meglevo gomb/form pontos-datum
-// athelyezest nyitja meg ugyanitt (tavoli/nem lathato heti datumhoz, kanban
-// 3349 3. kerdese). FRISSITVE (c2c66884, msg 3390): a honap-nezet
-// (ProviderScheduleCalendar, MonthOccurrenceChip) is dragolhato mar, nem csak ez.
+// Kanban wk001 (Csaba referencia-kepe alapjan, 2026-11-13): a korabbi
+// Trello-stilusu 7-oszlopos het-racs (4230d70e) helyett nap-ful sor + a
+// kivalasztott nap kartyalistaja. A huzas-athelyezes (@dnd-kit) EZEN a
+// nezeten MEGSZUNT -- egyoszlopos kartyalistaban nincs 7 egymas-melletti
+// drop-target, ezert nincs ertelme. Helyette draggable={false} az
+// OccurrenceCard-okon, athelyezes a MAR MEGLEVO "..." (Pontos datum/ido
+// megadasa) gombbal -- ugyanaz a minta, ami korabban mar megepult es Zora
+// altal PASS-olva lett a kanban 882a92d9 "Nap nezet"-eben (ProviderScheduleDayListView,
+// fe350dd4-ben eltavolitva, de NEM hiba miatt). A honap-nezet
+// (ProviderScheduleCalendar, MonthOccurrenceChip) tovabbra is drag-es marad,
+// azt ez a valtozas nem erinti. A het-szintu infinite-scroll (fe350dd4, Zora
+// dontese B) valtozatlan marad -- csak az, hogy EGY het-szekcion BELUL mi
+// jelenik meg, valtozott 7 oszlopos grid helyett nap-fulekre.
 export const ProviderScheduleWeekBoard: React.FC<ProviderScheduleWeekBoardProps> = ({
   programs,
   occurrencesMap,
@@ -162,12 +164,8 @@ export const ProviderScheduleWeekBoard: React.FC<ProviderScheduleWeekBoardProps>
   );
 
   const {
-    sensors,
     dragError,
     setDragError,
-    handleDragEnd,
-    lastDragMove,
-    undoLastDragMove,
     movingOccurrenceId,
     moveDate,
     moveStartTime,
@@ -207,9 +205,7 @@ export const ProviderScheduleWeekBoard: React.FC<ProviderScheduleWeekBoardProps>
     return map;
   }, [programs]);
 
-  // Minden betoltott hetnek megvan a sajat 7 napja -- a huzas-celpont
-  // (useDroppable id=dateStr) globalisan egyedi, ugy mint eddig is, csak
-  // most tobb het alatt ismetlodik a szamitas.
+  // Minden betoltott hetnek megvan a sajat 7 napja.
   const weeksWithDays = useMemo(() => {
     return weekStarts.map(ws => ({
       weekStart: ws,
@@ -217,10 +213,20 @@ export const ProviderScheduleWeekBoard: React.FC<ProviderScheduleWeekBoardProps>
       days: Array.from({ length: 7 }, (_, i) => {
         const d = new Date(ws);
         d.setDate(ws.getDate() + i);
-        return { date: d, dateStr: toDateStr(d), label: WEEKDAY_LABELS[i] };
+        return { date: d, dateStr: toDateStr(d), label: WEEKDAY_LABELS[i], shortLabel: WEEKDAY_SHORT[i] };
       }),
     }));
   }, [weekStarts]);
+
+  // Kanban wk001: minden het-szekcionak sajat kivalasztott napja van (nap-ful
+  // sor). Az aktualis heten alapertelmezesben a MAI nap van kivalasztva, a
+  // tobbi (meg be nem toltott jovobeli) heten a hetfo (index 0).
+  const [selectedDayByWeek, setSelectedDayByWeek] = useState<Record<string, number>>({});
+  const defaultDayIndex = (isCurrentWeek: boolean): number => {
+    if (!isCurrentWeek) return 0;
+    const jsDay = new Date().getDay();
+    return (jsDay + 6) % 7;
+  };
 
   const occurrencesByDate = useMemo(() => {
     const map = new Map<string, Array<{ occ: ProgramOccurrence; program: Program | undefined }>>();
@@ -321,96 +327,139 @@ export const ProviderScheduleWeekBoard: React.FC<ProviderScheduleWeekBoardProps>
         </div>
       )}
 
-      {lastDragMove && (
-        <div className="flex items-center gap-2 text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2.5">
-          <span className="flex-1">Áthelyezve.</span>
-          <button
-            type="button"
-            onClick={undoLastDragMove}
-            className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold cursor-pointer shrink-0"
-          >
-            Visszavonás
-          </button>
-        </div>
-      )}
-
-      <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-        <div className="space-y-5">
-          {weeksWithDays.map((week, idx) => {
-            const isCurrentWeek = idx === 0;
-            return (
-              <div
-                key={week.weekKey}
-                ref={(el) => { weekSectionRefs.current[week.weekKey] = el; }}
-                // scroll-mt: amikor a Vissza/Elore gomb ide scrollol, ennyivel
-                // tolodik lejjebb a celpont, hogy ne csusszon a Navbar + a ket
-                // sticky sav (dashboard-fejlec + ez a het-nav sav) ala.
-                className={`rounded-2xl p-2.5 sm:p-3 scroll-mt-[236px] sm:scroll-mt-[292px] transition-colors ${
-                  isCurrentWeek ? 'bg-emerald-50/50 ring-2 ring-emerald-200/80' : ''
-                }`}
-              >
-                <div className="flex items-center gap-2 mb-2 px-1">
-                  <span className={`text-xs font-extrabold uppercase tracking-wide ${isCurrentWeek ? 'text-emerald-700' : 'text-stone-400'}`}>
-                    {fmtWeekLabel(week.weekStart)}
-                  </span>
-                  {isCurrentWeek && (
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-600 text-white">Ez a hét</span>
-                  )}
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-3">
-                  {week.days.map(day => (
-                    <DayColumn
-                      key={day.dateStr}
-                      dateStr={day.dateStr}
-                      label={day.label}
-                      date={day.date}
-                      items={occurrencesByDate.get(day.dateStr) || []}
-                      weekDays={week.days}
-                      bookedCountByOccurrence={bookedCountByOccurrence}
-                      pendingOccurrenceIds={pendingOccurrenceIds}
-                      movingOccurrenceId={movingOccurrenceId}
-                      moveDate={moveDate}
-                      moveStartTime={moveStartTime}
-                      moveEndTime={moveEndTime}
-                      moveSaving={moveSaving}
-                      moveError={moveError}
-                      onStartMove={startMove}
-                      onCancelMove={onCancelMove}
-                      onChangeMoveDate={setMoveDate}
-                      onChangeMoveStartTime={setMoveStartTime}
-                      onChangeMoveEndTime={setMoveEndTime}
-                      onSaveMove={saveMove}
-                      copyingOccurrenceId={copyingOccurrenceId}
-                      copyDate={copyDate}
-                      copySaving={copySaving}
-                      copyError={copyError}
-                      onStartCopy={startCopy}
-                      onCancelCopy={onCancelCopy}
-                      onChangeCopyDate={setCopyDate}
-                      onSaveCopy={saveCopy}
-                      copyMode={copyMode}
-                      onChangeCopyMode={setCopyMode}
-                      recurringWeekday={recurringWeekday}
-                      onChangeRecurringWeekday={setRecurringWeekday}
-                      recurringUntilDate={recurringUntilDate}
-                      onChangeRecurringUntilDate={setRecurringUntilDate}
-                      recurringSaving={recurringSaving}
-                      recurringError={recurringError}
-                      onSaveCopyRecurring={saveCopyRecurring}
-                      deletingOccurrenceId={deletingOccurrenceId}
-                      onDelete={handleDelete}
-                      onOpenPopup={setDayPopupOccurrence}
-                    />
-                  ))}
-                </div>
+      <div className="space-y-5">
+        {weeksWithDays.map((week, idx) => {
+          const isCurrentWeek = idx === 0;
+          const selectedDayIdx = selectedDayByWeek[week.weekKey] ?? defaultDayIndex(isCurrentWeek);
+          const selectedDay = week.days[selectedDayIdx];
+          const selectedDayItems = occurrencesByDate.get(selectedDay.dateStr) || [];
+          return (
+            <div
+              key={week.weekKey}
+              ref={(el) => { weekSectionRefs.current[week.weekKey] = el; }}
+              // scroll-mt: amikor a Vissza/Elore gomb ide scrollol, ennyivel
+              // tolodik lejjebb a celpont, hogy ne csusszon a Navbar + a ket
+              // sticky sav (dashboard-fejlec + ez a het-nav sav) ala.
+              className={`rounded-2xl p-2.5 sm:p-3 scroll-mt-[236px] sm:scroll-mt-[292px] transition-colors ${
+                isCurrentWeek ? 'bg-emerald-50/50 ring-2 ring-emerald-200/80' : ''
+              }`}
+            >
+              <div className="flex items-center gap-2 mb-2 px-1">
+                <span className={`text-xs font-extrabold uppercase tracking-wide ${isCurrentWeek ? 'text-emerald-700' : 'text-stone-400'}`}>
+                  {fmtWeekLabel(week.weekStart)}
+                </span>
+                {isCurrentWeek && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-600 text-white">Ez a hét</span>
+                )}
               </div>
-            );
-          })}
-        </div>
 
-        {/* Also sentinel -- lasd a feljebbi IntersectionObserver-t (loadMoreWeeks) */}
-        <div ref={bottomSentinelRef} aria-hidden="true" className="h-px" />
-      </DndContext>
+              {/* Kanban wk001: nap-ful sor -- a kivalasztott nap alatt csak
+                  AZ O kartyalistaja jelenik meg, nem mind a 7 nap egymas alatt/mellett. */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1" data-testid={`week-day-tabs-${week.weekKey}`}>
+                {week.days.map((day, dayIdx) => {
+                  const isToday = toDateStr(new Date()) === day.dateStr;
+                  const isSelected = dayIdx === selectedDayIdx;
+                  const count = (occurrencesByDate.get(day.dateStr) || []).length;
+                  return (
+                    <button
+                      key={day.dateStr}
+                      type="button"
+                      onClick={() => setSelectedDayByWeek(prev => ({ ...prev, [week.weekKey]: dayIdx }))}
+                      className={`flex flex-col items-center gap-0.5 min-w-[46px] px-2 py-1.5 rounded-xl border shrink-0 cursor-pointer transition-colors ${
+                        isSelected
+                          ? 'bg-emerald-600 border-emerald-600 text-white shadow-xs'
+                          : 'bg-white border-stone-200 text-stone-700 hover:bg-stone-50'
+                      }`}
+                    >
+                      <span className={`text-[10px] font-bold uppercase ${isSelected ? 'text-emerald-100' : 'text-stone-400'}`}>
+                        {day.shortLabel}
+                      </span>
+                      <span className="text-sm font-extrabold inline-flex items-center gap-1">
+                        {day.date.getDate()}
+                        {isToday && (
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full shrink-0 bg-emerald-500 ${isSelected ? 'ring-1 ring-white' : ''}`}
+                            aria-hidden="true"
+                          />
+                        )}
+                      </span>
+                      <span className={`text-[9px] font-bold ${isSelected ? 'text-emerald-50' : count > 0 ? 'text-emerald-700' : 'text-stone-300'}`}>
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="mt-3 flex items-center justify-between px-0.5 mb-2">
+                <h4 className="font-display text-sm font-extrabold text-stone-900 capitalize">
+                  {selectedDay.label}, {selectedDay.date.toLocaleDateString('hu-HU', { month: 'short', day: 'numeric' })}
+                </h4>
+                <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full shrink-0 ${
+                  selectedDayItems.length > 0 ? 'bg-emerald-100 text-emerald-900 border border-emerald-200' : 'bg-stone-100 text-stone-400 border border-stone-200'
+                }`}>
+                  {selectedDayItems.length > 0 ? `${selectedDayItems.length} időpont` : 'Üres'}
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                {selectedDayItems.map(({ occ, program }) => (
+                  <OccurrenceCard
+                    key={occ.id}
+                    occ={occ}
+                    program={program}
+                    booked={bookedCountByOccurrence.get(occ.id) || 0}
+                    hasPending={pendingOccurrenceIds.has(occ.id)}
+                    draggable={false}
+                    isMoving={movingOccurrenceId === occ.id}
+                    moveDate={moveDate}
+                    moveStartTime={moveStartTime}
+                    moveEndTime={moveEndTime}
+                    moveSaving={moveSaving}
+                    moveError={moveError}
+                    onStartMove={() => startMove(occ)}
+                    onCancelMove={onCancelMove}
+                    onChangeMoveDate={setMoveDate}
+                    onChangeMoveStartTime={setMoveStartTime}
+                    onChangeMoveEndTime={setMoveEndTime}
+                    onSaveMove={saveMove}
+                    isCopying={copyingOccurrenceId === occ.id}
+                    copyDate={copyDate}
+                    copySaving={copySaving}
+                    copyError={copyError}
+                    weekDays={week.days}
+                    onStartCopy={() => startCopy(occ)}
+                    onCancelCopy={onCancelCopy}
+                    onChangeCopyDate={setCopyDate}
+                    onSaveCopy={(target) => saveCopy(occ, target)}
+                    copyMode={copyMode}
+                    onChangeCopyMode={setCopyMode}
+                    recurringWeekday={recurringWeekday}
+                    onChangeRecurringWeekday={setRecurringWeekday}
+                    recurringUntilDate={recurringUntilDate}
+                    onChangeRecurringUntilDate={setRecurringUntilDate}
+                    recurringSaving={recurringSaving}
+                    recurringError={recurringError}
+                    onSaveCopyRecurring={(dates) => saveCopyRecurring(occ, dates)}
+                    isDeleting={deletingOccurrenceId === occ.id}
+                    onDelete={() => handleDelete(occ.id)}
+                    onOpenPopup={() => setDayPopupOccurrence(occ)}
+                  />
+                ))}
+
+                {selectedDayItems.length === 0 && (
+                  <div className="text-center py-6 text-xs text-stone-400 border-2 border-dashed border-stone-200 rounded-xl">
+                    Nincs időpont erre a napra.
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Also sentinel -- lasd a feljebbi IntersectionObserver-t (loadMoreWeeks) */}
+      <div ref={bottomSentinelRef} aria-hidden="true" className="h-px" />
 
       {dayPopupOccurrence && (
         <ProgramDayPopup
@@ -426,139 +475,4 @@ export const ProviderScheduleWeekBoard: React.FC<ProviderScheduleWeekBoardProps>
   );
 };
 
-interface DayColumnProps {
-  dateStr: string;
-  label: string;
-  date: Date;
-  items: Array<{ occ: ProgramOccurrence; program: Program | undefined }>;
-  weekDays: Array<{ date: Date; dateStr: string; label: string }>;
-  bookedCountByOccurrence: Map<string, number>;
-  pendingOccurrenceIds: Set<string>;
-  movingOccurrenceId: string | null;
-  moveDate: string;
-  moveStartTime: string;
-  moveEndTime: string;
-  moveSaving: boolean;
-  moveError: string | null;
-  onStartMove: (occ: ProgramOccurrence) => void;
-  onCancelMove: () => void;
-  onChangeMoveDate: (v: string) => void;
-  onChangeMoveStartTime: (v: string) => void;
-  onChangeMoveEndTime: (v: string) => void;
-  onSaveMove: () => void;
-  copyingOccurrenceId: string | null;
-  copyDate: string;
-  copySaving: boolean;
-  copyError: string | null;
-  onStartCopy: (occ: ProgramOccurrence) => void;
-  onCancelCopy: () => void;
-  onChangeCopyDate: (v: string) => void;
-  onSaveCopy: (occ: ProgramOccurrence, targetDate: string) => void;
-  copyMode: 'single' | 'recurring';
-  onChangeCopyMode: (mode: 'single' | 'recurring') => void;
-  recurringWeekday: number;
-  onChangeRecurringWeekday: (weekday: number) => void;
-  recurringUntilDate: string;
-  onChangeRecurringUntilDate: (v: string) => void;
-  recurringSaving: boolean;
-  recurringError: string | null;
-  onSaveCopyRecurring: (occ: ProgramOccurrence, dates: string[]) => void;
-  deletingOccurrenceId: string | null;
-  onDelete: (occurrenceId: string) => void;
-  onOpenPopup: (occ: ProgramOccurrence) => void;
-}
-
-const DayColumn: React.FC<DayColumnProps> = ({
-  dateStr, label, date, items, weekDays, bookedCountByOccurrence, pendingOccurrenceIds,
-  movingOccurrenceId, moveDate, moveStartTime, moveEndTime, moveSaving, moveError,
-  onStartMove, onCancelMove, onChangeMoveDate, onChangeMoveStartTime, onChangeMoveEndTime, onSaveMove,
-  copyingOccurrenceId, copyDate, copySaving, copyError, onStartCopy, onCancelCopy, onChangeCopyDate, onSaveCopy,
-  copyMode, onChangeCopyMode, recurringWeekday, onChangeRecurringWeekday, recurringUntilDate,
-  onChangeRecurringUntilDate, recurringSaving, recurringError, onSaveCopyRecurring,
-  deletingOccurrenceId, onDelete, onOpenPopup,
-}) => {
-  const { setNodeRef, isOver } = useDroppable({ id: dateStr });
-  const isToday = toDateStr(new Date()) === dateStr;
-
-  return (
-    <div
-      ref={setNodeRef}
-      className={`rounded-2xl border p-2.5 space-y-2 min-h-[160px] transition-colors ${
-        isOver
-          ? 'border-emerald-400 bg-emerald-50/60'
-          : isToday
-          ? 'border-emerald-300 bg-emerald-50/30'
-          : 'border-stone-200 bg-white'
-      }`}
-    >
-      <div className="flex items-center justify-between px-0.5">
-        <div className="min-w-0">
-          <span className={`text-[11px] font-bold uppercase tracking-wide block ${isToday ? 'text-emerald-700' : 'text-stone-500'}`}>
-            {label}
-          </span>
-          <span className={`inline-flex items-center gap-1.5 text-xs font-semibold ${isToday ? 'text-emerald-800' : 'text-stone-700'}`}>
-            {date.toLocaleDateString('hu-HU', { month: 'short', day: 'numeric' })}
-            {isToday && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" aria-hidden="true" />}
-          </span>
-        </div>
-        <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full shrink-0 ${
-          items.length > 0 ? 'bg-emerald-100 text-emerald-900 border border-emerald-200' : 'bg-stone-100 text-stone-400 border border-stone-200'
-        }`}>
-          {items.length > 0 ? `${items.length} időpont` : 'Üres'}
-        </span>
-      </div>
-
-      <div className="space-y-2">
-        {items.map(({ occ, program }) => (
-          <OccurrenceCard
-            key={occ.id}
-            occ={occ}
-            program={program}
-            booked={bookedCountByOccurrence.get(occ.id) || 0}
-            hasPending={pendingOccurrenceIds.has(occ.id)}
-            isMoving={movingOccurrenceId === occ.id}
-            moveDate={moveDate}
-            moveStartTime={moveStartTime}
-            moveEndTime={moveEndTime}
-            moveSaving={moveSaving}
-            moveError={moveError}
-            onStartMove={() => onStartMove(occ)}
-            onCancelMove={onCancelMove}
-            onChangeMoveDate={onChangeMoveDate}
-            onChangeMoveStartTime={onChangeMoveStartTime}
-            onChangeMoveEndTime={onChangeMoveEndTime}
-            onSaveMove={onSaveMove}
-            isCopying={copyingOccurrenceId === occ.id}
-            copyDate={copyDate}
-            copySaving={copySaving}
-            copyError={copyError}
-            weekDays={weekDays}
-            onStartCopy={() => onStartCopy(occ)}
-            onCancelCopy={onCancelCopy}
-            onChangeCopyDate={onChangeCopyDate}
-            onSaveCopy={(target) => onSaveCopy(occ, target)}
-            copyMode={copyMode}
-            onChangeCopyMode={onChangeCopyMode}
-            recurringWeekday={recurringWeekday}
-            onChangeRecurringWeekday={onChangeRecurringWeekday}
-            recurringUntilDate={recurringUntilDate}
-            onChangeRecurringUntilDate={onChangeRecurringUntilDate}
-            recurringSaving={recurringSaving}
-            recurringError={recurringError}
-            onSaveCopyRecurring={(dates) => onSaveCopyRecurring(occ, dates)}
-            isDeleting={deletingOccurrenceId === occ.id}
-            onDelete={() => onDelete(occ.id)}
-            onOpenPopup={() => onOpenPopup(occ)}
-          />
-        ))}
-
-        {items.length === 0 && (
-          <div className="text-center py-4 text-[11px] text-stone-400 border-2 border-dashed border-stone-200 rounded-xl">
-            Húzd ide az időpontot
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
 
