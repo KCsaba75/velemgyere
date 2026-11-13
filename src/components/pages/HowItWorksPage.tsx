@@ -13,7 +13,7 @@ import {
 import { useApp } from '../../context/AppContext';
 import { useDocumentMeta } from '../../hooks/useDocumentMeta';
 import { DRAFT_HOW_IT_WORKS, DRAFT_HOW_IT_WORKS_PROVIDER_STEPS, DRAFT_HOW_IT_WORKS_VISITOR_STEPS, HowItWorksContent, HowItWorksStepContent } from '../../types/pageContent';
-import { sanitizeHtml } from '../../lib/sanitizeHtml';
+import { sanitizeStoredContent } from '../../lib/sanitizeHtml';
 
 type MockupVariant = 'register' | 'draft' | 'review' | 'published' | 'inquiry';
 
@@ -138,8 +138,8 @@ const ProviderStepsTimeline: React.FC<{ steps: HowItWorksStepContent[] }> = ({ s
               <div className={`md:col-span-3 ${textFirst ? 'md:order-1' : 'md:order-2'}`}>
                 <h3 className="font-display font-bold text-lg sm:text-xl text-stone-900 mb-2">{step.title}</h3>
                 <div
-                  className="text-sm sm:text-base text-stone-600 leading-relaxed whitespace-pre-wrap"
-                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(step.body) }}
+                  className="text-sm sm:text-base text-stone-600 leading-relaxed [&_p]:mb-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5"
+                  dangerouslySetInnerHTML={{ __html: sanitizeStoredContent(step.body) }}
                 />
 
                 {(step.leftText || step.rightText) && (
@@ -217,8 +217,8 @@ export const HowItWorksPage: React.FC = () => {
             {content.visitorTitle?.trim() || 'Neked, aki élményt keresel'}
           </h2>
           <div
-            className="text-sm sm:text-base text-stone-700 leading-relaxed whitespace-pre-wrap"
-            dangerouslySetInnerHTML={{ __html: sanitizeHtml(visitorText) }}
+            className="text-sm sm:text-base text-stone-700 leading-relaxed [&_p]:mb-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5"
+            dangerouslySetInnerHTML={{ __html: sanitizeStoredContent(visitorText) }}
           />
         </div>
 
@@ -234,8 +234,8 @@ export const HowItWorksPage: React.FC = () => {
             {content.providerTitle?.trim() || 'Neked, aki programot hirdetnél'}
           </h2>
           <div
-            className="text-sm sm:text-base text-stone-700 leading-relaxed whitespace-pre-wrap"
-            dangerouslySetInnerHTML={{ __html: sanitizeHtml(providerText) }}
+            className="text-sm sm:text-base text-stone-700 leading-relaxed [&_p]:mb-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5"
+            dangerouslySetInnerHTML={{ __html: sanitizeStoredContent(providerText) }}
           />
         </div>
       </div>
@@ -255,7 +255,7 @@ export const HowItWorksPage: React.FC = () => {
               </div>
               <div className="flex-1 pb-10 md:pb-12">
                 <h3 className="font-display font-bold text-lg sm:text-xl text-stone-900 mb-2">{step.title}</h3>
-                <div className="text-sm sm:text-base text-stone-600 leading-relaxed whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: sanitizeHtml(step.body) }} />
+                <div className="text-sm sm:text-base text-stone-600 leading-relaxed [&_p]:mb-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5" dangerouslySetInnerHTML={{ __html: sanitizeStoredContent(step.body) }} />
               </div>
             </div>
           ))}

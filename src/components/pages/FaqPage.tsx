@@ -3,7 +3,7 @@ import { ChevronDown } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useDocumentMeta } from '../../hooks/useDocumentMeta';
 import { DRAFT_FAQ_ITEMS, FaqContent, FaqItem } from '../../types/pageContent';
-import { sanitizeHtml } from '../../lib/sanitizeHtml';
+import { sanitizeStoredContent } from '../../lib/sanitizeHtml';
 
 // Kanban faqsplit1: hianyzo audience = 'traveler', hogy a migracio elotti
 // (meglevo) kerdesek valtozatlanul az elso szekcioban jelenjenek meg.
@@ -36,8 +36,8 @@ const FaqAccordionGroup: React.FC<{
             </button>
             {isOpen && (
               <div
-                className="px-5 pb-4 text-sm text-stone-700 leading-relaxed whitespace-pre-wrap"
-                dangerouslySetInnerHTML={{ __html: sanitizeHtml(item.answer) }}
+                className="px-5 pb-4 text-sm text-stone-700 leading-relaxed [&_p]:mb-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5"
+                dangerouslySetInnerHTML={{ __html: sanitizeStoredContent(item.answer) }}
               />
             )}
           </div>

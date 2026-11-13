@@ -3,7 +3,7 @@ import { useApp } from '../../context/AppContext';
 import { useDocumentMeta } from '../../hooks/useDocumentMeta';
 import { SimpleTextContent } from '../../types/pageContent';
 import { DRAFT_FALLBACKS } from '../../types/pageContent';
-import { sanitizeHtml } from '../../lib/sanitizeHtml';
+import { sanitizeStoredContent } from '../../lib/sanitizeHtml';
 
 export const TermsPage: React.FC = () => {
   const { pages } = useApp();
@@ -42,8 +42,8 @@ export const TermsPage: React.FC = () => {
         )}
         <article className="rounded-2xl border border-stone-200 bg-white p-6 sm:p-10 shadow-sm">
           <div
-            className="whitespace-pre-wrap break-words text-sm sm:text-base leading-8 text-stone-700"
-            dangerouslySetInnerHTML={{ __html: sanitizeHtml(bodyText) }}
+            className="break-words text-sm sm:text-base leading-8 text-stone-700 [&_p]:mb-4 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_h2]:font-display [&_h2]:font-bold [&_h2]:text-lg [&_h2]:mt-6 [&_h2]:mb-2 [&_h3]:font-display [&_h3]:font-bold [&_h3]:mt-4 [&_h3]:mb-2"
+            dangerouslySetInnerHTML={{ __html: sanitizeStoredContent(bodyText) }}
           />
         </article>
       </section>

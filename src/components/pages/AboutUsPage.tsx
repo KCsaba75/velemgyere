@@ -14,14 +14,16 @@ import {
 } from 'lucide-react';
 import { useDocumentMeta } from '../../hooks/useDocumentMeta';
 import { useApp } from '../../context/AppContext';
-import { sanitizeHtml } from '../../lib/sanitizeHtml';
+import { sanitizeStoredContent } from '../../lib/sanitizeHtml';
 
 // Kanban richtext1: az admin "multiline" mezoi HTML-t tarolnak -- ez a kis
 // wrapper sanitize-al kozvetlenul render elott es DIV-kent (nem P-kent) teszi
 // ki, hogy a tarolt HTML sajat blokk-elemei (pl. <p>, <ul>) ne ferjenek
-// ervenytelenul egy kulso <p> ala.
+// ervenytelenul egy kulso <p> ala. sanitizeStoredContent (nem a sima
+// sanitizeHtml) kezeli a meg at nem mentett, regi sima-szoveges mezoket is
+// (lasd richtext1-bug).
 const Rich: React.FC<{ html: string; className?: string }> = ({ html, className }) => (
-  <div className={className} dangerouslySetInnerHTML={{ __html: sanitizeHtml(html) }} />
+  <div className={className} dangerouslySetInnerHTML={{ __html: sanitizeStoredContent(html) }} />
 );
 
 const HERO_IMAGE =

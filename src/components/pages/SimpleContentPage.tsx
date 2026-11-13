@@ -3,7 +3,7 @@ import { Mail, Phone, Send, CheckCircle2, AlertCircle, MessageCircle } from 'luc
 import { useApp } from '../../context/AppContext';
 import { useDocumentMeta } from '../../hooks/useDocumentMeta';
 import { ContactContent, SimpleTextImageContent } from '../../types/pageContent';
-import { sanitizeHtml } from '../../lib/sanitizeHtml';
+import { sanitizeStoredContent } from '../../lib/sanitizeHtml';
 
 interface SimpleContentPageProps {
   slug: string;
@@ -96,8 +96,8 @@ export const SimpleContentPage: React.FC<SimpleContentPageProps> = ({
       )}
 
       <div
-        className="prose prose-stone max-w-none text-stone-700 text-sm sm:text-base leading-relaxed whitespace-pre-wrap"
-        dangerouslySetInnerHTML={{ __html: sanitizeHtml(bodyText) }}
+        className="max-w-none text-stone-700 text-sm sm:text-base leading-relaxed [&_p]:mb-4 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_h2]:font-display [&_h2]:font-bold [&_h2]:text-lg [&_h2]:mt-6 [&_h2]:mb-2 [&_h3]:font-display [&_h3]:font-bold [&_h3]:mt-4 [&_h3]:mb-2"
+        dangerouslySetInnerHTML={{ __html: sanitizeStoredContent(bodyText) }}
       />
 
       {showContactFields && (
