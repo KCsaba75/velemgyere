@@ -559,9 +559,9 @@ export const AboutUsEditorCard: React.FC = () => {
 
   React.useEffect(() => {
     setTitle(page?.title || 'Rólunk – Velemgyere');
-    setDraft(Object.fromEntries(ABOUT_FIELDS.map(({ key }) => [key, String(content[key] || '')]).concat(
-      ['heroImageUrl', 'storyImageUrl', 'missionImageUrl'].map(key => [key, String(content[key] || '')])
-    )));
+    const entries: Array<[string, string]> = ABOUT_FIELDS.map(({ key }) => [key, String(content[key] || '')]);
+    entries.push(...['heroImageUrl', 'storyImageUrl', 'missionImageUrl'].map(key => [key, String(content[key] || '')] as [string, string]));
+    setDraft(Object.fromEntries(entries));
   }, [page]);
 
   const setField = (key: string, value: string) => setDraft(prev => ({ ...prev, [key]: value }));
