@@ -23,16 +23,16 @@ const GUIDE_IMAGE =
   'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=1200&q=85';
 
 // Kanban aboutlink1: categorySlug csak akkor, ha tiszta 1:1 megfeleles van a
-// categories tablaval (ellenorizve dev-sandbox+PROD, lasd kanban komment) --
-// a "Kulonleges elmenyek" csempenek NINCS ilyen egyertelmu kategoriaja (a
-// szovege tobb kategoriat is erint: hajos + helyi programok), ezert az
-// SZANDEKOSAN categorySlug nelkul marad, nem kattinthato, amig Csaba nem
-// dont a pontos hozzarendelesrol.
+// categories tablaval (ellenorizve dev-sandbox+PROD, lasd kanban komment).
+// "Kulonleges elmenyek" -> 'hajos' reszleges egyezeskent Csaba dontese alapjan
+// (2026-11-13, Zoran keresztul) -- a szovege altalanosabb a hajos kategorianal,
+// de a harom felkinalt opcio ('hajos', uj kategoria, dekorativ marad) kozul ezt
+// valasztotta.
 const experienceTypes = [
   { icon: Compass, title: 'Városnézés és idegenvezetés', text: 'Fedezd fel a városok történeteit magyar nyelvű vezetéssel.', categorySlug: 'varosnezes' },
   { icon: Mountain, title: 'Kirándulások és túrák', text: 'Ismerd meg a környék természeti kincseit és különleges helyeit.', categorySlug: 'kirandulas' },
   { icon: Bus, title: 'Transzferek és közlekedés', text: 'Találj segítséget a reptéri érkezéshez és a helyi utazáshoz.', categorySlug: 'transzfer' },
-  { icon: Camera, title: 'Különleges élmények', text: 'Hajókirándulások, helyi programok és egyedi felfedeznivalók.', categorySlug: undefined as string | undefined },
+  { icon: Camera, title: 'Különleges élmények', text: 'Hajókirándulások, helyi programok és egyedi felfedeznivalók.', categorySlug: 'hajos' },
   { icon: Utensils, title: 'Helyi ízek és kultúra', text: 'Kerülj közelebb az úti célhoz a gasztronómián és a helyi történeteken keresztül.', categorySlug: 'gasztro' },
 ];
 
