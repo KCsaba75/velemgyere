@@ -10,6 +10,7 @@ import {
   Loader2,
   CheckCircle2,
   X,
+  Printer,
 } from 'lucide-react';
 import { BookingDetailModal } from './BookingDetailModal';
 
@@ -44,6 +45,26 @@ const formatOccurrenceLabel = (occ: ProgramOccurrence): string => {
     : d.toLocaleDateString('hu-HU', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
   return occ.start_time ? `${formatted}, ${occ.start_time.slice(0, 5)}` : formatted;
 };
+
+function todayStr(): string {
+  const t = new Date();
+  const pad = (n: number) => (n < 10 ? `0${n}` : `${n}`);
+  return `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(t.getDate())}`;
+}
+
+// Kanban foglalt2 (Csaba visszajelzese): a lista alapbol a MAI idopontra
+// nyiljon meg, nem a legkorabbira. Ha nincs pontosan mai, a legkozelebbi
+// jovobeli idopontot valasztjuk; ha mar minden lezajlott, a legutobbi
+// multbelit (a `sorted` tomb datum szerint novekvoen rendezett).
+function pickDefaultOccurrenceId(sorted: ProgramOccurrence[]): string {
+  if (sorted.length === 0) return '';
+  const today = todayStr();
+  const exact = sorted.find(o => o.event_date === today);
+  if (exact) return exact.id;
+  const upcoming = sorted.find(o => o.event_date > today);
+  if (upcoming) return upcoming.id;
+  return sorted[sorted.length - 1].id;
+}
 
 interface BookingRow {
   order: Order;
@@ -97,7 +118,7 @@ export const ProviderBookedListPage: React.FC = () => {
       if (cancelled) return;
       const sorted = [...rows].sort((a, b) => a.event_date.localeCompare(b.event_date));
       setOccurrences(sorted);
-      setSelectedOccurrenceId(prev => (sorted.some(o => o.id === prev) ? prev : sorted[0]?.id || ''));
+      setSelectedOccurrenceId(prev => (sorted.some(o => o.id === prev) ? prev : pickDefaultOccurrenceId(sorted)));
       setLoadingOccurrences(false);
     });
     return () => {
@@ -286,6 +307,14 @@ export const ProviderBookedListPage: React.FC = () => {
             <div className="flex flex-wrap items-center gap-2 print:hidden">
               <button
                 type="button"
+                onClick={() => window.print()}
+                disabled={rows.length === 0}
+                className="px-3.5 py-2 rounded-xl border border-stone-200 text-stone-700 hover:bg-stone-100 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                <Printer className="w-3.5 h-3.5" /> Nyomtatás / Mentés PDF-ként
+              </button>
+              <button
+                type="button"
                 onClick={() => { setBulkMessageOpen(true); setBulkResult(null); }}
                 disabled={rows.length === 0}
                 className="px-3.5 py-2 rounded-xl border border-stone-200 text-stone-700 hover:bg-stone-100 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
@@ -318,21 +347,17 @@ export const ProviderBookedListPage: React.FC = () => {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-stone-200 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">
+                    <th className="px-4 py-2.5 text-center">Megjelent</th>
                     <th className="px-4 py-2.5">Név</th>
                     <th className="px-4 py-2.5">Létszám</th>
                     <th className="px-4 py-2.5">Email</th>
                     <th className="px-4 py-2.5">Telefon</th>
-                    <th className="px-4 py-2.5 text-center">Megjelent</th>
                     <th className="px-4 py-2.5 print:hidden"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-stone-100">
                   {rows.map(row => (
                     <tr key={row.order.id}>
-                      <td className="px-4 py-3 font-semibold text-stone-900">{row.name}</td>
-                      <td className="px-4 py-3 text-stone-700">{row.order.participants_count}</td>
-                      <td className="px-4 py-3 text-stone-700">{row.email || '--'}</td>
-                      <td className="px-4 py-3 text-stone-700">{row.phone || '--'}</td>
                       <td className="px-4 py-3 text-center">
                         <button
                           type="button"
@@ -352,6 +377,10 @@ export const ProviderBookedListPage: React.FC = () => {
                           )}
                         </button>
                       </td>
+                      <td className="px-4 py-3 font-semibold text-stone-900">{row.name}</td>
+                      <td className="px-4 py-3 text-stone-700">{row.order.participants_count}</td>
+                      <td className="px-4 py-3 text-stone-700">{row.email || '--'}</td>
+                      <td className="px-4 py-3 text-stone-700">{row.phone || '--'}</td>
                       <td className="px-4 py-3 print:hidden">
                         <div className="flex items-center justify-end gap-1.5">
                           {!row.order.is_manual && (
