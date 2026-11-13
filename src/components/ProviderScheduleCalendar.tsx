@@ -540,7 +540,7 @@ export const ProviderScheduleCalendar: React.FC<ProviderScheduleCalendarProps> =
         </div>
 
         <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-          <div ref={monthGridRef} className="grid grid-cols-7 divide-x divide-y divide-stone-100 border-b border-stone-200">
+          <div ref={monthGridRef} className="grid grid-cols-7 divide-x divide-y divide-stone-300 border-b border-stone-200">
             {calendarDays.map((dayItem, index) => (
               <MonthDayCell
                 key={index}

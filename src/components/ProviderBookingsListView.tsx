@@ -176,7 +176,7 @@ export const ProviderBookingsListView: React.FC<ProviderBookingsListViewProps> =
           </p>
         </div>
       ) : (
-        <div className="divide-y divide-stone-100">
+        <div className="divide-y divide-stone-300">
           {currentTabOrders.map((order) => {
             const program = programs.find(p => p.id === order.program_id);
             const buyer = buyerInfos[order.id];
