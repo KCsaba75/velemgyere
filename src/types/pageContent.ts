@@ -133,6 +133,26 @@ export const DRAFT_HOW_IT_WORKS_PROVIDER_STEPS: HowItWorksStepContent[] = [
   },
 ];
 
+// Programvadász idővonalának alapértelmezett, admin által felülírható lépései.
+export const DRAFT_HOW_IT_WORKS_VISITOR_STEPS: HowItWorksStepContent[] = [
+  {
+    title: 'Programok felfedezése',
+    body: 'Böngéssz a Velemgyere katalógusában, és keress úti cél, programtípus vagy nyelv szerint. Nézd meg, milyen magyar nyelvű kirándulások, városnézések, transzferek és helyi élmények érhetők el.',
+  },
+  {
+    title: 'A program részleteinek megismerése',
+    body: 'Nyisd meg a számodra érdekes program adatlapját. Ismerd meg a leírást, az időtartamot, az árat, az indulási helyet és a szolgáltató által megadott feltételeket.',
+  },
+  {
+    title: 'Érdeklődés elküldése',
+    body: 'Ha megtetszett a program, küldj érdeklődést az oldalon keresztül. Add meg az elérhetőségedet, és írd le, milyen időpontra vagy részletekre szeretnél rákérdezni.',
+  },
+  {
+    title: 'Egyeztetés a szolgáltatóval',
+    body: 'A szolgáltató felveszi veled a kapcsolatot, és közvetlenül egyeztethetitek a szabad helyeket, a pontos részleteket és a fizetés módját. A végleges visszaigazolást a szolgáltató adja.',
+  },
+];
+
 export const DRAFT_FAQ_ITEMS: FaqItem[] = [
   { question: 'Ez egy placeholder kérdés -- az admin tölti majd ki a valódi GYIK-et.', answer: 'Hamarosan itt olvashatod a válaszokat a leggyakoribb kérdésekre.' },
 ];
