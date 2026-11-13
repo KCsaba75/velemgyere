@@ -154,7 +154,8 @@ export const SimpleTextPageEditorCard: React.FC<{
         <ImageUploadField slug={slug} label="Kép" imageUrl={imageDraft} onChange={setImageDraft} />
       )}
       <SaveButton saving={saving} saved={saved} onClick={handleSave} />
-    </div>
+      </div>
+    </details>
   );
 };
 
@@ -623,11 +624,16 @@ export const HomeHeroImageEditorCard: React.FC = () => {
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-stone-200 p-6 space-y-4">
-      <div>
-        <h4 className="font-display font-bold text-stone-900 text-base">Főoldal – fekete/zöld átmenetes fejléc képe</h4>
-        <p className="mt-1 text-sm text-stone-500">A kép a bejelentkezés nélküli főoldal kereső-fejlécének hátterében jelenik meg. A fekete–zöld átmenet és a sötét réteg megmarad, hogy a feliratok jól olvashatók legyenek.</p>
-      </div>
+    <details className="group bg-white rounded-2xl border border-stone-200 overflow-hidden">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-5 [&::-webkit-details-marker]:hidden">
+        <div>
+          <h4 className="font-display font-bold text-stone-900 text-base">Főoldal – fekete/zöld átmenetes fejléc képe</h4>
+          <p className="mt-1 text-sm text-stone-500">A bejelentkezés nélküli főoldal háttérképe</p>
+        </div>
+        <span className="shrink-0 rounded-full bg-stone-100 px-3 py-1.5 text-xs font-bold text-stone-600 group-open:bg-emerald-50 group-open:text-emerald-700">Megnyitás <span className="inline-block transition-transform group-open:rotate-180">⌄</span></span>
+      </summary>
+      <div className="border-t border-stone-100 p-5 space-y-4">
+        <p className="text-sm text-stone-500">A kép a kereső-fejléc hátterében jelenik meg. A fekete–zöld átmenet és a sötét réteg megmarad, hogy a feliratok jól olvashatók legyenek.</p>
       <ImageUploadField slug="home-hero" label="Főoldali háttérkép" imageUrl={imageDraft} onChange={setImageDraft} />
       <div className="flex items-center gap-3">
         <button onClick={handleSave} disabled={saving} className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-4 rounded-xl text-sm cursor-pointer disabled:opacity-60">
@@ -635,7 +641,7 @@ export const HomeHeroImageEditorCard: React.FC = () => {
         </button>
         {saved && <span className="text-xs font-bold text-emerald-700 flex items-center gap-1"><Check className="w-3.5 h-3.5" /> Mentve</span>}
       </div>
-    </div>
+    </details>
   );
 };
 
@@ -675,11 +681,15 @@ export const AboutUsEditorCard: React.FC = () => {
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-stone-200 p-6 space-y-5">
-      <div>
-        <h4 className="font-display font-bold text-stone-900 text-base">Rólunk – teljes oldal szerkesztése</h4>
-        <p className="mt-1 text-sm text-stone-500">Módosítsd a szövegeket és a képeket. A mentés után a nyilvános Rólunk oldal az új tartalmat jeleníti meg.</p>
-      </div>
+    <details className="group bg-white rounded-2xl border border-stone-200 overflow-hidden">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-5 [&::-webkit-details-marker]:hidden">
+        <div>
+          <h4 className="font-display font-bold text-stone-900 text-base">Rólunk – teljes oldal szerkesztése</h4>
+          <p className="mt-1 text-sm text-stone-500">Szövegek és három kép szerkesztése</p>
+        </div>
+        <span className="shrink-0 rounded-full bg-stone-100 px-3 py-1.5 text-xs font-bold text-stone-600 group-open:bg-emerald-50 group-open:text-emerald-700">Megnyitás <span className="inline-block transition-transform group-open:rotate-180">⌄</span></span>
+      </summary>
+      <div className="border-t border-stone-100 p-5 space-y-5">
       <div className="space-y-1.5">
         <label className="text-xs font-bold text-stone-700 uppercase tracking-wider">Oldal / SEO címe</label>
         <input value={title} onChange={e => setTitle(e.target.value)} className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2" />
