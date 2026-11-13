@@ -130,3 +130,22 @@ export const DRAFT_HOW_IT_WORKS_PROVIDER_STEPS: HowItWorksStepContent[] = [
 export const DRAFT_FAQ_ITEMS: FaqItem[] = [
   { question: 'Ez egy placeholder kérdés -- az admin tölti majd ki a valódi GYIK-et.', answer: 'Hamarosan itt olvashatod a válaszokat a leggyakoribb kérdésekre.' },
 ];
+
+/** Admin-editable copy and imagery for the story-led About page. */
+export interface AboutUsContent {
+  heroEyebrow: string; heroTitle: string; heroHighlight: string; heroText: string;
+  heroImageUrl: string;
+  storyEyebrow: string; storyTitle: string; storyParagraph1: string; storyParagraph2: string; storyParagraph3: string; storyQuote: string;
+  storyImageUrl: string; storyImageCaption: string;
+  discoveryEyebrow: string; discoveryTitle: string; discoveryText: string;
+  discoveryStep1Title: string; discoveryStep1Text: string;
+  discoveryStep2Title: string; discoveryStep2Text: string;
+  discoveryStep3Title: string; discoveryStep3Text: string;
+  discoveryQuestion: string; discoveryAnswer: string;
+  missionEyebrow: string; missionTitle: string; missionText1: string; missionText2: string; missionCallout: string; missionImageUrl: string;
+  experiencesEyebrow: string; experiencesTitle: string; experiencesText: string;
+  experience1Title: string; experience1Text: string; experience2Title: string; experience2Text: string;
+  experience3Title: string; experience3Text: string; experience4Title: string; experience4Text: string;
+  experience5Title: string; experience5Text: string;
+  ctaTitle: string; ctaText: string; ctaSignoff: string; ctaSignature: string; ctaTagline: string;
+}
