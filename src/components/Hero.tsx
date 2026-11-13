@@ -49,7 +49,7 @@ export const Hero: React.FC = () => {
 
   return (
     <section
-      className="relative overflow-hidden bg-gradient-to-b from-stone-950 via-emerald-950/90 to-stone-900 text-white pt-10 pb-18 sm:pt-16 sm:pb-24"
+      className="relative min-h-[520px] sm:min-h-[600px] overflow-hidden bg-gradient-to-b from-stone-950 via-emerald-950/90 to-stone-900 text-white py-10 sm:py-20 flex flex-col justify-center"
     >
       {pages['home-hero']?.content?.imageUrl ? (
         <>
