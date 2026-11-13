@@ -500,6 +500,54 @@ export const FaqEditorCard: React.FC = () => {
 
 
 // ---- Rólunk: teljes, szekciónként szerkeszthető bemutatkozó oldal ----
+const ABOUT_DEFAULTS: Record<string, string> = {
+  "heroEyebrow": "Egy személyes ötletből született",
+  "heroTitle": "A világot felfedezni",
+  "heroHighlight": "magyarul is lehet.",
+  "heroText": "Programok, kirándulások és helyi élmények magyar nyelven – hogy ne csak megérkezz, hanem igazán meg is ismerd az úti célodat.",
+  "storyEyebrow": "Hogyan kezdődött?",
+  "storyTitle": "Egy utazó kérdéseiből lett egy közös ötlet.",
+  "storyParagraph1": "Kiss Csaba Lajos vagyok, a Velemgyere ötletgazdája és fejlesztője. A mindennapi munkámban ipari automatizálási szervizfeladatok szervezésével és alkalmazásfejlesztéssel foglalkozom. Szabadidőmben pedig – párommal és családommal – szeretek útra kelni, új helyeket felfedezni.",
+  "storyParagraph2": "Közel állnak hozzám a természet kincsei, a történelmi helyszínek, az építészet, a városok hangulata és az adott országok gasztronómiája. Utazásainkat hol önállóan szervezzük, hol utazási irodára bízzuk.",
+  "storyParagraph3": "Amikor magunk tervezzük az utat, a repülőjegy és a szállás lefoglalása ma már gyorsan megy online. Utána jönnek az igazán fontos kérdések: hogyan jutunk el a hotelbe, mit érdemes megnézni, milyen programokat válasszunk, és hol találunk helyi idegenvezetőt?",
+  "storyQuote": "„Egy idegen város történetei egészen másképp elevenednek meg, ha az anyanyelvünkön hallhatjuk őket.”",
+  "storyImageCaption": "Több, mint eljutni A-ból B-be.",
+  "discoveryEyebrow": "A felismerés",
+  "discoveryTitle": "A jó programok ott vannak – csak nem mindig könnyű megtalálni őket.",
+  "discoveryText": "Elkezdtem magyarul beszélő helyi szolgáltatókat keresni. Facebook-csoportokban, Instagramon, egyéni weboldalakon és programajánló oldalakon kutattam. Az ajánlatok és információk sok helyen, szétszórva voltak. Minden szolgáltatót külön kellett felkutatni, összehasonlítani, majd egyeztetni vele.",
+  "discoveryStep1Title": "Keresgélés",
+  "discoveryStep1Text": "Különböző csoportok, oldalak és közösségi felületek böngészése.",
+  "discoveryStep2Title": "Összehasonlítás",
+  "discoveryStep2Text": "Programok, nyelvek, időpontok és szolgáltatások áttekintése.",
+  "discoveryStep3Title": "Egyeztetés",
+  "discoveryStep3Text": "Kapcsolatfelvétel és a részletek külön-külön történő megbeszélése.",
+  "discoveryQuestion": "Mi lenne, ha mindezt egyetlen helyen lehetne megtalálni?",
+  "discoveryAnswer": "Így született meg a Velemgyere ötlete.",
+  "missionEyebrow": "A küldetésünk",
+  "missionTitle": "Összekötni azokat, akik felfedeznének, azokkal, akik megmutatnák a világot.",
+  "missionText1": "A Velemgyere célja, hogy egy helyen tegye könnyebben felfedezhetővé a külföldön élő, magyarul beszélő szolgáltatók programjait. Így az utazók könnyebben rátalálhatnak a számukra érdekes városnézésekre, kirándulásokra, transzferekre és helyi élményekre.",
+  "missionText2": "A platform a szolgáltatókat is segíti: lehetőséget ad arra, hogy bemutassák programjaikat azoknak a magyar utazóknak, akik éppen az adott úti célt fedeznék fel.",
+  "missionCallout": "Mert egy helyi történet, egy városi séta vagy egy kirándulás sokszor még emlékezetesebb, ha magyarul élhetjük át.",
+  "experiencesEyebrow": "Mit találsz nálunk?",
+  "experiencesTitle": "Ötletek a következő élményedhez.",
+  "experiencesText": "Böngéssz a különböző szolgáltatások és programok között, és találd meg azt, ami illik az utazásodhoz.",
+  "ctaTitle": "A legjobb utazási emlékek gyakran egy találkozással kezdődnek.",
+  "ctaText": "Lehet, hogy csak egy transzfert keresel. Lehet, hogy egy egész napos kirándulást. Vagy egy helyi idegenvezetőt, aki magyarul mesél a városról. Indulj el, és találd meg a következő élményed!",
+  "ctaSignoff": "Köszönöm, hogy itt vagy!",
+  "ctaSignature": "Kiss Csaba Lajos",
+  "ctaTagline": "Velemgyere – mert a világot együtt még jobb felfedezni!",
+  "experience1Title": "Városnézés és idegenvezetés",
+  "experience1Text": "Fedezd fel a városok történeteit magyar nyelvű vezetéssel.",
+  "experience2Title": "Kirándulások és túrák",
+  "experience2Text": "Ismerd meg a környék természeti kincseit és különleges helyeit.",
+  "experience3Title": "Transzferek és közlekedés",
+  "experience3Text": "Találj segítséget a reptéri érkezéshez és a helyi utazáshoz.",
+  "experience4Title": "Különleges élmények",
+  "experience4Text": "Hajókirándulások, helyi programok és egyedi felfedeznivalók.",
+  "experience5Title": "Helyi ízek és kultúra",
+  "experience5Text": "Kerülj közelebb az úti célhoz a gasztronómián és a helyi történeteken keresztül."
+};
+
 const ABOUT_FIELDS: Array<{ key: string; label: string; multiline?: boolean }> = [
   { key: 'heroEyebrow', label: 'Nyitókép – kis felső cím' },
   { key: 'heroTitle', label: 'Nyitókép – főcím első sora' },
@@ -548,6 +596,49 @@ const ABOUT_FIELDS: Array<{ key: string; label: string; multiline?: boolean }> =
   { key: 'ctaTagline', label: 'Záró rész – szlogen' },
 ];
 
+
+export const HomeHeroImageEditorCard: React.FC = () => {
+  const { pages, updatePageContent } = useApp();
+  const page = pages['home-hero'];
+  const [imageDraft, setImageDraft] = useState(String(page?.content?.imageUrl || ''));
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  React.useEffect(() => {
+    setImageDraft(String(page?.content?.imageUrl || ''));
+  }, [page]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await updatePageContent('home-hero', {
+        title: 'Főoldal kiemelt háttérképe',
+        content: { imageUrl: imageDraft.trim() },
+      });
+      setSaved(true);
+      window.setTimeout(() => setSaved(false), 2500);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-2xl border border-stone-200 p-6 space-y-4">
+      <div>
+        <h4 className="font-display font-bold text-stone-900 text-base">Főoldal – fekete/zöld átmenetes fejléc képe</h4>
+        <p className="mt-1 text-sm text-stone-500">A kép a bejelentkezés nélküli főoldal kereső-fejlécének hátterében jelenik meg. A fekete–zöld átmenet és a sötét réteg megmarad, hogy a feliratok jól olvashatók legyenek.</p>
+      </div>
+      <ImageUploadField slug="home-hero" label="Főoldali háttérkép" imageUrl={imageDraft} onChange={setImageDraft} />
+      <div className="flex items-center gap-3">
+        <button onClick={handleSave} disabled={saving} className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-4 rounded-xl text-sm cursor-pointer disabled:opacity-60">
+          {saving ? 'Mentés...' : 'Háttérkép mentése'}
+        </button>
+        {saved && <span className="text-xs font-bold text-emerald-700 flex items-center gap-1"><Check className="w-3.5 h-3.5" /> Mentve</span>}
+      </div>
+    </div>
+  );
+};
+
 export const AboutUsEditorCard: React.FC = () => {
   const { pages, updatePageContent } = useApp();
   const page = pages['about-us'];
@@ -559,7 +650,7 @@ export const AboutUsEditorCard: React.FC = () => {
 
   React.useEffect(() => {
     setTitle(page?.title || 'Rólunk – Velemgyere');
-    const entries: Array<[string, string]> = ABOUT_FIELDS.map(({ key }) => [key, String(content[key] || '')]);
+    const entries: Array<[string, string]> = ABOUT_FIELDS.map(({ key }) => [key, String(content[key] ?? ABOUT_DEFAULTS[key] ?? '')]);
     entries.push(
       ['heroImageUrl', String(content.heroImageUrl || 'https://images.unsplash.com/photo-1533105079780-92b9be482077?auto=format&fit=crop&w=2000&q=85')],
       ['storyImageUrl', String(content.storyImageUrl || 'https://images.unsplash.com/photo-1516483638261-f4dbaf036963?auto=format&fit=crop&w=1200&q=85')],
