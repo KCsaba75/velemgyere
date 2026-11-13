@@ -60,7 +60,7 @@ export const Hero: React.FC = () => {
             className="absolute inset-0 z-0 h-full w-full object-cover object-center"
           />
           {/* Match the layered photo treatment used on the About Us hero. */}
-          <div className="absolute inset-0 z-0 bg-gradient-to-r from-stone-950/60 via-stone-900/35 to-stone-900/5" />
+          <div className="absolute inset-0 z-0 bg-gradient-to-r from-stone-950/50 via-stone-900/35 to-stone-900/5" />
         </>
       ) : (
         <>
