@@ -215,6 +215,20 @@ export const ProviderScheduleCalendar: React.FC<ProviderScheduleCalendarProps> =
     return map;
   }, [programs]);
 
+  // Kanban dyn001, Csaba dontese: minden program EGYEDI szint kap a honap-nezet
+  // chipjein. Index-alapu kiosztas (program.id szerint rendezve, hogy a reload
+  // kozott is stabil maradjon) -- NEM hash-mod, mert azzal mar 3-5 programnal
+  // is elofordult utkozes (lasd dyn001 live-teszt: Eszak-Malta es Del Malta
+  // ugyanazt a szint kapta hash-sel). Index-szel az elso PROGRAM_COLOR_PALETTE.length
+  // program garantaltan egyedi, csak azon tul ismetlodik.
+  const programColorMap = useMemo(() => {
+    const map = new Map<string, { bg: string; border: string; text: string }>();
+    [...programs]
+      .sort((a, b) => a.id.localeCompare(b.id))
+      .forEach((p, i) => map.set(p.id, PROGRAM_COLOR_PALETTE[i % PROGRAM_COLOR_PALETTE.length]));
+    return map;
+  }, [programs]);
+
   // Occurrence-centrikus csoportositas nap szerint -- a meglevo ProviderBookingsCalendar
   // foglalas-centrikus (ordersByDate), ez itt program-idopont-centrikus: minden
   // occurrence megjelenik, akkor is ha meg nincs hozza foglalas.
@@ -533,8 +547,8 @@ export const ProviderScheduleCalendar: React.FC<ProviderScheduleCalendarProps> =
                 dayItem={dayItem}
                 isSelected={dayDetailOpen && dayItem.dateStr === selectedDateStr}
                 items={occurrencesByDate.get(dayItem.dateStr) || []}
-                bookedCountByOccurrence={bookedCountByOccurrence}
                 pendingOccurrenceIds={pendingOccurrenceIds}
+                programColorMap={programColorMap}
                 onSelect={() => { setSelectedDateStr(dayItem.dateStr); setDayDetailOpen(true); }}
                 onOpenPopup={setDayPopupOccurrence}
               />
@@ -923,8 +937,8 @@ interface MonthDayCellProps {
   dayItem: { dateStr: string; dayNumber: number; isCurrentMonth: boolean; isToday: boolean };
   isSelected: boolean;
   items: Array<{ occ: ProgramOccurrence; program: Program | undefined }>;
-  bookedCountByOccurrence: Map<string, number>;
   pendingOccurrenceIds: Set<string>;
+  programColorMap: Map<string, { bg: string; border: string; text: string }>;
   onSelect: () => void;
   onOpenPopup: (occ: ProgramOccurrence) => void;
 }
@@ -938,13 +952,12 @@ interface MonthDayCellProps {
 // drag" dontes felulirva: a grip-fogantyu mobilon is aktiv marad, mert ez pontosan
 // a mar bevalt desktop kartya-komponens ujrahasznositasa, nem uj mobil-dizajn.
 // Kanban dyn001: a cella magassaga mar korabban is min-height (nem fix height),
-// tehat a 629ebf36 ota termeszetesen novekszik ha tobb chip fer bele -- a
-// korabbi 2-es cap volt az, ami ezt megakadalyozta ("+N tovabbi" csonkitas
-// mar 3. programnal is). A cap most 6-ra nott, csak ennel tobb program eseten
-// jelenik meg az overflow-szoveg.
-const DAY_CELL_VISIBLE_CAP = 6;
+// tehat a 629ebf36 ota termeszetesen novekszik ha tobb chip fer bele. Csaba
+// dontese (2026-11-13): a cap 4-re allva marad kompakt, a tovabbi elemek
+// szama az osszesito "+N tovabbi" szoveggel jelenik meg.
+const DAY_CELL_VISIBLE_CAP = 4;
 
-const MonthDayCell: React.FC<MonthDayCellProps> = ({ dayItem, isSelected, items, bookedCountByOccurrence, pendingOccurrenceIds, onSelect, onOpenPopup }) => {
+const MonthDayCell: React.FC<MonthDayCellProps> = ({ dayItem, isSelected, items, pendingOccurrenceIds, programColorMap, onSelect, onOpenPopup }) => {
   const { setNodeRef, isOver } = useDroppable({ id: dayItem.dateStr });
   const hasOccurrences = items.length > 0;
   const visibleItems = items.slice(0, DAY_CELL_VISIBLE_CAP);
@@ -994,8 +1007,8 @@ const MonthDayCell: React.FC<MonthDayCellProps> = ({ dayItem, isSelected, items,
             key={item.occ.id}
             occ={item.occ}
             program={item.program}
-            booked={bookedCountByOccurrence.get(item.occ.id) || 0}
             hasPending={pendingOccurrenceIds.has(item.occ.id)}
+            color={programColorMap.get(item.occ.program_id) || DEFAULT_PROGRAM_COLOR}
             onOpenPopup={() => onOpenPopup(item.occ)}
           />
         ))}
@@ -1010,29 +1023,45 @@ const MonthDayCell: React.FC<MonthDayCellProps> = ({ dayItem, isSelected, items,
 interface MonthOccurrenceChipProps {
   occ: ProgramOccurrence;
   program: Program | undefined;
-  booked: number;
   hasPending: boolean;
+  color: { bg: string; border: string; text: string };
   onOpenPopup: () => void;
 }
 
+// Kanban dyn001, Csaba dontese (2026-11-13): a chip tartalma csak a program
+// cime (akar 3 sorba torve), booked/maxCap jelzo nelkul -- a reszletek ugyis
+// a nap-popupban latszanak. A megkulonbozetes most program-szintu szin (nem
+// statusz-szintu), ugy hogy ranezesre latszodjon melyik kartya melyik
+// programhoz tartozik -- a szinkiosztast a szulo (programColorMap) adja,
+// index-alapon (lasd ott a hash-mod utkozes miatt). Lemondva (cancelled)
+// kiveve a palettabol, marad szurke+athuzott; visszaigazolasra varo (pending)
+// a program-szin felett egy vekony sarga keretet kap, nem cseréli le a színt.
+const PROGRAM_COLOR_PALETTE: Array<{ bg: string; border: string; text: string }> = [
+  { bg: 'bg-sky-50', border: 'border-sky-200', text: 'text-sky-900' },
+  { bg: 'bg-violet-50', border: 'border-violet-200', text: 'text-violet-900' },
+  { bg: 'bg-fuchsia-50', border: 'border-fuchsia-200', text: 'text-fuchsia-900' },
+  { bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-900' },
+  { bg: 'bg-teal-50', border: 'border-teal-200', text: 'text-teal-900' },
+  { bg: 'bg-indigo-50', border: 'border-indigo-200', text: 'text-indigo-900' },
+  { bg: 'bg-rose-50', border: 'border-rose-200', text: 'text-rose-900' },
+  { bg: 'bg-lime-50', border: 'border-lime-200', text: 'text-lime-900' },
+];
+
+const DEFAULT_PROGRAM_COLOR = { bg: 'bg-stone-50', border: 'border-stone-200', text: 'text-stone-900' };
+const CANCELLED_CHIP_COLOR = { bg: 'bg-stone-100', border: 'border-stone-200', text: 'text-stone-400' };
+
 // Kompakt, huzhato varians a ProviderScheduleWeekBoard OccurrenceCard-jahoz kepest --
 // a honap-cella (~150px szeles) nem fer el a teljes kartyat, csak egy sor: kis
-// drag-handle + ido+cim. Masolas/pontos-datum-athelyezes/torles a kivalasztott-nap
+// drag-handle + cim. Masolas/pontos-datum-athelyezes/torles a kivalasztott-nap
 // popupon marad (ott mar megvan, nem duplikalt itt).
-// Kanban 629ebf36: mobilon a cella magassaga 96px->150px-re nott es a chip
-// betumeret/padding/grip-ikon is nagyobb (sm: felett valtozatlan), mivel a 7
-// oszlopos racs szelessege fix -- a tobb magassag termeszetesen lefele
-// gorgethetove teszi a Havi nezetet, nincs kulon scroll-konteiner korulotte.
-// Kanban 5d9187b1 (#5): letszam (booked/maxCap) + narancs keret ha van
-// visszaigazolasra varo (pending) rendeles az occurrence-hez -- ugyanaz a
-// jelzes-logika, mint a heti OccurrenceCard-nal, csak kompaktabb formaban.
 // Kanban 53ea4b7e: a kulso chip-div touch-none-ja eltavolitva -- ugyanaz a
 // hiba volt mint az OccurrenceCard-nal (lasd ott), a grip-gomb sajat
 // touch-none-ja eleg a drag aktivalasahoz, a kulsoe csak a Havi nezet
 // gorgeteset blokkolta mobilon.
-const MonthOccurrenceChip: React.FC<MonthOccurrenceChipProps> = ({ occ, program, booked, hasPending, onOpenPopup }) => {
+const MonthOccurrenceChip: React.FC<MonthOccurrenceChipProps> = ({ occ, program, hasPending, color, onOpenPopup }) => {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: occ.id });
-  const maxCap = occ.max_participants ?? program?.max_participants ?? null;
+  const isCancelled = occ.status === 'cancelled';
+  const resolvedColor = isCancelled ? CANCELLED_CHIP_COLOR : color;
 
   const style: React.CSSProperties = transform
     ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, zIndex: 50, opacity: isDragging ? 0.85 : 1 }
@@ -1042,38 +1071,33 @@ const MonthOccurrenceChip: React.FC<MonthOccurrenceChipProps> = ({ occ, program,
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex items-center gap-1.5 sm:gap-1 text-xs sm:text-[10px] font-semibold rounded px-1.5 py-1 sm:px-1 sm:py-0.5 border leading-tight ${
-        occ.status === 'cancelled'
-          ? 'bg-stone-100 border-stone-200 text-stone-400'
-          : hasPending
-          ? 'bg-amber-50 border-amber-300 text-amber-900'
-          : 'bg-emerald-50 border-emerald-200 text-emerald-900'
+      className={`flex flex-col text-xs sm:text-[10px] font-semibold rounded px-1 py-1 sm:py-0.5 border leading-tight ${resolvedColor.bg} ${resolvedColor.border} ${resolvedColor.text} ${
+        hasPending && !isCancelled ? 'ring-1 ring-amber-400' : ''
       }`}
     >
+      {/* Kanban dyn001, Csaba dontese: a chip csak a cimet mutatja, de a 7
+          oszlopos mobil racson (~34px/cella) a korabbi, cimmel egy sorban
+          levo grip-gomb ONMAGABAN elfoglalta a teljes szelesseget (merve: 0px
+          maradt a cimnek) -- ezert a fogantyu kulon, keskeny sorba kerult a
+          cim FOLE, igy a teljes cellaszelesseg a cimé marad. */}
       <button
         type="button"
         {...attributes}
         {...listeners}
         onClick={(e) => e.stopPropagation()}
-        className="p-0 text-emerald-700/50 hover:text-emerald-900 cursor-grab active:cursor-grabbing shrink-0 touch-none"
+        className={`self-start p-0 ${isCancelled ? 'text-stone-400' : 'opacity-50 hover:opacity-100'} cursor-grab active:cursor-grabbing touch-none`}
         title="Húzással áthelyezhető másik napra"
       >
-        <GripVertical className="w-3.5 h-3.5 sm:w-2.5 sm:h-2.5" />
+        <GripVertical className="w-2.5 h-2.5" />
       </button>
       <button
         type="button"
         onClick={(e) => { e.stopPropagation(); onOpenPopup(); }}
-        className="truncate text-left flex-1 min-w-0 cursor-pointer hover:underline"
+        className={`text-left w-full cursor-pointer hover:underline line-clamp-3 ${isCancelled ? 'line-through' : ''}`}
         title={`${program?.title || 'Program'}${occ.start_time ? ` - ${occ.start_time}` : ''}${hasPending ? ' -- visszaigazolasra var' : ''}`}
       >
-        {occ.start_time && <span className="font-bold mr-1">{occ.start_time}</span>}
-        <span>{program?.title || 'Program'}</span>
+        {program?.title || 'Program'}
       </button>
-      {occ.status !== 'cancelled' && (
-        <span className="shrink-0 tabular-nums">
-          {booked}{maxCap != null ? `/${maxCap}` : ''}
-        </span>
-      )}
     </div>
   );
 };
