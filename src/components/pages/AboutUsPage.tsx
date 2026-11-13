@@ -22,22 +22,35 @@ const STORY_IMAGE =
 const GUIDE_IMAGE =
   'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=1200&q=85';
 
+// Kanban aboutlink1: categorySlug csak akkor, ha tiszta 1:1 megfeleles van a
+// categories tablaval (ellenorizve dev-sandbox+PROD, lasd kanban komment) --
+// a "Kulonleges elmenyek" csempenek NINCS ilyen egyertelmu kategoriaja (a
+// szovege tobb kategoriat is erint: hajos + helyi programok), ezert az
+// SZANDEKOSAN categorySlug nelkul marad, nem kattinthato, amig Csaba nem
+// dont a pontos hozzarendelesrol.
 const experienceTypes = [
-  { icon: Compass, title: 'Városnézés és idegenvezetés', text: 'Fedezd fel a városok történeteit magyar nyelvű vezetéssel.' },
-  { icon: Mountain, title: 'Kirándulások és túrák', text: 'Ismerd meg a környék természeti kincseit és különleges helyeit.' },
-  { icon: Bus, title: 'Transzferek és közlekedés', text: 'Találj segítséget a reptéri érkezéshez és a helyi utazáshoz.' },
-  { icon: Camera, title: 'Különleges élmények', text: 'Hajókirándulások, helyi programok és egyedi felfedeznivalók.' },
-  { icon: Utensils, title: 'Helyi ízek és kultúra', text: 'Kerülj közelebb az úti célhoz a gasztronómián és a helyi történeteken keresztül.' },
+  { icon: Compass, title: 'Városnézés és idegenvezetés', text: 'Fedezd fel a városok történeteit magyar nyelvű vezetéssel.', categorySlug: 'varosnezes' },
+  { icon: Mountain, title: 'Kirándulások és túrák', text: 'Ismerd meg a környék természeti kincseit és különleges helyeit.', categorySlug: 'kirandulas' },
+  { icon: Bus, title: 'Transzferek és közlekedés', text: 'Találj segítséget a reptéri érkezéshez és a helyi utazáshoz.', categorySlug: 'transzfer' },
+  { icon: Camera, title: 'Különleges élmények', text: 'Hajókirándulások, helyi programok és egyedi felfedeznivalók.', categorySlug: undefined as string | undefined },
+  { icon: Utensils, title: 'Helyi ízek és kultúra', text: 'Kerülj közelebb az úti célhoz a gasztronómián és a helyi történeteken keresztül.', categorySlug: 'gasztro' },
 ];
 
 export const AboutUsPage: React.FC = () => {
-  const { pages } = useApp();
+  const { pages, setSelectedCategory, setCurrentView } = useApp();
   const content = pages['about-us']?.content || {};
   const value = (key: string, fallback: string) => String(content[key] || fallback);
   const heroImage = value('heroImageUrl', HERO_IMAGE);
   const storyImage = value('storyImageUrl', STORY_IMAGE);
   const missionImage = value('missionImageUrl', GUIDE_IMAGE);
   const experienceContent = experienceTypes.map((item, index) => ({ ...item, title: value('experience' + (index + 1) + 'Title', item.title), text: value('experience' + (index + 1) + 'Text', item.text) }));
+  const handleExperienceClick = (categorySlug?: string) => {
+    if (!categorySlug) return;
+    setSelectedCategory(categorySlug);
+    setCurrentView('programs');
+    const el = document.getElementById('programs-section');
+    if (el) el.scrollIntoView({ behavior: 'smooth' });
+  };
   useDocumentMeta(
     'Rólunk – Velemgyere',
     'Ismerd meg, hogyan született a Velemgyere ötlete: magyar nyelvű programok, kirándulások és helyi élmények egy helyen.'
@@ -150,13 +163,23 @@ export const AboutUsPage: React.FC = () => {
             <p className="mt-4 text-base leading-relaxed text-stone-600">{value('experiencesText', 'Böngéssz a különböző szolgáltatások és programok között, és találd meg azt, ami illik az utazásodhoz.')}</p>
           </div>
           <div className="mt-12 grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
-            {experienceContent.map(({ icon: Icon, title, text }) => (
-              <div key={title} className="group rounded-2xl border border-stone-200 bg-stone-50 p-5 transition hover:-translate-y-1 hover:border-emerald-200 hover:bg-emerald-50/50 hover:shadow-md">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-100 text-emerald-800 transition group-hover:bg-emerald-600 group-hover:text-white"><Icon className="h-5 w-5" /></div>
-                <h3 className="mt-5 font-bold leading-snug text-stone-900">{title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-stone-600">{text}</p>
-              </div>
-            ))}
+            {experienceContent.map(({ icon: Icon, title, text, categorySlug }) => {
+              const clickable = Boolean(categorySlug);
+              return (
+                <div
+                  key={title}
+                  role={clickable ? 'button' : undefined}
+                  tabIndex={clickable ? 0 : undefined}
+                  onClick={clickable ? () => handleExperienceClick(categorySlug) : undefined}
+                  onKeyDown={clickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleExperienceClick(categorySlug); } } : undefined}
+                  className={`group rounded-2xl border border-stone-200 bg-stone-50 p-5 transition hover:-translate-y-1 hover:border-emerald-200 hover:bg-emerald-50/50 hover:shadow-md ${clickable ? 'cursor-pointer' : ''}`}
+                >
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-100 text-emerald-800 transition group-hover:bg-emerald-600 group-hover:text-white"><Icon className="h-5 w-5" /></div>
+                  <h3 className="mt-5 font-bold leading-snug text-stone-900">{title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-stone-600">{text}</p>
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
