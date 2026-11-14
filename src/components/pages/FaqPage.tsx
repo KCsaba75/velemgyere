@@ -34,10 +34,11 @@ const FaqAccordionGroup: React.FC<{
   items: FaqItem[];
   openKey: string | null;
   onToggle: (key: string) => void;
-}> = ({ groupKey, items, openKey, onToggle }) => {
+  className?: string;
+}> = ({ groupKey, items, openKey, onToggle, className = '' }) => {
   if (items.length === 0) return null;
   return (
-    <div className="space-y-3">
+    <div className={`space-y-3 ${className}`}>
       {items.map((item, idx) => {
         const key = `${groupKey}-${idx}`;
         const isOpen = openKey === key;
@@ -83,39 +84,55 @@ export const FaqPage: React.FC = () => {
         {title}
       </h1>
 
-      {showHeadings && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          <FaqSectionHeaderCard
-            badge="PROGRAMVADÁSZOKNAK"
-            badgeIcon={Compass}
-            badgeClassName="text-emerald-800 bg-emerald-50 border border-emerald-200"
-            title="Utazóknak, Programvadászoknak"
-            description="Amit érdemes tudnod foglalás előtt és közben."
+      {showHeadings ? (
+        // Kanban 74716cca: mobilon (grid-cols-1) a DOM-sorrend adja a vizualis
+        // sorrendet, ezert fejlec+sajat-kerdesei egy blokkban kovetik egymast.
+        // md-tol az order/col-span visszaallitja a ket fejlec-egy-sorban
+        // elrendezest, a teljes-szeles kerdeslistakkal alatta.
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-x-4 md:gap-y-6">
+          <div className="md:order-1">
+            <FaqSectionHeaderCard
+              badge="PROGRAMVADÁSZOKNAK"
+              badgeIcon={Compass}
+              badgeClassName="text-emerald-800 bg-emerald-50 border border-emerald-200"
+              title="Utazóknak, Programvadászoknak"
+              description="Amit érdemes tudnod foglalás előtt és közben."
+            />
+          </div>
+          <FaqAccordionGroup
+            groupKey="traveler"
+            items={travelerItems}
+            openKey={openKey}
+            onToggle={(key) => setOpenKey(prev => (prev === key ? null : key))}
+            className="md:order-3 md:col-span-2"
           />
-          <FaqSectionHeaderCard
-            badge="SZOLGÁLTATÓKÉNT"
-            badgeIcon={Briefcase}
-            badgeClassName="text-stone-700 bg-stone-100 border border-stone-200"
-            title="Szolgáltatóknak"
-            description="Amit a programjaid meghirdetéséről és kezeléséről tudnod kell."
+          <div className="md:order-2">
+            <FaqSectionHeaderCard
+              badge="SZOLGÁLTATÓKÉNT"
+              badgeIcon={Briefcase}
+              badgeClassName="text-stone-700 bg-stone-100 border border-stone-200"
+              title="Szolgáltatóknak"
+              description="Amit a programjaid meghirdetéséről és kezeléséről tudnod kell."
+            />
+          </div>
+          <FaqAccordionGroup
+            groupKey="provider"
+            items={providerItems}
+            openKey={openKey}
+            onToggle={(key) => setOpenKey(prev => (prev === key ? null : key))}
+            className="md:order-4 md:col-span-2"
+          />
+        </div>
+      ) : (
+        <div className="space-y-6">
+          <FaqAccordionGroup
+            groupKey="traveler"
+            items={travelerItems}
+            openKey={openKey}
+            onToggle={(key) => setOpenKey(prev => (prev === key ? null : key))}
           />
         </div>
       )}
-
-      <div className="space-y-6">
-        <FaqAccordionGroup
-          groupKey="traveler"
-          items={travelerItems}
-          openKey={openKey}
-          onToggle={(key) => setOpenKey(prev => (prev === key ? null : key))}
-        />
-        <FaqAccordionGroup
-          groupKey="provider"
-          items={providerItems}
-          openKey={openKey}
-          onToggle={(key) => setOpenKey(prev => (prev === key ? null : key))}
-        />
-      </div>
     </div>
   );
 };
