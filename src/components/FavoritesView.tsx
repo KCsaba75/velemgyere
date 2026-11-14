@@ -3,19 +3,16 @@ import { useApp, formatAmount, formatHuf } from '../context/AppContext';
 import { priceInEur } from '../lib/priceUtils';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import { ProgramCard } from './ProgramCard';
-import { CountryFlag } from './CountryFlag';
-import { 
-  Heart, 
-  FolderPlus, 
-  FolderHeart, 
-  Trash2, 
-  Edit3, 
-  Share2, 
-  Check, 
-  Compass, 
+import {
+  Heart,
+  FolderPlus,
+  FolderHeart,
+  Trash2,
+  Edit3,
+  Share2,
+  Check,
+  Compass,
   Sparkles,
-  MapPin,
-  Calendar,
   Wallet,
   Layers,
   X,

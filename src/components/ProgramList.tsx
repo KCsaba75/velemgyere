@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { ProgramCard } from './ProgramCard';
 import { CountryFlag } from './CountryFlag';
-import { SearchX, RotateCcw, Globe, Filter, MapPin, Calendar, ChevronDown } from 'lucide-react';
+import { SearchX, RotateCcw, Filter, MapPin, Calendar, ChevronDown } from 'lucide-react';
 import { priceInEur } from '../lib/priceUtils';
 
 interface ProgramListProps {

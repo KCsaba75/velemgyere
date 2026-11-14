@@ -1,7 +1,6 @@
 import React from 'react';
 import { useApp, getOrderBucket } from '../context/AppContext';
 import {
-  Briefcase,
   User,
   PlusCircle,
   Heart,
@@ -26,12 +25,10 @@ import { BookingDetailModal } from './BookingDetailModal';
 import { Order } from '../types/database';
 
 interface NavbarProps {
-  onOpenLogin: () => void;
   onOpenNewProgram: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
-  onOpenLogin,
   onOpenNewProgram
 }) => {
   const {

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Program } from '../types/database';
-import { MapPin, Calendar, Clock, ArrowRight, Sparkles, Building2, Heart, Star, Crown, ShieldCheck } from 'lucide-react';
+import { ArrowRight, Sparkles, Building2, Heart, Star, Crown, ShieldCheck } from 'lucide-react';
 import { CategoryIcon } from './CategoryIcon';
 import { CountryFlag } from './CountryFlag';
 import { useApp, formatAmount, formatHuf, formatProgramDisplayDate } from '../context/AppContext';

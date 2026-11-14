@@ -2,17 +2,11 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
   X,
   Phone,
-  MessageCircle,
-  Users,
   Calendar,
   Clock,
-  MapPin,
-  Banknote,
   CheckCircle2,
   CalendarDays,
-  Sparkles,
   User,
-  Mail,
   FileText,
   AlertCircle
 } from 'lucide-react';
@@ -54,7 +48,7 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
   occurrencesMap = {},
   onCreated,
 }) => {
-  const { currentUser, currentProvider, programs: contextPrograms, createOrder, listOpenOccurrences } = useApp();
+  const { currentUser, currentProvider, programs: contextPrograms, createOrder } = useApp();
 
   const availablePrograms = useMemo(() => {
     const raw = propsPrograms || contextPrograms || [];

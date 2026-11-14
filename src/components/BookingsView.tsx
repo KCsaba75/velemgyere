@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { useApp, formatAmount, getBookingReference, getOrderBucket, OrderBucket } from '../context/AppContext';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import { Ticket, Compass, Eye, Sparkles, ArrowRight, Users, History, XCircle } from 'lucide-react';
-import { Order, OrderStatus } from '../types/database';
+import { OrderStatus } from '../types/database';
 import { BookingDetailModal } from './BookingDetailModal';
 
 // Kanban 5ef2d0b8 (Csaba kérése): fő nézet = upcoming (pending/confirmed, nem

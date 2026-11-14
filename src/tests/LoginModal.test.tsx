@@ -6,7 +6,6 @@
 // Supabase klienst), igy a teszt a VALODI komponens-logikat (handleSubmit korai
 // return, error/infoMessage renderelese, loading-szoveg) futtatja, anelkul hogy
 // a 3000+ soros AppProvider egesz Supabase-adatreteget fel kellene epiteni.
-import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';

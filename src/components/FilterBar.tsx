@@ -5,9 +5,7 @@ import { CountryFlag } from './CountryFlag';
 import {
   Filter,
   RotateCcw,
-  MapPin,
   Calendar,
-  DollarSign,
   Clock,
   Layers,
   Globe,

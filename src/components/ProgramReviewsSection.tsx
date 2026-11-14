@@ -8,12 +8,10 @@ import {
   Compass, 
   BadgePercent, 
   Clock, 
-  Shield, 
-  Users, 
-  Camera, 
-  ThumbsUp, 
-  Building2, 
-  Sparkles,
+  Shield,
+  Camera,
+  ThumbsUp,
+  Building2,
   Calendar,
   X
 } from 'lucide-react';

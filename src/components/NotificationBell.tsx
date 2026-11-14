@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Bell, MessageSquare, CheckCircle2, ChevronRight, Sparkles } from 'lucide-react';
+import { Bell, MessageSquare, CheckCircle2, ChevronRight } from 'lucide-react';
 import { useApp, getBookingReference } from '../context/AppContext';
 import { Order } from '../types/database';
 

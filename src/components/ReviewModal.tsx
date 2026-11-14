@@ -10,12 +10,10 @@ import {
   Compass, 
   BadgePercent, 
   Clock, 
-  Shield, 
-  Users, 
+  Shield,
   AlertCircle,
   Plus,
-  Trash2,
-  Calendar
+  Trash2
 } from 'lucide-react';
 
 interface ReviewModalProps {

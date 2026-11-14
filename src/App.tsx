@@ -98,7 +98,6 @@ const AppContent: React.FC = () => {
     <div className="min-h-screen flex flex-col bg-stone-50 font-sans selection:bg-emerald-500 selection:text-white overflow-x-clip w-full pb-20 md:pb-0">
       {/* Sticky Main Navigation */}
       <Navbar
-        onOpenLogin={() => openLoginModal(undefined, 'programs')}
         onOpenNewProgram={() => setNewProgramModalOpen(true)}
       />
 

@@ -5,10 +5,8 @@ import {
   FolderPlus, 
   Check, 
   Heart, 
-  FolderHeart, 
-  Plus, 
-  MapPin, 
-  Sparkles,
+  FolderHeart,
+  Plus,
   Trash2
 } from 'lucide-react';
 import { CountryFlag } from './CountryFlag';

@@ -9,8 +9,6 @@ import {
   ProgramImage,
   Inquiry,
   ContactMessage,
-  ProgramStatus,
-  ProviderStatus,
   Order,
   CreditTransaction,
   PayoutRequest,
@@ -46,7 +44,7 @@ import {
   INITIAL_FAVORITE_FOLDERS,
   INITIAL_FAVORITES
 } from '../data/seedData';
-import { roundToHalfEuro, formatPrice } from '../lib/priceUtils';
+import { roundToHalfEuro } from '../lib/priceUtils';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { fetchLiveEurHufRate } from '../lib/exchangeRate';
 
@@ -655,20 +653,6 @@ interface AppContextType {
   closeLoginModal: () => void;
 }
 
-const STORAGE_KEYS = {
-  REGIONS: 'vg_regions_v2',
-  CATEGORIES: 'vg_categories_v2',
-  PROGRAMS: 'vg_programs_v2',
-  IMAGES: 'vg_images_v2',
-  PROVIDERS: 'vg_providers_v2',
-  PROFILES: 'vg_profiles_v2',
-  INQUIRIES: 'vg_inquiries_v2',
-  CURRENT_USER: 'vg_current_user_v2',
-  REVIEWS: 'vg_reviews_v2',
-  ORDERS: 'vg_orders_v2',
-  FAVORITE_FOLDERS: 'vg_favorite_folders_v3',
-  FAVORITES: 'vg_favorites_v3',
-};
 
 function generateUUID(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -737,10 +721,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [reviews, setReviews] = useState<Review[]>([]);
   const [rawFavoriteFolders, setRawFavoriteFolders] = useState<FavoriteFolder[]>([]);
   const [rawFavorites, setRawFavorites] = useState<FavoriteItem[]>([]);
-  // Tracks which user's favorite_folders fetch from Supabase has completed, so the
-  // default-folder bootstrap effect below never races the async fetch and creates
-  // a duplicate "Általános kedvencek" folder on every fresh page load.
-  const [foldersFetchedForUser, setFoldersFetchedForUser] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [catalogLoadError, setCatalogLoadError] = useState<boolean>(false);
 
@@ -1218,7 +1198,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             if (cancelled) return;
             if (fErr) {
               console.error('Fetch favorite_folders error:', fErr);
-              setFoldersFetchedForUser(userId);
               return;
             }
 
@@ -1299,11 +1278,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 const others = prev.filter(f => f.user_id !== userId);
                 return [...folders, ...others];
               });
-              setFoldersFetchedForUser(userId);
             }
-          }, () => {
-            if (!cancelled) setFoldersFetchedForUser(userId);
-          });
+          }, () => {});
 
           supabase.from('favorites').select('*').eq('user_id', session.user.id).then(({ data: favData, error: favErr }) => {
             if (!favErr && favData && !cancelled) {
@@ -1899,7 +1875,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       supabase.auth.signOut();
     }
     setIsAuthenticated(false);
-    setFoldersFetchedForUser(null);
     setRawFavoriteFolders([]);
     setRawFavorites([]);
     const visitor = rawProfiles.find(p => p.role === 'visitor') || {

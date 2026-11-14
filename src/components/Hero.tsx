@@ -1,6 +1,6 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
-import { Search, Compass, Sparkles, MapPin, Globe, Car, Ship, Landmark } from 'lucide-react';
+import { Search, Globe } from 'lucide-react';
 import { CategoryIcon } from './CategoryIcon';
 import { CountryFlag } from './CountryFlag';
 

@@ -93,7 +93,7 @@ async function runDatabaseTests() {
   // Test 1.4: RLS Szabály - Profilok tábla védelme
   tStart = Date.now();
   try {
-    const { data: profs, error } = await anonClient.from('profiles').select('*');
+    const { error } = await anonClient.from('profiles').select('*');
     // Nem szivároghat ki jelszó-has vagy belső azonosító
     const safe = !error || error.code === '42501';
     recordTest('RLS', 'Felhasználói profilok tábla védelme és elszigetelése', safe, error?.message, tStart);
@@ -104,7 +104,7 @@ async function runDatabaseTests() {
   // Test 1.5: Tároló és Buckets (Storage) elérhetőség
   tStart = Date.now();
   try {
-    const { data: buckets, error } = await anonClient.storage.listBuckets();
+    const { error } = await anonClient.storage.listBuckets();
     // Nem kritikus hiba ha még nincs dedikált bucket, de a hívás válaszol
     recordTest('Storage', 'Supabase Storage API válaszképes', !error || error.message.length > 0, error?.message, tStart);
   } catch (err: any) {

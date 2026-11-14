@@ -48,8 +48,6 @@ export const ProgramDetailView: React.FC = () => {
     checkProgramAvailability,
     listOpenOccurrences,
     getProgramPriceTiers,
-    createOrder,
-    computeBookingFee,
     computeTotalPrice,
     getProgramRatingStats,
     isProgramFavorite,
@@ -157,7 +155,6 @@ export const ProgramDetailView: React.FC = () => {
   const [participantsCount, setParticipantsCount] = useState(1);
   const [participantsInput, setParticipantsInput] = useState('1');
   const [onsitePaymentMethod, setOnsitePaymentMethod] = useState<OnsitePaymentMethod>('cash');
-  const [reservationSubmitting, setReservationSubmitting] = useState(false);
   const [reservationResult, setReservationResult] = useState<{ success: boolean; message: string } | null>(null);
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
 
@@ -305,28 +302,23 @@ export const ProgramDetailView: React.FC = () => {
   const hasMultipleDates = occurrenceOptions.length > 1 || ((program?.id ? programOccurrencesCounts[program.id] : 0) || 0) > 1;
 
   // Format Hungarian date nicely (avoid UTC midnight shifting and long weekday truncation)
-  const { dateFormatted, weekdayFormatted, fullDateFormatted } = (() => {
+  const { dateFormatted, weekdayFormatted } = (() => {
     try {
       const activeDate = selectedOccurrence?.event_date || program?.event_date;
       if (!activeDate) {
-        return { dateFormatted: 'Egyeztetés szerint', weekdayFormatted: '', fullDateFormatted: 'Egyeztetés szerint' };
+        return { dateFormatted: 'Egyeztetés szerint', weekdayFormatted: '' };
       }
-      const dateFormatted = selectedOccurrence 
+      const dateFormatted = selectedOccurrence
         ? formatProgramDisplayDate(selectedOccurrence.event_date, false)
         : formatProgramDisplayDate(program!.event_date, hasMultipleDates);
       const dateStr = activeDate.includes('T') ? activeDate : `${activeDate}T00:00:00`;
       const d = new Date(dateStr);
       const weekdayFormatted = !isNaN(d.getTime()) ? d.toLocaleDateString('hu-HU', { weekday: 'long' }) : '';
-      return {
-        dateFormatted,
-        weekdayFormatted,
-        fullDateFormatted: weekdayFormatted ? `${dateFormatted} (${weekdayFormatted})` : dateFormatted
-      };
+      return { dateFormatted, weekdayFormatted };
     } catch {
-      return { dateFormatted: selectedOccurrence?.event_date || program?.event_date || '', weekdayFormatted: '', fullDateFormatted: selectedOccurrence?.event_date || program?.event_date || '' };
+      return { dateFormatted: selectedOccurrence?.event_date || program?.event_date || '', weekdayFormatted: '' };
     }
   })();
-  const formattedDate = fullDateFormatted;
 
   const handleCopyLink = () => {
     navigator.clipboard?.writeText(window.location.href);
@@ -1048,7 +1040,7 @@ export const ProgramDetailView: React.FC = () => {
 
                       <button
                         type="submit"
-                        disabled={reservationSubmitting || netTotalForCount === null}
+                        disabled={netTotalForCount === null}
                         className="w-full bg-emerald-700 hover:bg-emerald-600 text-white font-bold py-3.5 px-5 rounded-xl text-sm cursor-pointer shadow-md transition-all hover:shadow-lg flex items-center justify-center gap-2 disabled:opacity-60"
                       >
                         <Ticket className="w-4 h-4" />
