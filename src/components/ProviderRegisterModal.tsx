@@ -91,7 +91,7 @@ export const ProviderRegisterModal: React.FC<ProviderRegisterModalProps> = ({ is
 
             <p className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold mb-4">
               <Sparkles className="w-3.5 h-3.5" />
-              <span>A bevezető szakaszban díjmentes, gyors és egyszerű</span>
+              <span>Ingyenes, gyors és egyszerű regisztráció</span>
             </p>
 
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 text-xs text-amber-900 mb-6 flex items-start gap-2.5">

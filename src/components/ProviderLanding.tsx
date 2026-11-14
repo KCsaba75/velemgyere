@@ -50,16 +50,16 @@ export const ProviderLanding: React.FC<ProviderLandingProps> = ({
             Külföldön élsz, magyar idegenvezetést, kirándulásokat vagy reptéri transzfereket szolgáltatsz? Csatlakozz a Velem Gyere platformhoz Cipruson, Máltán, Spanyolországban, Olaszországban, Törökországban és szerte a világon!
           </p>
 
-          {/* Kanban 1705ddb0 (Csaba, 2026-11-14 + 06:45-os kiegeszites): a dijmentesseg
-              az ASZF 6.1 pontjabol atvett, jogilag mar elfogadott megfogalmazas --
-              "jelenleg"/"bevezeto szakaszban", NEM "orokre ingyenes" (6.5 pont
-              dij-bevezetesi jogot tart fenn). A "gyors es egyszeru" resz sajat
-              fogalmazas, Csaba kifejezett kiegeszito kerese alapjan. Ez a fo
-              szolgaltatoi regisztraciora osztonzo felulet, ezert ez a legfontosabb
-              hely a kiemelesnek. */}
+          {/* Kanban 1705ddb0 (Csaba, 2026-11-14, 06:59-es korrekcio): "ingyenes"
+              egyszerusitve, a korabbi "bevezeto szakaszban" idoszak-jelzo
+              szandekosan kikerult -- Csaba tudatosan vallalja, hogy ha kesobb
+              dijat vezetnenk be (ASZF 6.5 pont jogot tart ra), ezt a harom
+              helyet akkor manualisan frissiteni kell. Ez a fo szolgaltatoi
+              regisztraciora osztonzo felulet, ezert ez a legfontosabb hely a
+              kiemelesnek. */}
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs sm:text-sm font-semibold mb-8">
             <Sparkles className="w-4 h-4 text-emerald-400" />
-            <span>A bevezető szakaszban díjmentes, a regisztráció gyors és egyszerű</span>
+            <span>Ingyenes, gyors és egyszerű regisztráció</span>
           </div>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 max-w-md mx-auto">

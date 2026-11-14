@@ -139,7 +139,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
           {mode === 'register' && (
             <p className="mt-2.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold">
               <Sparkles className="w-3.5 h-3.5" />
-              <span>A bevezető szakaszban díjmentes, gyors és egyszerű</span>
+              <span>Ingyenes, gyors és egyszerű regisztráció</span>
             </p>
           )}
         </div>
