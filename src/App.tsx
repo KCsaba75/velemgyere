@@ -5,6 +5,7 @@ import { AppProvider, useApp } from './context/AppContext';
 import { Navbar } from './components/Navbar';
 import { LoginModal } from './components/LoginModal';
 import { ProviderRegisterModal } from './components/ProviderRegisterModal';
+import { TermsConsentModal } from './components/TermsConsentModal';
 import { ProgramEditorModal } from './components/ProgramEditorModal';
 import { Footer } from './components/Footer';
 import { FavoriteFolderModal } from './components/FavoriteFolderModal';
@@ -316,6 +317,10 @@ const AppContent: React.FC = () => {
         isOpen={isLoginModalOpen}
         onClose={closeLoginModal}
       />
+
+      {/* Kanban 32ad8a91: globalisan mountolva, pendingTermsConsent allapot vezerli --
+          barmelyik route-on felbukkanhat egy friss Google-regisztracio utan. */}
+      <TermsConsentModal />
 
       <ProviderRegisterModal
         isOpen={registerModalOpen}

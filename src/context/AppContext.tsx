@@ -346,7 +346,7 @@ interface AppContextType {
   login: (email: string, password: string) => Promise<{ success: boolean; message: string; role?: string }>;
   loginWithGoogle: () => Promise<{ success: boolean; message: string; role?: string }>;
   logout: () => void;
-  registerVisitor: (data: { name: string; email: string; password: string }) => Promise<{ success: boolean; message: string }>;
+  registerVisitor: (data: { name: string; email: string; password: string; termsAccepted: boolean }) => Promise<{ success: boolean; message: string }>;
   requestPasswordReset: (email: string) => Promise<{ success: boolean; message: string }>;
   confirmPasswordReset: (email: string, token: string, newPassword: string) => Promise<{ success: boolean; message: string }>;
   checkPasswordResetToken: (email: string, token: string) => Promise<boolean>;
@@ -371,6 +371,7 @@ interface AppContextType {
     description: string;
     password: string;
     accepted_payment_methods: OnsitePaymentMethod[];
+    termsAccepted: boolean;
   }) => Promise<{ success: boolean; message: string }>;
 
   // Data Collections
@@ -570,6 +571,13 @@ interface AppContextType {
   isSupabaseLive: boolean;
   isLoading: boolean;
   authChecked: boolean;
+  // Kanban 32ad8a91: Google-regisztracional (elso bejelentkezes, meg nincs
+  // profiles-sor) nincs hagyomanyos form-submit lepes ahol a checkbox mar
+  // elfogadtatta volna az ASZF-et -- ez a kulon elfogado-lepes/modal allapota,
+  // amig null, addig nincs fuggoben levo elfogadas.
+  pendingTermsConsent: { userId: string; displayName: string; email: string } | null;
+  acceptTermsAndActivateAccount: () => Promise<{ success: boolean; message: string }>;
+  declineTermsAndSignOut: () => Promise<void>;
   // Eleni #244 audit [D]: egy Supabase-hiba korabban csendben nyelve lett, a szuro UI
   // 0 talalatnak tunt ("nincs talalat"-nak nezett ki, pedig a betoltes bukott el).
   // Ez a flag kulonbozteti meg a "ures eredmeny" es a "hiba volt" allapotot a UI-ban.
@@ -796,6 +804,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // even for an already-logged-in visitor reloading e.g. /sajat-fiokom.
   const [authChecked, setAuthChecked] = useState(false);
 
+  // Kanban 32ad8a91: fuggoben levo ASZF-elfogadas egy UJ Google-regisztraciohoz --
+  // syncFromSession allitja be, amikor a sessionhoz meg nincs profiles-sor ES a
+  // user_metadata-ban nincs terms_accepted_at (tehat nem egy mar elfogadott
+  // email+jelszavas regisztraciobol jott a session).
+  const [pendingTermsConsent, setPendingTermsConsent] = useState<{ userId: string; displayName: string; email: string } | null>(null);
+
   // Active user's favorite folders and items (strictly scoped to currentUser.user_id when authenticated)
   // Deduplicates folders by case-insensitive name so duplicate "Általános kedvencek" folders can never appear in UI
   const userFavoriteFolders = useMemo<FavoriteFolder[]>(() => {
@@ -1021,6 +1035,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     function resetToAnonymousVisitor() {
       if (cancelled) return;
       setIsAuthenticated(false);
+      setPendingTermsConsent(null);
       const visitor = rawProfiles.find(p => p.role === 'visitor') || {
         id: 'prof-visitor',
         user_id: '',
@@ -1041,7 +1056,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return;
       }
 
-      const pending = (session.user.user_metadata as Record<string, unknown> | undefined)?.pending_provider as
+      const pendingMeta = session.user.user_metadata as Record<string, unknown> | undefined;
+      const pending = pendingMeta?.pending_provider as
         | { company_name: string; contact_name: string; phone: string; website?: string; description: string; accepted_payment_methods: OnsitePaymentMethod[] }
         | undefined;
 
@@ -1065,6 +1081,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             // admin-jovahagyas nelkul -- egyenesen 'approved'.
             status: 'approved' as const,
             accepted_payment_methods: pending.accepted_payment_methods,
+            // Kanban 32ad8a91: a ProviderRegisterModal checkboxa mar elfogadtatta az
+            // ASZF-et form-submitkor, az idobelyeg a signUp() metadata-jaban utazik
+            // (pending_provider mellett, sajat kulcskent) a deferred letrehozasig.
+            terms_accepted_at: (pendingMeta?.terms_accepted_at as string | undefined) ?? null,
           };
           // .select('id') only -- RETURNING the other columns would need a table-wide
           // SELECT grant the authenticated role no longer has (kanban fbf552b2 point 3,
@@ -1083,6 +1103,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               name: pending.contact_name,
               email: session.user.email,
               role: 'provider',
+              terms_accepted_at: insertPayload.terms_accepted_at,
             });
             // Clear the metadata flag so this doesn't try to insert again on every future login.
             await supabase.auth.updateUser({ data: { pending_provider: null } });
@@ -1104,6 +1125,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // (registerVisitor below), getting its real session for the first time.
         const meta = session.user.user_metadata as Record<string, unknown> | undefined;
         const displayName = (meta?.full_name as string) || (meta?.name as string) || (session.user.email ? session.user.email.split('@')[0] : 'Látogató');
+        const termsAcceptedAt = meta?.terms_accepted_at as string | undefined;
+
+        if (!termsAcceptedAt) {
+          // Kanban 32ad8a91: Google-regisztracio -- nincs hagyomanyos form-submit
+          // lepes ahol egy checkbox mar elfogadtatta volna az ASZF-et, ezert a
+          // TermsConsentModal keri be MIELOTT ez a profiles-sor (es ezzel a fiok)
+          // letrejon. Egy mar letezo profillal rendelkezo visszatero felhasznalonal
+          // ez az ag sosem fut le ujra (prof mar megvan fentebb), tehat regi
+          // fiokoknal nem kerul ujra elfogadas.
+          setPendingTermsConsent({ userId: session.user.id, displayName, email: session.user.email || '' });
+          return;
+        }
+
         const { data: newProf, error: profErr } = await supabase
           .from('profiles')
           .insert({
@@ -1111,11 +1145,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             name: displayName,
             email: session.user.email,
             role: 'visitor',
+            terms_accepted_at: termsAcceptedAt,
           })
           .select()
           .single();
         if (profErr) console.error('Visitor profile creation failed:', profErr);
         prof = newProf;
+        setPendingTermsConsent(null);
       }
 
       if (prof && !cancelled) {
@@ -1830,6 +1866,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return { success: true, message: 'A fiókod véglegesen törölve.' };
   };
 
+  // Kanban 32ad8a91: a TermsConsentModal "Elfogadom" gombja hivja. Nem maga insertalja
+  // a profiles-sort -- supabase.auth.updateUser() egy USER_UPDATED esemenyt vailt ki,
+  // amire a syncFromSession effect (onAuthStateChange) ujra lefut a MAR frissitett
+  // user_metadata-val, es onnantol ugyanaz az ag fut le mint egy email+jelszavas
+  // regisztraciona, ahol a checkbox mar signUp()-kor beallitotta a metadata-t.
+  const acceptTermsAndActivateAccount = async (): Promise<{ success: boolean; message: string }> => {
+    if (!isSupabaseConfigured) {
+      return { success: false, message: 'A Supabase nincs konfigurálva.' };
+    }
+    if (!pendingTermsConsent) {
+      return { success: false, message: 'Nincs folyamatban lévő regisztráció.' };
+    }
+    const { error } = await supabase.auth.updateUser({ data: { terms_accepted_at: new Date().toISOString() } });
+    if (error) {
+      return { success: false, message: `Hiba történt az elfogadás mentése során: ${error.message}` };
+    }
+    return { success: true, message: 'Köszönjük, a fiókod aktiválva.' };
+  };
+
+  // A fiokot NEM hozza letre (nincs meg profiles-sor), csak a felig-hitelesitett
+  // auth.users sessiont zarja le, ha a felhasznalo nem fogadja el az ASZF-et.
+  const declineTermsAndSignOut = async (): Promise<void> => {
+    setPendingTermsConsent(null);
+    if (isSupabaseConfigured) {
+      await supabase.auth.signOut();
+    }
+  };
+
   const logout = () => {
     if (isSupabaseConfigured) {
       supabase.auth.signOut();
@@ -1854,12 +1918,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     name: string;
     email: string;
     password: string;
+    termsAccepted: boolean;
   }): Promise<{ success: boolean; message: string }> => {
+    if (!data.termsAccepted) {
+      return { success: false, message: 'Az Általános Szerződési Feltételek elfogadása kötelező a regisztrációhoz.' };
+    }
     if (isSupabaseConfigured) {
       const { data: signUpData, error } = await supabase.auth.signUp({
         email: data.email.trim(),
         password: data.password,
-        options: { data: { name: data.name.trim() } },
+        options: { data: { name: data.name.trim(), terms_accepted_at: new Date().toISOString() } },
       });
       if (error) {
         return {
@@ -1972,7 +2040,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     description: string;
     password: string;
     accepted_payment_methods: OnsitePaymentMethod[];
+    termsAccepted: boolean;
   }): Promise<{ success: boolean; message: string }> => {
+    if (!data.termsAccepted) {
+      return { success: false, message: 'Az Általános Szerződési Feltételek elfogadása kötelező a regisztrációhoz.' };
+    }
     if (isSupabaseConfigured) {
       const { data: signUpData, error } = await supabase.auth.signUp({
         email: data.email.trim(),
@@ -1987,6 +2059,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               description: data.description,
               accepted_payment_methods: data.accepted_payment_methods,
             },
+            terms_accepted_at: new Date().toISOString(),
           },
         },
       });
@@ -4134,6 +4207,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deleteMyAccount,
         updateMyProfile,
         registerProvider,
+        pendingTermsConsent,
+        acceptTermsAndActivateAccount,
+        declineTermsAndSignOut,
 
         regions,
         categories,

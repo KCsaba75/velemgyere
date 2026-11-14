@@ -34,7 +34,7 @@ function RegisterVisitorProbe() {
     <div>
       <button
         onClick={async () => {
-          const r = await registerVisitor({ name: 'Kiss Csaba', email: 'kiss.csaba@scada.hu', password: 'x' });
+          const r = await registerVisitor({ name: 'Kiss Csaba', email: 'kiss.csaba@scada.hu', password: 'x', termsAccepted: true });
           setResult(`${r.success ? 'success' : 'fail'}:${r.message}`);
         }}
       >

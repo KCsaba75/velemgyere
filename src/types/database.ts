@@ -21,6 +21,9 @@ export interface Profile {
   google_calendar_id?: string;
   // Böngésző push-értesítés a foglalás-chat új üzeneteire (kanban d973bfec), opt-out.
   push_notifications_enabled?: boolean;
+  // Kanban 32ad8a91: ASZF-elfogadás időbélyege regisztrációkor. NULL a már
+  // meglévő, e feature előtti fiókoknál -- szándékosan, nem kér újra elfogadást.
+  terms_accepted_at?: string | null;
 }
 
 export interface Provider {
@@ -64,6 +67,9 @@ export interface Provider {
   // Google Calendar szinkronizáció beállítás a szolgáltató számára
   google_calendar_sync_enabled?: boolean;
   google_calendar_id?: string;
+  // Kanban 32ad8a91: ASZF-elfogadás időbélyege regisztrációkor. NULL a már
+  // meglévő, e feature előtti fiókoknál -- szándékosan, nem kér újra elfogadást.
+  terms_accepted_at?: string | null;
 }
 
 export interface Region {

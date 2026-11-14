@@ -18,6 +18,7 @@ export const ProviderRegisterModal: React.FC<ProviderRegisterModalProps> = ({ is
   const [website, setWebsite] = useState('');
   const [description, setDescription] = useState('');
   const [password, setPassword] = useState('');
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [acceptedPaymentMethods, setAcceptedPaymentMethods] = useState<OnsitePaymentMethod[]>(['cash']);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -34,7 +35,8 @@ export const ProviderRegisterModal: React.FC<ProviderRegisterModalProps> = ({ is
     e.preventDefault();
     if (
       !companyName.trim() || !contactName.trim() || !email.trim() || !phone.trim() ||
-      !description.trim() || password.length < 6 || acceptedPaymentMethods.length === 0
+      !description.trim() || password.length < 6 || acceptedPaymentMethods.length === 0 ||
+      !termsAccepted
     ) {
       return;
     }
@@ -50,6 +52,7 @@ export const ProviderRegisterModal: React.FC<ProviderRegisterModalProps> = ({ is
         description: description.trim(),
         password,
         accepted_payment_methods: acceptedPaymentMethods,
+        termsAccepted,
       });
       setSuccessMessage(res.message);
     } catch (err) {
@@ -229,10 +232,31 @@ export const ProviderRegisterModal: React.FC<ProviderRegisterModalProps> = ({ is
                 />
               </div>
 
+              <label className="flex items-start gap-2.5 text-xs text-stone-600 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={termsAccepted}
+                  onChange={(e) => setTermsAccepted(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 rounded border-stone-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                />
+                <span>
+                  Elfogadom az{' '}
+                  <a
+                    href="/aszf"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-emerald-700 font-semibold hover:underline"
+                  >
+                    Általános Szerződési Feltételeket
+                  </a>
+                  .
+                </span>
+              </label>
+
               <div className="pt-3">
                 <button
                   type="submit"
-                  disabled={isSubmitting || acceptedPaymentMethods.length === 0}
+                  disabled={isSubmitting || acceptedPaymentMethods.length === 0 || !termsAccepted}
                   className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3.5 px-6 rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md disabled:opacity-50"
                 >
                   <Sparkles className="w-4 h-4" />

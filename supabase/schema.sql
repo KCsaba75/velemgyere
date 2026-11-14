@@ -2037,3 +2037,109 @@ execute function public.set_provider_first_published();
 -- anon/authenticated oszlop-grant listahoz kell adni -- first_published_at
 -- NEM publikus, csak admin_list_providers()-en keresztul.
 grant select (is_founder) on public.providers to anon, authenticated;
+
+-- ==========================================
+-- Kanban 32ad8a91 (Csaba, 2026-11-14): regisztracios ASZF-elfogadas checkbox.
+-- ==========================================
+--
+-- FONTOS ELOZMENY, EDDIG DOKUMENTALATLAN: a "handle_new_auth_user()" trigger
+-- (AFTER INSERT ON auth.users) MAR ELES volt mind a dev-sandboxon, mind a fo
+-- prod projekten, mielott ez a kanban-kartya letrejott -- de SOHA nem kerult be
+-- ebbe a schema.sql-be. Ez azt jelenti, hogy az AppContext.tsx syncFromSession
+-- "if (!prof) insert..." es "if (pending) ... insert providers/profiles" agai a
+-- GYAKORLATBAN tobbnyire SOHA nem futnak le (a trigger mar letrehozta a sort,
+-- mire a kliens lekerdezne) -- azok csak egy regebbi, kliens-oldali fallback
+-- maradvanyai. Ez a migracio eloszor DOKUMENTALJA a mar elo triggert (a jelenlegi
+-- pontos definicioval, dev-sandboxon+prodon ellenorizve azonosnak), MAJD bovíti
+-- terms_accepted_at tamogatassal.
+--
+-- A bovites logikaja:
+-- - provider-ag (pending_provider metadata): ez MINDIG egy forma-submitbol jon
+--   (ProviderRegisterModal checkboxa mar kotelezo), tehat a metadata-ban mindig
+--   van terms_accepted_at -- csak athuzzuk az uj oszlopokra.
+-- - visitor-ag: ha a metadata-ban NINCS terms_accepted_at (tipikusan Google
+--   OAuth, ahol nincs hagyomanyos form-submit lepes ahol egy checkbox mar
+--   elfogadtatta volna), a trigger NEM hozza letre a profilt -- a felhasznalo
+--   egy sessionnel, de profil nelkul marad, amig a TermsConsentModal "Elfogadom"
+--   gombja (AppContext.tsx acceptTermsAndActivateAccount) egy auth.updateUser()-
+--   rel be nem allitja a metadata-t (ez UPDATE, nem INSERT auth.users-en, tehat
+--   ez a trigger nem fut le ra ujra), es ekkor a kliens syncFromSession maga
+--   insertalja a sort (lasd AppContext.tsx "if (!termsAcceptedAt)" aga).
+alter table public.profiles add column if not exists terms_accepted_at timestamptz;
+alter table public.providers add column if not exists terms_accepted_at timestamptz;
+
+-- providers INSERT oszlop-szintu grant (kanban fbf552b2 mintaja) -- enelkul a
+-- kliens-oldali (deferred-fallback) insert 42501 permission denied-et dobna
+-- erre az egy oszlopra.
+grant insert (terms_accepted_at) on public.providers to authenticated;
+
+create or replace function public.handle_new_auth_user()
+returns trigger
+language plpgsql
+security definer
+set search_path to 'public'
+as $$
+declare
+  v_meta jsonb := coalesce(new.raw_user_meta_data, '{}'::jsonb);
+  v_pending jsonb := v_meta->'pending_provider';
+  v_display_name text;
+  v_payment_methods text[];
+  v_terms_accepted_at timestamptz := nullif(v_meta->>'terms_accepted_at', '')::timestamptz;
+begin
+  if v_pending is not null then
+    v_payment_methods := (
+      select coalesce(array_agg(value::text), array['cash'])
+      from jsonb_array_elements_text(coalesce(v_pending->'accepted_payment_methods', '["cash"]'::jsonb))
+    );
+    if cardinality(v_payment_methods) = 0 then
+      v_payment_methods := array['cash'];
+    end if;
+
+    insert into public.providers (
+      user_id, company_name, contact_name, email, phone, website, description,
+      status, accepted_payment_methods, terms_accepted_at
+    )
+    values (
+      new.id,
+      coalesce(v_pending->>'company_name', ''),
+      coalesce(v_pending->>'contact_name', ''),
+      new.email,
+      coalesce(v_pending->>'phone', ''),
+      v_pending->>'website',
+      coalesce(v_pending->>'description', ''),
+      'approved',
+      v_payment_methods,
+      v_terms_accepted_at
+    )
+    on conflict (user_id) do nothing;
+
+    insert into public.profiles (user_id, name, email, role, terms_accepted_at)
+    values (new.id, coalesce(v_pending->>'contact_name', new.email), new.email, 'provider', v_terms_accepted_at)
+    on conflict (user_id) do nothing;
+  else
+    if v_terms_accepted_at is null then
+      -- Google-elso-bejelentkezes (nincs form-submit checkbox) -- NE hozzon
+      -- letre profilt meg, a TermsConsentModal elfogadasa utan a kliens
+      -- syncFromSession fogja (lasd AppContext.tsx).
+      return new;
+    end if;
+
+    v_display_name := coalesce(
+      v_meta->>'full_name',
+      v_meta->>'name',
+      split_part(new.email, '@', 1),
+      'Látogató'
+    );
+    insert into public.profiles (user_id, name, email, role, terms_accepted_at)
+    values (new.id, v_display_name, new.email, 'visitor', v_terms_accepted_at)
+    on conflict (user_id) do nothing;
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_handle_new_auth_user on auth.users;
+create trigger trg_handle_new_auth_user
+  after insert on auth.users
+  for each row execute function public.handle_new_auth_user();
