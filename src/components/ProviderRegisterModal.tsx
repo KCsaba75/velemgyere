@@ -89,6 +89,11 @@ export const ProviderRegisterModal: React.FC<ProviderRegisterModalProps> = ({ is
               </div>
             </div>
 
+            <p className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold mb-4">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>A bevezető szakaszban díjmentes</span>
+            </p>
+
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 text-xs text-amber-900 mb-6 flex items-start gap-2.5">
               <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
               <p>

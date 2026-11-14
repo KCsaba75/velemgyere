@@ -50,6 +50,16 @@ export const ProviderLanding: React.FC<ProviderLandingProps> = ({
             Külföldön élsz, magyar idegenvezetést, kirándulásokat vagy reptéri transzfereket szolgáltatsz? Csatlakozz a Velem Gyere platformhoz Cipruson, Máltán, Spanyolországban, Olaszországban, Törökországban és szerte a világon!
           </p>
 
+          {/* Kanban 1705ddb0 (Csaba, 2026-11-14): az ASZF 6.1 pontjabol atvett,
+              jogilag mar elfogadott megfogalmazas -- "jelenleg"/"bevezeto
+              szakaszban", NEM "orokre ingyenes" (6.5 pont dij-bevezetesi jogot
+              tart fenn). Ez a fo szolgaltatoi regisztraciora osztonzo felulet,
+              ezert ez a legfontosabb hely a kiemelesnek. */}
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs sm:text-sm font-semibold mb-8">
+            <Sparkles className="w-4 h-4 text-emerald-400" />
+            <span>A bevezető (pilot) szakaszban a Platform használata díjmentes</span>
+          </div>
+
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 max-w-md mx-auto">
             {currentUser.role === 'provider' ? (
               <button
