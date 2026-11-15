@@ -914,14 +914,14 @@ export const ProgramEditorModal: React.FC<ProgramEditorModalProps> = ({ isOpen, 
               <h4 className="text-xs font-bold text-stone-400 uppercase tracking-wider">4. Tartalom (Mit tartalmaz és mit nem)</h4>
               <div className="bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100">
                 <label className="block text-xs font-bold text-emerald-900 uppercase tracking-wider mb-2">Mit tartalmaz az ár?</label>
-                <div className="flex gap-2 mb-3">
+                <div className="flex flex-wrap gap-2 mb-3">
                   <input
                     type="text"
                     value={newIncludedItem}
                     onChange={(e) => setNewIncludedItem(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddIncluded(); } }}
                     placeholder="Pl. Magyar idegenvezetés a teljes nap folyamán"
-                    className="flex-1 text-sm bg-white border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="flex-1 min-w-0 text-sm bg-white border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                   <button type="button" onClick={handleAddIncluded} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold cursor-pointer shrink-0">+ Hozzáadás</button>
                 </div>
@@ -936,14 +936,14 @@ export const ProgramEditorModal: React.FC<ProgramEditorModalProps> = ({ isOpen, 
               </div>
               <div className="bg-rose-50/50 p-4 rounded-2xl border border-rose-100">
                 <label className="block text-xs font-bold text-rose-900 uppercase tracking-wider mb-2">Mit NEM tartalmaz az ár?</label>
-                <div className="flex gap-2 mb-3">
+                <div className="flex flex-wrap gap-2 mb-3">
                   <input
                     type="text"
                     value={newNotIncludedItem}
                     onChange={(e) => setNewNotIncludedItem(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddNotIncluded(); } }}
                     placeholder="Pl. Múzeumi belépő vagy egyéni ebéd"
-                    className="flex-1 text-sm bg-white border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="flex-1 min-w-0 text-sm bg-white border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                   <button type="button" onClick={handleAddNotIncluded} className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-semibold cursor-pointer shrink-0">+ Hozzáadás</button>
                 </div>
