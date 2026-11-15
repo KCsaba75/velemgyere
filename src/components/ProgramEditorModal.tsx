@@ -35,6 +35,48 @@ interface ProgramEditorModalProps {
   initialTab?: EditorTab;
 }
 
+// Kanban 8d11173e: a szolgaltato ne tudjon elerhetoseget (telefon, email, URL,
+// messenger/social link) irni a program cimebe/leirasaba -- a platform
+// megkerulesenek klasszikus formaja. A valodi hatar a programs tabla
+// BEFORE INSERT/UPDATE triggere (text_has_contact_info), ez csak az azonnali,
+// mentes-elotti UX-visszajelzes -- ugyanazt a logikat tukrozi.
+function clientTextHasPhoneNumber(txt: string): boolean {
+  const matches = txt.match(/\d[\d .()-]{5,}\d/g) || [];
+  return matches.some(m => m.replace(/\D/g, '').length >= 9);
+}
+
+function clientTextHasContactInfo(txt: string | null | undefined): boolean {
+  if (!txt) return false;
+  if (/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i.test(txt)) return true;
+  if (/(https?:\/\/|www\.)\S+/i.test(txt)) return true;
+  if (/(instagram\.com|facebook\.com|\bfb\.com\b|\bm\.me\b|\bwa\.me\b|\bt\.me\b|telegram\.me|\bviber\b|\bwhatsapp\b|\bmessenger\b)/i.test(txt)) return true;
+  if (clientTextHasPhoneNumber(txt)) return true;
+  return false;
+}
+
+const CONTACT_INFO_ERROR_MAIN = 'A program címében vagy leírásában nem adható meg elérhetőség (telefonszám, email, weboldal vagy social/messenger link). Kérjük távolítsa el, a foglalás a platformon keresztül történik.';
+const CONTACT_INFO_ERROR_INCLUDED = 'A "Mit tartalmaz az ár?" listában nem adható meg elérhetőség (telefonszám, email, weboldal vagy social/messenger link). Kérjük távolítsa el, a foglalás a platformon keresztül történik.';
+const CONTACT_INFO_ERROR_NOT_INCLUDED = 'A "Mit NEM tartalmaz az ár?" listában nem adható meg elérhetőség (telefonszám, email, weboldal vagy social/messenger link). Kérjük távolítsa el, a foglalás a platformon keresztül történik.';
+
+function findProgramContactInfoError(fields: {
+  title: string;
+  shortDescription: string;
+  description: string;
+  included: string[];
+  notIncluded: string[];
+}): string | null {
+  if (
+    clientTextHasContactInfo(fields.title) ||
+    clientTextHasContactInfo(fields.shortDescription) ||
+    clientTextHasContactInfo(fields.description)
+  ) {
+    return CONTACT_INFO_ERROR_MAIN;
+  }
+  if (fields.included.some(clientTextHasContactInfo)) return CONTACT_INFO_ERROR_INCLUDED;
+  if (fields.notIncluded.some(clientTextHasContactInfo)) return CONTACT_INFO_ERROR_NOT_INCLUDED;
+  return null;
+}
+
 const WEEKDAYS: { label: string; value: number }[] = [
   { label: 'H', value: 1 },
   { label: 'K', value: 2 },
@@ -260,6 +302,17 @@ export const ProgramEditorModal: React.FC<ProgramEditorModalProps> = ({ isOpen, 
       setDraftError('Mielőtt árazást/időpontot adnál meg, töltsd ki az Alapadatok kötelező mezőit (cím, rövid leírás, helyszín, találkozási pont).');
       return null;
     }
+    const contactInfoError = findProgramContactInfoError({
+      title,
+      shortDescription,
+      description,
+      included: includedList,
+      notIncluded: notIncludedList,
+    });
+    if (contactInfoError) {
+      setDraftError(contactInfoError);
+      return null;
+    }
     setDraftCreating(true);
     setDraftError(null);
     try {
@@ -409,6 +462,18 @@ export const ProgramEditorModal: React.FC<ProgramEditorModalProps> = ({ isOpen, 
   const saveProgram = async (targetStatus: ProgramStatus) => {
     if (!title.trim() || !shortDescription.trim() || !location.trim() || !departureLocation.trim()) {
       alert('Kérjük töltsd ki az összes kötelező mezőt!');
+      return;
+    }
+    const contactInfoError = findProgramContactInfoError({
+      title,
+      shortDescription,
+      description,
+      included: includedList,
+      notIncluded: notIncludedList,
+    });
+    if (contactInfoError) {
+      setDraftError(contactInfoError);
+      setActiveTab('basic');
       return;
     }
 
