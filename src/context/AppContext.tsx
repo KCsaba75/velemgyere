@@ -45,7 +45,7 @@ import {
   INITIAL_FAVORITES
 } from '../data/seedData';
 import { roundToHalfEuro } from '../lib/priceUtils';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { supabase, isSupabaseConfigured, extractFunctionErrorMessage } from '../lib/supabase';
 import { fetchLiveEurHufRate } from '../lib/exchangeRate';
 
 // 16241c32: real react-router URLs replaced the old pure-state "currentView" router.
@@ -3308,14 +3308,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, message: 'Ehhez a foglaláshoz már rögzítettél értékelést!' };
     }
 
-    // Basic moderation check for phone numbers / spam
-    const textToCheck = `${data.comment} ${data.title || ''} ${data.positive_feedback || ''}`.toLowerCase();
-    const phoneRegex = /(\+?[0-9]{2,3}[-\s]?[0-9]{2,3}[-\s]?[0-9]{4,8})/g;
-    let initialStatus: ReviewStatus = 'published';
-    if (phoneRegex.test(textToCheck)) {
-      initialStatus = 'flagged';
-    }
-
     const ord = orders.find(o => o.id === data.order_id);
 
     // Defense in depth: addReview must not trust a caller-supplied order_id on
@@ -3323,7 +3315,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // path) -- require a real, non-cancelled order for this program, owned by
     // this user (or an admin acting on it), matching the pre-fix eligibility
     // rule. Without this, is_verified_buyer below would be a bare claim with
-    // nothing backing it.
+    // nothing backing it. The server (submit_review RPC) re-checks this too --
+    // this is the fast client-side rejection, not the security boundary.
     const isOwnOrAdminOrder = !!ord && (
       ord.user_id === currentUser.id ||
       ord.user_id === currentUser.user_id ||
@@ -3335,70 +3328,112 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, message: 'Kizárólag igazolt vásárlók értékelhetnek, akik a velemgyere felületén keresztül foglalták le az adott programot és a részvétel megtörtént.' };
     }
 
-    const newReview: Review = {
-      id: generateUUID(),
-      program_id: resolvedProgId,
-      order_id: data.order_id,
-      user_id: currentUser.id || currentUser.user_id || 'user-anonymous',
-      user_name: currentUser.name || currentUser.email.split('@')[0] || 'Utazó',
-      rating: Math.min(5, Math.max(1, data.rating)),
-      rating_guide: Math.min(5, Math.max(1, data.rating_guide)),
-      rating_value: Math.min(5, Math.max(1, data.rating_value)),
-      rating_organization: Math.min(5, Math.max(1, data.rating_organization)),
-      rating_safety: Math.min(5, Math.max(1, data.rating_safety)),
-      title: data.title?.trim() || undefined,
-      comment: data.comment.trim(),
-      positive_feedback: data.positive_feedback?.trim() || undefined,
-      improvement_feedback: data.improvement_feedback?.trim() || undefined,
-      travel_type: data.travel_type,
-      tour_date: ord?.created_at ? ord.created_at.split('T')[0] : new Date().toISOString().split('T')[0],
-      is_verified_buyer: isVerifiedBuyer,
-      photos: data.photos && data.photos.length > 0 ? data.photos : undefined,
-      provider_response: null,
-      status: initialStatus,
-      created_at: new Date().toISOString(),
-      program_title: prog?.title,
-      provider_id: prog?.provider_id,
-      provider_name: prog?.provider?.company_name
-    };
-
-    if (isSupabaseConfigured) {
-      const dbPayload = {
-        id: newReview.id,
-        program_id: newReview.program_id,
-        order_id: newReview.order_id,
-        user_id: currentUser.user_id || currentUser.id,
-        user_name: newReview.user_name,
-        rating: newReview.rating,
-        rating_guide: newReview.rating_guide,
-        rating_value: newReview.rating_value,
-        rating_organization: newReview.rating_organization,
-        rating_safety: newReview.rating_safety,
-        title: newReview.title || null,
-        comment: newReview.comment,
-        positive_feedback: newReview.positive_feedback || null,
-        improvement_feedback: newReview.improvement_feedback || null,
-        travel_type: newReview.travel_type,
-        tour_date: newReview.tour_date,
-        is_verified_buyer: newReview.is_verified_buyer,
-        photos: newReview.photos || [],
-        provider_id: newReview.provider_id || null,
-        provider_name: newReview.provider_name || null,
-        status: newReview.status,
+    if (!isSupabaseConfigured) {
+      // Demo/lokal mod (nincs backend) -- a korabbi, tisztan kliens-oldali
+      // logika valtozatlan, nincs mit a szerverre bizni.
+      const textToCheck = `${data.comment} ${data.title || ''} ${data.positive_feedback || ''}`.toLowerCase();
+      const phoneRegex = /(\+?[0-9]{2,3}[-\s]?[0-9]{2,3}[-\s]?[0-9]{4,8})/g;
+      const initialStatus: ReviewStatus = phoneRegex.test(textToCheck) ? 'flagged' : 'published';
+      const newReview: Review = {
+        id: generateUUID(),
+        program_id: resolvedProgId,
+        order_id: data.order_id,
+        user_id: currentUser.id || currentUser.user_id || 'user-anonymous',
+        user_name: currentUser.name || currentUser.email.split('@')[0] || 'Utazó',
+        rating: Math.min(5, Math.max(1, data.rating)),
+        rating_guide: Math.min(5, Math.max(1, data.rating_guide)),
+        rating_value: Math.min(5, Math.max(1, data.rating_value)),
+        rating_organization: Math.min(5, Math.max(1, data.rating_organization)),
+        rating_safety: Math.min(5, Math.max(1, data.rating_safety)),
+        title: data.title?.trim() || undefined,
+        comment: data.comment.trim(),
+        positive_feedback: data.positive_feedback?.trim() || undefined,
+        improvement_feedback: data.improvement_feedback?.trim() || undefined,
+        travel_type: data.travel_type,
+        tour_date: ord?.created_at ? ord.created_at.split('T')[0] : new Date().toISOString().split('T')[0],
+        is_verified_buyer: isVerifiedBuyer,
+        photos: data.photos && data.photos.length > 0 ? data.photos : undefined,
+        provider_response: null,
+        status: initialStatus,
+        created_at: new Date().toISOString(),
+        program_title: prog?.title,
+        provider_id: prog?.provider_id,
+        provider_name: prog?.provider?.company_name
       };
-      const { error: revErr } = await supabase.from('reviews').insert([dbPayload]);
-      if (revErr) {
-        console.error('Failed to insert review to Supabase:', revErr);
-      }
+      setReviews(prev => [newReview, ...prev]);
+      return {
+        success: true,
+        message: initialStatus === 'flagged'
+          ? 'Köszönjük az értékelést! A moderáció ellenőrzése után kerül közzétételre.'
+          : 'Köszönjük az értékelést! A véleményed azonnal megjelent a program adatlapján.',
+        review: newReview
+      };
     }
+
+    // Gemini-alapu gyuloletbeszed-eloszures az edge function-ben fut le ELOTTE
+    // (kanban 8d11173e, Csaba dontes 2026-11-15) -- a reviews-nak mar nincs
+    // kozvetlen authenticated INSERT RLS policy-ja, ez az egyetlen irasi ut.
+    const { data: response, error: invokeErr } = await supabase.functions.invoke('submit-review', {
+      body: {
+        program_id: resolvedProgId,
+        order_id: data.order_id,
+        rating: data.rating,
+        rating_guide: data.rating_guide,
+        rating_value: data.rating_value,
+        rating_organization: data.rating_organization,
+        rating_safety: data.rating_safety,
+        title: data.title,
+        comment: data.comment,
+        positive_feedback: data.positive_feedback,
+        improvement_feedback: data.improvement_feedback,
+        travel_type: data.travel_type,
+        photos: data.photos,
+      },
+    });
+
+    if (invokeErr || !response?.review) {
+      const message = await extractFunctionErrorMessage(invokeErr, 'Hiba történt az értékelés mentésekor.');
+      return { success: false, message };
+    }
+
+    // A szerver (submit_review RPC) numeric mezoi PostgREST-en keresztul
+    // stringkent erkeznek (pl. "5.0") -- Number()-rel kell visszaalakitani.
+    const row = response.review;
+    const newReview: Review = {
+      id: row.id,
+      program_id: row.program_id,
+      order_id: row.order_id,
+      user_id: row.user_id,
+      user_name: row.user_name,
+      rating: Number(row.rating),
+      rating_guide: Number(row.rating_guide),
+      rating_value: Number(row.rating_value),
+      rating_organization: Number(row.rating_organization),
+      rating_safety: Number(row.rating_safety),
+      title: row.title || undefined,
+      comment: row.comment,
+      positive_feedback: row.positive_feedback || undefined,
+      improvement_feedback: row.improvement_feedback || undefined,
+      travel_type: row.travel_type,
+      tour_date: row.tour_date,
+      is_verified_buyer: row.is_verified_buyer,
+      photos: row.photos && row.photos.length > 0 ? row.photos : undefined,
+      provider_response: row.provider_response,
+      status: row.status,
+      created_at: row.created_at,
+      program_title: prog?.title,
+      provider_id: row.provider_id || undefined,
+      provider_name: row.provider_name || undefined,
+    };
 
     setReviews(prev => [newReview, ...prev]);
 
     return {
       success: true,
-      message: initialStatus === 'flagged'
-        ? 'Köszönjük az értékelést! A moderáció ellenőrzése után kerül közzétételre.'
-        : 'Köszönjük az értékelést! A véleményed azonnal megjelent a program adatlapján.',
+      message: response.message ||
+        (row.status === 'flagged'
+          ? 'Köszönjük az értékelést! A moderáció ellenőrzése után kerül közzétételre.'
+          : 'Köszönjük az értékelést! A véleményed azonnal megjelent a program adatlapján.'),
       review: newReview
     };
   };

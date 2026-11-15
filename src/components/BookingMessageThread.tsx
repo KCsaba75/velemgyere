@@ -22,7 +22,7 @@ export const BookingMessageThread: React.FC<BookingMessageThreadProps> = ({
   compact = false,
 }) => {
   const { markBookingThreadRead, registerActiveMessageThread, unregisterActiveMessageThread } = useApp();
-  const { messages, loading, sending, sendMessage } = useBookingMessages(
+  const { messages, loading, sending, sendMessage, error } = useBookingMessages(
     orderId,
     senderRole,
     senderId
@@ -96,6 +96,12 @@ export const BookingMessageThread: React.FC<BookingMessageThreadProps> = ({
           })
         )}
       </div>
+
+      {error && (
+        <p className="text-[11px] font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-lg px-2.5 py-1.5 mb-2">
+          {error}
+        </p>
+      )}
 
       {canSend ? (
         <form onSubmit={handleSend} className="flex gap-2 pt-2 border-t border-stone-200/80">
