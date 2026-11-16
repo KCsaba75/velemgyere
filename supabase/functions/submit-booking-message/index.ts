@@ -59,8 +59,12 @@ Szöveg: """${text}"""
 Válaszolj KIZÁRÓLAG ezzel a JSON formátummal, más szöveg nélkül: {"flagged": true vagy false}`;
 
   try {
+    // Explicit modellnev, NEM "gemini-flash-latest" alias: a 2026-11-16-i
+    // kulcs-csere (5d22b0fb) soran az alias-feloldas ennel az uj Google
+    // projektnel vegtelenre lefagyott (90mp+ valasz nelkul), mig explicit
+    // nevvel masodperceken belul valaszolt, akar hibaval is.
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -68,6 +72,7 @@ Válaszolj KIZÁRÓLAG ezzel a JSON formátummal, más szöveg nélkül: {"flagg
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: { temperature: 0, responseMimeType: 'application/json' },
         }),
+        signal: AbortSignal.timeout(25000),
       }
     );
     if (!res.ok) {
