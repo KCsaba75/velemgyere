@@ -149,6 +149,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
             <Sparkles className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
             <div className="leading-relaxed font-medium">
               {loginModalMessage}
+              {mode === 'login' && ' Ha nincs fiókod regisztrálj Ingyenesen és egyszerűen!'}
             </div>
           </div>
         )}
