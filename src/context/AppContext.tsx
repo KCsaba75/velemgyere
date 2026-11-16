@@ -2626,31 +2626,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const updateOrderInLocalCache = (orderId: string, updates: Partial<Order>) => {
-    if (typeof window === 'undefined' || !window.localStorage) return;
-    try {
-      const raw = localStorage.getItem('vg_manual_orders_cache');
-      const list: Order[] = raw ? JSON.parse(raw) : [];
-      let found = false;
-      const updatedList = list.map(o => {
-        if (o.id === orderId || o.booking_reference === orderId) {
-          found = true;
-          return { ...o, ...updates };
-        }
-        return o;
-      });
-      if (!found) {
-        const currentOrder = orders.find(o => o.id === orderId || o.booking_reference === orderId);
-        if (currentOrder) {
-          updatedList.unshift({ ...currentOrder, ...updates });
-        }
-      }
-      localStorage.setItem('vg_manual_orders_cache', JSON.stringify(updatedList));
-    } catch (e) {
-      console.warn('Orders local cache update note:', e);
-    }
-  };
-
   // Orders (point 2): reservation record with Supabase persistence and offline/local fallback.
   const createOrder = async (data: {
     program_id: string;
