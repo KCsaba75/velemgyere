@@ -97,7 +97,7 @@ const StepMockup: React.FC<{ variant: MockupVariant }> = ({ variant }) => {
         {variant === 'review' && (
           <div className="flex items-center gap-1.5 text-stone-500 text-[11px] font-semibold pt-1">
             <ShieldCheck className="w-3.5 h-3.5" />
-            <span>Admin átnézi, mielőtt kikerül</span>
+            <span>Önellenőrzés, mielőtt élesíted</span>
           </div>
         )}
         {variant === 'published' && (
