@@ -14,6 +14,14 @@ interface SimpleContentPageProps {
   showContactFields?: boolean;
   showImage?: boolean;
   draftFallback: string;
+  // Kanban c6b51ecb: az ASZF (TermsPage.tsx) sajat, dedikalt sotet hero-
+  // banneres + kartyas layoutot kapott, ez a komponens viszont a regi,
+  // egyszerubb megjelenest tartotta meg -- emiatt Adatkezelesi/Arazas
+  // "maskent nezett ki" mint az ASZF. heroEyebrow+heroSubtitle megadasaval
+  // (csak Privacy/Pricing-nel) ugyanazt a hero+kartya megjelenest kapja,
+  // a Kapcsolat/Rolunk oldal (nem kapta meg ezt a propot) valtozatlan marad.
+  heroEyebrow?: string;
+  heroSubtitle?: string;
 }
 
 // Kanban 71915a0a (4-6. pont): egyseges komponens az "egyetlen szoveg-blokk
@@ -28,6 +36,8 @@ export const SimpleContentPage: React.FC<SimpleContentPageProps> = ({
   showContactFields,
   showImage,
   draftFallback,
+  heroEyebrow,
+  heroSubtitle,
 }) => {
   const { pages, submitContactMessage, currentUser } = useApp();
   const page = pages[slug];
@@ -75,6 +85,58 @@ export const SimpleContentPage: React.FC<SimpleContentPageProps> = ({
 
   useDocumentMeta(title, metaDescription);
 
+  const useHeroLayout = Boolean(heroEyebrow && heroSubtitle);
+
+  const bodyHtml = (
+    <div
+      className="break-words max-w-none text-stone-700 text-sm sm:text-base leading-relaxed [&_p]:mb-4 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_h2]:font-display [&_h2]:font-bold [&_h2]:text-lg [&_h2]:mt-6 [&_h2]:mb-2 [&_h3]:font-display [&_h3]:font-bold [&_h3]:mt-4 [&_h3]:mb-2"
+      dangerouslySetInnerHTML={{ __html: sanitizeStoredContent(bodyText) }}
+    />
+  );
+
+  if (useHeroLayout) {
+    return (
+      <div className="bg-stone-50 text-stone-800">
+        <section className="relative isolate min-h-[280px] sm:min-h-[340px] flex items-center overflow-hidden bg-stone-900">
+          <div className="absolute inset-0 -z-10 bg-gradient-to-r from-stone-950 via-stone-900/90 to-emerald-950" />
+          <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20">
+            <div className="max-w-4xl">
+              <p className="text-xs sm:text-sm font-semibold tracking-[0.18em] uppercase text-emerald-300 mb-5">
+                {heroEyebrow}
+              </p>
+              <h1 className="font-display text-3xl sm:text-5xl lg:text-6xl font-extrabold leading-tight tracking-tight text-white">
+                {title}
+              </h1>
+              <p className="mt-5 max-w-2xl text-base sm:text-lg leading-relaxed text-white/80">
+                {heroSubtitle}
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
+          {isDraft && (
+            <div className="mb-8 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
+              Ez a tartalom még nincs véglegesítve -- admin tölti majd ki.
+            </div>
+          )}
+
+          {showImage && content.imageUrl && (
+            <img
+              src={content.imageUrl}
+              alt={title}
+              className="w-full max-h-96 object-cover rounded-2xl mb-8 border border-stone-200"
+            />
+          )}
+
+          <article className="rounded-2xl border border-stone-200 bg-white p-6 sm:p-10 shadow-sm">
+            {bodyHtml}
+          </article>
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-16">
       <h1 className="text-2xl sm:text-4xl font-extrabold font-display text-stone-900 tracking-tight mb-6">
@@ -95,10 +157,7 @@ export const SimpleContentPage: React.FC<SimpleContentPageProps> = ({
         />
       )}
 
-      <div
-        className="max-w-none text-stone-700 text-sm sm:text-base leading-relaxed [&_p]:mb-4 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_h2]:font-display [&_h2]:font-bold [&_h2]:text-lg [&_h2]:mt-6 [&_h2]:mb-2 [&_h3]:font-display [&_h3]:font-bold [&_h3]:mt-4 [&_h3]:mb-2"
-        dangerouslySetInnerHTML={{ __html: sanitizeStoredContent(bodyText) }}
-      />
+      {bodyHtml}
 
       {showContactFields && (
         <div className="mt-10 grid grid-cols-1 lg:grid-cols-[0.8fr_1.2fr] gap-6 items-start">

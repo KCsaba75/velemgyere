@@ -10,5 +10,7 @@ export const PrivacyPage: React.FC = () => (
     heading="Adatkezelési Tájékoztató"
     metaDescription="A Velem Gyere platform adatkezelési tájékoztatója."
     draftFallback={DRAFT_FALLBACKS.privacy}
+    heroEyebrow="Velem Gyere · Jogi dokumentum"
+    heroSubtitle="Hogyan gyűjtjük, kezeljük és védjük a személyes adataidat a platform használata során."
   />
 );
