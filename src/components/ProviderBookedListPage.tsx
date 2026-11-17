@@ -130,6 +130,12 @@ export const ProviderBookedListPage: React.FC = () => {
   const selectedProgram = ownPrograms.find(p => p.id === selectedProgramId);
   const selectedOccurrence = occurrences.find(o => o.id === selectedOccurrenceId);
 
+  // Kanban ed645e9f, Csaba kiegeszitese: az Idopont legordulo jobb oldalan is
+  // jelenjen meg a foglalas-szamlalo, ugyanugy mint a havi nezet program-kartyajan.
+  const selectedOccurrenceMaxCap = selectedOccurrence
+    ? selectedOccurrence.max_participants ?? selectedProgram?.max_participants ?? null
+    : null;
+
   // Zora dontese A: lemondott rendelesek teljesen kimaradnak -- a lista celja
   // "ki jon", a letszam is csak a pending+confirmed rendelesekbol szamol.
   const bookings = useMemo(() => {
@@ -270,7 +276,22 @@ export const ProviderBookedListPage: React.FC = () => {
           </select>
         </div>
         <div>
-          <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">Időpont</label>
+          <label className="flex items-center justify-between text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
+            <span>Időpont</span>
+            {selectedOccurrence && selectedOccurrenceMaxCap != null && (
+              <span
+                className={`inline-flex items-center gap-1 normal-case font-extrabold text-[11px] px-1.5 py-0.5 rounded-md border ${
+                  totalParticipants >= selectedOccurrenceMaxCap
+                    ? 'text-amber-700 bg-amber-50 border-amber-200'
+                    : 'text-stone-600 bg-stone-50 border-stone-200'
+                }`}
+                title={`${totalParticipants} foglalt / ${selectedOccurrenceMaxCap} fő max`}
+              >
+                <Users className="w-3 h-3" />
+                {totalParticipants}/{selectedOccurrenceMaxCap}
+              </span>
+            )}
+          </label>
           <select
             value={selectedOccurrenceId}
             onChange={e => setSelectedOccurrenceId(e.target.value)}
