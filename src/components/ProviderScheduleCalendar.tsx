@@ -233,17 +233,20 @@ export const ProviderScheduleCalendar: React.FC<ProviderScheduleCalendarProps> =
   // foglalas-centrikus (ordersByDate), ez itt program-idopont-centrikus: minden
   // occurrence megjelenik, akkor is ha meg nincs hozza foglalas.
   const occurrencesByDate = useMemo(() => {
-    const map = new Map<string, Array<{ occ: ProgramOccurrence; program: Program | undefined }>>();
+    const map = new Map<string, Array<{ occ: ProgramOccurrence; program: Program | undefined; booked: number; maxCap: number | null }>>();
     Object.values(occurrencesMap).forEach(occ => {
       if (selectedProgramId !== 'all' && occ.program_id !== selectedProgramId) return;
       const dateStr = occ.event_date.includes('T') ? occ.event_date.split('T')[0] : occ.event_date;
+      const program = programMap.get(occ.program_id);
+      const booked = bookedCountByOccurrence.get(occ.id) || 0;
+      const maxCap = occ.max_participants ?? program?.max_participants ?? null;
       const list = map.get(dateStr) || [];
-      list.push({ occ, program: programMap.get(occ.program_id) });
+      list.push({ occ, program, booked, maxCap });
       map.set(dateStr, list);
     });
     map.forEach(list => list.sort((a, b) => (a.occ.start_time || '').localeCompare(b.occ.start_time || '')));
     return map;
-  }, [occurrencesMap, selectedProgramId, programMap]);
+  }, [occurrencesMap, selectedProgramId, programMap, bookedCountByOccurrence]);
 
   const calendarDays = useMemo(() => {
     const firstDayOfMonth = new Date(currentYear, currentMonth, 1);
@@ -936,7 +939,7 @@ export const ProviderScheduleCalendar: React.FC<ProviderScheduleCalendarProps> =
 interface MonthDayCellProps {
   dayItem: { dateStr: string; dayNumber: number; isCurrentMonth: boolean; isToday: boolean };
   isSelected: boolean;
-  items: Array<{ occ: ProgramOccurrence; program: Program | undefined }>;
+  items: Array<{ occ: ProgramOccurrence; program: Program | undefined; booked: number; maxCap: number | null }>;
   pendingOccurrenceIds: Set<string>;
   programColorMap: Map<string, { bg: string; border: string; text: string }>;
   onSelect: () => void;
@@ -1007,6 +1010,8 @@ const MonthDayCell: React.FC<MonthDayCellProps> = ({ dayItem, isSelected, items,
             key={item.occ.id}
             occ={item.occ}
             program={item.program}
+            booked={item.booked}
+            maxCap={item.maxCap}
             hasPending={pendingOccurrenceIds.has(item.occ.id)}
             color={programColorMap.get(item.occ.program_id) || DEFAULT_PROGRAM_COLOR}
             onOpenPopup={() => onOpenPopup(item.occ)}
@@ -1023,6 +1028,8 @@ const MonthDayCell: React.FC<MonthDayCellProps> = ({ dayItem, isSelected, items,
 interface MonthOccurrenceChipProps {
   occ: ProgramOccurrence;
   program: Program | undefined;
+  booked: number;
+  maxCap: number | null;
   hasPending: boolean;
   color: { bg: string; border: string; text: string };
   onOpenPopup: () => void;
@@ -1058,10 +1065,15 @@ const CANCELLED_CHIP_COLOR = { bg: 'bg-stone-100', border: 'border-stone-200', t
 // hiba volt mint az OccurrenceCard-nal (lasd ott), a grip-gomb sajat
 // touch-none-ja eleg a drag aktivalasahoz, a kulsoe csak a Havi nezet
 // gorgeteset blokkolta mobilon.
-const MonthOccurrenceChip: React.FC<MonthOccurrenceChipProps> = ({ occ, program, hasPending, color, onOpenPopup }) => {
+const MonthOccurrenceChip: React.FC<MonthOccurrenceChipProps> = ({ occ, program, booked, maxCap, hasPending, color, onOpenPopup }) => {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: occ.id });
   const isCancelled = occ.status === 'cancelled';
   const resolvedColor = isCancelled ? CANCELLED_CHIP_COLOR : color;
+  // Kanban ed645e9f, Csaba kerese (kep mellekelve): foglalas-szamlalo a kartya
+  // jobb also sarkaban (pl. "2/4"). Ez FELULIRJA a dyn001-ben hozott korabbi
+  // dontest (akkor szandekosan maradt ki a hely miatt) -- Csaba most kifejezetten
+  // ezt kerte, maxCap=NULL eseten (nyitott letszam) nem jelenik meg semmi.
+  const isFull = maxCap != null && booked >= maxCap;
 
   const style: React.CSSProperties = transform
     ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, zIndex: 50, opacity: isDragging ? 0.85 : 1 }
@@ -1098,6 +1110,15 @@ const MonthOccurrenceChip: React.FC<MonthOccurrenceChipProps> = ({ occ, program,
       >
         {program?.title || 'Program'}
       </button>
+      {maxCap != null && !isCancelled && (
+        <span
+          className={`self-end inline-flex items-center gap-0.5 text-[9px] sm:text-[8px] font-extrabold ${isFull ? 'text-amber-700' : 'opacity-70'}`}
+          title={`${booked} foglalt / ${maxCap} fő max`}
+        >
+          <Users className="w-2.5 h-2.5" />
+          {booked}/{maxCap}
+        </span>
+      )}
     </div>
   );
 };
