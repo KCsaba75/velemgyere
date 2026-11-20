@@ -153,6 +153,23 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
     (r.user_id === currentUser?.id || r.user_id === currentUser?.user_id)
   );
 
+  // Kanban 8a984fef: a kliens-oldali gomb korabban nem nezte a reszveteli/
+  // esemeny-datumot, csak order.status!=cancelled-t -- vasarlo vegigcsinalhatta
+  // a formot+fotofeltoltest egy JOVOBELI foglalasra. Ugyanaz a datum-forras
+  // konvencio mint masutt a modalban (order.event_date, utana program.event_date,
+  // lasd pl. 542. sor) -- hianyzo/ervenytelen datumnal engedo (true), hogy ne
+  // blokkoljon olyan regi rendeleseket amiknek nincs datum-mezoje.
+  const eventDateStr = order.event_date || program?.event_date;
+  const eventHasOccurred = (() => {
+    if (!eventDateStr) return true;
+    const eventDate = new Date(`${eventDateStr}T00:00:00`);
+    if (Number.isNaN(eventDate.getTime())) return true;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    eventDate.setHours(0, 0, 0, 0);
+    return eventDate <= today;
+  })();
+
   // Kanban 8ab468bb: w=128 (2x a tenyleges w-16 h-16 renderelt meretnek, retina-elesseg
   // miatt), nem a korabbi w=600 -- ez a kep sosem jelenik meg 64px-nel nagyobban itt.
   const coverImage = program?.images?.find(img => img.is_cover)?.image_url
@@ -497,7 +514,7 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                     <span>Értékelve ({existingReview.rating}★)</span>
                   </span>
-                ) : (
+                ) : eventHasOccurred ? (
                   <button
                     type="button"
                     onClick={() => setReviewModalOpen(true)}
@@ -506,6 +523,11 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
                     <Star className="w-3.5 h-3.5 fill-white text-white" />
                     <span>⭐ Értékelés leadása</span>
                   </button>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg bg-stone-50 text-stone-500 border border-stone-200">
+                    <Star className="w-3.5 h-3.5 text-stone-400" />
+                    <span>Értékelés a program után lesz elérhető</span>
+                  </span>
                 )
               )}
               <button
