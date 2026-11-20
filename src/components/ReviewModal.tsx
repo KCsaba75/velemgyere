@@ -1,19 +1,22 @@
 import React, { useState } from 'react';
 import { Program, Order, TravelType } from '../types/database';
 import { useApp, getBookingReference } from '../context/AppContext';
-import { 
-  X, 
-  Star, 
-  CheckCircle2, 
-  Camera, 
-  ShieldCheck, 
-  Compass, 
-  BadgePercent, 
-  Clock, 
+import { supabase } from '../lib/supabase';
+import { uploadReviewPhoto } from '../lib/imageUpload';
+import {
+  X,
+  Star,
+  CheckCircle2,
+  Camera,
+  ShieldCheck,
+  Compass,
+  BadgePercent,
+  Clock,
   Shield,
   AlertCircle,
-  Plus,
-  Trash2
+  Trash2,
+  Upload,
+  Loader2
 } from 'lucide-react';
 
 interface ReviewModalProps {
@@ -45,8 +48,8 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
   const [positiveFeedback, setPositiveFeedback] = useState<string>('');
   const [improvementFeedback, setImprovementFeedback] = useState<string>('');
 
-  const [photoUrlInput, setPhotoUrlInput] = useState<string>('');
   const [photos, setPhotos] = useState<string[]>([]);
+  const [uploadingCount, setUploadingCount] = useState<number>(0);
 
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>('');
@@ -54,15 +57,29 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleAddPhoto = () => {
-    if (!photoUrlInput.trim()) return;
-    try {
-      new URL(photoUrlInput.trim());
-      setPhotos(prev => [...prev, photoUrlInput.trim()]);
-      setPhotoUrlInput('');
-    } catch {
-      setErrorMessage('Kérjük érvényes képhivatkozást (URL-t) adj meg!');
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const userId = currentUser?.user_id;
+    if (!userId) {
+      setErrorMessage('Fotó feltöltéséhez bejelentkezés szükséges.');
+      return;
     }
+    setErrorMessage('');
+    const fileList = Array.from(files);
+    setUploadingCount(prev => prev + fileList.length);
+    for (const file of fileList) {
+      try {
+        const url = await uploadReviewPhoto(supabase, userId, file);
+        setPhotos(prev => [...prev, url]);
+      } catch (err) {
+        console.error('Fotó feltöltése sikertelen:', err);
+        setErrorMessage(err instanceof Error ? err.message : 'Fotó feltöltése sikertelen, próbáld újra.');
+      } finally {
+        setUploadingCount(prev => Math.max(0, prev - 1));
+      }
+    }
+    e.target.value = '';
   };
 
   const handleRemovePhoto = (index: number) => {
@@ -372,28 +389,22 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
                 <span>Saját fotók csatolása a túráról (opcionális)</span>
               </label>
 
-              <div className="flex gap-2">
-                <input
-                  type="url"
-                  value={photoUrlInput}
-                  onChange={(e) => setPhotoUrlInput(e.target.value)}
-                  placeholder="https://images.unsplash.com/... vagy kép URL"
-                  className="flex-1 text-xs bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-                <button
-                  type="button"
-                  onClick={handleAddPhoto}
-                  className="px-3.5 py-2 bg-stone-900 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Hozzáadás
-                </button>
-              </div>
+              <label className="flex items-center gap-2 border-2 border-dashed border-stone-300 hover:border-emerald-500 rounded-xl px-3 py-2.5 cursor-pointer transition-colors bg-stone-50 hover:bg-emerald-50/20 w-fit">
+                <Upload className="w-4 h-4 text-emerald-600" />
+                <span className="text-xs font-semibold text-stone-800">Fotó feltöltése gépről</span>
+                <input type="file" multiple accept="image/*" onChange={handleFileUpload} className="hidden" />
+              </label>
+              {uploadingCount > 0 && (
+                <p className="text-xs text-emerald-700 font-semibold flex items-center gap-1.5">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Fotó feltöltése és optimalizálása ({uploadingCount})...
+                </p>
+              )}
 
               {photos.length > 0 && (
                 <div className="flex flex-wrap gap-2 pt-2">
                   {photos.map((url, idx) => (
                     <div key={idx} className="relative w-16 h-16 rounded-xl overflow-hidden border border-stone-200 group">
-                      <img src={url} alt="" className="w-full h-full object-cover" />
+                      <img src={url} alt="" loading="lazy" className="w-full h-full object-cover" />
                       <button
                         type="button"
                         onClick={() => handleRemovePhoto(idx)}
@@ -426,7 +437,7 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
               </button>
               <button
                 type="submit"
-                disabled={submitting}
+                disabled={submitting || uploadingCount > 0}
                 className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-sm shadow-md transition-all cursor-pointer disabled:opacity-50 flex items-center gap-2"
               >
                 <span>{submitting ? 'Beküldés...' : 'Értékelés közzététele'}</span>

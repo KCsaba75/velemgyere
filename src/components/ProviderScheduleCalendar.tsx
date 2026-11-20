@@ -28,6 +28,7 @@ import { Order, OrderBuyerInfo, Program, ProgramOccurrence } from '../types/data
 import { ProgramDayPopup } from './ProgramDayPopup';
 import { RecurringCopyPanel } from './RecurringCopyPanel';
 import { useOccurrenceScheduling } from '../hooks/useOccurrenceScheduling';
+import { padZero, toLocalDateStr } from '../lib/dateUtils';
 
 interface ProviderScheduleCalendarProps {
   programs: Program[];
@@ -64,13 +65,8 @@ const WEEKDAYS = [
   { short: 'V', label: 'Vasárnap' },
 ];
 
-function padZero(n: number): string {
-  return n < 10 ? `0${n}` : `${n}`;
-}
-
 function todayStr(): string {
-  const t = new Date();
-  return `${t.getFullYear()}-${padZero(t.getMonth() + 1)}-${padZero(t.getDate())}`;
+  return toLocalDateStr(new Date());
 }
 
 export const ProviderScheduleCalendar: React.FC<ProviderScheduleCalendarProps> = ({

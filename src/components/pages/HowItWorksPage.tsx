@@ -207,7 +207,7 @@ export const HowItWorksPage: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white rounded-2xl border border-stone-200 p-6 sm:p-8 space-y-4">
           {content.visitorImageUrl && (
-            <img src={content.visitorImageUrl} alt={content.visitorTitle || 'Programvadászoknak'} className="w-full h-48 object-cover rounded-xl" />
+            <img src={content.visitorImageUrl} alt={content.visitorTitle || 'Programvadászoknak'} loading="lazy" className="w-full h-48 object-cover rounded-xl" />
           )}
           <div className="inline-flex items-center gap-2 text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-lg">
             <Compass className="w-3.5 h-3.5" />
@@ -224,7 +224,7 @@ export const HowItWorksPage: React.FC = () => {
 
         <div className="bg-white rounded-2xl border border-stone-200 p-6 sm:p-8 space-y-4">
           {content.providerImageUrl && (
-            <img src={content.providerImageUrl} alt={content.providerTitle || 'Szolgáltatóknak'} className="w-full h-48 object-cover rounded-xl" />
+            <img src={content.providerImageUrl} alt={content.providerTitle || 'Szolgáltatóknak'} loading="lazy" className="w-full h-48 object-cover rounded-xl" />
           )}
           <div className="inline-flex items-center gap-2 text-xs font-bold text-stone-700 bg-stone-100 border border-stone-200 px-3 py-1 rounded-lg">
             <Briefcase className="w-3.5 h-3.5" />

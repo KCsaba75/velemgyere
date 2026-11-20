@@ -84,7 +84,21 @@ export const ProgramsPage: React.FC<ProgramsPageProps> = ({ filterType, travelOn
         ? `Magyar nyelvű programok és szolgáltatások ${region.name}-n.`
         : 'Böngéssz a teljes magyar nyelvű külföldi programkatalógusban: kirándulások, transzferek és élmények.';
 
-  useDocumentMeta(title, description);
+  // Kanban b3387cba (004ea051 audit, SEO szekcio): korabban nem adtunk at
+  // canonicalUrl-t, igy useDocumentMeta window.location.href-re esett vissza --
+  // barmilyen query-string (pl. egy jovobeli ?category=/?country= parameter vagy
+  // tracking utm-parameter) szo szerint bekerult volna a canonical-ba, holott
+  // ennek a lapnak MINDIG egy tiszta, path-alapu URL a tenyleges kanonikus cime
+  // (ugyanaz, amit a prerender.js categorySeo/regionSeo/travelSeo-ja is hasznal).
+  const canonicalUrl = travelOnly
+    ? 'https://velemgyere.hu/utazasok'
+    : category
+      ? `https://velemgyere.hu/kategoriak/${category.slug}`
+      : region
+        ? `https://velemgyere.hu/regiok/${region.slug}`
+        : 'https://velemgyere.hu/programok';
+
+  useDocumentMeta(title, description, { canonicalUrl });
 
   // Mobile filter drawer (kanban e0ee8b7e): lifted here, same reasoning as
   // HomePage -- FilterBar (the drawer) and ProgramList (the trigger button)

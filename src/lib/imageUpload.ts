@@ -119,3 +119,27 @@ export async function uploadSiteContentImage(
 
   return supabase.storage.from(SITE_CONTENT_IMAGES_BUCKET).getPublicUrl(path).data.publicUrl;
 }
+
+// Kanban 03062f66: ertekeles-fotok -- a ReviewModal korabban csak kulso
+// kep-URL beillesztest engedett, nem volt sajat Storage/resize. Az utvonal
+// elso szegmense a feltolto SAJAT auth.uid()-ja (nem reviewId, mert a
+// feltoltes pillanataban meg nem letezik a review sor) -- lasd
+// supabase/migrations/20261120120000_review_photos_storage.sql.
+export const REVIEW_PHOTOS_BUCKET = 'review-photos';
+
+export async function uploadReviewPhoto(
+  supabase: SupabaseClient,
+  userId: string,
+  file: File
+): Promise<string> {
+  const img = await loadImage(file);
+  const blob = await resizeToWebp(img, FULL_MAX_WIDTH, WEBP_QUALITY);
+  const path = `${userId}/${crypto.randomUUID()}.webp`;
+
+  const { error } = await supabase.storage
+    .from(REVIEW_PHOTOS_BUCKET)
+    .upload(path, blob, { contentType: 'image/webp' });
+  if (error) throw error;
+
+  return supabase.storage.from(REVIEW_PHOTOS_BUCKET).getPublicUrl(path).data.publicUrl;
+}

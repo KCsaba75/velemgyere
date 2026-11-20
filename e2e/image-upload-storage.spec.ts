@@ -32,6 +32,7 @@ test('program-kep feltoltese a NewProgramModal-ban valodi Storage URL-t ad, nem 
   await page.getByPlaceholder('+36 30 123 4567').fill('+36301234567');
   await page.getByPlaceholder('Milyen kirándulásokat, túrákat vagy élményeket szerveztek, mióta tevékenykedtek a területen?').fill('E2E teszt leiras a kep-feltoltes tesztjehez.');
   await page.getByPlaceholder('••••••••').fill('e2e-test-pw-imgupload1');
+  await page.locator('input[type="checkbox"]').check();
   await page.getByRole('button', { name: 'Szolgáltatói regisztráció elküldése' }).click();
 
   // A gomb csak a sikeres-regisztracio modalt zarja, nem navigal onmagatol --
