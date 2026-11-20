@@ -187,14 +187,6 @@ function staticRoutes() {
       },
     },
     {
-      path: '/gyik',
-      seo: {
-        title: 'Gyakran Ismételt Kérdések | Velem Gyere',
-        description: 'A Velem Gyere platformmal kapcsolatos leggyakoribb kérdések és válaszok.',
-        canonical: `${SITE_URL}/gyik`,
-      },
-    },
-    {
       path: '/kapcsolat',
       seo: {
         title: 'Kapcsolat | Velem Gyere',
@@ -226,20 +218,41 @@ async function fetchPrograms(supabase) {
     .from('programs')
     .select(
       `
+      id,
       slug,
       title,
       short_description,
       description,
       location,
       country,
+      price,
+      currency,
       updated_at,
-      providers ( status ),
+      providers ( status, company_name ),
       program_images ( image_url, is_cover )
     `,
     )
     .eq('status', 'published');
   if (error) throw new Error(`Failed to fetch programs: ${error.message}`);
   return (data || []).filter((p) => p.providers?.status === 'approved');
+}
+
+// AI-SEO (kanban b3387cba, 004ea051 audit 5. szekcio): a program-oldalak JSON-LD-je
+// eddig nem tartalmazott offers/aggregateRating-et -- egy LLM/AI-SEO crawler csak az
+// itt leirt adatbol tud arat/ertekelest ajanlani anelkul, hogy JS-t futtatna. Csak a
+// PUBLIKUS, publikalt ertekelesek szamitanak bele (lasd supabase-anon-key-hides-drafts-rls
+// memoria -- az anon kulcs ugyis csak ezeket latja, a szures itt csak dokumentacio).
+async function fetchReviewStats(supabase) {
+  const { data, error } = await supabase.from('reviews').select('program_id, rating').eq('status', 'published');
+  if (error) throw new Error(`Failed to fetch review stats: ${error.message}`);
+  const byProgram = new Map();
+  for (const row of data || []) {
+    const entry = byProgram.get(row.program_id) || { sum: 0, count: 0 };
+    entry.sum += Number(row.rating) || 0;
+    entry.count += 1;
+    byProgram.set(row.program_id, entry);
+  }
+  return byProgram;
 }
 
 async function fetchCategories(supabase) {
@@ -260,7 +273,43 @@ async function fetchRegions(supabase) {
   return data || [];
 }
 
-function programSeo(program) {
+async function fetchFaqPage(supabase) {
+  const { data, error } = await supabase.from('pages').select('title, content').eq('slug', 'faq').maybeSingle();
+  if (error) throw new Error(`Failed to fetch FAQ page: ${error.message}`);
+  return data || null;
+}
+
+// AI-SEO (kanban b3387cba, 004ea051 audit 5. szekcio): FAQPage JSON-LD CSAK ha van
+// valodi admin-szerkesztett tartalom (content.items) -- a kliens-oldali DRAFT_FAQ_ITEMS
+// egy sima placeholder ("admin tolti majd ki"), azt hamis strukturalt adatkent kiadni
+// a Google szerint tiltott placeholder/spam markup lenne.
+function faqSeo(page) {
+  const items = page?.content?.items;
+  if (!Array.isArray(items) || items.length === 0) return null;
+  const faqLd = {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: items.map((item) => ({
+      '@type': 'Question',
+      name: stripHtml(item.question),
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: stripHtml(item.answer),
+      },
+    })),
+  };
+  return {
+    path: '/gyik',
+    seo: {
+      title: `${page.title?.trim() || 'Gyakran Ismételt Kérdések'} | Velem Gyere`,
+      description: 'A Velem Gyere platformmal kapcsolatos leggyakoribb kérdések és válaszok.',
+      canonical: `${SITE_URL}/gyik`,
+      jsonLd: [faqLd],
+    },
+  };
+}
+
+function programSeo(program, reviewStatsByProgramId) {
   if (!program.slug) return null;
   const url = `${SITE_URL}/programok/${program.slug}`;
   const title = `${program.title} | Velem Gyere`;
@@ -281,6 +330,32 @@ function programSeo(program) {
       name: [program.location, program.country].filter(Boolean).join(', '),
     },
   };
+
+  if (program.price != null && program.currency) {
+    tripLd.offers = {
+      '@type': 'Offer',
+      price: String(program.price),
+      priceCurrency: program.currency === 'Ft' ? 'HUF' : program.currency,
+      url,
+      availability: 'https://schema.org/InStock',
+    };
+  }
+  if (program.providers?.company_name) {
+    tripLd.provider = {
+      '@type': 'Organization',
+      name: program.providers.company_name,
+    };
+  }
+  const stats = reviewStatsByProgramId?.get(program.id);
+  if (stats && stats.count > 0) {
+    tripLd.aggregateRating = {
+      '@type': 'AggregateRating',
+      ratingValue: (stats.sum / stats.count).toFixed(1),
+      reviewCount: stats.count,
+      bestRating: '5',
+      worstRating: '1',
+    };
+  }
 
   const breadcrumbLd = {
     '@context': 'https://schema.org',
@@ -399,14 +474,30 @@ async function main() {
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false } });
 
-  const [programs, categories, regions] = await Promise.all([
+  const [programs, categories, regions, reviewStatsByProgramId, faqPage] = await Promise.all([
     fetchPrograms(supabase),
     fetchCategories(supabase),
     fetchRegions(supabase),
+    fetchReviewStats(supabase),
+    fetchFaqPage(supabase),
   ]);
 
+  // /gyik always gets a prerendered page -- with FAQPage JSON-LD once real admin
+  // content exists (faqSeo returns null on the placeholder-only draft state).
+  const faqRoute = faqSeo(faqPage) || {
+    path: '/gyik',
+    seo: {
+      title: 'Gyakran Ismételt Kérdések | Velem Gyere',
+      description: 'A Velem Gyere platformmal kapcsolatos leggyakoribb kérdések és válaszok.',
+      canonical: `${SITE_URL}/gyik`,
+    },
+  };
+  allRoutes.push(faqRoute);
+  dynamicCount++;
+  sitemapEntries.push({ path: faqRoute.path, priority: '0.5', changefreq: 'monthly' });
+
   for (const program of programs) {
-    const route = programSeo(program);
+    const route = programSeo(program, reviewStatsByProgramId);
     if (route) {
       allRoutes.push(route);
       dynamicCount++;
