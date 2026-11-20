@@ -12,6 +12,11 @@ export default defineConfig({
   use: {
     baseURL: 'http://127.0.0.1:3000',
     trace: 'retain-on-failure',
+    // Kanban b3387cba: Desktop Chrome's default 720px height is too short once
+    // registration also needs the ASZF checkbox row + a visible success banner
+    // in the same form -- the close "✕" (absolute-positioned inside the
+    // vertically-centered modal card) ends up above the viewport, unclickable.
+    viewport: { width: 1280, height: 960 },
   },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },

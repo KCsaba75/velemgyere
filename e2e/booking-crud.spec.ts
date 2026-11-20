@@ -20,6 +20,7 @@ test('bejelentkezett visitor vegig tudja vinni egy program lefoglalasat (CRUD: o
   await page.getByPlaceholder('Pl. Kovács Anna').fill(name);
   await page.getByPlaceholder('pl. anna@pelda.hu').fill(email);
   await page.getByPlaceholder('••••••••').fill(password);
+  await page.locator('input[type="checkbox"]').check();
   await page.getByRole('button', { name: /Regisztráció E-maillel/i }).click();
   await expect(page.getByText('Sikeres regisztráció és bejelentkezés!')).toBeVisible();
   await page.locator('button:has-text("✕")').click();
