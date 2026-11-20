@@ -116,7 +116,7 @@ export const AboutUsPage: React.FC = () => {
             </div>
           </div>
           <div className="relative">
-            <img src={storyImage} alt="Színes mediterrán település a tengerparton" className="w-full aspect-[4/5] max-h-[620px] object-cover rounded-[2rem] shadow-xl" />
+            <img src={storyImage} alt="Színes mediterrán település a tengerparton" loading="lazy" className="w-full aspect-[4/5] max-h-[620px] object-cover rounded-[2rem] shadow-xl" />
             <div className="absolute -bottom-5 -left-3 sm:-left-8 rounded-2xl bg-white p-5 sm:p-6 shadow-xl max-w-[230px]">
               <div className="flex items-center gap-2 text-emerald-700"><MapPin className="h-5 w-5" /><span className="text-xs font-extrabold uppercase tracking-wider">A kíváncsiság visz tovább</span></div>
               <p className="mt-2 font-display text-lg font-bold text-stone-900">{value('storyImageCaption', 'Több, mint eljutni A-ból B-be.')}</p>
@@ -161,7 +161,7 @@ export const AboutUsPage: React.FC = () => {
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
         <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
           <div className="order-2 lg:order-1">
-            <img src={missionImage} alt="Utazók közös élményt szereznek egy kiránduláson" className="w-full aspect-[5/4] object-cover rounded-[2rem] shadow-lg" />
+            <img src={missionImage} alt="Utazók közös élményt szereznek egy kiránduláson" loading="lazy" className="w-full aspect-[5/4] object-cover rounded-[2rem] shadow-lg" />
           </div>
           <div className="order-1 lg:order-2">
             <span className="text-xs font-extrabold uppercase tracking-[0.2em] text-emerald-700">{value('missionEyebrow', 'A küldetésünk')}</span>

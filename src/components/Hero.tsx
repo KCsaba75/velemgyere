@@ -69,6 +69,7 @@ export const Hero: React.FC = () => {
             src={String(pages['home-hero'].content.imageUrl)}
             alt=""
             aria-hidden="true"
+            fetchPriority="high"
             className="absolute inset-0 -z-20 h-full w-full object-cover"
           />
           {/* Match the layered photo treatment used on the About Us hero. */}

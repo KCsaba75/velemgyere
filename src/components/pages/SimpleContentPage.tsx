@@ -125,6 +125,7 @@ export const SimpleContentPage: React.FC<SimpleContentPageProps> = ({
             <img
               src={content.imageUrl}
               alt={title}
+              loading="lazy"
               className="w-full max-h-96 object-cover rounded-2xl mb-8 border border-stone-200"
             />
           )}
@@ -153,6 +154,7 @@ export const SimpleContentPage: React.FC<SimpleContentPageProps> = ({
         <img
           src={content.imageUrl}
           alt={title}
+          loading="lazy"
           className="w-full max-h-96 object-cover rounded-2xl mb-8 border border-stone-200"
         />
       )}
