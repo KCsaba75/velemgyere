@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { useApp, formatHuf } from '../context/AppContext';
 import { priceInEur } from '../lib/priceUtils';
+import { filterRegionsWithAvailablePrograms } from '../lib/catalogAvailability';
 import { CountryFlag } from './CountryFlag';
 import {
   Filter,
@@ -68,7 +69,16 @@ export const FilterBar: React.FC<FilterBarProps> = ({ mobileOpen, onCloseMobile,
     resetTravelFilters,
     programs,
     currentUser,
+    programOccurrencesDates,
   } = useApp();
+
+  // Kanban cfd30b63: ugyanaz a szuro, mint Hero.tsx-ben -- ne ajanljunk fel
+  // valaszthato desztinaciokent olyan regiot, amire a katalogus biztosan
+  // ures oldalt adna (lasd catalogAvailability.ts).
+  const availableRegions = useMemo(
+    () => filterRegionsWithAvailablePrograms(regions.filter(r => r.active), programs, currentUser, programOccurrencesDates),
+    [regions, programs, currentUser, programOccurrencesDates]
+  );
 
   // Kanban 2bc6d38b: pick the active slice once, use the same names below --
   // selectedCategory has no travel counterpart (see AppContextType comment),
@@ -136,7 +146,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({ mobileOpen, onCloseMobile,
             className="w-full text-sm bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
           >
             <option value="">Összes desztináció</option>
-            {regions.filter(r => r.active).map((reg) => (
+            {availableRegions.map((reg) => (
               <option key={reg.id} value={reg.slug}>
                 {reg.flag_emoji ? `${reg.flag_emoji} ` : ''}{reg.country ? `${reg.country} – ` : ''}{reg.name}
               </option>

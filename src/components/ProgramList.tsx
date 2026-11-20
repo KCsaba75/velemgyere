@@ -4,6 +4,7 @@ import { ProgramCard } from './ProgramCard';
 import { CountryFlag } from './CountryFlag';
 import { SearchX, RotateCcw, Filter, MapPin, Calendar, ChevronDown } from 'lucide-react';
 import { priceInEur } from '../lib/priceUtils';
+import { getCandidateOccurrenceDates, hasUpcomingOccurrence } from '../lib/catalogAvailability';
 
 interface ProgramListProps {
   // Mobile filter-drawer trigger (kanban e0ee8b7e) -- the open/close state
@@ -163,21 +164,12 @@ export const ProgramList: React.FC<ProgramListProps> = ({ onOpenMobileFilters, e
 
       // Foglalhato datum-jeloltek (nyitott program_occurrences + legacy event_date fallback,
       // ha a programnak tobb idopontja van, akkor BARMELYIK szamit).
-      const occDates = programOccurrencesDates?.[p.id];
-      const candidateDates: string[] = [];
-      if (occDates && occDates.length > 0) {
-        candidateDates.push(...occDates);
-      }
-      if (p.event_date && !candidateDates.includes(p.event_date)) {
-        candidateDates.push(p.event_date);
-      }
+      const candidateDates = getCandidateOccurrenceDates(p, programOccurrencesDates || {});
 
       // Csak ma vagy jovobeli foglalhato datummal rendelkezo programok latszodjanak a
       // programvadasz feluleten (Csaba kerese, kartya af5f9ec9) -- mult-beli/lezart
       // idopontu programok ki, meg ha nincs is aktiv datum-szuro beallitva.
-      const todayStr = new Date().toISOString().split('T')[0];
-      const hasUpcomingDate = candidateDates.some((d) => d >= todayStr);
-      if (!hasUpcomingDate) {
+      if (!hasUpcomingOccurrence(candidateDates)) {
         return false;
       }
 

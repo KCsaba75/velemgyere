@@ -1,22 +1,34 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { Search, Globe } from 'lucide-react';
 import { CategoryIcon } from './CategoryIcon';
 import { CountryFlag } from './CountryFlag';
+import { filterRegionsWithAvailablePrograms } from '../lib/catalogAvailability';
 
 export const Hero: React.FC = () => {
-  const { 
-    searchQuery, 
+  const {
+    searchQuery,
     setSearchQuery,
-    pages, 
+    pages,
     regions,
     selectedRegion,
     setSelectedRegion,
-    categories, 
-    selectedCategory, 
+    categories,
+    selectedCategory,
     setSelectedCategory,
-    setCurrentView 
+    setCurrentView,
+    programs,
+    currentUser,
+    programOccurrencesDates
   } = useApp();
+
+  // Kanban cfd30b63: ne ajanljunk fel gyors-szuro gombkent olyan desztinaciot,
+  // amire kattintva a katalogus biztosan ures oldalt adna (occurrence/event_date
+  // nelkul allo publikalt programok miatt) -- lasd catalogAvailability.ts.
+  const availableRegions = useMemo(
+    () => filterRegionsWithAvailablePrograms(regions.filter(r => r.active), programs, currentUser, programOccurrencesDates),
+    [regions, programs, currentUser, programOccurrencesDates]
+  );
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -135,7 +147,7 @@ export const Hero: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2 overflow-x-auto pb-2 no-scrollbar sm:flex-wrap sm:justify-center">
-            {regions.filter(r => r.active).map((reg) => {
+            {availableRegions.map((reg) => {
               const isActive = selectedRegion === reg.slug;
               return (
                 <button
