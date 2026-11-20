@@ -29,7 +29,7 @@ import {
   Landmark,
   MessageSquare
 } from 'lucide-react';
-import { Order, OrderStatus, OrderProviderContact, OnsitePaymentMethod } from '../types/database';
+import { Order, OrderStatus, OrderProviderContact, OrderBuyerInfo, OnsitePaymentMethod } from '../types/database';
 import { ReviewModal } from './ReviewModal';
 import { BookingVoucher } from './BookingVoucher';
 import { BookingMessageThread } from './BookingMessageThread';
@@ -69,10 +69,12 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
     cancelOrder,
     confirmOrder,
     getProviderContactForOrder,
+    getOrderBuyerInfo,
     openProgramDetail,
   } = useApp();
 
   const [contact, setContact] = useState<OrderProviderContact | null>(null);
+  const [buyerInfo, setBuyerInfo] = useState<OrderBuyerInfo | null>(null);
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
   const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
@@ -118,6 +120,25 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [order.id, order.status]);
+
+  // Kanban cfd30b63-livetest: a "Igenybe vevo" kartya korabban currentUser-t
+  // (a BEJELENTKEZETT sajat felhasznalot) mutatta fallbackkent nem-manualis
+  // rendelesnel, ami szolgaltato-nezetben a szolgaltato SAJAT adatait jelenitette
+  // meg a vevo neve/email/telefon helyett -- a valodi vevo adatat csak
+  // get_order_buyer_info() RPC-n keresztul lehet lekerni (RLS a nyers orders/
+  // profiles tablakat nem engedi at masik felhasznalonak).
+  useEffect(() => {
+    let cancelled = false;
+    if (isProviderViewer && !order.is_manual) {
+      getOrderBuyerInfo(order.id).then(info => {
+        if (!cancelled) setBuyerInfo(info);
+      });
+    }
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [order.id, isProviderViewer, order.is_manual]);
 
   const formatDate = (iso: string) => {
     try {
@@ -409,27 +430,33 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ order, o
                   )}
                 </h4>
                 <div className="text-xs text-stone-600 space-y-1.5">
-                  <div className="flex items-center gap-1.5">
-                    <User className="w-3.5 h-3.5 text-stone-400" />
-                    <strong className="text-stone-800">
-                      {order.manual_customer_name || currentUser.name}
-                    </strong>
-                  </div>
-                  {(order.manual_customer_phone || currentUser.phone) && (
-                    <div className="flex items-center gap-1.5">
-                      <Phone className="w-3.5 h-3.5 text-emerald-600" />
-                      <strong className="text-stone-800">
-                        {order.manual_customer_phone || currentUser.phone}
-                      </strong>
-                    </div>
-                  )}
-                  {(order.manual_customer_email || currentUser.email) && (
-                    <div className="flex items-center gap-1.5">
-                      <Mail className="w-3.5 h-3.5 text-blue-600" />
-                      <strong className="text-stone-800">
-                        {order.manual_customer_email || currentUser.email}
-                      </strong>
-                    </div>
+                  {isProviderViewer && !order.is_manual && !buyerInfo ? (
+                    <p className="text-stone-400">Vevő adatainak betöltése...</p>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-1.5">
+                        <User className="w-3.5 h-3.5 text-stone-400" />
+                        <strong className="text-stone-800">
+                          {order.manual_customer_name || buyerInfo?.name || currentUser.name}
+                        </strong>
+                      </div>
+                      {(order.manual_customer_phone || buyerInfo?.phone || currentUser.phone) && (
+                        <div className="flex items-center gap-1.5">
+                          <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                          <strong className="text-stone-800">
+                            {order.manual_customer_phone || buyerInfo?.phone || currentUser.phone}
+                          </strong>
+                        </div>
+                      )}
+                      {(order.manual_customer_email || buyerInfo?.email || currentUser.email) && (
+                        <div className="flex items-center gap-1.5">
+                          <Mail className="w-3.5 h-3.5 text-blue-600" />
+                          <strong className="text-stone-800">
+                            {order.manual_customer_email || buyerInfo?.email || currentUser.email}
+                          </strong>
+                        </div>
+                      )}
+                    </>
                   )}
                   {order.source_notes && (
                     <div className="mt-2 pt-1.5 border-t border-stone-200/80 text-[11px] text-amber-900 bg-amber-50/60 p-2 rounded-lg">
