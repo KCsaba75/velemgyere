@@ -105,7 +105,7 @@ function writeHtml(routePath, html) {
     outPath = path.join(DIST_DIR, 'index.html');
   } else {
     const trimmed = routePath.replace(/^\/|\/$/g, '');
-    outPath = path.join(DIST_DIR, `${trimmed}.html`);
+    outPath = path.join(DIST_DIR, trimmed, 'index.html');
   }
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
   fs.writeFileSync(outPath, html, 'utf8');
@@ -139,6 +139,66 @@ function staticRoutes() {
     // route-ok kozott kapja meg a sajat SEO-jat lejjebb (travelSeo), mert a
     // nevet/leirasat a tenyleges travel-kategoriabol (is_travel_category)
     // tudjuk csak kitolteni.
+    // Kanban 71915a0a (4-6. pont): uj Platform/Ugyfelszolgalat aloldalak --
+    // a tenyleges szoveg/kep admin-szerkesztheto (public.pages tabla) es
+    // kliens-oldalon hidratalodik, ez a statikus SEO-cim/leiras csak a
+    // kezdeti crawler-megjelenesert van, nem kell DB-fuggonek lennie.
+    {
+      path: '/hogyan-mukodik',
+      seo: {
+        title: 'Hogyan Működik? | Velem Gyere',
+        description: 'Programvadászként és szolgáltatóként is -- így működik a Velem Gyere.',
+        canonical: `${SITE_URL}/hogyan-mukodik`,
+      },
+    },
+    {
+      path: '/rolunk',
+      seo: {
+        title: 'Rólunk | Velem Gyere',
+        description: 'Ismerd meg a Velem Gyere csapatát és a kezdetek történetét.',
+        canonical: `${SITE_URL}/rolunk`,
+      },
+    },
+    {
+      path: '/arazas-es-fizetes',
+      seo: {
+        title: 'Árazás és Fizetés | Velem Gyere',
+        description: 'Hogyan épül fel a Velem Gyere foglalási díja, és hogyan történik a fizetés.',
+        canonical: `${SITE_URL}/arazas-es-fizetes`,
+      },
+    },
+    {
+      path: '/gyik',
+      seo: {
+        title: 'Gyakran Ismételt Kérdések | Velem Gyere',
+        description: 'A Velem Gyere platformmal kapcsolatos leggyakoribb kérdések és válaszok.',
+        canonical: `${SITE_URL}/gyik`,
+      },
+    },
+    {
+      path: '/kapcsolat',
+      seo: {
+        title: 'Kapcsolat | Velem Gyere',
+        description: 'Lépj kapcsolatba a Velem Gyere csapatával.',
+        canonical: `${SITE_URL}/kapcsolat`,
+      },
+    },
+    {
+      path: '/aszf',
+      seo: {
+        title: 'Általános Szerződési Feltételek | Velem Gyere',
+        description: 'A Velem Gyere platform Általános Szerződési Feltételei.',
+        canonical: `${SITE_URL}/aszf`,
+      },
+    },
+    {
+      path: '/adatkezeles',
+      seo: {
+        title: 'Adatkezelési Tájékoztató | Velem Gyere',
+        description: 'A Velem Gyere platform adatkezelési tájékoztatója.',
+        canonical: `${SITE_URL}/adatkezeles`,
+      },
+    },
   ];
 }
 
@@ -352,7 +412,7 @@ async function main() {
   const missing = [];
   for (const p of requiredStatic) {
     if (!staticPaths.includes(p)) continue;
-    const expected = p === '/' ? path.join(DIST_DIR, 'index.html') : path.join(DIST_DIR, `${p.replace(/^\//, '')}.html`);
+    const expected = p === '/' ? path.join(DIST_DIR, 'index.html') : path.join(DIST_DIR, p.replace(/^\//, ''), 'index.html');
     if (!fs.existsSync(expected)) missing.push(`${p} → ${expected}`);
   }
   if (missing.length > 0) {

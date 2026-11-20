@@ -7,7 +7,6 @@
 // szimulal (fireEvent, nem userEvent -- szandekosan nincs koztuk varakozas,
 // ez a "legrosszabb eset" egy duplakattintasra), es azt igazolja hogy a
 // createOrder() csak EGYSZER hivodik meg.
-import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import type { Program } from '../types/database';

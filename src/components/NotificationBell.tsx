@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Bell, MessageSquare, CheckCircle2, ChevronRight, Sparkles } from 'lucide-react';
+import { Bell, MessageSquare, CheckCircle2, ChevronRight } from 'lucide-react';
 import { useApp, getBookingReference } from '../context/AppContext';
 import { Order } from '../types/database';
 
@@ -87,7 +87,11 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
       return;
     }
     if (currentUser?.role === 'provider') {
-      setCurrentView('provider-dashboard');
+      // A gomb cimkeje "Ugras a partneri uzenetekhez" -- korabban tevesen a
+      // Fiok/Profil nezetre navigalt, nem az uzenetekre (eszlelve a 4aac8eda
+      // sidebar-atalakitas soran, nem ahhoz kapcsolodo regresszio, mert ez a
+      // hiba mar korabban is fennallt).
+      setCurrentView('provider-messages');
     } else {
       setCurrentView('bookings');
     }

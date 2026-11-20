@@ -15,11 +15,12 @@ export const HomePage: React.FC = () => {
 
   useEffect(() => {
     if (isAuthenticated) {
-      // Kartya cde7bd96 (Csaba): szolgaltatonal a Foglalasok legyen az
-      // alapertelmezett kezdonezet, ne a programok katalogus -- ez a tenyleges
-      // utolso szo, mert ez az effekt a gyoker-url-en ('/') mindig lefut
-      // bejelentkezve, akar a login-redirect celpontjat is felulirva.
-      navigate(role === 'provider' ? '/szolgaltato/foglalasaim' : '/programok', { replace: true });
+      // Kartya cde7bd96 (Csaba): szolgaltatonal az Iranyitopult legyen az
+      // alapertelmezett kezdonezet (kanban 4230d70e, C2 dontes -- felvaltja a
+      // korabbi kulon Foglalasok listat), ne a programok katalogus -- ez a
+      // tenyleges utolso szo, mert ez az effekt a gyoker-url-en ('/') mindig
+      // lefut bejelentkezve, akar a login-redirect celpontjat is felulirva.
+      navigate(role === 'provider' ? '/szolgaltato/iranyitopult' : '/programok', { replace: true });
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }, [isAuthenticated, role, navigate]);

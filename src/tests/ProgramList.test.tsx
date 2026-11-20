@@ -2,7 +2,6 @@
 // + szerepkor-fuggo lathatosagi szures a ProgramList-en. Ugyanaz a hook-mock minta
 // mint a LoginModal teszteknel -- ProgramCard (amit a "van eredmeny" eset renderel)
 // IS useApp()-ot hasznal, ezert annak fuggosegei is a kozos mock-ban vannak.
-import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
@@ -16,6 +15,8 @@ vi.mock('../context/AppContext', () => ({
   // named importkent hasznalja az AppContext modulbol, nem a hook-on at.
   formatPrice: (n: number) => String(n),
   formatHuf: (n: number) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' '),
+  formatAmount: (n: number, currency: string | undefined) =>
+    currency === 'Ft' ? String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') : String(n),
   formatProgramDisplayDate: (d: string) => d,
   getHungarianDateSuffix: () => '-tól',
 }));

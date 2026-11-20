@@ -17,3 +17,21 @@ export const isSupabaseConfigured = Boolean(
 export const supabase = isSupabaseConfigured
   ? createClient(supabaseUrl, supabaseAnonKey)
   : createClient('https://mock-velemgyere.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dummy');
+
+// supabase-js functions.invoke() throws FunctionsHttpError on a non-2xx
+// response WITHOUT parsing the body -- `data` comes back null, the JSON
+// error our edge functions send (e.g. {"error": "..."}) only lives on
+// `error.context` (the raw Response). Call this to surface it instead of a
+// generic fallback string.
+export async function extractFunctionErrorMessage(error: unknown, fallback: string): Promise<string> {
+  const context = (error as { context?: unknown } | null)?.context;
+  if (context && typeof (context as Response).json === 'function') {
+    try {
+      const body = await (context as Response).json();
+      if (body && typeof body.error === 'string') return body.error;
+    } catch {
+      // nem JSON valasz -- esik a fallback-re
+    }
+  }
+  return fallback;
+}

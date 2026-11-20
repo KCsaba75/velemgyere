@@ -1132,6 +1132,73 @@ where status = 'approved';
 
 alter view public.providers_public set (security_invoker = true);
 
+-- Kanban fadb2f0d (2026-11-12): is_founder hozzaadva a publikus view-hoz, lasd
+-- supabase/migrations/20261112020000_providers_public_is_founder.sql -- a
+-- fenti definicio csak tortenelmi referencia, a VALOS allapotot a legutolso
+-- "create or replace view public.providers_public" nyeri a fajlban.
+create or replace view public.providers_public as
+select id, company_name, description, status, accepted_payment_methods, is_founder
+from public.providers
+where status = 'approved';
+
+alter view public.providers_public set (security_invoker = true);
+
+-- Kanban d0005ffe (2026-11-12): bizalmi jelzo a katalogus-kartyan ("Uj
+-- szolgaltato" amig a sikeres=confirmed foglalasok szama <10, utana a
+-- tenyleges szam) -- lasd
+-- supabase/migrations/20261112030000_provider_confirmed_bookings_count.sql.
+-- confirmed_bookings_count triggerrel karbantartott szamlalo az orders
+-- tablarol (a nyers orders tabla RLS-e nem engedi anon/katalogus-olvasast,
+-- futasidoben szamolt aggregacio nem lenne lathato a katalogus-kartyanak).
+alter table public.providers add column if not exists confirmed_bookings_count integer not null default 0;
+
+create or replace function public.sync_provider_confirmed_bookings_count()
+returns trigger as $$
+declare
+  v_provider_id uuid;
+  v_was_confirmed boolean;
+  v_is_confirmed boolean;
+begin
+  select provider_id into v_provider_id
+  from public.programs
+  where id = coalesce(new.program_id, old.program_id);
+
+  if v_provider_id is null then
+    return coalesce(new, old);
+  end if;
+
+  v_was_confirmed := (tg_op <> 'INSERT') and old.status = 'confirmed';
+  v_is_confirmed := (tg_op <> 'DELETE') and new.status = 'confirmed';
+
+  if v_is_confirmed and not v_was_confirmed then
+    update public.providers
+    set confirmed_bookings_count = confirmed_bookings_count + 1
+    where id = v_provider_id;
+  elsif v_was_confirmed and not v_is_confirmed then
+    update public.providers
+    set confirmed_bookings_count = greatest(confirmed_bookings_count - 1, 0)
+    where id = v_provider_id;
+  end if;
+
+  return coalesce(new, old);
+end;
+$$ language plpgsql security definer set search_path = public;
+
+drop trigger if exists trg_sync_provider_confirmed_bookings on public.orders;
+create trigger trg_sync_provider_confirmed_bookings
+after insert or update of status or delete on public.orders
+for each row
+execute function public.sync_provider_confirmed_bookings_count();
+
+grant select (confirmed_bookings_count) on public.providers to anon, authenticated;
+
+create or replace view public.providers_public as
+select id, company_name, description, status, accepted_payment_methods, is_founder, confirmed_bookings_count
+from public.providers
+where status = 'approved';
+
+alter view public.providers_public set (security_invoker = true);
+
 -- A vevo Veglegesitesnel valasztott onsite_payment_method-jat a szolgaltato altal
 -- TENYLEGESEN elfogadott modokra kell korlatozni -- UI-szinten mar megvan, de API-n
 -- keresztul (direkt insert/update) is ki kell kenyszeriteni, kulonben megkerulheto.
@@ -1926,3 +1993,153 @@ create policy "Admins can manage payout requests"
 -- feltétel (pl. active = true) hamis. Ez produkcio-szeles regresszio lenne egy
 -- WARN-szintu, gyakorlatilag artalmatlan talalat miatt. Dontes: elfogadva,
 -- nem valtoztatunk.
+
+-- ============================================================================
+-- KANBAN fadb2f0d (Csaba, 2026-11-12): "Alapito" jelzes az elso 20
+-- szolgaltatonak, sorrend = az elso publikalt program idopontja szerint,
+-- orokre megmarad. Lasd supabase/migrations/20261112010000_provider_founder_badge.sql
+-- a teljes indoklasert (trigger-alapu first_published_at + permanensen
+-- befagyasztott is_founder, mert egy futasidoben ujraszamolt "top 20"
+-- sertene az "orokre megmarad" kerest egy kesobbi torlesnel).
+alter table public.providers add column if not exists first_published_at timestamptz;
+alter table public.providers add column if not exists is_founder boolean not null default false;
+
+create or replace function public.set_provider_first_published()
+returns trigger as $$
+begin
+  if new.status = 'published' and (tg_op = 'INSERT' or old.status is distinct from 'published') then
+    update public.providers
+    set first_published_at = coalesce(first_published_at, now())
+    where id = new.provider_id;
+
+    update public.providers
+    set is_founder = true
+    where id = new.provider_id
+      and is_founder = false
+      and first_published_at is not null
+      and (
+        select count(*) from public.providers p2
+        where p2.first_published_at is not null
+          and p2.first_published_at <= providers.first_published_at
+      ) <= 20;
+  end if;
+  return new;
+end;
+$$ language plpgsql security definer set search_path = public;
+
+drop trigger if exists trg_set_provider_first_published on public.programs;
+create trigger trg_set_provider_first_published
+after insert or update of status on public.programs
+for each row
+execute function public.set_provider_first_published();
+
+-- is_founder publikus badge (katalogus-kartya/profil), tehat a teaser-only
+-- anon/authenticated oszlop-grant listahoz kell adni -- first_published_at
+-- NEM publikus, csak admin_list_providers()-en keresztul.
+grant select (is_founder) on public.providers to anon, authenticated;
+
+-- ==========================================
+-- Kanban 32ad8a91 (Csaba, 2026-11-14): regisztracios ASZF-elfogadas checkbox.
+-- ==========================================
+--
+-- FONTOS ELOZMENY, EDDIG DOKUMENTALATLAN: a "handle_new_auth_user()" trigger
+-- (AFTER INSERT ON auth.users) MAR ELES volt mind a dev-sandboxon, mind a fo
+-- prod projekten, mielott ez a kanban-kartya letrejott -- de SOHA nem kerult be
+-- ebbe a schema.sql-be. Ez azt jelenti, hogy az AppContext.tsx syncFromSession
+-- "if (!prof) insert..." es "if (pending) ... insert providers/profiles" agai a
+-- GYAKORLATBAN tobbnyire SOHA nem futnak le (a trigger mar letrehozta a sort,
+-- mire a kliens lekerdezne) -- azok csak egy regebbi, kliens-oldali fallback
+-- maradvanyai. Ez a migracio eloszor DOKUMENTALJA a mar elo triggert (a jelenlegi
+-- pontos definicioval, dev-sandboxon+prodon ellenorizve azonosnak), MAJD bovíti
+-- terms_accepted_at tamogatassal.
+--
+-- A bovites logikaja:
+-- - provider-ag (pending_provider metadata): ez MINDIG egy forma-submitbol jon
+--   (ProviderRegisterModal checkboxa mar kotelezo), tehat a metadata-ban mindig
+--   van terms_accepted_at -- csak athuzzuk az uj oszlopokra.
+-- - visitor-ag: ha a metadata-ban NINCS terms_accepted_at (tipikusan Google
+--   OAuth, ahol nincs hagyomanyos form-submit lepes ahol egy checkbox mar
+--   elfogadtatta volna), a trigger NEM hozza letre a profilt -- a felhasznalo
+--   egy sessionnel, de profil nelkul marad, amig a TermsConsentModal "Elfogadom"
+--   gombja (AppContext.tsx acceptTermsAndActivateAccount) egy auth.updateUser()-
+--   rel be nem allitja a metadata-t (ez UPDATE, nem INSERT auth.users-en, tehat
+--   ez a trigger nem fut le ra ujra), es ekkor a kliens syncFromSession maga
+--   insertalja a sort (lasd AppContext.tsx "if (!termsAcceptedAt)" aga).
+alter table public.profiles add column if not exists terms_accepted_at timestamptz;
+alter table public.providers add column if not exists terms_accepted_at timestamptz;
+
+-- providers INSERT oszlop-szintu grant (kanban fbf552b2 mintaja) -- enelkul a
+-- kliens-oldali (deferred-fallback) insert 42501 permission denied-et dobna
+-- erre az egy oszlopra.
+grant insert (terms_accepted_at) on public.providers to authenticated;
+
+create or replace function public.handle_new_auth_user()
+returns trigger
+language plpgsql
+security definer
+set search_path to 'public'
+as $$
+declare
+  v_meta jsonb := coalesce(new.raw_user_meta_data, '{}'::jsonb);
+  v_pending jsonb := v_meta->'pending_provider';
+  v_display_name text;
+  v_payment_methods text[];
+  v_terms_accepted_at timestamptz := nullif(v_meta->>'terms_accepted_at', '')::timestamptz;
+begin
+  if v_pending is not null then
+    v_payment_methods := (
+      select coalesce(array_agg(value::text), array['cash'])
+      from jsonb_array_elements_text(coalesce(v_pending->'accepted_payment_methods', '["cash"]'::jsonb))
+    );
+    if cardinality(v_payment_methods) = 0 then
+      v_payment_methods := array['cash'];
+    end if;
+
+    insert into public.providers (
+      user_id, company_name, contact_name, email, phone, website, description,
+      status, accepted_payment_methods, terms_accepted_at
+    )
+    values (
+      new.id,
+      coalesce(v_pending->>'company_name', ''),
+      coalesce(v_pending->>'contact_name', ''),
+      new.email,
+      coalesce(v_pending->>'phone', ''),
+      v_pending->>'website',
+      coalesce(v_pending->>'description', ''),
+      'approved',
+      v_payment_methods,
+      v_terms_accepted_at
+    )
+    on conflict (user_id) do nothing;
+
+    insert into public.profiles (user_id, name, email, role, terms_accepted_at)
+    values (new.id, coalesce(v_pending->>'contact_name', new.email), new.email, 'provider', v_terms_accepted_at)
+    on conflict (user_id) do nothing;
+  else
+    if v_terms_accepted_at is null then
+      -- Google-elso-bejelentkezes (nincs form-submit checkbox) -- NE hozzon
+      -- letre profilt meg, a TermsConsentModal elfogadasa utan a kliens
+      -- syncFromSession fogja (lasd AppContext.tsx).
+      return new;
+    end if;
+
+    v_display_name := coalesce(
+      v_meta->>'full_name',
+      v_meta->>'name',
+      split_part(new.email, '@', 1),
+      'Látogató'
+    );
+    insert into public.profiles (user_id, name, email, role, terms_accepted_at)
+    values (new.id, v_display_name, new.email, 'visitor', v_terms_accepted_at)
+    on conflict (user_id) do nothing;
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_handle_new_auth_user on auth.users;
+create trigger trg_handle_new_auth_user
+  after insert on auth.users
+  for each row execute function public.handle_new_auth_user();

@@ -1,13 +1,14 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
-import { Search, Compass, Sparkles, MapPin, Globe, Car, Ship, Landmark } from 'lucide-react';
+import { Search, Globe } from 'lucide-react';
 import { CategoryIcon } from './CategoryIcon';
 import { CountryFlag } from './CountryFlag';
 
 export const Hero: React.FC = () => {
   const { 
     searchQuery, 
-    setSearchQuery, 
+    setSearchQuery,
+    pages, 
     regions,
     selectedRegion,
     setSelectedRegion,
@@ -47,37 +48,54 @@ export const Hero: React.FC = () => {
   };
 
   return (
-    <section className="relative overflow-hidden bg-gradient-to-b from-stone-950 via-emerald-950/90 to-stone-900 text-white pt-10 pb-18 sm:pt-16 sm:pb-24">
-      {/* Background aesthetic decorative elements */}
-      <div className="absolute inset-0 opacity-20 pointer-events-none mix-blend-overlay bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:24px_24px]"></div>
-      <div className="absolute -top-40 -right-40 w-96 h-96 bg-emerald-500/20 rounded-full blur-3xl pointer-events-none"></div>
-      <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-teal-500/15 rounded-full blur-3xl pointer-events-none"></div>
+    <section
+      className="relative isolate sm:min-h-[600px] flex items-center overflow-hidden text-white"
+    >
+      {pages['home-hero']?.content?.imageUrl ? (
+        <>
+          <img
+            src={String(pages['home-hero'].content.imageUrl)}
+            alt=""
+            aria-hidden="true"
+            className="absolute inset-0 -z-20 h-full w-full object-cover"
+          />
+          {/* Match the layered photo treatment used on the About Us hero. */}
+          <div className="absolute inset-0 -z-10 bg-gradient-to-r from-stone-950/80 via-stone-900/55 to-stone-900/10" />
+        </>
+      ) : (
+        <>
+          {/* Decorative gradient effects are used only when no photo is uploaded. */}
+          <div className="absolute inset-0 opacity-20 pointer-events-none mix-blend-overlay bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:24px_24px]"></div>
+          <div className="absolute -top-40 -right-40 w-96 h-96 bg-emerald-500/20 rounded-full blur-3xl pointer-events-none"></div>
+          <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-teal-500/15 rounded-full blur-3xl pointer-events-none"></div>
+        </>
+      )}
 
-      <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-28 text-center">
         {/* Subtle pill badge */}
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-emerald-300 text-xs sm:text-sm font-semibold mb-6 backdrop-blur-md">
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-emerald-300 text-xs sm:text-sm font-semibold mb-4 sm:mb-6 backdrop-blur-md">
           <CountryFlag emoji="🇭🇺" country="Magyarország" size="sm" />
           <span>100% Magyar Nyelvű Programok & Helyi Szolgáltatók Külföldön</span>
         </div>
 
         {/* Main Title */}
-        <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight font-display mb-4 text-white">
+        <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight font-display mb-3 sm:mb-4 text-white">
           VELEM GYERE
         </h1>
 
         {/* Subtitle / Secondary slogan */}
-        <p className="text-xl sm:text-2xl lg:text-3xl text-stone-200 font-medium mb-3 max-w-3xl mx-auto font-display">
+        <p className="text-xl sm:text-2xl lg:text-3xl text-stone-200 font-medium mb-2 sm:mb-3 max-w-3xl mx-auto font-display">
           Fedezd fel a világot anyanyelveden!
         </p>
 
-        <p className="text-stone-300 text-sm sm:text-base max-w-3xl mx-auto mb-8 leading-relaxed">
-          Külföldi magyar idegenvezetők, kirándulásszervezők és megbízható reptéri transzferek egyetlen közös platformon. 
+        <p className="text-stone-300 text-sm sm:text-base max-w-3xl mx-auto mb-5 sm:mb-8 leading-relaxed">
+          Külföldi magyar idegenvezetők, kirándulásszervezők és megbízható reptéri transzferek egyetlen közös platformon.
           Kiemelt desztinációk:{' '}
           <strong className="text-white font-semibold">Ciprus • Málta • Spanyolország (Barcelona, Málaga, Mallorca) • Róma • Isztambul</strong>
         </p>
 
         {/* Large Search Box ("Mit keresel?") */}
-        <div className="max-w-3xl mx-auto mb-8">
+        <div className="max-w-3xl mx-auto mb-5 sm:mb-8">
           <form 
             onSubmit={handleSearchSubmit}
             className="bg-white p-2 sm:p-2.5 rounded-2xl shadow-2xl shadow-black/50 flex flex-col sm:flex-row items-stretch gap-2 border border-stone-200"
@@ -110,7 +128,7 @@ export const Hero: React.FC = () => {
         </div>
 
         {/* Quick Regions / Destinations Bar */}
-        <div className="mb-6">
+        <div className="mb-4 sm:mb-6">
           <div className="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-2.5 flex items-center justify-center gap-1.5">
             <Globe className="w-3.5 h-3.5" />
             <span>Kiemelt Úticélok</span>

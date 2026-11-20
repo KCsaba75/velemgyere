@@ -1,9 +1,9 @@
 import React from 'react';
 import { Program } from '../types/database';
-import { MapPin, Calendar, Clock, ArrowRight, Sparkles, Building2, Heart, Star } from 'lucide-react';
+import { ArrowRight, Sparkles, Building2, Heart, Star, Crown, ShieldCheck } from 'lucide-react';
 import { CategoryIcon } from './CategoryIcon';
 import { CountryFlag } from './CountryFlag';
-import { useApp, formatPrice, formatHuf, formatProgramDisplayDate } from '../context/AppContext';
+import { useApp, formatAmount, formatHuf, formatProgramDisplayDate } from '../context/AppContext';
 
 interface ProgramCardProps {
   program: Program;
@@ -133,7 +133,7 @@ export const ProgramCard: React.FC<ProgramCardProps> = ({ program, onSelect }) =
         {/* Price Tag overlay on image */}
         <div className="absolute bottom-3 right-3 bg-emerald-600/95 backdrop-blur-sm text-white px-2.5 sm:px-3 py-1 rounded-xl shadow-lg font-bold text-xs sm:text-sm z-10">
           <span className="font-extrabold">
-            {formatPrice(displayPrice)} {program.currency === 'EUR' ? '€' : program.currency}
+            {formatAmount(displayPrice, program.currency)} {program.currency === 'EUR' ? '€' : program.currency}
             {program.pricing_mode === 'tiered' ? '/túra-tól' : '/fő'}
           </span>
         </div>
@@ -146,6 +146,26 @@ export const ProgramCard: React.FC<ProgramCardProps> = ({ program, onSelect }) =
           <div className="flex items-center gap-1.5 text-xs text-stone-500 mb-2">
             <Building2 className="w-3.5 h-3.5 text-stone-400 shrink-0" />
             <span className="font-semibold text-stone-700 truncate">{program.provider?.company_name || 'Helyi magyar szolgáltató'}</span>
+            {program.provider?.is_founder && (
+              <span
+                className="inline-flex items-center gap-0.5 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-md shrink-0"
+                title="Alapító szolgáltató -- a Velem Gyere első 20 partnere között"
+              >
+                <Crown className="w-3 h-3" />
+                Alapító
+              </span>
+            )}
+            {/* Kanban d0005ffe: bizalmi jelzo -- amig a sikeres (confirmed) foglalasok
+                szama <10, "Uj szolgaltato", utana a tenyleges, folyton-no szam. */}
+            <span
+              className="inline-flex items-center gap-0.5 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md shrink-0"
+              title="Visszaigazolt (sikeres) foglalasok szama ennel a szolgaltatonal"
+            >
+              <ShieldCheck className="w-3 h-3" />
+              {(program.provider?.confirmed_bookings_count || 0) >= 10
+                ? `${program.provider!.confirmed_bookings_count} db sikeres foglalás`
+                : 'Új szolgáltató'}
+            </span>
           </div>
 
           {/* Program Title */}
@@ -171,18 +191,24 @@ export const ProgramCard: React.FC<ProgramCardProps> = ({ program, onSelect }) =
             </div>
 
             <div className="flex items-center justify-between pt-1.5 border-t border-stone-200/70 gap-2">
-              {/* Rating before price */}
-              <div className="flex items-center gap-1.5 text-stone-800 font-bold">
-                <Star className="w-4 h-4 fill-amber-400 text-amber-400 shrink-0" />
-                <span className="text-stone-900 font-extrabold">{stats.average.toFixed(1)}</span>
-                <span className="text-stone-500 font-medium text-xs">({stats.count})</span>
-              </div>
+              {/* Rating before price -- kanban 6cd9f9ca: getProgramRatingStats
+                  count=0-nal 5.0-t ad vissza alapertelmezeskent, ez NEM valodi
+                  ertekeles, ne mutassunk hamis csillagot/atlagot amig nincs. */}
+              {stats.count > 0 ? (
+                <div className="flex items-center gap-1.5 text-stone-800 font-bold">
+                  <Star className="w-4 h-4 fill-amber-400 text-amber-400 shrink-0" />
+                  <span className="text-stone-900 font-extrabold">{stats.average.toFixed(1)}</span>
+                  <span className="text-stone-500 font-medium text-xs">({stats.count})</span>
+                </div>
+              ) : (
+                <span className="text-stone-500 font-medium text-xs">Még nincs értékelés</span>
+              )}
 
               {/* Price */}
               <div className="flex flex-col items-end shrink-0">
                 <div className="flex items-center gap-1 text-emerald-800 font-bold">
                   <span className="text-base">💰</span>
-                  <span>{formatPrice(displayPrice)} {program.currency === 'EUR' ? '€' : program.currency} {program.pricing_mode === 'tiered' ? '/túra-tól' : '/fő'}</span>
+                  <span>{formatAmount(displayPrice, program.currency)} {program.currency === 'EUR' ? '€' : program.currency} {program.pricing_mode === 'tiered' ? '/túra-tól' : '/fő'}</span>
                 </div>
                 {(program.currency === 'EUR' || !program.currency) && eurHufRate > 0 && (
                   <span className="text-[11px] font-medium text-stone-500 tracking-tight">

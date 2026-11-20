@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useApp, formatPrice } from '../context/AppContext';
+import { useApp, formatAmount } from '../context/AppContext';
 import { Check, X, Sparkles, Archive, Eye, Trash2 } from 'lucide-react';
 import { CountryFlag } from './CountryFlag';
 import { FilterPillBar } from './FilterPillBar';
@@ -133,7 +133,7 @@ export const AdminProgramsPage: React.FC = () => {
                         <span>📍 {prog.location}</span>
                         <span>📅 {prog.event_date}</span>
                         <span className="font-bold text-emerald-800">
-                          💰 {formatPrice(prog.price)} {prog.currency === 'EUR' ? '€' : prog.currency}{prog.pricing_mode === 'tiered' ? '/túra-tól' : '/fő'}
+                          💰 {formatAmount(prog.price, prog.currency)} {prog.currency === 'EUR' ? '€' : prog.currency}{prog.pricing_mode === 'tiered' ? '/túra-tól' : '/fő'}
                         </span>
                       </div>
                     </div>

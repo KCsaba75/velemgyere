@@ -5,7 +5,8 @@ import { AppProvider, useApp } from './context/AppContext';
 import { Navbar } from './components/Navbar';
 import { LoginModal } from './components/LoginModal';
 import { ProviderRegisterModal } from './components/ProviderRegisterModal';
-import { NewProgramModal } from './components/NewProgramModal';
+import { TermsConsentModal } from './components/TermsConsentModal';
+import { ProgramEditorModal } from './components/ProgramEditorModal';
 import { Footer } from './components/Footer';
 import { FavoriteFolderModal } from './components/FavoriteFolderModal';
 import { FavoriteToast } from './components/FavoriteToast';
@@ -21,11 +22,17 @@ const HomePage = lazy(() => import('./components/HomePage').then(m => ({ default
 const ProgramsPage = lazy(() => import('./components/ProgramsPage').then(m => ({ default: m.ProgramsPage })));
 const ProgramDetailView = lazy(() => import('./components/ProgramDetailView').then(m => ({ default: m.ProgramDetailView })));
 const ProviderLanding = lazy(() => import('./components/ProviderLanding').then(m => ({ default: m.ProviderLanding })));
+// Kanban 4aac8eda (Csaba, 2026-11-11): bal oldali, sotet temaju sidebar-nav
+// minden szolgaltatoi oldal korul -- lasd ProviderSidebarLayout.tsx.
+const ProviderSidebarLayout = lazy(() => import('./components/ProviderSidebarLayout').then(m => ({ default: m.ProviderSidebarLayout })));
+const ProviderOverviewPage = lazy(() => import('./components/ProviderOverviewPage').then(m => ({ default: m.ProviderOverviewPage })));
 const ProviderDashboard = lazy(() => import('./components/ProviderDashboard').then(m => ({ default: m.ProviderDashboard })));
 const ProviderProgramsPage = lazy(() => import('./components/ProviderProgramsPage').then(m => ({ default: m.ProviderProgramsPage })));
-const ProviderBookingsPage = lazy(() => import('./components/ProviderBookingsPage').then(m => ({ default: m.ProviderBookingsPage })));
+const ProviderScheduleDashboardPage = lazy(() => import('./components/ProviderScheduleDashboardPage').then(m => ({ default: m.ProviderScheduleDashboardPage })));
+const ProviderGuestsPage = lazy(() => import('./components/ProviderGuestsPage').then(m => ({ default: m.ProviderGuestsPage })));
+const ProviderFinancesPage = lazy(() => import('./components/ProviderFinancesPage').then(m => ({ default: m.ProviderFinancesPage })));
 const ProviderReviewsPage = lazy(() => import('./components/ProviderReviewsPage').then(m => ({ default: m.ProviderReviewsPage })));
-const ProviderInquiriesPage = lazy(() => import('./components/ProviderInquiriesPage').then(m => ({ default: m.ProviderInquiriesPage })));
+const ProviderBookedListPage = lazy(() => import('./components/ProviderBookedListPage').then(m => ({ default: m.ProviderBookedListPage })));
 const ProviderMessagesPage = lazy(() => import('./components/ProviderMessagesPage').then(m => ({ default: m.ProviderMessagesPage })));
 // Kanban 653c7577 (Csaba, teljes admin-nav atszervezes): nincs tobbe kozos
 // AdminDashboard hub -- minden admin-alfunkcio onallo top-level route/lazy
@@ -41,6 +48,15 @@ const FavoritesView = lazy(() => import('./components/FavoritesView').then(m => 
 const BookingsView = lazy(() => import('./components/BookingsView').then(m => ({ default: m.BookingsView })));
 const AuthCallback = lazy(() => import('./components/AuthCallback').then(m => ({ default: m.AuthCallback })));
 const ResetPasswordPage = lazy(() => import('./components/ResetPasswordPage').then(m => ({ default: m.ResetPasswordPage })));
+// Kanban 71915a0a (4-6. pont): uj "Platform" + "Ugyfelszolgalat" publikus
+// aloldalak, admin-szerkesztheto tartalommal (lasd AppContext `pages`).
+const HowItWorksPage = lazy(() => import('./components/pages/HowItWorksPage').then(m => ({ default: m.HowItWorksPage })));
+const AboutUsPage = lazy(() => import('./components/pages/AboutUsPage').then(m => ({ default: m.AboutUsPage })));
+const PricingInfoPage = lazy(() => import('./components/pages/PricingInfoPage').then(m => ({ default: m.PricingInfoPage })));
+const FaqPage = lazy(() => import('./components/pages/FaqPage').then(m => ({ default: m.FaqPage })));
+const ContactInfoPage = lazy(() => import('./components/pages/ContactInfoPage').then(m => ({ default: m.ContactInfoPage })));
+const TermsPage = lazy(() => import('./components/pages/TermsPage').then(m => ({ default: m.TermsPage })));
+const PrivacyPage = lazy(() => import('./components/pages/PrivacyPage').then(m => ({ default: m.PrivacyPage })));
 
 // Rovid, nem-zavaro fallback a chunk-betoltes ideje alatt (tipikusan szazmasodperces
 // nagysagrend egy mar megnyitott kapcsolat utan) -- ugyanaz a Loader2 minta, amit az
@@ -74,12 +90,14 @@ const AppContent: React.FC = () => {
   const { isLoginModalOpen, openLoginModal, closeLoginModal } = useApp();
   const [registerModalOpen, setRegisterModalOpen] = useState(false);
   const [newProgramModalOpen, setNewProgramModalOpen] = useState(false);
+  // Kanban 4aac8eda (2026-11-11 kiegeszites): a provider mobil also-nav mostantol
+  // mindenkivel egyutt a Navbar.tsx fix also savaban renderelodik (a korabbi sajat
+  // hamburger+drawer torolve), ezert az also-ter-fenntartas mar providerre is kell.
 
   return (
-    <div className="min-h-screen flex flex-col bg-stone-50 font-sans selection:bg-emerald-500 selection:text-white pb-20 md:pb-0 overflow-x-clip w-full">
+    <div className="min-h-screen flex flex-col bg-stone-50 font-sans selection:bg-emerald-500 selection:text-white overflow-x-clip w-full pb-20 md:pb-0">
       {/* Sticky Main Navigation */}
       <Navbar
-        onOpenLogin={() => openLoginModal(undefined, 'programs')}
         onOpenNewProgram={() => setNewProgramModalOpen(true)}
       />
 
@@ -109,11 +127,27 @@ const AppContent: React.FC = () => {
               />
             }
           />
+          {/* Kanban 4aac8eda (Csaba, 2026-11-11): minden szolgaltatoi oldal a
+              ProviderSidebarLayout-ba van csomagolva -- ez adja az allando,
+              bal oldali, sotet temaju navigaciot (lasd a komponens fejlec-
+              kommentjet a sidebar/tartalom temavalasztas inditekarol). */}
+          <Route
+            path="/szolgaltato/attekintes"
+            element={
+              <ProtectedRoute allow={['provider', 'admin']}>
+                <ProviderSidebarLayout>
+                  <ProviderOverviewPage />
+                </ProviderSidebarLayout>
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/szolgaltato/dashboard"
             element={
               <ProtectedRoute allow={['provider', 'admin']}>
-                <ProviderDashboard />
+                <ProviderSidebarLayout>
+                  <ProviderDashboard />
+                </ProviderSidebarLayout>
               </ProtectedRoute>
             }
           />
@@ -121,15 +155,43 @@ const AppContent: React.FC = () => {
             path="/szolgaltato/programjaim"
             element={
               <ProtectedRoute allow={['provider', 'admin']}>
-                <ProviderProgramsPage onOpenNewProgram={() => setNewProgramModalOpen(true)} />
+                <ProviderSidebarLayout>
+                  <ProviderProgramsPage onOpenNewProgram={() => setNewProgramModalOpen(true)} />
+                </ProviderSidebarLayout>
+              </ProtectedRoute>
+            }
+          />
+          {/* Kanban 4230d70e: uj program-utemezo Iranyitopult -- a /szolgaltato/dashboard
+              mar foglalt (kanban 5a3a8dd8 ota csak Fiokadatok), ezert uj route. Kanban
+              4aac8eda ota ez a sidebar "Foglalasok" celpontja (lasd
+              ProviderSidebarLayout.tsx dontes-kommentjet). */}
+          <Route
+            path="/szolgaltato/iranyitopult"
+            element={
+              <ProtectedRoute allow={['provider', 'admin']}>
+                <ProviderSidebarLayout>
+                  <ProviderScheduleDashboardPage />
+                </ProviderSidebarLayout>
               </ProtectedRoute>
             }
           />
           <Route
-            path="/szolgaltato/foglalasaim"
+            path="/szolgaltato/vendegeim"
             element={
               <ProtectedRoute allow={['provider', 'admin']}>
-                <ProviderBookingsPage />
+                <ProviderSidebarLayout>
+                  <ProviderGuestsPage />
+                </ProviderSidebarLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/szolgaltato/penzugyek"
+            element={
+              <ProtectedRoute allow={['provider', 'admin']}>
+                <ProviderSidebarLayout>
+                  <ProviderFinancesPage />
+                </ProviderSidebarLayout>
               </ProtectedRoute>
             }
           />
@@ -137,15 +199,19 @@ const AppContent: React.FC = () => {
             path="/szolgaltato/ertekeleseim"
             element={
               <ProtectedRoute allow={['provider', 'admin']}>
-                <ProviderReviewsPage />
+                <ProviderSidebarLayout>
+                  <ProviderReviewsPage />
+                </ProviderSidebarLayout>
               </ProtectedRoute>
             }
           />
           <Route
-            path="/szolgaltato/erdeklodeseim"
+            path="/szolgaltato/foglaltlista"
             element={
               <ProtectedRoute allow={['provider', 'admin']}>
-                <ProviderInquiriesPage />
+                <ProviderSidebarLayout>
+                  <ProviderBookedListPage />
+                </ProviderSidebarLayout>
               </ProtectedRoute>
             }
           />
@@ -153,7 +219,9 @@ const AppContent: React.FC = () => {
             path="/szolgaltato/uzeneteim"
             element={
               <ProtectedRoute allow={['provider', 'admin']}>
-                <ProviderMessagesPage />
+                <ProviderSidebarLayout>
+                  <ProviderMessagesPage />
+                </ProviderSidebarLayout>
               </ProtectedRoute>
             }
           />
@@ -222,8 +290,19 @@ const AppContent: React.FC = () => {
           />
           <Route path="/kedvencek" element={<FavoritesView />} />
           <Route path="/foglalasaim" element={<BookingsView />} />
+          {/* Kanban dc9d85fb: a foglalas-visszaigazolo email linkje egy konkret
+              foglalasra mutat (booking_reference vagy id), ugyanaz a komponens
+              olvassa ki useParams-szal es nyitja meg a reszletek-modalt. */}
+          <Route path="/foglalasaim/:ref" element={<BookingsView />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/jelszo-visszaallitas" element={<ResetPasswordPage />} />
+          <Route path="/hogyan-mukodik" element={<HowItWorksPage />} />
+          <Route path="/rolunk" element={<AboutUsPage />} />
+          <Route path="/arazas-es-fizetes" element={<PricingInfoPage />} />
+          <Route path="/gyik" element={<FaqPage />} />
+          <Route path="/kapcsolat" element={<ContactInfoPage />} />
+          <Route path="/aszf" element={<TermsPage />} />
+          <Route path="/adatkezeles" element={<PrivacyPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         </Suspense>
@@ -238,12 +317,16 @@ const AppContent: React.FC = () => {
         onClose={closeLoginModal}
       />
 
+      {/* Kanban 32ad8a91: globalisan mountolva, pendingTermsConsent allapot vezerli --
+          barmelyik route-on felbukkanhat egy friss Google-regisztracio utan. */}
+      <TermsConsentModal />
+
       <ProviderRegisterModal
         isOpen={registerModalOpen}
         onClose={() => setRegisterModalOpen(false)}
       />
 
-      <NewProgramModal
+      <ProgramEditorModal
         isOpen={newProgramModalOpen}
         onClose={() => setNewProgramModalOpen(false)}
       />

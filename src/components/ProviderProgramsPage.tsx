@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useApp, formatPrice, formatProgramDisplayDate } from '../context/AppContext';
+import { useApp, formatAmount, formatProgramDisplayDate } from '../context/AppContext';
 import { CountryFlag } from './CountryFlag';
 import {
   PlusCircle,
@@ -15,14 +15,11 @@ import {
   Sparkles,
   BadgeEuro,
   Edit3,
-  FileEdit,
-  Briefcase
+  FileEdit
 } from 'lucide-react';
 import { Program, ProgramStatus, ProgramOccurrence } from '../types/database';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
-import { ProgramOccurrencesModal } from './ProgramOccurrencesModal';
-import { ProgramPricingModal } from './ProgramPricingModal';
-import { NewProgramModal } from './NewProgramModal';
+import { ProgramEditorModal } from './ProgramEditorModal';
 import { ManualBookingModal } from './ManualBookingModal';
 
 // Kanban 5a3a8dd8 (Csaba, 10-17): a szolgaltato sajat programjainak kezelese
@@ -41,7 +38,6 @@ export const ProviderProgramsPage: React.FC<ProviderProgramsPageProps> = ({ onOp
     deleteProgram,
     updateProgram,
     archiveProgram,
-    setCurrentView,
     getProgramOccurrences,
     programOccurrencesCounts,
   } = useApp();
@@ -50,8 +46,7 @@ export const ProviderProgramsPage: React.FC<ProviderProgramsPageProps> = ({ onOp
 
   const [statusFilter, setStatusFilter] = useState<string>('published');
   const [editingProgram, setEditingProgram] = useState<Program | null>(null);
-  const [occurrencesModalProgram, setOccurrencesModalProgram] = useState<Program | null>(null);
-  const [pricingModalProgram, setPricingModalProgram] = useState<Program | null>(null);
+  const [editorInitialTab, setEditorInitialTab] = useState<'basic' | 'pricing' | 'occurrences'>('basic');
   const [manualBookingModalOpen, setManualBookingModalOpen] = useState(false);
   const [manualBookingProgramId, setManualBookingProgramId] = useState<string | undefined>(undefined);
 
@@ -160,16 +155,6 @@ export const ProviderProgramsPage: React.FC<ProviderProgramsPageProps> = ({ onOp
 
         <div className="flex items-center gap-1.5 sm:gap-3 shrink-0 w-full sm:w-auto">
           <button
-            type="button"
-            onClick={() => setCurrentView('provider-dashboard')}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-bold text-stone-700 hover:text-stone-900 bg-white px-2.5 sm:px-4 py-2 sm:py-3 rounded-xl sm:rounded-2xl border border-stone-200 hover:bg-stone-50 transition-colors cursor-pointer"
-            title="Vissza a Partner fiókhoz"
-          >
-            <Briefcase className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-stone-500" />
-            <span className="truncate">Partner fiók</span>
-          </button>
-
-          <button
             onClick={onOpenNewProgram}
             disabled={currentProvider?.status === 'suspended' || currentProvider?.status === 'banned'}
             title={
@@ -276,8 +261,8 @@ export const ProviderProgramsPage: React.FC<ProviderProgramsPageProps> = ({ onOp
                           <span className="flex items-center gap-1">📅 {formatProgramDisplayDate(prog.event_date, (programOccurrencesCounts[prog.id] || 0) > 1)}</span>
                           <span className="flex items-center gap-1 font-bold text-emerald-800">
                             💰 {prog.pricing_mode === 'tiered'
-                              ? `${formatPrice(prog.price)} ${prog.currency === 'EUR' ? '€' : prog.currency}/túra-tól (Sávos)`
-                              : `${formatPrice(prog.price)} ${prog.currency === 'EUR' ? '€' : prog.currency}/fő`}
+                              ? `${formatAmount(prog.price, prog.currency)} ${prog.currency === 'EUR' ? '€' : prog.currency}/túra-tól (Sávos)`
+                              : `${formatAmount(prog.price, prog.currency)} ${prog.currency === 'EUR' ? '€' : prog.currency}/fő`}
                           </span>
                         </div>
                       </div>
@@ -295,7 +280,7 @@ export const ProviderProgramsPage: React.FC<ProviderProgramsPageProps> = ({ onOp
                         </button>
 
                         <button
-                          onClick={() => setEditingProgram(prog)}
+                          onClick={() => { setEditingProgram(prog); setEditorInitialTab('basic'); }}
                           className="px-3 py-2 sm:py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 hover:bg-emerald-100 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                           title="Összes adat szerkesztése (publikált és piszkozat állapotban is)"
                         >
@@ -304,7 +289,7 @@ export const ProviderProgramsPage: React.FC<ProviderProgramsPageProps> = ({ onOp
                         </button>
 
                         <button
-                          onClick={() => setOccurrencesModalProgram(prog)}
+                          onClick={() => { setEditingProgram(prog); setEditorInitialTab('occurrences'); }}
                           className="px-3 py-2 sm:py-1.5 rounded-xl border border-stone-200 text-stone-700 hover:bg-stone-100 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                           title="Időpontok kezelése"
                         >
@@ -322,7 +307,7 @@ export const ProviderProgramsPage: React.FC<ProviderProgramsPageProps> = ({ onOp
                         </button>
 
                         <button
-                          onClick={() => setPricingModalProgram(prog)}
+                          onClick={() => { setEditingProgram(prog); setEditorInitialTab('pricing'); }}
                           className="px-3 py-2 sm:py-1.5 rounded-xl border border-stone-200 text-stone-700 hover:bg-stone-100 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                           title="Árazás kezelése"
                         >
@@ -418,17 +403,10 @@ export const ProviderProgramsPage: React.FC<ProviderProgramsPageProps> = ({ onOp
         )}
       </div>
 
-      <ProgramOccurrencesModal
-        program={occurrencesModalProgram}
-        onClose={() => setOccurrencesModalProgram(null)}
-      />
-      <ProgramPricingModal
-        program={pricingModalProgram}
-        onClose={() => setPricingModalProgram(null)}
-      />
-      <NewProgramModal
+      <ProgramEditorModal
         isOpen={Boolean(editingProgram)}
         programToEdit={editingProgram}
+        initialTab={editorInitialTab}
         onClose={() => setEditingProgram(null)}
       />
       <ManualBookingModal

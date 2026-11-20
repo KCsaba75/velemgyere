@@ -43,10 +43,13 @@
     visibility: hidden;
   }
   .print-voucher,
-  .print-voucher * {
+  .print-voucher *,
+  .print-area,
+  .print-area * {
     visibility: visible;
   }
-  .print-voucher {
+  .print-voucher,
+  .print-area {
     position: absolute;
     left: 0;
     top: 0;

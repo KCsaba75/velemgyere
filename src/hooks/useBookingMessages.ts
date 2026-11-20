@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { supabase, isSupabaseConfigured, extractFunctionErrorMessage } from '../lib/supabase';
 import { BookingMessage, BookingMessageSenderRole } from '../types/database';
 
 export function isBookingMessageWriteWindowOpen(effectiveEventDate?: string | null): boolean {
@@ -54,28 +54,22 @@ export function useBookingMessages(
     async (content: string) => {
       if (!orderId || !senderRole || !senderId || !content.trim()) return false;
       setSending(true);
+      setError(null);
       try {
-        const newMessage: Partial<BookingMessage> = {
-          order_id: orderId,
-          sender_role: senderRole,
-          sender_id: senderId,
-          content: content.trim(),
-          created_at: new Date().toISOString(),
-        };
+        // Gemini-alapu gyuloletbeszed-eloszures az edge function-ben FUT LE
+        // ELOTTE (kanban 8d11173e) -- a booking_messages-nek mar nincs
+        // kozvetlen authenticated INSERT RLS policy-ja, ez az egyetlen irasi ut.
+        const { data, error: invokeErr } = await supabase.functions.invoke('submit-booking-message', {
+          body: { order_id: orderId, sender_role: senderRole, content: content.trim() },
+        });
 
-        const { data, error: insertErr } = await supabase
-          .from('booking_messages')
-          .insert(newMessage)
-          .select()
-          .single();
-
-        if (insertErr) {
-          setError(insertErr.message);
+        if (invokeErr) {
+          setError(await extractFunctionErrorMessage(invokeErr, 'Üzenet küldése nem sikerült'));
           return false;
         }
 
-        if (data) {
-          setMessages(prev => [...prev, data as BookingMessage]);
+        if (data?.message) {
+          setMessages(prev => [...prev, data.message as BookingMessage]);
         }
         return true;
       } catch (err) {

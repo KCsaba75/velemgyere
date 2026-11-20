@@ -21,6 +21,9 @@ export interface Profile {
   google_calendar_id?: string;
   // Böngésző push-értesítés a foglalás-chat új üzeneteire (kanban d973bfec), opt-out.
   push_notifications_enabled?: boolean;
+  // Kanban 32ad8a91: ASZF-elfogadás időbélyege regisztrációkor. NULL a már
+  // meglévő, e feature előtti fiókoknál -- szándékosan, nem kér újra elfogadást.
+  terms_accepted_at?: string | null;
 }
 
 export interface Provider {
@@ -40,6 +43,16 @@ export interface Provider {
   description: string;
   status: ProviderStatus;
   created_at?: string;
+  // Kanban fadb2f0d: "Alapito" jelzes az elso 20 szolgaltatonak (az elso
+  // publikalt programjuk idopontja szerint rangsorolva, orokre megmarad).
+  // Kulon public column-grant (schema.sql) teszi lathatova anon/authenticated-nek.
+  is_founder?: boolean;
+  // Kanban d0005ffe: bizalmi jelzo a katalogus-kartyan ("Uj szolgaltato" <10,
+  // utana a tenyleges folyton-no szam) -- triggerrel karbantartott szamlalo az
+  // orders tablarol (status='confirmed'), nem futasidoben szamolt aggregacio,
+  // mert a nyers orders tabla RLS-e nem engedi anon/katalogus-olvasast.
+  // Ugyanaz a public column-grant/view-mintat kapta mint az is_founder.
+  confirmed_bookings_count?: number;
   // Stripe Connect prep (kanban 71215856 point 5) -- columns only, no Stripe
   // logic wired up yet. onsite_only is the only mode currently in use.
   stripe_account_id?: string | null;
@@ -54,6 +67,9 @@ export interface Provider {
   // Google Calendar szinkronizáció beállítás a szolgáltató számára
   google_calendar_sync_enabled?: boolean;
   google_calendar_id?: string;
+  // Kanban 32ad8a91: ASZF-elfogadás időbélyege regisztrációkor. NULL a már
+  // meglévő, e feature előtti fiókoknál -- szándékosan, nem kér újra elfogadást.
+  terms_accepted_at?: string | null;
 }
 
 export interface Region {
@@ -220,6 +236,11 @@ export interface Order {
   // Közvetlen dátum és időpont (pl. egyedi/külső foglalásokhoz)
   event_date?: string | null;
   start_time?: string | null;
+
+  // Kanban ca9129b7: a szolgaltato altal perzisztalt "ki jelent meg" jeloles a
+  // Foglaltlista oldalhoz -- rendeles-szinten (1 rendeles = 1 occurrence), nem
+  // kulon tablaban.
+  attended?: boolean;
 }
 
 // Returned by the get_provider_contact_for_order RPC (kanban fbf552b2 point 3): the
@@ -232,11 +253,13 @@ export interface OrderProviderContact {
   website: string | null;
 }
 
-// Returned by the get_order_buyer_info RPC (kanban fbf552b2 point 5b): the buyer's
-// name/email, only resolvable server-side for the provider's (or admin's) OWN program.
+// Returned by the get_order_buyer_info RPC (kanban fbf552b2 point 5b, bovitve
+// ca9129b7-ben phone-nal): the buyer's name/email/phone, only resolvable
+// server-side for the provider's (or admin's) OWN program.
 export interface OrderBuyerInfo {
   name: string;
   email: string;
+  phone: string | null;
 }
 
 export type CreditTransactionType = 'signup_bonus' | 'refund' | 'usage' | 'manual_payout';

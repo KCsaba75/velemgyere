@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { useApp, formatPrice, getBookingReference, getOrderBucket, OrderBucket } from '../context/AppContext';
+import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
+import { useApp, formatAmount, getBookingReference, getOrderBucket, OrderBucket } from '../context/AppContext';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import { Ticket, Compass, Eye, Sparkles, ArrowRight, Users, History, XCircle } from 'lucide-react';
-import { Order, OrderStatus } from '../types/database';
+import { OrderStatus } from '../types/database';
 import { BookingDetailModal } from './BookingDetailModal';
 
 // Kanban 5ef2d0b8 (Csaba kérése): fő nézet = upcoming (pending/confirmed, nem
@@ -39,8 +40,19 @@ export const BookingsView: React.FC = () => {
 
   useDocumentMeta('Foglalásaim', 'Korábbi és aktuális helyfoglalásaid egy áttekinthető listában.');
 
+  // Kanban dc9d85fb: a visszaigazolo email linkje /foglalasaim/:ref -re mutat
+  // (send-booking-email edge function, order.booking_reference ?? order.id),
+  // hogy a foglalas-reszletek modal automatikusan megnyiljon erkezeskor.
+  const { ref } = useParams<{ ref?: string }>();
+
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<OrderBucket>('upcoming');
+
+  useEffect(() => {
+    if (!ref) return;
+    const match = orders.find(o => o.booking_reference === ref || o.id === ref);
+    if (match) setSelectedOrderId(match.id);
+  }, [ref, orders]);
 
   if (!isAuthenticated) {
     return (
@@ -66,7 +78,7 @@ export const BookingsView: React.FC = () => {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <button
               type="button"
-              onClick={() => openLoginModal('A foglalásaid megtekintéséhez kérjük, lépj be a fiókodba!')}
+              onClick={() => openLoginModal('A foglalásaid megtekintéséhez kérjük, lépj be a fiókodba!', ref ? `/foglalasaim/${ref}` : undefined)}
               className="w-full sm:w-auto px-8 py-3.5 bg-stone-900 hover:bg-emerald-700 text-white font-bold rounded-xl text-sm shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
             >
               <span>Bejelentkezés vagy Regisztráció</span>
@@ -207,7 +219,7 @@ export const BookingsView: React.FC = () => {
                       {(order.start_time) && ` (${order.start_time})`}
                     </span>
                     <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5" />{order.participants_count} fő</span>
-                    <span className="font-semibold text-stone-700">{formatPrice(order.total_price)} {order.currency === 'EUR' ? '€' : order.currency}</span>
+                    <span className="font-semibold text-stone-700">{formatAmount(order.total_price, order.currency)} {order.currency === 'EUR' ? '€' : order.currency}</span>
                     <span className={`text-[11px] font-bold px-2 py-0.5 rounded-lg border ${ORDER_STATUS_CLASS[order.status]}`}>
                       {ORDER_STATUS_LABEL[order.status]}
                     </span>

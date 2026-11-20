@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import { useApp, formatPrice, formatPlatformFee, formatProgramDisplayDate } from '../context/AppContext';
+import { useApp, formatAmount, formatPlatformFee, formatProgramDisplayDate } from '../context/AppContext';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import {
   ArrowLeft,
@@ -24,13 +24,15 @@ import {
   Heart,
   Ticket,
   Edit3,
-  Landmark
+  Landmark,
+  Mail,
+  Link2
 } from 'lucide-react';
 import { CategoryIcon } from './CategoryIcon';
 import { CountryFlag } from './CountryFlag';
 import { ProgramReviewsSection } from './ProgramReviewsSection';
 import { BookingCheckoutModal } from './BookingCheckoutModal';
-import { NewProgramModal } from './NewProgramModal';
+import { ProgramEditorModal } from './ProgramEditorModal';
 import { ProgramAvailability, OnsitePaymentMethod, OccurrenceAvailability, ProgramPriceTier } from '../types/database';
 
 export const ProgramDetailView: React.FC = () => {
@@ -46,8 +48,6 @@ export const ProgramDetailView: React.FC = () => {
     checkProgramAvailability,
     listOpenOccurrences,
     getProgramPriceTiers,
-    createOrder,
-    computeBookingFee,
     computeTotalPrice,
     getProgramRatingStats,
     isProgramFavorite,
@@ -119,6 +119,20 @@ export const ProgramDetailView: React.FC = () => {
   // Gallery state
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [copiedLink, setCopiedLink] = useState(false);
+  // Kanban 7c62b5fb: Megosztas lenyilo menu (WhatsApp/Messenger/Email/Link).
+  const [isShareMenuOpen, setIsShareMenuOpen] = useState(false);
+  const shareMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isShareMenuOpen) return;
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (shareMenuRef.current && !shareMenuRef.current.contains(e.target as Node)) {
+        setIsShareMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [isShareMenuOpen]);
 
   // Availability check (point 6) -- only callable once logged in, see checkProgramAvailability.
   const [availability, setAvailability] = useState<ProgramAvailability | null>(null);
@@ -141,7 +155,6 @@ export const ProgramDetailView: React.FC = () => {
   const [participantsCount, setParticipantsCount] = useState(1);
   const [participantsInput, setParticipantsInput] = useState('1');
   const [onsitePaymentMethod, setOnsitePaymentMethod] = useState<OnsitePaymentMethod>('cash');
-  const [reservationSubmitting, setReservationSubmitting] = useState(false);
   const [reservationResult, setReservationResult] = useState<{ success: boolean; message: string } | null>(null);
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
 
@@ -289,33 +302,50 @@ export const ProgramDetailView: React.FC = () => {
   const hasMultipleDates = occurrenceOptions.length > 1 || ((program?.id ? programOccurrencesCounts[program.id] : 0) || 0) > 1;
 
   // Format Hungarian date nicely (avoid UTC midnight shifting and long weekday truncation)
-  const { dateFormatted, weekdayFormatted, fullDateFormatted } = (() => {
+  const { dateFormatted, weekdayFormatted } = (() => {
     try {
       const activeDate = selectedOccurrence?.event_date || program?.event_date;
       if (!activeDate) {
-        return { dateFormatted: 'Egyeztetés szerint', weekdayFormatted: '', fullDateFormatted: 'Egyeztetés szerint' };
+        return { dateFormatted: 'Egyeztetés szerint', weekdayFormatted: '' };
       }
-      const dateFormatted = selectedOccurrence 
+      const dateFormatted = selectedOccurrence
         ? formatProgramDisplayDate(selectedOccurrence.event_date, false)
         : formatProgramDisplayDate(program!.event_date, hasMultipleDates);
       const dateStr = activeDate.includes('T') ? activeDate : `${activeDate}T00:00:00`;
       const d = new Date(dateStr);
       const weekdayFormatted = !isNaN(d.getTime()) ? d.toLocaleDateString('hu-HU', { weekday: 'long' }) : '';
-      return {
-        dateFormatted,
-        weekdayFormatted,
-        fullDateFormatted: weekdayFormatted ? `${dateFormatted} (${weekdayFormatted})` : dateFormatted
-      };
+      return { dateFormatted, weekdayFormatted };
     } catch {
-      return { dateFormatted: selectedOccurrence?.event_date || program?.event_date || '', weekdayFormatted: '', fullDateFormatted: selectedOccurrence?.event_date || program?.event_date || '' };
+      return { dateFormatted: selectedOccurrence?.event_date || program?.event_date || '', weekdayFormatted: '' };
     }
   })();
-  const formattedDate = fullDateFormatted;
 
   const handleCopyLink = () => {
     navigator.clipboard?.writeText(window.location.href);
     setCopiedLink(true);
+    setIsShareMenuOpen(false);
     setTimeout(() => setCopiedLink(false), 2500);
+  };
+
+  const handleShareWhatsApp = () => {
+    const text = `${program.title} - ${window.location.href}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
+    setIsShareMenuOpen(false);
+  };
+
+  // Messenger app_id nelkul, megbizhatoan csak a mobil-app deep linkje mukodik
+  // (nincs sajat FB app, a /dialog/send JS API app_id-t igenyelne) -- deszkopon
+  // nincs kezelo, de ez a Messenger-megosztas ismert korlata, nem hiba itt.
+  const handleShareMessenger = () => {
+    window.open(`fb-messenger://share/?link=${encodeURIComponent(window.location.href)}`, '_blank', 'noopener,noreferrer');
+    setIsShareMenuOpen(false);
+  };
+
+  const handleShareEmail = () => {
+    const subject = encodeURIComponent(program.title);
+    const body = encodeURIComponent(`${program.short_description}\n\n${window.location.href}`);
+    window.location.href = `mailto:?subject=${subject}&body=${body}`;
+    setIsShareMenuOpen(false);
   };
 
   return (
@@ -373,18 +403,61 @@ export const ProgramDetailView: React.FC = () => {
             </button>
           )}
 
-          {/* Megosztás gomb közvetlenül a kép felett a többi címkével egy sorban */}
-          <button
-            type="button"
-            onClick={handleCopyLink}
-            className={`bg-white border border-stone-200 text-stone-700 hover:text-stone-900 hover:border-stone-300 hover:bg-stone-50 text-xs sm:text-sm font-bold px-3 py-1.5 rounded-xl shadow-sm flex items-center gap-1.5 transition-colors cursor-pointer ${
+          {/* Megosztás gomb közvetlenül a kép felett a többi címkével egy sorban --
+              kanban 7c62b5fb: lenyíló menü WhatsApp/Messenger/Email/Link opciókkal. */}
+          <div
+            ref={shareMenuRef}
+            className={`relative ${
               currentUser && (currentUser.role === 'admin' || (currentProvider && currentProvider.id === program.provider_id)) ? '' : 'sm:ml-auto'
             }`}
-            title="Link másolása"
           >
-            {copiedLink ? <Check className="w-4 h-4 text-emerald-600" /> : <Share2 className="w-4 h-4 text-stone-500" />}
-            <span>{copiedLink ? 'Megosztva!' : 'Megosztás'}</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setIsShareMenuOpen(prev => !prev)}
+              className="bg-white border border-stone-200 text-stone-700 hover:text-stone-900 hover:border-stone-300 hover:bg-stone-50 text-xs sm:text-sm font-bold px-3 py-1.5 rounded-xl shadow-sm flex items-center gap-1.5 transition-colors cursor-pointer"
+              title="Megosztás"
+            >
+              {copiedLink ? <Check className="w-4 h-4 text-emerald-600" /> : <Share2 className="w-4 h-4 text-stone-500" />}
+              <span>{copiedLink ? 'Megosztva!' : 'Megosztás'}</span>
+            </button>
+
+            {isShareMenuOpen && (
+              <div className="absolute left-0 top-full mt-2 w-56 bg-white rounded-2xl border border-stone-200 shadow-lg z-20 overflow-hidden animate-in fade-in duration-150">
+                <button
+                  type="button"
+                  onClick={handleShareWhatsApp}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm font-semibold text-stone-700 hover:bg-stone-50 transition-colors cursor-pointer"
+                >
+                  <span className="text-base">💬</span>
+                  <span>WhatsApp</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleShareMessenger}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm font-semibold text-stone-700 hover:bg-stone-50 transition-colors cursor-pointer"
+                >
+                  <span className="text-base">📨</span>
+                  <span>Messenger</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleShareEmail}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm font-semibold text-stone-700 hover:bg-stone-50 transition-colors cursor-pointer"
+                >
+                  <Mail className="w-4 h-4 text-stone-500 shrink-0" />
+                  <span>Email</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCopyLink}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm font-semibold text-stone-700 hover:bg-stone-50 transition-colors cursor-pointer border-t border-stone-100"
+                >
+                  <Link2 className="w-4 h-4 text-stone-500 shrink-0" />
+                  <span>Link másolása</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="relative aspect-[16/9] sm:aspect-[21/9] w-full rounded-3xl overflow-hidden shadow-lg border border-stone-200 bg-stone-900">
@@ -396,34 +469,40 @@ export const ProgramDetailView: React.FC = () => {
             fetchPriority="high"
           />
 
-          {/* Floating Heart Button in the top right corner of the main photo */}
-          <button
-            type="button"
-            onClick={() => {
-              if (!program) return;
-              // Same toggle-off-on-click fix as ProgramCard (kanban 12f43965).
-              if (isFav) {
-                toggleFavorite(program.id);
-              } else {
-                openFolderModal(program);
+          {/* Floating Heart Button in the top right corner of the main photo --
+              a Kedvencek funkcio kifejezetten programvadaszoknak keszult
+              (lasd AppContext toggleFavorite/isProgramFavorite kommentjei),
+              provider-fiokkal nezve nincs ertelme, ezert kanban 3aa63940
+              szerint teljesen elrejtve, nem csak letiltva. */}
+          {currentUser?.role !== 'provider' && (
+            <button
+              type="button"
+              onClick={() => {
+                if (!program) return;
+                // Same toggle-off-on-click fix as ProgramCard (kanban 12f43965).
+                if (isFav) {
+                  toggleFavorite(program.id);
+                } else {
+                  openFolderModal(program);
+                }
+              }}
+              className={`absolute top-4 right-4 z-10 w-11 h-11 rounded-full backdrop-blur-md shadow-xl flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-90 cursor-pointer ${
+                isFav
+                  ? 'bg-white text-rose-500 ring-2 ring-rose-400/60 shadow-rose-500/30'
+                  : 'bg-stone-900/60 hover:bg-white text-white hover:text-rose-500'
+              }`}
+              title={
+                !isAuthenticated
+                  ? "Jelentkezz be programvadászként a kedvencek mentéséhez (♡)"
+                  : isFav
+                    ? "Mentve a kedvencekhez (mappák kezelése)"
+                    : "Mentés egy mappába (♡)"
               }
-            }}
-            className={`absolute top-4 right-4 z-10 w-11 h-11 rounded-full backdrop-blur-md shadow-xl flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-90 cursor-pointer ${
-              isFav
-                ? 'bg-white text-rose-500 ring-2 ring-rose-400/60 shadow-rose-500/30'
-                : 'bg-stone-900/60 hover:bg-white text-white hover:text-rose-500'
-            }`}
-            title={
-              !isAuthenticated
-                ? "Jelentkezz be programvadászként a kedvencek mentéséhez (♡)"
-                : isFav
-                  ? "Mentve a kedvencekhez (mappák kezelése)"
-                  : "Mentés egy mappába (♡)"
-            }
-            aria-label={isFav ? "Kedvenc program" : "Mentés a kedvencek közé"}
-          >
-            <Heart className={`w-5 h-5 transition-transform ${isFav ? 'fill-rose-500 text-rose-500 scale-110' : 'text-current'}`} />
-          </button>
+              aria-label={isFav ? "Kedvenc program" : "Mentés a kedvencek közé"}
+            >
+              <Heart className={`w-5 h-5 transition-transform ${isFav ? 'fill-rose-500 text-rose-500 scale-110' : 'text-current'}`} />
+            </button>
+          )}
         </div>
 
         {/* Alatta: bal oldalon a kisképek (galéria), jobb oldalon az összegcímke - azonos távolságra a nagy képtől */}
@@ -455,7 +534,7 @@ export const ProgramDetailView: React.FC = () => {
               {program.pricing_mode === 'tiered' ? (
                 lowestTier ? (
                   <>
-                    {formatPrice(computeTotalPrice(lowestTier.total_price))} {program.currency === 'EUR' ? '€' : program.currency}
+                    {formatAmount(computeTotalPrice(lowestTier.total_price), program.currency)} {program.currency === 'EUR' ? '€' : program.currency}
                     <span className="text-xs sm:text-sm font-normal text-emerald-100">/túra-tól</span>
                   </>
                 ) : (
@@ -463,7 +542,7 @@ export const ProgramDetailView: React.FC = () => {
                 )
               ) : (
                 <>
-                  {formatPrice(computeTotalPrice(program.price))} {program.currency === 'EUR' ? '€' : program.currency}
+                  {formatAmount(computeTotalPrice(program.price), program.currency)} {program.currency === 'EUR' ? '€' : program.currency}
                   <span className="text-xs sm:text-sm font-normal text-emerald-100"> / fő</span>
                 </>
               )}
@@ -491,20 +570,26 @@ export const ProgramDetailView: React.FC = () => {
                   href="#reviews-section"
                   className="inline-flex items-center gap-2 text-xs font-bold text-stone-700 hover:text-emerald-700 bg-stone-100 hover:bg-emerald-50 px-3 py-1.5 rounded-xl border border-stone-200/80 transition-all cursor-pointer"
                 >
-                  <div className="flex text-amber-400">
-                    <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
-                  </div>
-                  <span className="text-stone-900 font-extrabold font-display text-sm">
-                    {programStats.average.toFixed(1)}
-                  </span>
-                  <span className="text-stone-400">•</span>
-                  <span className="text-stone-600">
-                    {programStats.count > 0 ? `${programStats.count} igazolt értékelés` : 'Új program'}
-                  </span>
-                  {programStats.count > 0 && (
-                    <span className="text-emerald-700 font-semibold">
-                      ({programStats.recommendPercent}% ajánlja)
-                    </span>
+                  {/* Kanban 6cd9f9ca: count=0-nal a star+atlag ELTUNIK (nincs
+                      valodi ertekeles, a getProgramRatingStats 5.0 default-ja
+                      nem jelenhet meg), csak a "Meg nincs ertekeles" szoveg
+                      marad -- igazitva a ProgramCard ugyanilyen szovegehez. */}
+                  {programStats.count > 0 ? (
+                    <>
+                      <div className="flex text-amber-400">
+                        <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
+                      </div>
+                      <span className="text-stone-900 font-extrabold font-display text-sm">
+                        {programStats.average.toFixed(1)}
+                      </span>
+                      <span className="text-stone-400">•</span>
+                      <span className="text-stone-600">{programStats.count} igazolt értékelés</span>
+                      <span className="text-emerald-700 font-semibold">
+                        ({programStats.recommendPercent}% ajánlja)
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-stone-600">Még nincs értékelés</span>
                   )}
                 </a>
               </div>
@@ -671,7 +756,7 @@ export const ProgramDetailView: React.FC = () => {
                     lowestTier ? (
                       <>
                         <span className="text-3xl sm:text-4xl font-extrabold text-stone-900 font-display">
-                          {formatPrice(computeTotalPrice(lowestTier.total_price))} {program.currency === 'EUR' ? '€' : program.currency}
+                          {formatAmount(computeTotalPrice(lowestTier.total_price), program.currency)} {program.currency === 'EUR' ? '€' : program.currency}
                         </span>
                         <span className="text-xs text-stone-500 font-medium">/túra-tól</span>
                       </>
@@ -681,7 +766,7 @@ export const ProgramDetailView: React.FC = () => {
                   ) : (
                     <>
                       <span className="text-3xl sm:text-4xl font-extrabold text-stone-900 font-display">
-                        {formatPrice(computeTotalPrice(program.price))} {program.currency === 'EUR' ? '€' : program.currency}
+                        {formatAmount(computeTotalPrice(program.price), program.currency)} {program.currency === 'EUR' ? '€' : program.currency}
                       </span>
                       <span className="text-xs text-stone-500 font-medium"> / fő</span>
                     </>
@@ -722,7 +807,7 @@ export const ProgramDetailView: React.FC = () => {
                           <span className="truncate sm:whitespace-normal">Helyszínen fizetendő díj:</span>
                         </span>
                         <strong className="font-bold text-stone-900 whitespace-nowrap shrink-0 ml-auto">
-                          {formatPrice(baseNet)} {curr}
+                          {formatAmount(baseNet, program.currency)} {curr}
                         </strong>
                       </div>
                     </div>
@@ -939,13 +1024,13 @@ export const ProgramDetailView: React.FC = () => {
                                   <span className="truncate sm:whitespace-normal">Helyszínen fizetendő díj:</span>
                                 </span>
                                 <strong className="text-stone-900 font-bold text-sm whitespace-nowrap shrink-0 ml-auto">
-                                  {formatPrice(netTotal)} {curr}
+                                  {formatAmount(netTotal, program.currency)} {curr}
                                 </strong>
                               </div>
                               <div className="pt-2 border-t border-stone-200 flex items-center justify-between gap-3 text-stone-900 font-bold text-sm">
                                 <span className="min-w-0">Teljes fizetendő összeg:</span>
                                 <span className="text-emerald-700 font-extrabold text-base whitespace-nowrap shrink-0 ml-auto">
-                                  {formatPrice(total)} {curr}
+                                  {formatAmount(total, program.currency)} {curr}
                                 </span>
                               </div>
                             </div>
@@ -955,7 +1040,7 @@ export const ProgramDetailView: React.FC = () => {
 
                       <button
                         type="submit"
-                        disabled={reservationSubmitting || netTotalForCount === null}
+                        disabled={netTotalForCount === null}
                         className="w-full bg-emerald-700 hover:bg-emerald-600 text-white font-bold py-3.5 px-5 rounded-xl text-sm cursor-pointer shadow-md transition-all hover:shadow-lg flex items-center justify-center gap-2 disabled:opacity-60"
                       >
                         <Ticket className="w-4 h-4" />
@@ -974,21 +1059,24 @@ export const ProgramDetailView: React.FC = () => {
                 </div>
               )}
 
-              {/* Quick Favorite Save in Sticky Booking Card */}
-              <div className="pt-2 border-t border-stone-100 flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => program && openFolderModal(program)}
-                  className={`flex-1 py-2.5 px-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                    isFav
-                      ? 'bg-rose-50 border-rose-200 text-rose-700 shadow-xs'
-                      : 'bg-white border-stone-200 text-stone-700 hover:border-stone-300 hover:bg-stone-50'
-                  }`}
-                >
-                  <Heart className={`w-4 h-4 ${isFav ? 'fill-rose-500 text-rose-500' : 'text-stone-400'}`} />
-                  <span>{isFav ? 'Mentve a kedvencekhez (mappák kezelése)' : 'Mentés egy mappába (♡)'}</span>
-                </button>
-              </div>
+              {/* Quick Favorite Save in Sticky Booking Card -- kanban 3aa63940,
+                  lasd a fenti floating Heart gomb kommentjet. */}
+              {currentUser?.role !== 'provider' && (
+                <div className="pt-2 border-t border-stone-100 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => program && openFolderModal(program)}
+                    className={`flex-1 py-2.5 px-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                      isFav
+                        ? 'bg-rose-50 border-rose-200 text-rose-700 shadow-xs'
+                        : 'bg-white border-stone-200 text-stone-700 hover:border-stone-300 hover:bg-stone-50'
+                    }`}
+                  >
+                    <Heart className={`w-4 h-4 ${isFav ? 'fill-rose-500 text-rose-500' : 'text-stone-400'}`} />
+                    <span>{isFav ? 'Mentve a kedvencekhez (mappák kezelése)' : 'Mentés egy mappába (♡)'}</span>
+                  </button>
+                </div>
+              )}
             </div>
 
 
@@ -1027,7 +1115,7 @@ export const ProgramDetailView: React.FC = () => {
       )}
 
       {program && (
-        <NewProgramModal
+        <ProgramEditorModal
           isOpen={isEditModalOpen}
           programToEdit={program}
           onClose={() => setIsEditModalOpen(false)}

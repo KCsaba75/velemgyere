@@ -9,8 +9,6 @@ import {
   ProgramImage,
   Inquiry,
   ContactMessage,
-  ProgramStatus,
-  ProviderStatus,
   Order,
   CreditTransaction,
   PayoutRequest,
@@ -28,8 +26,11 @@ import {
   OrderStatus,
   FavoriteFolder,
   FavoriteItem,
-  ProgramPriceTier
+  ProgramPriceTier,
+  BookingMessageSenderRole
 } from '../types/database';
+import { PageRecord } from '../types/pageContent';
+import { isBookingMessageWriteWindowOpen } from '../hooks/useBookingMessages';
 import { 
   INITIAL_CATEGORIES, 
   INITIAL_REGIONS,
@@ -43,8 +44,8 @@ import {
   INITIAL_FAVORITE_FOLDERS,
   INITIAL_FAVORITES
 } from '../data/seedData';
-import { roundToHalfEuro, formatPrice } from '../lib/priceUtils';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { roundToHalfEuro } from '../lib/priceUtils';
+import { supabase, isSupabaseConfigured, extractFunctionErrorMessage } from '../lib/supabase';
 import { fetchLiveEurHufRate } from '../lib/exchangeRate';
 
 // 16241c32: real react-router URLs replaced the old pure-state "currentView" router.
@@ -63,16 +64,31 @@ const VIEW_TO_PATH: Record<string, string> = {
   bookings: '/foglalasaim',
   'provider-landing': '/szolgaltatoknak',
   'provider-dashboard': '/szolgaltato/dashboard',
+  // Kanban 4aac8eda (Csaba, 2026-11-11): uj bal-sidebar nav-celok -- "Attekintes"
+  // (statisztikak/teendok/esemenyek), "Vendegeim" es "Penzugyek", lasd
+  // ProviderSidebarLayout.tsx / ProviderOverviewPage.tsx / ProviderGuestsPage.tsx /
+  // ProviderFinancesPage.tsx.
+  'provider-overview': '/szolgaltato/attekintes',
+  'provider-guests': '/szolgaltato/vendegeim',
+  'provider-finances': '/szolgaltato/penzugyek',
   // Kanban 5a3a8dd8 (Csaba, 10-17 pontositas): a szolgaltato sajat programjai
   // es a beerkezett foglalasai onallo top-level menupontok, nem a Partner
   // fiok alatti belso fulek tovabb.
   'provider-programs': '/szolgaltato/programjaim',
   'provider-bookings': '/szolgaltato/foglalasaim',
+  // Kanban 4230d70e (Csaba, C pont C2 dontes): a Navbar Foglalasok/Foglalasaim
+  // nav-slotjat a provider szamara ez a cel valtja -- a /foglalasaim lap
+  // tovabbra is elerheto (deep-link, direkt URL), csak mar nincs sajat
+  // nav-gombja.
+  'provider-schedule': '/szolgaltato/iranyitopult',
   // Kanban 5a3a8dd8 (Csaba, 10-17 masodik pontositas): az Ertekelesek es az
   // Erdeklodesek fulek is onallo top-level oldalak lettek, ugyanugy mint a
   // Programok/Foglalasok -- elerheto a Partner fiok oldal gyorslinkjeiből.
   'provider-reviews': '/szolgaltato/ertekeleseim',
-  'provider-inquiries': '/szolgaltato/erdeklodeseim',
+  // Kanban ca9129b7: az Erdeklodesek placeholder-fulet felvaltotta a
+  // Foglaltlista (program+idopont-valaszto, foglalok elerhetosegei+megjelenes-
+  // jeloles, nyomtathato).
+  'provider-booked-list': '/szolgaltato/foglaltlista',
   // Kanban 5d6bb3d4 (Csaba, via Zora): a szolgaltatoi navbar "Kedvencek"
   // helyere kerulo uj "Uzenet" placeholder menupont, onallo top-level oldal.
   'provider-messages': '/szolgaltato/uzeneteim',
@@ -98,6 +114,16 @@ const VIEW_TO_PATH: Record<string, string> = {
   // fix targymenu-gomb kozott).
   'admin-settings': '/admin/beallitasok',
   'my-account': '/sajat-fiokom',
+  // Kanban 71915a0a (4-6. pont): "Platform" (how-it-works/about-us/pricing) +
+  // "Ugyfelszolgalat" (faq/contact/terms/privacy) uj publikus aloldalak,
+  // admin-szerkesztheto tartalommal (lasd public.pages tabla).
+  'how-it-works': '/hogyan-mukodik',
+  'about-us': '/rolunk',
+  pricing: '/arazas-es-fizetes',
+  faq: '/gyik',
+  contact: '/kapcsolat',
+  terms: '/aszf',
+  privacy: '/adatkezeles',
 };
 
 function pathToView(pathname: string): string {
@@ -115,10 +141,14 @@ function pathToView(pathname: string): string {
   if (pathname.startsWith('/foglalasaim')) return 'bookings';
   if (pathname.startsWith('/szolgaltatoknak')) return 'provider-landing';
   if (pathname.startsWith('/szolgaltato/programjaim')) return 'provider-programs';
+  if (pathname.startsWith('/szolgaltato/iranyitopult')) return 'provider-schedule';
   if (pathname.startsWith('/szolgaltato/foglalasaim')) return 'provider-bookings';
   if (pathname.startsWith('/szolgaltato/ertekeleseim')) return 'provider-reviews';
-  if (pathname.startsWith('/szolgaltato/erdeklodeseim')) return 'provider-inquiries';
+  if (pathname.startsWith('/szolgaltato/foglaltlista')) return 'provider-booked-list';
   if (pathname.startsWith('/szolgaltato/uzeneteim')) return 'provider-messages';
+  if (pathname.startsWith('/szolgaltato/attekintes')) return 'provider-overview';
+  if (pathname.startsWith('/szolgaltato/vendegeim')) return 'provider-guests';
+  if (pathname.startsWith('/szolgaltato/penzugyek')) return 'provider-finances';
   if (pathname.startsWith('/szolgaltato/dashboard')) return 'provider-dashboard';
   // a specifikusabb /admin/xxx checkek az altalanos /admin ELOTT kellenek,
   // kulonben a prefix-match sosem jutna el ide.
@@ -135,6 +165,13 @@ function pathToView(pathname: string): string {
   // at) a Programok celre esik vissza.
   if (pathname.startsWith('/admin')) return 'admin-programs';
   if (pathname.startsWith('/sajat-fiokom')) return 'my-account';
+  if (pathname.startsWith('/hogyan-mukodik')) return 'how-it-works';
+  if (pathname.startsWith('/rolunk')) return 'about-us';
+  if (pathname.startsWith('/arazas-es-fizetes')) return 'pricing';
+  if (pathname.startsWith('/gyik')) return 'faq';
+  if (pathname.startsWith('/kapcsolat')) return 'contact';
+  if (pathname.startsWith('/aszf')) return 'terms';
+  if (pathname.startsWith('/adatkezeles')) return 'privacy';
   return 'home';
 }
 
@@ -269,8 +306,11 @@ interface AppContextType {
   setSelectedDateTo: (date: string) => void;
   selectedDurationType: 'all' | 'single' | 'multi';
   setSelectedDurationType: (type: 'all' | 'single' | 'multi') => void;
-  maxPrice: number;
-  setMaxPrice: (price: number) => void;
+  // Kanban c9df8a1a: null = nincs meg felhasznalo-valasztott ertek, a csuszka
+  // a katalogus aktualisan legdragabb (EUR-ekvivalens) programjat kovesse
+  // dinamikusan. Konkret szamra valt, mihelyt a felhasznalo elmozditja.
+  maxPrice: number | null;
+  setMaxPrice: (price: number | null) => void;
   currencyFilter: 'ALL' | 'EUR' | 'Ft';
   setCurrencyFilter: (curr: 'ALL' | 'EUR' | 'Ft') => void;
   resetFilters: () => void;
@@ -291,8 +331,8 @@ interface AppContextType {
   setTravelSelectedDateTo: (date: string) => void;
   travelSelectedDurationType: 'all' | 'single' | 'multi';
   setTravelSelectedDurationType: (type: 'all' | 'single' | 'multi') => void;
-  travelMaxPrice: number;
-  setTravelMaxPrice: (price: number) => void;
+  travelMaxPrice: number | null;
+  setTravelMaxPrice: (price: number | null) => void;
   travelCurrencyFilter: 'ALL' | 'EUR' | 'Ft';
   setTravelCurrencyFilter: (curr: 'ALL' | 'EUR' | 'Ft') => void;
   resetTravelFilters: () => void;
@@ -304,7 +344,7 @@ interface AppContextType {
   login: (email: string, password: string) => Promise<{ success: boolean; message: string; role?: string }>;
   loginWithGoogle: () => Promise<{ success: boolean; message: string; role?: string }>;
   logout: () => void;
-  registerVisitor: (data: { name: string; email: string; password: string }) => Promise<{ success: boolean; message: string }>;
+  registerVisitor: (data: { name: string; email: string; password: string; termsAccepted: boolean }) => Promise<{ success: boolean; message: string }>;
   requestPasswordReset: (email: string) => Promise<{ success: boolean; message: string }>;
   confirmPasswordReset: (email: string, token: string, newPassword: string) => Promise<{ success: boolean; message: string }>;
   checkPasswordResetToken: (email: string, token: string) => Promise<boolean>;
@@ -329,6 +369,7 @@ interface AppContextType {
     description: string;
     password: string;
     accepted_payment_methods: OnsitePaymentMethod[];
+    termsAccepted: boolean;
   }) => Promise<{ success: boolean; message: string }>;
 
   // Data Collections
@@ -459,6 +500,16 @@ interface AppContextType {
   getProviderContactForOrder: (orderId: string) => Promise<OrderProviderContact | null>;
   getOrderBuyerInfo: (orderId: string) => Promise<OrderBuyerInfo | null>;
 
+  // Kanban ca9129b7 (Foglaltlista oldal): a "ki jelent meg" perzisztens jeloles,
+  // es a tobb rendeles sajat uzenofolyamaba egyszerre beiro bulk-uzenetkuldes.
+  setOrderAttended: (orderId: string, attended: boolean) => Promise<void>;
+  sendBulkBookingMessage: (
+    orderIds: string[],
+    content: string,
+    senderRole: BookingMessageSenderRole,
+    senderId: string
+  ) => Promise<{ sentCount: number; skippedCount: number }>;
+
   // Credit ledger (point 5): read-only from the client -- crediting/payout is
   // admin-side (manual_payout, refund) for now, see schema.sql comment.
   creditTransactions: CreditTransaction[];
@@ -496,6 +547,17 @@ interface AppContextType {
   eurHufLastUpdated: string | null;
   updateEurHufRate: (rate: number) => Promise<void>;
   fetchAndApplyLiveRate: () => Promise<number | null>;
+  // Kanban 71915a0a: lablec kozossegi media linkek (FB/Instagram/TikTok),
+  // admin-szerkesztheto URL-ek a social_links tablaban (nem app_settings,
+  // mert annak value oszlopa numeric).
+  socialLinks: { facebook: string; instagram: string; tiktok: string };
+  updateSocialLinks: (links: { facebook: string; instagram: string; tiktok: string }) => Promise<void>;
+  // Kanban 71915a0a (4-6. pont): admin-szerkesztheto tartalom a 7 uj publikus
+  // aloldalhoz (Platform + Ugyfelszolgalat). A content alakja oldalankent mas
+  // (lasd src/types/pageContent.ts), ezert jsonb/Record<string, unknown> --
+  // nem kulon oszlop oldalankent.
+  pages: Record<string, PageRecord>;
+  updatePageContent: (slug: string, data: { title: string; content: Record<string, unknown> }) => Promise<void>;
   // Display-only helpers mirroring the server's compute_booking_fee/orders trigger
   // formula -- a program's stored `price` is the NET amount the provider receives,
   // the catalog/detail views must show the buyer-facing TOTAL (net+fee).
@@ -507,6 +569,13 @@ interface AppContextType {
   isSupabaseLive: boolean;
   isLoading: boolean;
   authChecked: boolean;
+  // Kanban 32ad8a91: Google-regisztracional (elso bejelentkezes, meg nincs
+  // profiles-sor) nincs hagyomanyos form-submit lepes ahol a checkbox mar
+  // elfogadtatta volna az ASZF-et -- ez a kulon elfogado-lepes/modal allapota,
+  // amig null, addig nincs fuggoben levo elfogadas.
+  pendingTermsConsent: { userId: string; displayName: string; email: string } | null;
+  acceptTermsAndActivateAccount: () => Promise<{ success: boolean; message: string }>;
+  declineTermsAndSignOut: () => Promise<void>;
   // Eleni #244 audit [D]: egy Supabase-hiba korabban csendben nyelve lett, a szuro UI
   // 0 talalatnak tunt ("nincs talalat"-nak nezett ki, pedig a betoltes bukott el).
   // Ez a flag kulonbozteti meg a "ures eredmeny" es a "hiba volt" allapotot a UI-ban.
@@ -584,20 +653,6 @@ interface AppContextType {
   closeLoginModal: () => void;
 }
 
-const STORAGE_KEYS = {
-  REGIONS: 'vg_regions_v2',
-  CATEGORIES: 'vg_categories_v2',
-  PROGRAMS: 'vg_programs_v2',
-  IMAGES: 'vg_images_v2',
-  PROVIDERS: 'vg_providers_v2',
-  PROFILES: 'vg_profiles_v2',
-  INQUIRIES: 'vg_inquiries_v2',
-  CURRENT_USER: 'vg_current_user_v2',
-  REVIEWS: 'vg_reviews_v2',
-  ORDERS: 'vg_orders_v2',
-  FAVORITE_FOLDERS: 'vg_favorite_folders_v3',
-  FAVORITES: 'vg_favorites_v3',
-};
 
 function generateUUID(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -618,7 +673,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const navigate = useNavigate();
   const location = useLocation();
   const currentView = pathToView(location.pathname);
-  const setCurrentView = (view: string) => navigate(VIEW_TO_PATH[view] || '/');
+  // Kanban dc9d85fb: loginRedirectTo altalaban egy VIEW_TO_PATH-kulcs ('programs',
+  // 'bookings', stb.), de a /foglalasaim/:ref deep-linknek nincs es nem is lehet
+  // sajat view-kulcsa (dinamikus ref per foglalas) -- ha a hivo mar egy valodi
+  // utvonalat ad at ('/'-tal kezdve), azt kozvetlenul navigaljuk, nem essunk
+  // vissza a fooldalra.
+  const setCurrentView = (view: string) => navigate(VIEW_TO_PATH[view] || (view.startsWith('/') ? view : '/'));
 
   // Filters state
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -630,7 +690,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const selectedDate = selectedDateFrom;
   const setSelectedDate = setSelectedDateFrom;
   const [selectedDurationType, setSelectedDurationType] = useState<'all' | 'single' | 'multi'>('all');
-  const [maxPrice, setMaxPrice] = useState<number>(150); // Default for EUR abroad prices
+  // Kanban c9df8a1a: null amig a felhasznalo nem erinti -- a slider ekkor a
+  // dinamikusan szamolt (legdragabb EUR-ekvivalens program) erteket mutatja,
+  // es a szuro sem korlatoz semmit (lasd ProgramList.tsx price-filter aga).
+  const [maxPrice, setMaxPrice] = useState<number | null>(null);
   const [currencyFilter, setCurrencyFilter] = useState<'ALL' | 'EUR' | 'Ft'>('ALL');
 
   // Kanban 2bc6d38b: independent filter slice for "Utazások" (travelOnly) --
@@ -640,7 +703,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [travelSelectedDateFrom, setTravelSelectedDateFrom] = useState<string>('');
   const [travelSelectedDateTo, setTravelSelectedDateTo] = useState<string>('');
   const [travelSelectedDurationType, setTravelSelectedDurationType] = useState<'all' | 'single' | 'multi'>('all');
-  const [travelMaxPrice, setTravelMaxPrice] = useState<number>(150);
+  const [travelMaxPrice, setTravelMaxPrice] = useState<number | null>(null);
   const [travelCurrencyFilter, setTravelCurrencyFilter] = useState<'ALL' | 'EUR' | 'Ft'>('ALL');
 
   // Dynamic collections from Supabase (sole persistent source of truth - local storage removed)
@@ -658,10 +721,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [reviews, setReviews] = useState<Review[]>([]);
   const [rawFavoriteFolders, setRawFavoriteFolders] = useState<FavoriteFolder[]>([]);
   const [rawFavorites, setRawFavorites] = useState<FavoriteItem[]>([]);
-  // Tracks which user's favorite_folders fetch from Supabase has completed, so the
-  // default-folder bootstrap effect below never races the async fetch and creates
-  // a duplicate "Általános kedvencek" folder on every fresh page load.
-  const [foldersFetchedForUser, setFoldersFetchedForUser] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [catalogLoadError, setCatalogLoadError] = useState<boolean>(false);
 
@@ -696,6 +755,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [feePercentage, setFeePercentage] = useState<number>(0);
   const [feeMinimumEur, setFeeMinimumEur] = useState<number>(0);
   const [eurHufRate, setEurHufRate] = useState<number>(400);
+  const [socialLinks, setSocialLinks] = useState<{ facebook: string; instagram: string; tiktok: string }>({
+    facebook: '', instagram: '', tiktok: '',
+  });
+  const [pages, setPages] = useState<Record<string, PageRecord>>({});
   const [eurHufLastUpdated, setEurHufLastUpdated] = useState<string | null>(null);
 
   // Current active user profile (derived from Supabase Auth session)
@@ -720,6 +783,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // before this resolves would always see "not authenticated" and bounce to "/"
   // even for an already-logged-in visitor reloading e.g. /sajat-fiokom.
   const [authChecked, setAuthChecked] = useState(false);
+
+  // Kanban 32ad8a91: fuggoben levo ASZF-elfogadas egy UJ Google-regisztraciohoz --
+  // syncFromSession allitja be, amikor a sessionhoz meg nincs profiles-sor ES a
+  // user_metadata-ban nincs terms_accepted_at (tehat nem egy mar elfogadott
+  // email+jelszavas regisztraciobol jott a session).
+  const [pendingTermsConsent, setPendingTermsConsent] = useState<{ userId: string; displayName: string; email: string } | null>(null);
 
   // Active user's favorite folders and items (strictly scoped to currentUser.user_id when authenticated)
   // Deduplicates folders by case-insensitive name so duplicate "Általános kedvencek" folders can never appear in UI
@@ -840,6 +909,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           contactMessagesRes,
           reviewsRes,
           settingsRes,
+          socialLinksRes,
+          pagesRes,
         ] = await Promise.all([
           supabase.from('regions').select('*'),
           supabase.from('categories').select('*'),
@@ -849,6 +920,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           supabase.from('contact_messages').select('*').order('created_at', { ascending: false }),
           supabase.from('reviews').select('*').order('created_at', { ascending: false }),
           supabase.from('app_settings').select('*').in('key', ['fee_percentage', 'fee_minimum_eur', 'eur_huf_rate']),
+          supabase.from('social_links').select('*'),
+          supabase.from('pages').select('*'),
         ]);
 
         if (cancelled) return;
@@ -883,6 +956,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               setEurHufLastUpdated(rateRow.updated_at);
             }
           }
+        }
+
+        if (!socialLinksRes.error && socialLinksRes.data) {
+          const rows = socialLinksRes.data as { platform: string; url: string }[];
+          setSocialLinks(prev => ({
+            facebook: rows.find(r => r.platform === 'facebook')?.url ?? prev.facebook,
+            instagram: rows.find(r => r.platform === 'instagram')?.url ?? prev.instagram,
+            tiktok: rows.find(r => r.platform === 'tiktok')?.url ?? prev.tiktok,
+          }));
+        }
+
+        if (!pagesRes.error && pagesRes.data) {
+          const rows = pagesRes.data as PageRecord[];
+          const bySlug: Record<string, PageRecord> = {};
+          for (const row of rows) bySlug[row.slug] = row;
+          setPages(bySlug);
         }
 
         if (regionsRes.error || categoriesRes.error) {
@@ -926,6 +1015,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     function resetToAnonymousVisitor() {
       if (cancelled) return;
       setIsAuthenticated(false);
+      setPendingTermsConsent(null);
       const visitor = rawProfiles.find(p => p.role === 'visitor') || {
         id: 'prof-visitor',
         user_id: '',
@@ -946,7 +1036,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return;
       }
 
-      const pending = (session.user.user_metadata as Record<string, unknown> | undefined)?.pending_provider as
+      const pendingMeta = session.user.user_metadata as Record<string, unknown> | undefined;
+      const pending = pendingMeta?.pending_provider as
         | { company_name: string; contact_name: string; phone: string; website?: string; description: string; accepted_payment_methods: OnsitePaymentMethod[] }
         | undefined;
 
@@ -970,6 +1061,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             // admin-jovahagyas nelkul -- egyenesen 'approved'.
             status: 'approved' as const,
             accepted_payment_methods: pending.accepted_payment_methods,
+            // Kanban 32ad8a91: a ProviderRegisterModal checkboxa mar elfogadtatta az
+            // ASZF-et form-submitkor, az idobelyeg a signUp() metadata-jaban utazik
+            // (pending_provider mellett, sajat kulcskent) a deferred letrehozasig.
+            terms_accepted_at: (pendingMeta?.terms_accepted_at as string | undefined) ?? null,
           };
           // .select('id') only -- RETURNING the other columns would need a table-wide
           // SELECT grant the authenticated role no longer has (kanban fbf552b2 point 3,
@@ -988,6 +1083,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               name: pending.contact_name,
               email: session.user.email,
               role: 'provider',
+              terms_accepted_at: insertPayload.terms_accepted_at,
             });
             // Clear the metadata flag so this doesn't try to insert again on every future login.
             await supabase.auth.updateUser({ data: { pending_provider: null } });
@@ -1009,6 +1105,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // (registerVisitor below), getting its real session for the first time.
         const meta = session.user.user_metadata as Record<string, unknown> | undefined;
         const displayName = (meta?.full_name as string) || (meta?.name as string) || (session.user.email ? session.user.email.split('@')[0] : 'Látogató');
+        const termsAcceptedAt = meta?.terms_accepted_at as string | undefined;
+
+        if (!termsAcceptedAt) {
+          // Kanban 32ad8a91: Google-regisztracio -- nincs hagyomanyos form-submit
+          // lepes ahol egy checkbox mar elfogadtatta volna az ASZF-et, ezert a
+          // TermsConsentModal keri be MIELOTT ez a profiles-sor (es ezzel a fiok)
+          // letrejon. Egy mar letezo profillal rendelkezo visszatero felhasznalonal
+          // ez az ag sosem fut le ujra (prof mar megvan fentebb), tehat regi
+          // fiokoknal nem kerul ujra elfogadas.
+          setPendingTermsConsent({ userId: session.user.id, displayName, email: session.user.email || '' });
+          return;
+        }
+
         const { data: newProf, error: profErr } = await supabase
           .from('profiles')
           .insert({
@@ -1016,11 +1125,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             name: displayName,
             email: session.user.email,
             role: 'visitor',
+            terms_accepted_at: termsAcceptedAt,
           })
           .select()
           .single();
         if (profErr) console.error('Visitor profile creation failed:', profErr);
         prof = newProf;
+        setPendingTermsConsent(null);
       }
 
       if (prof && !cancelled) {
@@ -1035,13 +1146,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           loginRedirectRef.current = null;
           // Kartya cde7bd96 (Csaba): a Fiok-gomb meg szerep-ismeret elott allitja be
           // a generikus 'programs' celpontot (lasd Navbar handleAccountClick) -- ez
-          // szolgaltatonal nem ertelmes default, nala a Foglalasok legyen az.
-          setCurrentView(role === 'provider' && target === 'programs' ? 'provider-bookings' : target);
+          // szolgaltatonal nem ertelmes default. Kanban 4230d70e (C2 dontes) ota az
+          // Iranyitopult az alapertelmezett, nem a kulon Foglalasok lista.
+          setCurrentView(role === 'provider' && target === 'programs' ? 'provider-schedule' : target);
           window.scrollTo({ top: 0, behavior: 'smooth' });
         } else if (window.location.pathname === '/' || window.location.pathname === '') {
-          // Ha bejelentkezve nyitjuk meg a weblapot: szolgaltatonal a Foglalasok
-          // lap, minden mas szerepnel a programok lap.
-          navigate(role === 'provider' ? '/szolgaltato/foglalasaim' : '/programok', { replace: true });
+          // Ha bejelentkezve nyitjuk meg a weblapot: szolgaltatonal az Iranyitopult,
+          // minden mas szerepnel a programok lap.
+          navigate(role === 'provider' ? '/szolgaltato/iranyitopult' : '/programok', { replace: true });
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }
         loadProgramsAndProviders(true, role);
@@ -1086,7 +1198,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             if (cancelled) return;
             if (fErr) {
               console.error('Fetch favorite_folders error:', fErr);
-              setFoldersFetchedForUser(userId);
               return;
             }
 
@@ -1167,11 +1278,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 const others = prev.filter(f => f.user_id !== userId);
                 return [...folders, ...others];
               });
-              setFoldersFetchedForUser(userId);
             }
-          }, () => {
-            if (!cancelled) setFoldersFetchedForUser(userId);
-          });
+          }, () => {});
 
           supabase.from('favorites').select('*').eq('user_id', session.user.id).then(({ data: favData, error: favErr }) => {
             if (!favErr && favData && !cancelled) {
@@ -1331,7 +1439,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     (currentUser.user_id ? rawProviders.find(p => p.user_id && p.user_id === currentUser.user_id) : null) ||
     (currentUser.email ? rawProviders.find(p => (p.email || '').toLowerCase() === currentUser.email.toLowerCase()) : null) ||
     (currentUser.role === 'provider' ? rawProviders.find(p => p.status === 'approved') || rawProviders[0] || null : null) ||
-    (currentView === 'provider-dashboard' ? rawProviders.find(p => p.status === 'approved') || rawProviders[0] || null : null) ||
+    (['provider-dashboard', 'provider-overview', 'provider-guests', 'provider-finances'].includes(currentView)
+      ? rawProviders.find(p => p.status === 'approved') || rawProviders[0] || null
+      : null) ||
     null;
 
   // Joined programs with images, category, region, provider (featured programs first)
@@ -1420,7 +1530,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSelectedDateFrom('');
     setSelectedDateTo('');
     setSelectedDurationType('all');
-    setMaxPrice(150);
+    setMaxPrice(null);
     setCurrencyFilter('ALL');
   };
 
@@ -1432,7 +1542,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setTravelSelectedDateFrom('');
     setTravelSelectedDateTo('');
     setTravelSelectedDurationType('all');
-    setTravelMaxPrice(150);
+    setTravelMaxPrice(null);
     setTravelCurrencyFilter('ALL');
   };
 
@@ -1732,12 +1842,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return { success: true, message: 'A fiókod véglegesen törölve.' };
   };
 
+  // Kanban 32ad8a91: a TermsConsentModal "Elfogadom" gombja hivja. Nem maga insertalja
+  // a profiles-sort -- supabase.auth.updateUser() egy USER_UPDATED esemenyt vailt ki,
+  // amire a syncFromSession effect (onAuthStateChange) ujra lefut a MAR frissitett
+  // user_metadata-val, es onnantol ugyanaz az ag fut le mint egy email+jelszavas
+  // regisztraciona, ahol a checkbox mar signUp()-kor beallitotta a metadata-t.
+  const acceptTermsAndActivateAccount = async (): Promise<{ success: boolean; message: string }> => {
+    if (!isSupabaseConfigured) {
+      return { success: false, message: 'A Supabase nincs konfigurálva.' };
+    }
+    if (!pendingTermsConsent) {
+      return { success: false, message: 'Nincs folyamatban lévő regisztráció.' };
+    }
+    const { error } = await supabase.auth.updateUser({ data: { terms_accepted_at: new Date().toISOString() } });
+    if (error) {
+      return { success: false, message: `Hiba történt az elfogadás mentése során: ${error.message}` };
+    }
+    return { success: true, message: 'Köszönjük, a fiókod aktiválva.' };
+  };
+
+  // A fiokot NEM hozza letre (nincs meg profiles-sor), csak a felig-hitelesitett
+  // auth.users sessiont zarja le, ha a felhasznalo nem fogadja el az ASZF-et.
+  const declineTermsAndSignOut = async (): Promise<void> => {
+    setPendingTermsConsent(null);
+    if (isSupabaseConfigured) {
+      await supabase.auth.signOut();
+    }
+  };
+
   const logout = () => {
     if (isSupabaseConfigured) {
       supabase.auth.signOut();
     }
     setIsAuthenticated(false);
-    setFoldersFetchedForUser(null);
     setRawFavoriteFolders([]);
     setRawFavorites([]);
     const visitor = rawProfiles.find(p => p.role === 'visitor') || {
@@ -1756,12 +1893,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     name: string;
     email: string;
     password: string;
+    termsAccepted: boolean;
   }): Promise<{ success: boolean; message: string }> => {
+    if (!data.termsAccepted) {
+      return { success: false, message: 'Az Általános Szerződési Feltételek elfogadása kötelező a regisztrációhoz.' };
+    }
     if (isSupabaseConfigured) {
       const { data: signUpData, error } = await supabase.auth.signUp({
         email: data.email.trim(),
         password: data.password,
-        options: { data: { name: data.name.trim() } },
+        options: { data: { name: data.name.trim(), terms_accepted_at: new Date().toISOString() } },
       });
       if (error) {
         return {
@@ -1874,7 +2015,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     description: string;
     password: string;
     accepted_payment_methods: OnsitePaymentMethod[];
+    termsAccepted: boolean;
   }): Promise<{ success: boolean; message: string }> => {
+    if (!data.termsAccepted) {
+      return { success: false, message: 'Az Általános Szerződési Feltételek elfogadása kötelező a regisztrációhoz.' };
+    }
     if (isSupabaseConfigured) {
       const { data: signUpData, error } = await supabase.auth.signUp({
         email: data.email.trim(),
@@ -1889,6 +2034,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               description: data.description,
               accepted_payment_methods: data.accepted_payment_methods,
             },
+            terms_accepted_at: new Date().toISOString(),
           },
         },
       });
@@ -1945,7 +2091,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setRawProviders(prev => [...prev, newProvider]);
     setRawProfiles(prev => [...prev, newProfile]);
     setCurrentUser(newProfile);
-    setCurrentView('provider-dashboard');
+    setCurrentView('provider-overview');
     return {
       success: true,
       message: 'Sikeres szolgáltatói regisztráció! Fiókod függőben (pending) van az adminisztrátori jóváhagyásig.',
@@ -2383,26 +2529,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     email: string;
     message: string;
   }): Promise<{ success: boolean; message: string }> => {
-    if (!data.message.trim()) {
-      return { success: false, message: 'Írj be egy üzenetet, mielőtt elküldöd.' };
+    if (!data.name.trim() || !data.email.trim() || !data.message.trim()) {
+      return { success: false, message: 'Kérjük, töltsd ki a nevedet, az e-mail-címedet és az üzenetedet.' };
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email.trim())) {
+      return { success: false, message: 'Kérjük, érvényes e-mail-címet adj meg.' };
+    }
+    if (data.message.trim().length < 5 || data.message.length > 5000) {
+      return { success: false, message: 'Az üzenet legalább 5, legfeljebb 5000 karakter lehet.' };
     }
     if (!isSupabaseConfigured) {
-      return { success: false, message: 'Az üzenetküldés csak éles (Supabase-sel összekötött) környezetben érhető el.' };
+      return { success: false, message: 'Az üzenetküldés jelenleg nem érhető el. Kérjük, írj az info@velemgyere.hu címre.' };
     }
 
-    const { error } = await supabase.from('contact_messages').insert({
-      user_id: currentUser.user_id || null,
-      name: data.name,
-      email: data.email,
-      message: data.message.trim(),
+    const { data: response, error } = await supabase.functions.invoke('submit-contact-message', {
+      body: {
+        name: data.name.trim(),
+        email: data.email.trim(),
+        message: data.message.trim(),
+        userId: currentUser.user_id || null,
+      },
     });
 
-    if (error) {
-      console.error('submitContactMessage failed:', error);
-      return { success: false, message: `Üzenet küldése sikertelen: ${error.message}` };
+    if (error || !response?.sent) {
+      console.error('submitContactMessage failed:', error || response?.error);
+      return { success: false, message: response?.error || 'Nem sikerült elküldeni az üzenetet. Kérjük, próbáld újra később.' };
     }
 
-    return { success: true, message: 'Üzeneted elküldve! Hamarosan válaszolunk.' };
+    return { success: true, message: 'Köszönjük! Üzenetedet elküldtük a Velemgyere csapatának. Hamarosan válaszolunk.' };
   };
 
   // Kanban 6f9ad755 bővítés (Csaba, msg 3189): admin kinyit egy "még olvasatlan"
@@ -2469,31 +2623,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       localStorage.setItem('vg_manual_orders_cache', JSON.stringify([order, ...filtered]));
     } catch (e) {
       console.warn('Orders local cache write note:', e);
-    }
-  };
-
-  const updateOrderInLocalCache = (orderId: string, updates: Partial<Order>) => {
-    if (typeof window === 'undefined' || !window.localStorage) return;
-    try {
-      const raw = localStorage.getItem('vg_manual_orders_cache');
-      const list: Order[] = raw ? JSON.parse(raw) : [];
-      let found = false;
-      const updatedList = list.map(o => {
-        if (o.id === orderId || o.booking_reference === orderId) {
-          found = true;
-          return { ...o, ...updates };
-        }
-        return o;
-      });
-      if (!found) {
-        const currentOrder = orders.find(o => o.id === orderId || o.booking_reference === orderId);
-        if (currentOrder) {
-          updatedList.unshift({ ...currentOrder, ...updates });
-        }
-      }
-      localStorage.setItem('vg_manual_orders_cache', JSON.stringify(updatedList));
-    } catch (e) {
-      console.warn('Orders local cache update note:', e);
     }
   };
 
@@ -2952,6 +3081,58 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return row ? (row as OrderBuyerInfo) : null;
   };
 
+  // Kanban ca9129b7 (Foglaltlista): egyszeru direkt update, a mar letezo
+  // "Providers can update orders for their programs" UPDATE RLS-policy fedi,
+  // nincs kulon RPC/jogosultsag-valtozas kell.
+  const setOrderAttended = async (orderId: string, attended: boolean): Promise<void> => {
+    if (!isSupabaseConfigured) {
+      setOrders(prev => prev.map(o => (o.id === orderId ? { ...o, attended } : o)));
+      return;
+    }
+    const { error } = await supabase.from('orders').update({ attended }).eq('id', orderId);
+    if (error) {
+      console.error('setOrderAttended failed:', error);
+      throw new Error('A megjelenés-jelölés mentése nem sikerült, próbáld meg újra.');
+    }
+    setOrders(prev => prev.map(o => (o.id === orderId ? { ...o, attended } : o)));
+  };
+
+  // Kanban ca9129b7 ("Uzenet mindenkinek"): UGYANAZT a szoveget beirja minden
+  // megadott rendeles SAJAT (kulon) booking_messages-szalaba, egy batch
+  // insert-tel. A zart (2 nappal a program utani) szalakat kihagyja -- ezekrol
+  // a sentCount/skippedCount ad visszajelzest a hivonak.
+  const sendBulkBookingMessage = async (
+    orderIds: string[],
+    content: string,
+    senderRole: BookingMessageSenderRole,
+    senderId: string
+  ): Promise<{ sentCount: number; skippedCount: number }> => {
+    const trimmed = content.trim();
+    if (!trimmed || orderIds.length === 0 || !isSupabaseConfigured) {
+      return { sentCount: 0, skippedCount: orderIds.length };
+    }
+    const openOrderIds = orderIds.filter(id => {
+      const order = orders.find(o => o.id === id);
+      return isBookingMessageWriteWindowOpen(order?.event_date ?? order?.program?.event_date ?? null);
+    });
+    const skippedCount = orderIds.length - openOrderIds.length;
+    if (openOrderIds.length === 0) return { sentCount: 0, skippedCount };
+
+    const rows = openOrderIds.map(orderId => ({
+      order_id: orderId,
+      sender_role: senderRole,
+      sender_id: senderId,
+      content: trimmed,
+      created_at: new Date().toISOString(),
+    }));
+    const { error } = await supabase.from('booking_messages').insert(rows);
+    if (error) {
+      console.error('sendBulkBookingMessage failed:', error);
+      throw new Error('Az üzenet küldése nem sikerült, próbáld meg újra.');
+    }
+    return { sentCount: openOrderIds.length, skippedCount };
+  };
+
   // Admin-only (enforced by the "Admins can manage app settings" RLS policy, this is
   // just the client call) -- updates the live fee settings. Already-granted signup
   // bonuses and already-created orders keep their own captured booking_fee/onsite_amount
@@ -2981,6 +3162,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       { key: 'eur_huf_rate', value: rate, updated_at: nowIso }
     ], { onConflict: 'key' });
   }, []);
+
+  // Admin-only (enforced by the "Admins can manage social links" RLS policy) --
+  // updates the footer's FB/Instagram/TikTok URLs. Empty string hides the icon
+  // in the footer (see Footer.tsx).
+  const updateSocialLinks = async (links: { facebook: string; instagram: string; tiktok: string }): Promise<void> => {
+    setSocialLinks(links);
+    if (!isSupabaseConfigured) return;
+    const nowIso = new Date().toISOString();
+    const { error } = await supabase.from('social_links').upsert([
+      { platform: 'facebook', url: links.facebook, updated_at: nowIso },
+      { platform: 'instagram', url: links.instagram, updated_at: nowIso },
+      { platform: 'tiktok', url: links.tiktok, updated_at: nowIso },
+    ], { onConflict: 'platform' });
+    if (error) throw error;
+  };
+
+  // Admin-only (enforced by the "Admins can manage pages" RLS policy) -- upsert
+  // egy publikus aloldal (Platform/Ugyfelszolgalat) cimet+tartalmat.
+  const updatePageContent = async (slug: string, data: { title: string; content: Record<string, unknown> }): Promise<void> => {
+    setPages(prev => ({ ...prev, [slug]: { slug, title: data.title, content: data.content } }));
+    if (!isSupabaseConfigured) return;
+    const nowIso = new Date().toISOString();
+    const { error } = await supabase.from('pages').upsert([
+      { slug, title: data.title, content: data.content, updated_at: nowIso },
+    ], { onConflict: 'slug' });
+    if (error) throw error;
+  };
 
   const fetchAndApplyLiveRate = useCallback(async (): Promise<number | null> => {
     const liveRate = await fetchLiveEurHufRate();
@@ -3075,14 +3283,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, message: 'Ehhez a foglaláshoz már rögzítettél értékelést!' };
     }
 
-    // Basic moderation check for phone numbers / spam
-    const textToCheck = `${data.comment} ${data.title || ''} ${data.positive_feedback || ''}`.toLowerCase();
-    const phoneRegex = /(\+?[0-9]{2,3}[-\s]?[0-9]{2,3}[-\s]?[0-9]{4,8})/g;
-    let initialStatus: ReviewStatus = 'published';
-    if (phoneRegex.test(textToCheck)) {
-      initialStatus = 'flagged';
-    }
-
     const ord = orders.find(o => o.id === data.order_id);
 
     // Defense in depth: addReview must not trust a caller-supplied order_id on
@@ -3090,7 +3290,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // path) -- require a real, non-cancelled order for this program, owned by
     // this user (or an admin acting on it), matching the pre-fix eligibility
     // rule. Without this, is_verified_buyer below would be a bare claim with
-    // nothing backing it.
+    // nothing backing it. The server (submit_review RPC) re-checks this too --
+    // this is the fast client-side rejection, not the security boundary.
     const isOwnOrAdminOrder = !!ord && (
       ord.user_id === currentUser.id ||
       ord.user_id === currentUser.user_id ||
@@ -3102,70 +3303,112 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, message: 'Kizárólag igazolt vásárlók értékelhetnek, akik a velemgyere felületén keresztül foglalták le az adott programot és a részvétel megtörtént.' };
     }
 
-    const newReview: Review = {
-      id: generateUUID(),
-      program_id: resolvedProgId,
-      order_id: data.order_id,
-      user_id: currentUser.id || currentUser.user_id || 'user-anonymous',
-      user_name: currentUser.name || currentUser.email.split('@')[0] || 'Utazó',
-      rating: Math.min(5, Math.max(1, data.rating)),
-      rating_guide: Math.min(5, Math.max(1, data.rating_guide)),
-      rating_value: Math.min(5, Math.max(1, data.rating_value)),
-      rating_organization: Math.min(5, Math.max(1, data.rating_organization)),
-      rating_safety: Math.min(5, Math.max(1, data.rating_safety)),
-      title: data.title?.trim() || undefined,
-      comment: data.comment.trim(),
-      positive_feedback: data.positive_feedback?.trim() || undefined,
-      improvement_feedback: data.improvement_feedback?.trim() || undefined,
-      travel_type: data.travel_type,
-      tour_date: ord?.created_at ? ord.created_at.split('T')[0] : new Date().toISOString().split('T')[0],
-      is_verified_buyer: isVerifiedBuyer,
-      photos: data.photos && data.photos.length > 0 ? data.photos : undefined,
-      provider_response: null,
-      status: initialStatus,
-      created_at: new Date().toISOString(),
-      program_title: prog?.title,
-      provider_id: prog?.provider_id,
-      provider_name: prog?.provider?.company_name
-    };
-
-    if (isSupabaseConfigured) {
-      const dbPayload = {
-        id: newReview.id,
-        program_id: newReview.program_id,
-        order_id: newReview.order_id,
-        user_id: currentUser.user_id || currentUser.id,
-        user_name: newReview.user_name,
-        rating: newReview.rating,
-        rating_guide: newReview.rating_guide,
-        rating_value: newReview.rating_value,
-        rating_organization: newReview.rating_organization,
-        rating_safety: newReview.rating_safety,
-        title: newReview.title || null,
-        comment: newReview.comment,
-        positive_feedback: newReview.positive_feedback || null,
-        improvement_feedback: newReview.improvement_feedback || null,
-        travel_type: newReview.travel_type,
-        tour_date: newReview.tour_date,
-        is_verified_buyer: newReview.is_verified_buyer,
-        photos: newReview.photos || [],
-        provider_id: newReview.provider_id || null,
-        provider_name: newReview.provider_name || null,
-        status: newReview.status,
+    if (!isSupabaseConfigured) {
+      // Demo/lokal mod (nincs backend) -- a korabbi, tisztan kliens-oldali
+      // logika valtozatlan, nincs mit a szerverre bizni.
+      const textToCheck = `${data.comment} ${data.title || ''} ${data.positive_feedback || ''}`.toLowerCase();
+      const phoneRegex = /(\+?[0-9]{2,3}[-\s]?[0-9]{2,3}[-\s]?[0-9]{4,8})/g;
+      const initialStatus: ReviewStatus = phoneRegex.test(textToCheck) ? 'flagged' : 'published';
+      const newReview: Review = {
+        id: generateUUID(),
+        program_id: resolvedProgId,
+        order_id: data.order_id,
+        user_id: currentUser.id || currentUser.user_id || 'user-anonymous',
+        user_name: currentUser.name || currentUser.email.split('@')[0] || 'Utazó',
+        rating: Math.min(5, Math.max(1, data.rating)),
+        rating_guide: Math.min(5, Math.max(1, data.rating_guide)),
+        rating_value: Math.min(5, Math.max(1, data.rating_value)),
+        rating_organization: Math.min(5, Math.max(1, data.rating_organization)),
+        rating_safety: Math.min(5, Math.max(1, data.rating_safety)),
+        title: data.title?.trim() || undefined,
+        comment: data.comment.trim(),
+        positive_feedback: data.positive_feedback?.trim() || undefined,
+        improvement_feedback: data.improvement_feedback?.trim() || undefined,
+        travel_type: data.travel_type,
+        tour_date: ord?.created_at ? ord.created_at.split('T')[0] : new Date().toISOString().split('T')[0],
+        is_verified_buyer: isVerifiedBuyer,
+        photos: data.photos && data.photos.length > 0 ? data.photos : undefined,
+        provider_response: null,
+        status: initialStatus,
+        created_at: new Date().toISOString(),
+        program_title: prog?.title,
+        provider_id: prog?.provider_id,
+        provider_name: prog?.provider?.company_name
       };
-      const { error: revErr } = await supabase.from('reviews').insert([dbPayload]);
-      if (revErr) {
-        console.error('Failed to insert review to Supabase:', revErr);
-      }
+      setReviews(prev => [newReview, ...prev]);
+      return {
+        success: true,
+        message: initialStatus === 'flagged'
+          ? 'Köszönjük az értékelést! A moderáció ellenőrzése után kerül közzétételre.'
+          : 'Köszönjük az értékelést! A véleményed azonnal megjelent a program adatlapján.',
+        review: newReview
+      };
     }
+
+    // Gemini-alapu gyuloletbeszed-eloszures az edge function-ben fut le ELOTTE
+    // (kanban 8d11173e, Csaba dontes 2026-11-15) -- a reviews-nak mar nincs
+    // kozvetlen authenticated INSERT RLS policy-ja, ez az egyetlen irasi ut.
+    const { data: response, error: invokeErr } = await supabase.functions.invoke('submit-review', {
+      body: {
+        program_id: resolvedProgId,
+        order_id: data.order_id,
+        rating: data.rating,
+        rating_guide: data.rating_guide,
+        rating_value: data.rating_value,
+        rating_organization: data.rating_organization,
+        rating_safety: data.rating_safety,
+        title: data.title,
+        comment: data.comment,
+        positive_feedback: data.positive_feedback,
+        improvement_feedback: data.improvement_feedback,
+        travel_type: data.travel_type,
+        photos: data.photos,
+      },
+    });
+
+    if (invokeErr || !response?.review) {
+      const message = await extractFunctionErrorMessage(invokeErr, 'Hiba történt az értékelés mentésekor.');
+      return { success: false, message };
+    }
+
+    // A szerver (submit_review RPC) numeric mezoi PostgREST-en keresztul
+    // stringkent erkeznek (pl. "5.0") -- Number()-rel kell visszaalakitani.
+    const row = response.review;
+    const newReview: Review = {
+      id: row.id,
+      program_id: row.program_id,
+      order_id: row.order_id,
+      user_id: row.user_id,
+      user_name: row.user_name,
+      rating: Number(row.rating),
+      rating_guide: Number(row.rating_guide),
+      rating_value: Number(row.rating_value),
+      rating_organization: Number(row.rating_organization),
+      rating_safety: Number(row.rating_safety),
+      title: row.title || undefined,
+      comment: row.comment,
+      positive_feedback: row.positive_feedback || undefined,
+      improvement_feedback: row.improvement_feedback || undefined,
+      travel_type: row.travel_type,
+      tour_date: row.tour_date,
+      is_verified_buyer: row.is_verified_buyer,
+      photos: row.photos && row.photos.length > 0 ? row.photos : undefined,
+      provider_response: row.provider_response,
+      status: row.status,
+      created_at: row.created_at,
+      program_title: prog?.title,
+      provider_id: row.provider_id || undefined,
+      provider_name: row.provider_name || undefined,
+    };
 
     setReviews(prev => [newReview, ...prev]);
 
     return {
       success: true,
-      message: initialStatus === 'flagged'
-        ? 'Köszönjük az értékelést! A moderáció ellenőrzése után kerül közzétételre.'
-        : 'Köszönjük az értékelést! A véleményed azonnal megjelent a program adatlapján.',
+      message: response.message ||
+        (row.status === 'flagged'
+          ? 'Köszönjük az értékelést! A moderáció ellenőrzése után kerül közzétételre.'
+          : 'Köszönjük az értékelést! A véleményed azonnal megjelent a program adatlapján.'),
       review: newReview
     };
   };
@@ -3949,6 +4192,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deleteMyAccount,
         updateMyProfile,
         registerProvider,
+        pendingTermsConsent,
+        acceptTermsAndActivateAccount,
+        declineTermsAndSignOut,
 
         regions,
         categories,
@@ -4005,6 +4251,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         confirmOrder,
         getProviderContactForOrder,
         getOrderBuyerInfo,
+        setOrderAttended,
+        sendBulkBookingMessage,
 
         creditTransactions,
         creditBalance,
@@ -4024,6 +4272,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         fetchAndApplyLiveRate,
         computeBookingFee,
         computeTotalPrice,
+        socialLinks,
+        updateSocialLinks,
+        pages,
+        updatePageContent,
 
         // Reviews system
         reviews,
@@ -4093,4 +4345,4 @@ export const useApp = () => {
   return context;
 };
 
-export { roundToHalfEuro, formatPrice, formatPlatformFee, formatHuf } from '../lib/priceUtils';
+export { roundToHalfEuro, formatPrice, formatPlatformFee, formatHuf, formatAmount } from '../lib/priceUtils';

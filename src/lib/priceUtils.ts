@@ -48,3 +48,29 @@ export const formatHuf = (value: number | string | undefined | null): string => 
   const rounded = Math.round(num);
   return rounded.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 };
+
+/**
+ * Formázza egy osszeget a sajat penzneme szerint: Ft eseten formatHuf()
+ * (ezres-tagolas), egyebkent formatPrice() (fel-euroig kerekites). A
+ * kettő kozul mindig a megjelenitendo osszeg TENYLEGES penznemetol fuggoen
+ * valasztunk -- ez NEM dont a szimbolum (€/Ft) kiirasarol, azt a hivo oldalon
+ * kell kezelni (lasd kanban e84675f6).
+ */
+export const formatAmount = (value: number | string | undefined | null, currency: string | undefined): string => {
+  return currency === 'Ft' ? formatHuf(value) : formatPrice(value);
+};
+
+/**
+ * Egy program ára EUR-ekvivalensben -- a katalógus ár-szűrője (és bármilyen
+ * jövőbeli ár szerinti rendezés) MINDIG EUR-skálán dolgozik (lásd FilterBar.tsx
+ * csúszka "EUR / fő" felirata), de egy program ára Ft-ban is meg lehet adva
+ * (ProgramEditorModal currency mező). Ha a nyers price mezőt közvetlenül
+ * hasonlítjuk össze egy EUR-skálájú értékkel, egy Ft-áras program ára (pl.
+ * 65300) mindig jóval a szűrő fölé esik -- lásd kanban 4b081d70.
+ */
+export const priceInEur = (price: number, currency: string | undefined, eurHufRate: number): number => {
+  if (currency === 'Ft' && eurHufRate > 0) {
+    return price / eurHufRate;
+  }
+  return price;
+};

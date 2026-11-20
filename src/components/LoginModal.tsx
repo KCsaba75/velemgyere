@@ -2,6 +2,10 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { LogIn, Sparkles, Building2, Loader2 } from 'lucide-react';
 
+// Kanban 32ad8a91: az ASZF (slug=terms) 3.4 pontja mar kimondja, hogy a Platform
+// hasznalata az ASZF regisztrakorkor torteno elfogadasahoz kotott -- ez a
+// checkbox teszi ezt kotelezove is a felulteten, nem csak a jogi szovegben.
+
 interface LoginModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -13,6 +17,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -25,6 +30,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
     setName('');
     setEmail('');
     setPassword('');
+    setTermsAccepted(false);
     setError(null);
     setInfoMessage(null);
     onClose();
@@ -35,6 +41,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
     if (!email.trim()) return;
     if (mode !== 'forgot' && !password) return;
     if (mode === 'register' && !name.trim()) return;
+    if (mode === 'register' && !termsAccepted) return;
 
     setLoading(true);
     setError(null);
@@ -44,7 +51,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
         ? await login(email.trim(), password)
         : mode === 'forgot'
           ? await requestPasswordReset(email.trim())
-          : await registerVisitor({ name: name.trim(), email: email.trim(), password });
+          : await registerVisitor({ name: name.trim(), email: email.trim(), password, termsAccepted });
 
       if (res.success) {
         if (mode === 'register' || mode === 'forgot') {
@@ -54,12 +61,13 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
         } else {
           if (loginRedirectTo) {
             // Kartya cde7bd96: a 'programs' a Fiok-gomb szerep-ismeret elotti,
-            // generikus celpontja -- szolgaltatonal a Foglalasok legyen helyette
-            // az alapertelmezett kezdonezet. 'res.role' a login()/loginWithGoogle()
-            // valaszaban mar megvan MOST, nincs szukseg a kesobbi, aszinkron
-            // session-sync effektre varni (az akkorra mar zarva talalna a modalt).
+            // generikus celpontja -- szolgaltatonal az Iranyitopult legyen helyette
+            // az alapertelmezett kezdonezet (kanban 4230d70e, C2 dontes). 'res.role'
+            // a login()/loginWithGoogle() valaszaban mar megvan MOST, nincs szukseg
+            // a kesobbi, aszinkron session-sync effektre varni (az akkorra mar zarva
+            // talalna a modalt).
             const target = ('role' in res && res.role === 'provider' && loginRedirectTo === 'programs')
-              ? 'provider-bookings'
+              ? 'provider-schedule'
               : loginRedirectTo;
             setCurrentView(target);
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -128,6 +136,12 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
           <p className="text-xs text-stone-500 mt-1">
             Velem Gyere Katalógus
           </p>
+          {mode === 'register' && (
+            <p className="mt-2.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Ingyenes, gyors és egyszerű regisztráció</span>
+            </p>
+          )}
         </div>
 
         {loginModalMessage && (
@@ -135,6 +149,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
             <Sparkles className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
             <div className="leading-relaxed font-medium">
               {loginModalMessage}
+              {mode === 'login' && ' Ha nincs fiókod regisztrálj Ingyenesen és egyszerűen!'}
             </div>
           </div>
         )}
@@ -228,9 +243,32 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
             </div>
           )}
 
+          {mode === 'register' && (
+            <label className="flex items-start gap-2.5 text-xs text-stone-600 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={termsAccepted}
+                onChange={(e) => setTermsAccepted(e.target.checked)}
+                className="mt-0.5 w-4 h-4 rounded border-stone-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+              />
+              <span>
+                Elfogadom az{' '}
+                <a
+                  href="/aszf"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-emerald-700 font-semibold hover:underline"
+                >
+                  Általános Szerződési Feltételeket
+                </a>
+                .
+              </span>
+            </label>
+          )}
+
           <button
             type="submit"
-            disabled={loading || googleLoading}
+            disabled={loading || googleLoading || (mode === 'register' && !termsAccepted)}
             className="w-full bg-stone-900 hover:bg-stone-800 text-white font-bold py-3 px-6 rounded-xl transition-all cursor-pointer text-sm shadow-sm disabled:opacity-50 flex items-center justify-center gap-2"
           >
             <Sparkles className="w-4 h-4" />
