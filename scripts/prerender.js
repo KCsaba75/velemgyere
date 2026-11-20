@@ -99,6 +99,25 @@ function injectSeo(template, seoBlock) {
   return template.replace(PLACEHOLDER_RE, seoBlock);
 }
 
+// Kanban b3387cba (004ea321 audit, SEO szekcio): a korabbi public/sitemap.xml
+// kezzel irt, statikus volt -- fix 2026-10-15 lastmod-dal es EGYETLEN tenyleges
+// program-oldal nelkul (csak a kategoria-gyorslinkeket tartalmazta). Ez a
+// fuggveny a build-time allRoutes listabol (ugyanaz, amit a prerenderelt HTML-ek
+// is hasznalnak) generalja a sitemapot, igy uj program/kategoria/regio automatikusan
+// bekerul, kiszedett/torolt pedig automatikusan kikerul -- nincs kulon karbantartas.
+function writeSitemap(entries) {
+  const today = new Date().toISOString().split('T')[0];
+  const body = entries
+    .map(
+      (e) =>
+        `  <url>\n    <loc>${SITE_URL}${e.path}</loc>\n    <lastmod>${e.lastmod || today}</lastmod>\n    <changefreq>${e.changefreq}</changefreq>\n    <priority>${e.priority}</priority>\n  </url>`,
+    )
+    .join('\n');
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${body}\n</urlset>\n`;
+  fs.writeFileSync(path.join(DIST_DIR, 'sitemap.xml'), xml, 'utf8');
+  return entries.length;
+}
+
 function writeHtml(routePath, html) {
   let outPath;
   if (routePath === '/') {
@@ -282,12 +301,22 @@ function programSeo(program) {
 function categorySeo(category) {
   if (!category.slug) return null;
   const url = `${SITE_URL}/kategoriak/${category.slug}`;
+  const breadcrumbLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Főoldal', item: SITE_URL },
+      { '@type': 'ListItem', position: 2, name: 'Programok', item: `${SITE_URL}/programok` },
+      { '@type': 'ListItem', position: 3, name: category.name },
+    ],
+  };
   return {
     path: `/kategoriak/${category.slug}`,
     seo: {
       title: `${category.name} programok | Velem Gyere`,
       description: `Nézd át a ${category.name} kategória összes külföldi magyar nyelvű programját.`,
       canonical: url,
+      jsonLd: [breadcrumbLd],
     },
   };
 }
@@ -300,12 +329,21 @@ function categorySeo(category) {
 // all (see the categories loop in main() skipping this category).
 function travelSeo(category) {
   const url = `${SITE_URL}/utazasok`;
+  const breadcrumbLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Főoldal', item: SITE_URL },
+      { '@type': 'ListItem', position: 2, name: category.name },
+    ],
+  };
   return {
     path: '/utazasok',
     seo: {
       title: `${category.name} | Velem Gyere`,
       description: `Magyar nyelvű, Magyarországról induló utazások és kirándulások: ${category.name.toLowerCase()}.`,
       canonical: url,
+      jsonLd: [breadcrumbLd],
     },
   };
 }
@@ -316,12 +354,22 @@ function regionSeo(region) {
   const description = region.description
     ? truncate(stripHtml(region.description), 200)
     : `Fedezd fel a ${region.name} (${region.country}) területen elérhető magyar nyelvű programokat.`;
+  const breadcrumbLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Főoldal', item: SITE_URL },
+      { '@type': 'ListItem', position: 2, name: 'Programok', item: `${SITE_URL}/programok` },
+      { '@type': 'ListItem', position: 3, name: region.name },
+    ],
+  };
   return {
     path: `/regiok/${region.slug}`,
     seo: {
       title: `${region.name} – Programok | Velem Gyere`,
       description,
       canonical: url,
+      jsonLd: [breadcrumbLd],
     },
   };
 }
@@ -342,6 +390,13 @@ async function main() {
   const staticPaths = allRoutes.map((r) => r.path);
   let dynamicCount = 0;
 
+  const HOME_OR_CATALOG_PRIORITY = { '/': '1.0', '/programok': '0.9' };
+  const sitemapEntries = staticPaths.map((p) => ({
+    path: p,
+    priority: HOME_OR_CATALOG_PRIORITY[p] || '0.5',
+    changefreq: HOME_OR_CATALOG_PRIORITY[p] ? 'daily' : 'monthly',
+  }));
+
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false } });
 
   const [programs, categories, regions] = await Promise.all([
@@ -355,6 +410,12 @@ async function main() {
     if (route) {
       allRoutes.push(route);
       dynamicCount++;
+      sitemapEntries.push({
+        path: route.path,
+        priority: '0.7',
+        changefreq: 'weekly',
+        lastmod: program.updated_at ? String(program.updated_at).split('T')[0] : undefined,
+      });
     }
   }
   // Kanban 6f9ad755: the travel category gets its own canonical route
@@ -369,11 +430,14 @@ async function main() {
     if (route) {
       allRoutes.push(route);
       dynamicCount++;
+      sitemapEntries.push({ path: route.path, priority: '0.8', changefreq: 'weekly' });
     }
   }
   if (travelCategory) {
-    allRoutes.push(travelSeo(travelCategory));
+    const route = travelSeo(travelCategory);
+    allRoutes.push(route);
     dynamicCount++;
+    sitemapEntries.push({ path: route.path, priority: '0.8', changefreq: 'weekly' });
   } else {
     // Not fatal -- PROD doesn't have is_travel_category set yet as of
     // 2026-11-02 (kanban 6f9ad755 built/tested in dev-sandbox only so far;
@@ -388,8 +452,12 @@ async function main() {
     if (route) {
       allRoutes.push(route);
       dynamicCount++;
+      sitemapEntries.push({ path: route.path, priority: '0.8', changefreq: 'weekly' });
     }
   }
+
+  const sitemapCount = writeSitemap(sitemapEntries);
+  console.log(`Sitemap written: ${sitemapCount} URLs → dist/sitemap.xml`);
 
   let written = 0;
   let failed = 0;
