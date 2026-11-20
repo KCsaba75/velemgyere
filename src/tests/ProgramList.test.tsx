@@ -147,50 +147,6 @@ describe('ProgramList -- isLoading / ures-lista / nepesitett allapotok', () => {
     expect(screen.getByText('Nincs találat a megadott szűrési feltételekre')).toBeInTheDocument();
   });
 
-  it('dátumszűrő: megjeleníti a programot, ha annak több időpontja van, és valamelyik foglalható időpontja beleesik a szűrésbe', () => {
-    // Alap event_date korábbi (2026-10-15), de van a szűrt tartományba eső nyitott időpontja (2026-11-05)
-    const progWithOccurrences = makeProgram({
-      id: 'prog-multi-dates',
-      title: 'Több Időpontos Túra',
-      status: 'published',
-      event_date: '2026-10-15',
-    });
-
-    mockUseApp.mockReturnValue(baseAppValue({
-      isLoading: false,
-      programs: [progWithOccurrences],
-      selectedDateFrom: '2026-11-01',
-      selectedDateTo: '2026-11-10',
-      programOccurrencesCounts: { 'prog-multi-dates': 2 },
-      programOccurrencesDates: { 'prog-multi-dates': ['2026-10-15', '2026-11-05'] },
-    }));
-
-    render(<ProgramList onOpenMobileFilters={() => {}} />);
-    expect(screen.getByText('Több Időpontos Túra')).toBeInTheDocument();
-  });
-
-  it('dátumszűrő: kiszűri a programot, ha egyetlen foglalható időpontja sem esik a megadott tartományba', () => {
-    const progWithOccurrences = makeProgram({
-      id: 'prog-oct-only',
-      title: 'Csak Októberi Túra',
-      status: 'published',
-      event_date: '2026-10-15',
-    });
-
-    mockUseApp.mockReturnValue(baseAppValue({
-      isLoading: false,
-      programs: [progWithOccurrences],
-      selectedDateFrom: '2026-11-01',
-      selectedDateTo: '2026-11-10',
-      programOccurrencesCounts: { 'prog-oct-only': 2 },
-      programOccurrencesDates: { 'prog-oct-only': ['2026-10-15', '2026-10-20'] },
-    }));
-
-    render(<ProgramList onOpenMobileFilters={() => {}} />);
-    expect(screen.queryByText('Csak Októberi Túra')).not.toBeInTheDocument();
-    expect(screen.getByText('Nincs találat a megadott szűrési feltételekre')).toBeInTheDocument();
-  });
-
   // Kartya af5f9ec9 (Csaba kerese): a programvadász felületen csak azok a programok
   // látszódjanak, amelyeknek van foglalható dátuma ma vagy a jövőben -- MÉG aktív
   // dátum-szűrő nélkül is (a fenti két teszt csak a selectedDateFrom/To ággal
@@ -200,6 +156,54 @@ describe('ProgramList -- isLoading / ures-lista / nepesitett allapotok', () => {
     d.setDate(d.getDate() + days);
     return d.toISOString().split('T')[0];
   }
+
+  it('dátumszűrő: megjeleníti a programot, ha annak több időpontja van, és valamelyik foglalható időpontja beleesik a szűrésbe', () => {
+    // Alap event_date korábbi, de van a szűrt tartományba eső nyitott időpontja
+    const outOfRangeDate = isoDaysFromNow(3);
+    const inRangeDate = isoDaysFromNow(10);
+    const progWithOccurrences = makeProgram({
+      id: 'prog-multi-dates',
+      title: 'Több Időpontos Túra',
+      status: 'published',
+      event_date: outOfRangeDate,
+    });
+
+    mockUseApp.mockReturnValue(baseAppValue({
+      isLoading: false,
+      programs: [progWithOccurrences],
+      selectedDateFrom: isoDaysFromNow(8),
+      selectedDateTo: isoDaysFromNow(12),
+      programOccurrencesCounts: { 'prog-multi-dates': 2 },
+      programOccurrencesDates: { 'prog-multi-dates': [outOfRangeDate, inRangeDate] },
+    }));
+
+    render(<ProgramList onOpenMobileFilters={() => {}} />);
+    expect(screen.getByText('Több Időpontos Túra')).toBeInTheDocument();
+  });
+
+  it('dátumszűrő: kiszűri a programot, ha egyetlen foglalható időpontja sem esik a megadott tartományba', () => {
+    const occurrenceDate1 = isoDaysFromNow(3);
+    const occurrenceDate2 = isoDaysFromNow(4);
+    const progWithOccurrences = makeProgram({
+      id: 'prog-oct-only',
+      title: 'Csak Októberi Túra',
+      status: 'published',
+      event_date: occurrenceDate1,
+    });
+
+    mockUseApp.mockReturnValue(baseAppValue({
+      isLoading: false,
+      programs: [progWithOccurrences],
+      selectedDateFrom: isoDaysFromNow(8),
+      selectedDateTo: isoDaysFromNow(12),
+      programOccurrencesCounts: { 'prog-oct-only': 2 },
+      programOccurrencesDates: { 'prog-oct-only': [occurrenceDate1, occurrenceDate2] },
+    }));
+
+    render(<ProgramList onOpenMobileFilters={() => {}} />);
+    expect(screen.queryByText('Csak Októberi Túra')).not.toBeInTheDocument();
+    expect(screen.getByText('Nincs találat a megadott szűrési feltételekre')).toBeInTheDocument();
+  });
 
   it('alap listázásnál (dátumszűrő nélkül) kiszűri a kizárólag múltbeli időponttal rendelkező programot', () => {
     const pastOnly = makeProgram({
