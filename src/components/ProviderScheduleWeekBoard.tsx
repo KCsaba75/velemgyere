@@ -9,6 +9,7 @@ import { Order, OrderBuyerInfo, Program, ProgramOccurrence } from '../types/data
 import { ProgramDayPopup } from './ProgramDayPopup';
 import { OccurrenceCard } from './OccurrenceCard';
 import { useOccurrenceScheduling } from '../hooks/useOccurrenceScheduling';
+import { toLocalDateStr as toDateStr } from '../lib/dateUtils';
 
 interface ProviderScheduleWeekBoardProps {
   programs: Program[];
@@ -36,14 +37,6 @@ interface ProviderScheduleWeekBoardProps {
 
 const WEEKDAY_LABELS = ['Hétfő', 'Kedd', 'Szerda', 'Csütörtök', 'Péntek', 'Szombat', 'Vasárnap'];
 const WEEKDAY_SHORT = ['H', 'K', 'Sze', 'Cs', 'P', 'Szo', 'V'];
-
-function padZero(n: number): string {
-  return n < 10 ? `0${n}` : `${n}`;
-}
-
-function toDateStr(d: Date): string {
-  return `${d.getFullYear()}-${padZero(d.getMonth() + 1)}-${padZero(d.getDate())}`;
-}
 
 function mondayOf(d: Date): Date {
   const day = d.getDay();

@@ -7,6 +7,7 @@ import {
   type DragEndEvent,
 } from '@dnd-kit/core';
 import { ProgramOccurrence } from '../types/database';
+import { toLocalDateStr as toDateStr } from '../lib/dateUtils';
 
 type MoveUpdates = { event_date: string; start_time?: string | null; end_time?: string | null };
 type CreateOverrides = { start_time?: string | null; end_time?: string | null; max_participants?: number | null };
@@ -16,14 +17,6 @@ const UNDO_TIMEOUT_MS = 8000;
 // ~2 ev heti ismetlodes, hogy egy elgepelt veg-datum (pl. rossz evszam) ne
 // probaljon ezer sort letrehozni.
 const MAX_RECURRING_DATES = 104;
-
-function padZero(n: number): string {
-  return n < 10 ? `0${n}` : `${n}`;
-}
-
-function toDateStr(d: Date): string {
-  return `${d.getFullYear()}-${padZero(d.getMonth() + 1)}-${padZero(d.getDate())}`;
-}
 
 // Kanban 882a92d9 (#8): hetnap-index hetfo-elso sorrendben (0=Hetfo..6=Vasarnap),
 // hogy illeszkedjen a tobbi naptar-komponens WEEKDAYS/WEEKDAY_LABELS tombjehez.
